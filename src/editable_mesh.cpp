@@ -56,7 +56,7 @@ static int GetOrAddIndex(EditableMesh* emesh, int v0, int v1)
     return edge_index;
 }
 
-static void CreateEdges(EditableMesh* emesh)
+void CreateEdges(EditableMesh* emesh)
 {
     emesh->edge_count = 0;
     for (int i = 0; i < emesh->triangle_count; i++)
@@ -345,7 +345,78 @@ static int GetTriangleEdgeIndex(const EditableTriangle& et, const EditableEdge& 
     return -1;
 }
 
-int SplitEdge(EditableMesh* emesh, int edge_index)
+
+void RotateEdge(EditableMesh* mesh, int edge_index)
+{
+    assert(mesh);
+    assert(edge_index >= 0 && edge_index < mesh->edge_count);
+    
+    EditableEdge& edge = mesh->edges[edge_index];
+    
+    // Find the two triangles that share this edge
+    int triangle_indices[2];
+    int triangle_count = 0;
+    
+    for (int i = 0; i < mesh->triangle_count; i++)
+    {
+        EditableTriangle& et = mesh->triangles[i];
+        if (GetTriangleEdgeIndex(et, edge) != -1)
+        {
+            if (triangle_count < 2)
+            {
+                triangle_indices[triangle_count] = i;
+                triangle_count++;
+            }
+        }
+    }
+    
+    // Edge rotation only works if exactly 2 triangles share the edge
+    if (triangle_count != 2)
+        return;
+    
+    EditableTriangle& tri1 = mesh->triangles[triangle_indices[0]];
+    EditableTriangle& tri2 = mesh->triangles[triangle_indices[1]];
+    
+    // Find the vertices that are NOT part of the shared edge
+    int opposite1 = -1, opposite2 = -1;
+    
+    // Find opposite vertex in first triangle
+    if (tri1.v0 != edge.v0 && tri1.v0 != edge.v1)
+        opposite1 = tri1.v0;
+    else if (tri1.v1 != edge.v0 && tri1.v1 != edge.v1)
+        opposite1 = tri1.v1;
+    else if (tri1.v2 != edge.v0 && tri1.v2 != edge.v1)
+        opposite1 = tri1.v2;
+    
+    // Find opposite vertex in second triangle
+    if (tri2.v0 != edge.v0 && tri2.v0 != edge.v1)
+        opposite2 = tri2.v0;
+    else if (tri2.v1 != edge.v0 && tri2.v1 != edge.v1)
+        opposite2 = tri2.v1;
+    else if (tri2.v2 != edge.v0 && tri2.v2 != edge.v1)
+        opposite2 = tri2.v2;
+    
+    if (opposite1 == -1 || opposite2 == -1)
+        return;
+    
+    // Create new triangles with the rotated edge
+    // The new edge connects opposite1 and opposite2
+    
+    // First triangle: opposite1, edge.v0, opposite2
+    tri1.v0 = opposite1;
+    tri1.v1 = edge.v0;
+    tri1.v2 = opposite2;
+    
+    // Second triangle: opposite1, opposite2, edge.v1
+    tri2.v0 = opposite1;
+    tri2.v1 = opposite2;
+    tri2.v2 = edge.v1;
+    
+    mesh->dirty = true;
+    CreateEdges(mesh);
+}
+
+int SplitEdge(EditableMesh* emesh, int edge_index, float edge_pos)
 {
     assert(emesh);
     assert(edge_index >=0 && edge_index < emesh->edge_count);
@@ -362,7 +433,7 @@ int SplitEdge(EditableMesh* emesh, int edge_index)
 
     int new_vertex_index = emesh->vertex_count++;
     EditableVertex& new_vertex = emesh->vertices[new_vertex_index];
-    new_vertex.position = (v0.position + v1.position) * 0.5f;
+    new_vertex.position = (v0.position * (1.0f - edge_pos) + v1.position * edge_pos);
 
     int triangle_count = emesh->triangle_count;
     for (int i = 0; i < triangle_count; i++)

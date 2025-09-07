@@ -12,9 +12,11 @@ extern EditableMesh* CreateEditableMesh(Allocator* allocator);
 extern Mesh* ToMesh(EditableMesh* emesh);
 extern void DrawVertexHandles(EditableMesh* mesh);
 extern void SetPosition(EditableMesh* emesh, int index, const Vec2& position);
-extern int SplitEdge(EditableMesh* emesh, int edge_index);
+extern int SplitEdge(EditableMesh* emesh, int edge_index, float edge_pos);
 extern void DeleteVertex(EditableMesh* mesh, int vertex_index);
 extern void DissolveVertex(EditableMesh* mesh, int vertex_index);
+extern void RotateEdge(EditableMesh* mesh, int edge_index);
+extern bool SaveEditableMesh(const EditableMesh* mesh, const char* filename);
 
 struct View
 {
@@ -47,7 +49,7 @@ static int HitTestVertex(View* view)
     return -1;
 }
 
-static int HitTestEdge(View* view)
+static int HitTestEdge(View* view, float* pos)
 {
     Vec2 mouse = GetMousePosition();
     Vec2 mouse_world = ScreenToWorld(view->camera, mouse);
@@ -66,7 +68,11 @@ static int HitTestEdge(View* view)
             Vec2 closest_point = v0 + edge_dir * proj;
             float dist = Length(mouse_world - closest_point);
             if (dist < VERTEX_SIZE * 0.5f)
+            {
+                if (pos)
+                    *pos = proj / edge_length;
                 return i;
+            }
         }
     }
 
@@ -90,13 +96,21 @@ void UpdateView(View* view)
         }
     }
 
+    if (WasButtonPressed(view->input, MOUSE_MIDDLE))
+    {
+        int edge = HitTestEdge(view, nullptr);
+        if (edge != -1)
+            RotateEdge(view->emesh, edge);
+    }
+
     if (WasButtonPressed(view->input, MOUSE_RIGHT))
     {
-        int edge = HitTestEdge(view);
+        float edge_pos = 0.0f;
+        int edge = HitTestEdge(view, &edge_pos);
 
         if (edge != -1)
         {
-            int new_vertex = SplitEdge(view->emesh, edge);
+            int new_vertex = SplitEdge(view->emesh, edge, edge_pos);
             if (new_vertex != -1)
             {
                 view->selected_vertex = new_vertex;
@@ -109,6 +123,11 @@ void UpdateView(View* view)
     if (WasButtonReleased(view->input, MOUSE_LEFT) || WasButtonReleased(view->input, MOUSE_RIGHT))
     {
         view->selected_vertex = -1;
+    }
+
+    if (WasButtonPressed(view->input, KEY_ESCAPE))
+    {
+        SaveEditableMesh(view->emesh, "d:\\test.glb");
     }
 
     if (WasButtonPressed(view->input, KEY_X))
@@ -196,7 +215,9 @@ View* CreateView(Allocator* allocator)
     view->input = CreateInputSet(allocator);
     EnableButton(view->input, MOUSE_LEFT);
     EnableButton(view->input, MOUSE_RIGHT);
+    EnableButton(view->input, MOUSE_MIDDLE);
     EnableButton(view->input, KEY_X);
+    EnableButton(view->input, KEY_ESCAPE);
     PushInputSet(view->input);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);

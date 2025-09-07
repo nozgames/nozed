@@ -12,6 +12,8 @@ add_subdirectory(noz noz)
 set(SOURCE_FILES
     src/main.cpp
     src/view.cpp
+    src/gltf_load.cpp
+    src/gltf_save.cpp
     src/game_assets.cpp
     src/editable_mesh.cpp
 )
@@ -22,4 +24,7 @@ set_target_properties(meshz PROPERTIES WIN32_EXECUTABLE TRUE)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT meshz)
 target_precompile_headers(meshz PUBLIC src/pch.h)
 target_link_libraries(meshz noz)
-target_include_directories(meshz PRIVATE src)
+target_include_directories(meshz PRIVATE
+    src
+    ${CMAKE_CURRENT_SOURCE_DIR}/noz/external
+)
