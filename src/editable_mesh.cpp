@@ -74,13 +74,16 @@ Mesh* ToMesh(EditableMesh* emesh)
     if (emesh->dirty)
     {
         Clear(emesh->builder);
-        for (int i = 0; i < emesh->vertex_count; i++)
-            AddVertex(emesh->builder, emesh->vertices[i].position, VEC3_UP, VEC2_ZERO, 0);
 
         for (int i = 0; i <emesh->triangle_count; i++)
         {
             EditableTriangle& tri = emesh->triangles[i];
-            AddTriangle(emesh->builder, tri.v0, tri.v1, tri.v2);
+
+            Vec2 uv_color = ColorUV(tri.color.x, tri.color.y);
+            AddVertex(emesh->builder, emesh->vertices[tri.v0].position, VEC3_UP, uv_color, 0);
+            AddVertex(emesh->builder, emesh->vertices[tri.v1].position, VEC3_UP, uv_color, 0);
+            AddVertex(emesh->builder, emesh->vertices[tri.v2].position, VEC3_UP, uv_color, 0);
+            AddTriangle(emesh->builder, i * 3, i * 3 + 1, i * 3 + 2);
         }
 
         Free(emesh->mesh);
@@ -88,6 +91,15 @@ Mesh* ToMesh(EditableMesh* emesh)
     }
 
     return emesh->mesh;
+}
+
+void SetTriangleColor(EditableMesh* emesh, int index, const Vec2Int& color)
+{
+    if (index < 0 || index >= emesh->triangle_count)
+        return;
+
+    emesh->triangles[index].color = color;
+    emesh->dirty = true;
 }
 
 void SetPosition(EditableMesh* emesh, int index, const Vec2& position)

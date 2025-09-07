@@ -18,6 +18,7 @@ extern void DissolveVertex(EditableMesh* mesh, int vertex_index);
 extern void RotateEdge(EditableMesh* mesh, int edge_index);
 extern bool SaveEditableMesh(const EditableMesh* mesh, const char* filename);
 extern EditableMesh* LoadEditableMesh(Allocator* allocator, const char* filename);
+extern void SetTriangleColor(EditableMesh* emesh, int index, const Vec2Int& color);
 
 struct View
 {
@@ -44,6 +45,30 @@ static int HitTestVertex(View* view)
         EditableVertex& ev = view->emesh->vertices[i];
         float dist = Length(mouse_world - ev.position);
         if (dist < VERTEX_SIZE)
+            return i;
+    }
+
+    return -1;
+}
+
+static int HitTestTriangle(View* view)
+{
+    Vec2 mouse = GetMousePosition();
+    Vec2 mouse_world = ScreenToWorld(view->camera, mouse);
+
+    for (int i=0; i<view->emesh->triangle_count; i++)
+    {
+        EditableTriangle& et = view->emesh->triangles[i];
+        Vec2 v0 = view->emesh->vertices[et.v0].position;
+        Vec2 v1 = view->emesh->vertices[et.v1].position;
+        Vec2 v2 = view->emesh->vertices[et.v2].position;
+
+        // Barycentric technique
+        float area = 0.5f *(-v1.y * v2.x + v0.y * (-v1.x + v2.x) + v0.x * (v1.y - v2.y) + v1.x * v2.y);
+        float s = 1/(2*area)*(v0.y*v2.x - v0.x*v2.y + (v2.y - v0.y)*mouse_world.x + (v0.x - v2.x)*mouse_world.y);
+        float t = 1/(2*area)*(v0.x*v1.y - v0.y*v1.x + (v0.y - v1.y)*mouse_world.x + (v1.x - v0.x)*mouse_world.y);
+
+        if (s >= 0 && t >= 0 && (s + t) <= 1)
             return i;
     }
 
@@ -124,6 +149,15 @@ void UpdateView(View* view)
     if (WasButtonReleased(view->input, MOUSE_LEFT) || WasButtonReleased(view->input, MOUSE_RIGHT))
     {
         view->selected_vertex = -1;
+    }
+
+    if (WasButtonPressed(view->input, KEY_SPACE))
+    {
+        int triangle = HitTestTriangle(view);
+        if (triangle != -1)
+        {
+            SetTriangleColor(view->emesh, triangle, Vec2Int{view->emesh->triangles[triangle].color.x + 1, 1});
+        }
     }
 
     if (WasButtonPressed(view->input, KEY_ESCAPE))
@@ -221,6 +255,7 @@ View* CreateView(Allocator* allocator)
     EnableButton(view->input, MOUSE_MIDDLE);
     EnableButton(view->input, KEY_X);
     EnableButton(view->input, KEY_ESCAPE);
+    EnableButton(view->input, KEY_SPACE);
     PushInputSet(view->input);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);

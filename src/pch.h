@@ -25,6 +25,7 @@ struct EditableTriangle
     int v0;
     int v1;
     int v2;
+    Vec2Int color;
 };
 
 struct EditableMesh
