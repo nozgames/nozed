@@ -15,6 +15,7 @@ struct View;
 struct EditableVertex
 {
     Vec2 position;
+    bool selected;
 };
 
 struct EditableEdge
@@ -83,6 +84,17 @@ struct AssetEditor
     i32 hover_asset;
     i32 selected_asset;
     bool edit_mode;
+
+    // Panning
+    bool panning;
+    Vec2 pan_start_mouse;
+    Vec2 pan_start_camera;
+
+    // Box select
+    bool box_selecting;
+    Vec2 box_start_mouse;
+    Vec2 box_start_world;
+    Bounds2 box_selection;
 };
 
 #include "game_assets.h"

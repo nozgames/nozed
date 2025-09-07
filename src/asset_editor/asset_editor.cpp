@@ -9,6 +9,9 @@ constexpr float VERTEX_SIZE = 0.1f;
 constexpr float REF_ZOOM = 10.0f;
 constexpr Color VERTEX_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f};
 constexpr Color VIEW_COLOR = {0.05f, 0.05f, 0.05f, 1.0f};
+constexpr float BOX_SELECT_EDGE_WIDTH = 0.005f;
+constexpr Color BOX_SELECT_COLOR = Color {0.2f, 0.6f, 1.0f, 0.025f};
+constexpr Color BOX_SELECT_OUTLINE_COLOR = Color {0.2f, 0.6f, 1.0f, 0.2f};
 
 extern View* CreateView(Allocator* allocator);
 extern void InitGrid(Allocator* allocator);
@@ -34,6 +37,7 @@ extern void UpdateMeshEditor(EditableAsset& ea);
 extern void DrawEdges(const EditableAsset& ea, int min_edge_count, float zoom_scale, Color color);
 extern void InitMeshEditor(EditableAsset& ea);
 extern void RenderMeshEditor(EditableAsset& ea);
+extern void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds);
 
 AssetEditor g_asset_editor = {};
 
@@ -147,43 +151,124 @@ static void FrameView(int asset_index)
     UpdateCamera();
 }
 
-static bool s_panning = false;
-static Vec2 s_pan_start_mouse;
-static Vec2 s_pan_start_camera;
+static void HandleBoxSelect()
+{
+    if (g_asset_editor.edit_mode)
+    {
+        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.selected_asset];
+        switch (ea.type)
+        {
+            case EDITABLE_ASSET_TYPE_MESH:
+            {
+                HandleMeshEditorBoxSelect(ea, g_asset_editor.box_selection);
+                break;
+            }
+        }
+
+    }
+}
+
+static void UpdateBoxSelect()
+{
+    if (g_asset_editor.panning)
+        return;
+
+    // Start tracking potential box selection on left mouse press
+    if (!g_asset_editor.dragging && WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    {
+        g_asset_editor.box_start_mouse = GetMousePosition();
+        g_asset_editor.box_start_world = ScreenToWorld(g_asset_editor.camera, g_asset_editor.box_start_mouse);
+        
+        // Initialize selection bounds but don't set box_selecting yet
+        g_asset_editor.box_selection.min = g_asset_editor.box_start_world;
+        g_asset_editor.box_selection.max = g_asset_editor.box_start_world;
+    }
+    
+    // Check for meaningful drag distance and start box selection
+    if (!g_asset_editor.box_selecting && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
+    {
+        Vec2 current_world = ScreenToWorld(g_asset_editor.camera, GetMousePosition());
+        float width = Abs(current_world.x - g_asset_editor.box_start_world.x);
+        float height = Abs(current_world.y - g_asset_editor.box_start_world.y);
+        
+        // Only start box selecting when drag is meaningful
+        if (width > 0.01f || height > 0.01f)
+        {
+            g_asset_editor.box_selecting = true;
+        }
+    }
+    
+    // Continue box selection while dragging
+    if (g_asset_editor.box_selecting && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
+    {
+        Vec2 current_world = ScreenToWorld(g_asset_editor.camera, GetMousePosition());
+        
+        // Update selection bounds
+        g_asset_editor.box_selection.min = Vec2{
+            Min(g_asset_editor.box_start_world.x, current_world.x),
+            Min(g_asset_editor.box_start_world.y, current_world.y)
+        };
+        g_asset_editor.box_selection.max = Vec2{
+            Max(g_asset_editor.box_start_world.x, current_world.x),
+            Max(g_asset_editor.box_start_world.y, current_world.y)
+        };
+    }
+    
+    // End box selection on mouse release
+    if (WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
+    {
+        if (g_asset_editor.box_selecting)
+        {
+            g_asset_editor.box_selecting = false;
+
+            HandleBoxSelect();
+        }
+    }
+}
+
+static void ZoomView()
+{
+    float zoom_axis = GetAxis(g_asset_editor.input, MOUSE_SCROLL_Y);
+    if (zoom_axis < -0.5f || zoom_axis > 0.5f)
+    {
+        g_asset_editor.zoom -= zoom_axis;
+        UpdateCamera();
+    }
+}
 
 static void PanView()
 {
     // Start panning when space + mouse button are both pressed
     if (IsButtonDown(g_asset_editor.input, KEY_SPACE) && WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
-        s_panning = true;
-        s_pan_start_mouse = GetMousePosition();
+        g_asset_editor.panning = true;
+        g_asset_editor.pan_start_mouse = GetMousePosition();
         
         // Get current camera bounds to extract position
         Bounds2 bounds = GetBounds(g_asset_editor.camera);
-        s_pan_start_camera = Vec2{
+        g_asset_editor.pan_start_camera = Vec2{
             (bounds.min.x + bounds.max.x) * 0.5f,
             (bounds.min.y + bounds.max.y) * 0.5f
         };
     }
     
     // Continue panning while both space and mouse are held
-    if (s_panning && IsButtonDown(g_asset_editor.input, KEY_SPACE) && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
+    if (g_asset_editor.panning && IsButtonDown(g_asset_editor.input, KEY_SPACE) && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
     {
         // Calculate mouse delta in screen space, then convert to world space delta
-        Vec2 mouse_delta = GetMousePosition() - s_pan_start_mouse;
-        Vec2 world_delta_start = ScreenToWorld(g_asset_editor.camera, s_pan_start_mouse);
-        Vec2 world_delta_current = ScreenToWorld(g_asset_editor.camera, s_pan_start_mouse + mouse_delta);
+        Vec2 mouse_delta = GetMousePosition() - g_asset_editor.pan_start_mouse;
+        Vec2 world_delta_start = ScreenToWorld(g_asset_editor.camera, g_asset_editor.pan_start_mouse);
+        Vec2 world_delta_current = ScreenToWorld(g_asset_editor.camera, g_asset_editor.pan_start_mouse + mouse_delta);
         Vec2 world_delta = world_delta_start - world_delta_current; // Invert for natural panning
         
         // Apply pan offset to camera position
-        SetPosition(g_asset_editor.camera, s_pan_start_camera + world_delta);
+        SetPosition(g_asset_editor.camera, g_asset_editor.pan_start_camera + world_delta);
     }
     
     // Stop panning when either space or mouse is released
     if (WasButtonReleased(g_asset_editor.input, KEY_SPACE) || WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
     {
-        s_panning = false;
+        g_asset_editor.panning = false;
     }
 }
 
@@ -331,16 +416,42 @@ void UpdateAssetEditor()
         }
     }
 
-    // Panning (called every frame to handle press/hold/release)
+    UpdateBoxSelect();
     PanView();
+    ZoomView();
+}
 
-    // Zoom in / out
-    float zoom_axis = GetAxis(g_asset_editor.input, MOUSE_SCROLL_Y);
-    if (zoom_axis < -0.5f || zoom_axis > 0.5f)
-    {
-        g_asset_editor.zoom -= zoom_axis;
-        UpdateCamera();
-    }
+static void DrawBoxSelect()
+{
+    if (!g_asset_editor.box_selecting)
+        return;
+
+    Vec2 center = Vec2{
+        (g_asset_editor.box_selection.min.x + g_asset_editor.box_selection.max.x) * 0.5f,
+        (g_asset_editor.box_selection.min.y + g_asset_editor.box_selection.max.y) * 0.5f
+    };
+    Vec2 size = Vec2{
+        g_asset_editor.box_selection.max.x - g_asset_editor.box_selection.min.x,
+        g_asset_editor.box_selection.max.y - g_asset_editor.box_selection.min.y
+    };
+
+    // center
+    BindColor(BOX_SELECT_COLOR);
+    BindMaterial(g_asset_editor.vertex_material);
+    BindTransform(TRS(center, 0, size * 0.5f));
+    DrawMesh(g_asset_editor.edge_mesh);
+
+    // outline
+    float edge_width = g_asset_editor.zoom_ref_scale * BOX_SELECT_EDGE_WIDTH;
+    BindColor(Color{0.2f, 0.6f, 1.0f, 0.8f});
+    BindTransform(TRS(Vec2{center.x, g_asset_editor.box_selection.max.y}, 0, Vec2{size.x * 0.5f + edge_width, edge_width}));
+    DrawMesh(g_asset_editor.edge_mesh);
+    BindTransform(TRS(Vec2{center.x, g_asset_editor.box_selection.min.y}, 0, Vec2{size.x * 0.5f + edge_width, edge_width}));
+    DrawMesh(g_asset_editor.edge_mesh);
+    BindTransform(TRS(Vec2{g_asset_editor.box_selection.min.x, center.y}, 0, Vec2{edge_width, size.y * 0.5f + edge_width}));
+    DrawMesh(g_asset_editor.edge_mesh);
+    BindTransform(TRS(Vec2{g_asset_editor.box_selection.max.x, center.y}, 0, Vec2{edge_width, size.y * 0.5f + edge_width}));
+    DrawMesh(g_asset_editor.edge_mesh);
 }
 
 static void DrawMesh(int asset_index)
@@ -391,6 +502,8 @@ void RenderView()
         EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.selected_asset];
         DrawEdges(ea, 1, g_asset_editor.zoom_ref_scale, COLOR_SELECTED);
     }
+
+    DrawBoxSelect();
 }
 
 int InitAssetEditor(int argc, const char* argv[])
