@@ -39,12 +39,13 @@ static int HitTestVertex(View* view)
 {
     Vec2 mouse = GetMousePosition();
     Vec2 mouse_world = ScreenToWorld(view->camera, mouse);
+    float zoom_scale = view->zoom / REF_ZOOM;
 
     for (int i=0; i<view->emesh->vertex_count; i++)
     {
         EditableVertex& ev = view->emesh->vertices[i];
         float dist = Length(mouse_world - ev.position);
-        if (dist < VERTEX_SIZE)
+        if (dist < VERTEX_SIZE * zoom_scale)
             return i;
     }
 
@@ -79,6 +80,7 @@ static int HitTestEdge(View* view, float* pos)
 {
     Vec2 mouse = GetMousePosition();
     Vec2 mouse_world = ScreenToWorld(view->camera, mouse);
+    float zoom_scale = view->zoom / REF_ZOOM;
 
     for (int i=0; i<view->emesh->edge_count; i++)
     {
@@ -93,7 +95,7 @@ static int HitTestEdge(View* view, float* pos)
         {
             Vec2 closest_point = v0 + edge_dir * proj;
             float dist = Length(mouse_world - closest_point);
-            if (dist < VERTEX_SIZE * 0.5f)
+            if (dist < VERTEX_SIZE * 0.5f * zoom_scale)
             {
                 if (pos)
                     *pos = proj / edge_length;
@@ -162,7 +164,7 @@ void UpdateView(View* view)
 
     if (WasButtonPressed(view->input, KEY_ESCAPE))
     {
-        SaveEditableMesh(view->emesh, "d:\\test.glb");
+        SaveEditableMesh(view->emesh, "d:\\git\\nockerz\\assets\\meshes\\arrow.glb");
     }
 
     if (WasButtonPressed(view->input, KEY_X))
@@ -239,15 +241,15 @@ View* CreateView(Allocator* allocator)
 {
     View* view = (View*)Alloc(allocator, sizeof(View));
     //view->emesh = CreateEditableMesh(allocator);
-    view->emesh = LoadEditableMesh(ALLOCATOR_DEFAULT, "d:\\test.glb");;
+    view->emesh = LoadEditableMesh(ALLOCATOR_DEFAULT, "d:\\git\\nockerz\\assets\\meshes\\arrow.glb");;
 
     view->camera = CreateCamera(allocator);
     view->material = CreateMaterial(allocator, g_assets.shaders._default);
     view->vertex_material = CreateMaterial(allocator, g_assets.shaders.ui);
     view->zoom = 20.0f;
     view->selected_vertex = -1;
-    UpdateCamera(view);
-    SetTexture(view->material, g_assets.textures.palette, 0);
+        UpdateCamera(view);
+        SetTexture(view->material, g_assets.textures.palette, 0);
 
     view->input = CreateInputSet(allocator);
     EnableButton(view->input, MOUSE_LEFT);

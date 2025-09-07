@@ -409,18 +409,51 @@ void RotateEdge(EditableMesh* mesh, int edge_index)
     if (opposite1 == -1 || opposite2 == -1)
         return;
     
-    // Create new triangles with the rotated edge
+    // Create new triangles with the rotated edge, maintaining proper winding order
     // The new edge connects opposite1 and opposite2
     
-    // First triangle: opposite1, edge.v0, opposite2
-    tri1.v0 = opposite1;
-    tri1.v1 = edge.v0;
-    tri1.v2 = opposite2;
+    // We need to determine the correct winding order by checking the original triangles
+    // Get positions to calculate winding
+    Vec2 pos_opposite1 = mesh->vertices[opposite1].position;
+    Vec2 pos_opposite2 = mesh->vertices[opposite2].position;
+    Vec2 pos_v0 = mesh->vertices[edge.v0].position;
+    Vec2 pos_v1 = mesh->vertices[edge.v1].position;
     
-    // Second triangle: opposite1, opposite2, edge.v1
-    tri2.v0 = opposite1;
-    tri2.v1 = opposite2;
-    tri2.v2 = edge.v1;
+    // Calculate cross product to determine winding for first triangle
+    // We want: opposite1 -> edge.v0 -> opposite2 to maintain CCW winding
+    Vec2 edge1 = {pos_v0.x - pos_opposite1.x, pos_v0.y - pos_opposite1.y};
+    Vec2 edge2 = {pos_opposite2.x - pos_opposite1.x, pos_opposite2.y - pos_opposite1.y};
+    float cross1 = edge1.x * edge2.y - edge1.y * edge2.x;
+    
+    if (cross1 > 0) {
+        // CCW winding
+        tri1.v0 = opposite1;
+        tri1.v1 = edge.v0;
+        tri1.v2 = opposite2;
+    } else {
+        // CW winding - reverse order
+        tri1.v0 = opposite1;
+        tri1.v1 = opposite2;
+        tri1.v2 = edge.v0;
+    }
+    
+    // Calculate winding for second triangle  
+    // We want: opposite1 -> opposite2 -> edge.v1 or opposite1 -> edge.v1 -> opposite2
+    Vec2 edge3 = {pos_opposite2.x - pos_opposite1.x, pos_opposite2.y - pos_opposite1.y};
+    Vec2 edge4 = {pos_v1.x - pos_opposite1.x, pos_v1.y - pos_opposite1.y};
+    float cross2 = edge3.x * edge4.y - edge3.y * edge4.x;
+    
+    if (cross2 > 0) {
+        // CCW winding
+        tri2.v0 = opposite1;
+        tri2.v1 = opposite2;
+        tri2.v2 = edge.v1;
+    } else {
+        // CW winding - reverse order
+        tri2.v0 = opposite1;
+        tri2.v1 = edge.v1;
+        tri2.v2 = opposite2;
+    }
     
     mesh->dirty = true;
     CreateEdges(mesh);
@@ -455,6 +488,7 @@ int SplitEdge(EditableMesh* emesh, int edge_index, float edge_pos)
             continue;
 
         EditableTriangle& split_tri = emesh->triangles[emesh->triangle_count++];
+        split_tri.color = et.color;
 
         if (triangle_edge == 0)
         {
