@@ -46,7 +46,10 @@ static int GetOrAddIndex(EditableMesh* emesh, int v0, int v1)
     {
         EditableEdge& ee = emesh->edges[i];
         if (ee.v0 == fv0 && ee.v1 == fv1)
+        {
+            ee.triangle_count++;
             return i;
+        }
     }
 
     // Not found - add it
@@ -55,6 +58,7 @@ static int GetOrAddIndex(EditableMesh* emesh, int v0, int v1)
 
     int edge_index = emesh->edge_count++;
     EditableEdge& ee = emesh->edges[edge_index];
+    ee.triangle_count = 1;
     ee.v0 = fv0;
     ee.v1 = fv1;
     return edge_index;
@@ -81,7 +85,7 @@ Mesh* ToMesh(EditableMesh* emesh)
 
         for (int i = 0; i <emesh->triangle_count; i++)
         {
-            EditableTriangle& tri = emesh->triangles[i];
+            const EditableTriangle& tri = emesh->triangles[i];
 
             Vec2 uv_color = ColorUV(tri.color.x, tri.color.y);
             AddVertex(emesh->builder, emesh->vertices[tri.v0].position, VEC3_UP, uv_color, 0);
@@ -563,4 +567,45 @@ EditableMesh* CreateEditableMesh(Allocator* allocator)
     CreateEdges(emesh);
 
     return emesh;
+}
+
+bool HitTest(const EditableMesh& em, const EditableTriangle& et, const Vec2& position, const Vec2& hit_pos, Vec2* where)
+{
+    Vec2 v0 = em.vertices[et.v0].position + position;
+    Vec2 v1 = em.vertices[et.v1].position + position;
+    Vec2 v2 = em.vertices[et.v2].position + position;
+
+    // Calculate the area using cross product (can be negative if clockwise)
+    float area = (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
+    
+    // Handle degenerate triangles (zero area)
+    if (fabsf(area) < 1e-6f)
+        return false;
+
+    // Calculate barycentric coordinates
+    float inv_area = 1.0f / area;
+    float s = ((v2.y - v0.y) * (hit_pos.x - v0.x) + (v0.x - v2.x) * (hit_pos.y - v0.y)) * inv_area;
+    float t = ((v0.y - v1.y) * (hit_pos.x - v0.x) + (v1.x - v0.x) * (hit_pos.y - v0.y)) * inv_area;
+
+    if (s >= 0 && t >= 0 && (s + t) <= 1)
+    {
+        if (where)
+            *where = {s, t};
+
+        return true;
+    }
+
+    return false;
+}
+
+int HitTest(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos)
+{
+    for (int i=0; i<mesh.triangle_count; i++)
+    {
+        const EditableTriangle& et = mesh.triangles[i];
+        if (HitTest(mesh, et, position, hit_pos, nullptr))
+            return i;
+    }
+
+    return -1;
 }

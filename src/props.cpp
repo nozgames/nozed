@@ -34,6 +34,13 @@ void Props::SetFloat(const char* group, const char* key, float value)
     SetString(group, key, value_str);
 }
 
+void Props::SetVec2(const char* group, const char* key, const Vec2& value)
+{
+    char value_str[128];
+    snprintf(value_str, sizeof(value_str), "(%.6f,%.6f)", value.x, value.y);
+    SetString(group, key, value_str);
+}
+
 void Props::SetVec3(const char* group, const char* key, Vec3 value)
 {
     char value_str[128];
@@ -135,6 +142,24 @@ Vec3 Props::GetVec3(const char* group, const char* key, Vec3 default_value) cons
 
     return result;
 }
+
+Vec2 Props::GetVec2(const char* group, const char* key, const Vec2& default_value) const
+{
+    auto value = GetString(group, key, "");
+    if (value.empty())
+        return default_value;
+
+    Tokenizer tok = {};
+    Init(tok, value.c_str());
+
+    Token token = {};
+    Vec2 result = default_value;
+    if (!ExpectVec2(tok, &token, &result))
+        return default_value;
+
+    return result;
+}
+
 
 Color Props::GetColor(const char* group, const char* key, Color default_value) const
 {
@@ -260,4 +285,46 @@ std::vector<std::string> Props::GetGroups() const
 bool Props::HasGroup(const char* group) const
 {
     return _properties.contains(group);
+}
+
+Props* LoadProps(const std::filesystem::path& path)
+{
+    PushScratch();
+    Stream* stream = LoadStream(ALLOCATOR_SCRATCH, path);
+    Props* props = nullptr;
+    if (stream)
+        props = Props::Load(stream);
+    PopScratch();
+
+    return props;
+}
+
+void SaveProps(Props* props, const std::filesystem::path& path)
+{
+    if (!props) return;
+    
+    PushScratch();
+    Stream* stream = CreateStream(ALLOCATOR_SCRATCH, 4096);
+    
+    // Get all groups and write them out in INI format
+    auto groups = props->GetGroups();
+    for (const auto& group_name : groups)
+    {
+        // Write group header
+        WriteCSTR(stream, "[%s]\n", group_name.c_str());
+        
+        // Write all keys in this group
+        auto keys = props->GetKeys(group_name.c_str());
+        for (const auto& key : keys)
+        {
+            auto value = props->GetString(group_name.c_str(), key.c_str(), "");
+            WriteCSTR(stream, "%s = %s\n", key.c_str(), value.c_str());
+        }
+        
+        // Add blank line between groups for readability
+        WriteCSTR(stream, "\n");
+    }
+    
+    SaveStream(stream, path);
+    PopScratch();
 }

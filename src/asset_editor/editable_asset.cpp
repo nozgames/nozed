@@ -6,8 +6,9 @@
 #include "file_helpers.h"
 
 extern EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename);
+extern int HitTest(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos);
 
-EditableAsset* CreateEditableAsset(const std::filesystem::path& path)
+static EditableAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
 {
     std::error_code ec;
     std::filesystem::path relative_path = std::filesystem::relative(path, "assets", ec);
@@ -15,8 +16,45 @@ EditableAsset* CreateEditableAsset(const std::filesystem::path& path)
     relative_path = FixSlashes(relative_path);
 
     EditableAsset* ea = (EditableAsset*)Alloc(ALLOCATOR_DEFAULT, sizeof(EditableAsset));
+    ea->path = path;
     ea->name = GetName(relative_path.string().c_str());
+    ea->type = type;
     return ea;
+}
+
+static EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
+{
+    EditableAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
+    ea->mesh = LoadEditableMesh(ALLOCATOR_DEFAULT, path);
+    if (!ea->mesh)
+    {
+        Free(ea);
+        ea = nullptr;
+    }
+    return ea;
+}
+
+static void ReadMetaData(EditableAsset& asset, const std::filesystem::path& path)
+{
+    Props* props = LoadProps(std::filesystem::path(path.string() + ".meta"));
+    if (!props)
+        return;
+
+    asset.position = props->GetVec2("editor", "position", VEC2_ZERO);
+}
+
+int HitTestAssets(const Vec2& hit_pos)
+{
+    for (int i=0, c=g_asset_editor.asset_count; i<c; i++)
+    {
+        EditableAsset* ea = g_asset_editor.assets[i];
+        const EditableMesh& em = *ea->mesh;
+        const Vec2& position = ea->position;
+        if (-1 != HitTest(em, position, hit_pos))
+            return i;
+    }
+
+    return -1;
 }
 
 i32 LoadEditableAssets(EditableAsset** assets)
@@ -25,14 +63,50 @@ i32 LoadEditableAssets(EditableAsset** assets)
     for (auto& asset_path : GetFilesInDirectory("assets"))
     {
         std::filesystem::path ext = asset_path.extension();
+        EditableAsset* ea = nullptr;
+
         if (ext == ".glb")
+            ea = CreateEditableMeshAsset(asset_path);
+
+        if (ea)
         {
-            EditableAsset* ea = CreateEditableAsset(asset_path);
             assets[asset_count++] = ea;
-            ea->mesh = LoadEditableMesh(ALLOCATOR_DEFAULT, asset_path.string().c_str());
+            ReadMetaData(*ea, asset_path);
+
+            if (asset_count > MAX_ASSETS)
+                return asset_count;
         }
     }
 
-    return 0;
+    g_asset_editor.asset_count = asset_count;
+
+    return asset_count;
 }
 
+static void SaveAssetMetaData(const EditableAsset& asset)
+{
+    std::filesystem::path meta_path = std::filesystem::path(asset.path.string() + ".meta");
+    Props* props = LoadProps(meta_path);
+    if (!props)
+        props = new Props{};
+    props->SetVec2("editor", "position", asset.position);
+    SaveProps(props, meta_path);
+}
+
+void SaveAssetMetaData()
+{
+    for (i32 i=0; i<g_asset_editor.asset_count; i++)
+    {
+        EditableAsset& asset = *g_asset_editor.assets[i];
+        if (!asset.dirty)
+            continue;
+
+        SaveAssetMetaData(asset);
+    }
+}
+
+void MoveTo(EditableAsset& asset, const Vec2& position)
+{
+    asset.position = position;
+    asset.dirty = true;
+}
