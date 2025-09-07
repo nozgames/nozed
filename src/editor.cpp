@@ -28,7 +28,6 @@ struct Editor
     TextInput* search_input;
     bool command_mode;
     bool search_mode;
-    Props* config;
     std::atomic<bool> is_running;
     int fps;
     bool stats_requested;
@@ -36,6 +35,8 @@ struct Editor
 };
 
 static Editor g_editor = {};
+Props* g_config = nullptr;
+
 
 static View* GetView()
 {
@@ -256,11 +257,6 @@ static void HandleCommand(const std::string& command)
 
 static void RunEditor()
 {
-    // Store main thread ID for thread safety
-    g_main_thread_id = std::this_thread::get_id();
-    
-    InitLog(HandleLog);
-    InitImporter();
     RenderTerminal();
 
     while (g_editor.is_running)
@@ -355,19 +351,6 @@ static void RunEditor()
             
             if (key == '/')
             {
-#if 0
-                // Start search mode if current view supports it
-                if (current_view->SupportsSearch())
-                {
-                    g_editor.search_mode = true;
-                    SetActive(g_editor.search_input, true);
-                    Clear(g_editor.search_input);
-                    SetCursorVisible(true);
-                    
-                    // Hide cursor in current view when entering search mode
-                    current_view->SetCursorVisible(false);
-                }
-#endif
             }
             else if (key == ':')
             {
@@ -424,25 +407,6 @@ void RenderEditor(const RectInt& rect)
     auto view = GetView();
     if (view != nullptr && view->traits->render)
         view->traits->render(view, {rect.x, rect.y, rect.width, rect.height - 2});
-
-
-#if 0
-    // Always render the log view as the base layer
-    g_editor.log_view.Render(rect);
-    
-    // If there are views on the stack, render the top one instead
-    if (!g_editor.view_stack.empty())
-    {
-        IView* current_view = g_editor.view_stack.top();
-        current_view->Render({rect.x, rect.y, rect.width, rect.height - 2});
-    }
-    
-    // Hide the terminal cursor when not in command/search mode since views handle their own cursor display
-    if (!g_editor.command_mode && !g_editor.search_mode)
-    {
-        SetCursorVisible(false);
-    }
-#endif
 }
 
 void HandleStatsEvents(EventId event, const void* event_data)
@@ -457,14 +421,14 @@ static void InitConfig()
     std::filesystem::path config_path = "./editor.cfg";
     if (Stream* config_stream = LoadStream(nullptr, config_path))
     {
-        g_editor.config = Props::Load(config_stream);
+        g_config = Props::Load(config_stream);
         Free(config_stream);
 
-        if (g_editor.config != nullptr)
+        if (g_config != nullptr)
             return;
     }
 
-    g_editor.config = new Props();
+    g_config = new Props();
 
     LogError("missing configuration '%s'", config_path.string().c_str());
 }
@@ -472,11 +436,10 @@ static void InitConfig()
 void InitEditor()
 {
     g_scratch_allocator = CreateArenaAllocator(32 * noz::MB, "scratch");
+    g_main_thread_id = std::this_thread::get_id();
 
     ApplicationTraits traits = {};
     Init(traits);
-
-    InitConfig();
 
     InitEvent(&traits);
     InitLog(HandleLog);
@@ -490,7 +453,7 @@ void InitEditor()
     g_editor.search_input = CreateTextInput(1, term_height - 1, term_width - 1);
     g_editor.is_running = true;
 
-    InitEditorServer(g_editor.config);
+    InitEditorServer(g_config);
 
     Listen(EDITOR_EVENT_STATS, HandleStatsEvents);
 }
@@ -519,9 +482,17 @@ int main(int argc, const char* argv[])
 {
     g_editor.exe = argv[0];
 
+    g_main_thread_id = std::this_thread::get_id();
+
+    InitConfig();
+    InitLog(HandleLog);
+    InitImporter();
+
     if (argc > 1 && argv[1][0] == 'a')
     {
         InitAssetEditor(argc, argv);
+        ShutdownImporter();
+        delete g_config;
         return 0;
     }
 

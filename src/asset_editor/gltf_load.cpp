@@ -8,21 +8,18 @@ extern void CreateEdges(EditableMesh* emesh);
 
 #include <cgltf.h>
 
-EditableMesh* LoadEditableMesh(Allocator* allocator, const char* filename)
+EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename)
 {
-    if (!filename || !allocator)
-        return nullptr;
-
     // Parse the glTF file
     cgltf_options options = {};
     cgltf_data* data = nullptr;
     
-    cgltf_result result = cgltf_parse_file(&options, filename, &data);
+    cgltf_result result = cgltf_parse_file(&options, filename.string().c_str(), &data);
     if (result != cgltf_result_success || !data)
         return nullptr;
 
     // Load buffers
-    result = cgltf_load_buffers(&options, data, filename);
+    result = cgltf_load_buffers(&options, data, filename.string().c_str());
     if (result != cgltf_result_success)
     {
         cgltf_free(data);

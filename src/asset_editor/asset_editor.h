@@ -44,6 +44,11 @@ struct EditableMesh
     bool dirty;
 };
 
+struct EditableAsset
+{
+    const Name* name;
+    EditableMesh* mesh;
+};
 
 #include "game_assets.h"
 
