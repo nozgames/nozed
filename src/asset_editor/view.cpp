@@ -21,6 +21,7 @@ extern void RotateEdge(EditableMesh* mesh, int edge_index);
 extern bool SaveEditableMesh(const EditableMesh* mesh, const char* filename);
 extern EditableMesh* LoadEditableMesh(Allocator* allocator, const char* filename);
 extern void SetTriangleColor(EditableMesh* emesh, int index, const Vec2Int& color);
+extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
 struct View
 {
@@ -181,7 +182,11 @@ void UpdateView(View* view)
         Vec2 drag_delta =
             ScreenToWorld(view->camera, GetMousePosition()) - ScreenToWorld(view->camera, view->drag_start);
 
-        SetPosition(view->emesh, view->selected_vertex, view->drag_position_start + drag_delta);
+        Vec2 world = view->drag_position_start + drag_delta;
+        if (IsButtonDown(view->input, KEY_LEFT_CTRL))
+            world = SnapToGrid(world, true);
+
+        SetPosition(view->emesh, view->selected_vertex, world);
     }
 
     float zoom_axis = GetAxis(view->input, MOUSE_SCROLL_Y);
@@ -264,6 +269,7 @@ View* CreateView(Allocator* allocator)
     EnableButton(view->input, KEY_X);
     EnableButton(view->input, KEY_ESCAPE);
     EnableButton(view->input, KEY_SPACE);
+    EnableButton(view->input, KEY_LEFT_CTRL);
     PushInputSet(view->input);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);

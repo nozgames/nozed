@@ -7,8 +7,8 @@
 constexpr float GRID_SPACING = 1.0f;
 constexpr float SECONDARY_GRID_FADE_MIN = 0.02f;  // Start fading in when grid cell is 2% of screen
 constexpr float SECONDARY_GRID_FADE_MAX = 0.1f;  // Fully visible when grid cell is 10% of screen
-constexpr Color PRIMARY_GRID_COLOR = { 0.3f, 0.3f, 0.3f, 0.8f };
-constexpr Color SECONDARY_GRID_COLOR = { 0.2f, 0.2f, 0.2f, 0.6f };
+constexpr Color PRIMARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.5f };
+constexpr Color SECONDARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.3f };
 
 struct Grid
 {
@@ -112,6 +112,16 @@ void InitGrid(Allocator* allocator)
     g_grid.quad_mesh = CreateMesh(allocator, builder, NAME_NONE);
 
     Free(builder);
+}
+
+Vec2 SnapToGrid(const Vec2& position, bool secondary)
+{
+    float spacing = secondary ? (g_grid.grid_spacing * 0.1f) : g_grid.grid_spacing;
+    
+    return Vec2{
+        roundf(position.x / spacing) * spacing,
+        roundf(position.y / spacing) * spacing
+    };
 }
 
 void ShutdownGrid()
