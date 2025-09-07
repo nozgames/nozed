@@ -187,7 +187,7 @@ static void UpdateBoxSelect()
     // Check for meaningful drag distance and start box selection
     if (!g_asset_editor.box_selecting && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
     {
-        Vec2 current_world = ScreenToWorld(g_asset_editor.camera, GetMousePosition());
+        Vec2 current_world = g_asset_editor.world_mouse_position;
         float width = Abs(current_world.x - g_asset_editor.box_start_world.x);
         float height = Abs(current_world.y - g_asset_editor.box_start_world.y);
         
@@ -201,7 +201,7 @@ static void UpdateBoxSelect()
     // Continue box selection while dragging
     if (g_asset_editor.box_selecting && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
     {
-        Vec2 current_world = ScreenToWorld(g_asset_editor.camera, GetMousePosition());
+        Vec2 current_world = g_asset_editor.world_mouse_position;
         
         // Update selection bounds
         g_asset_editor.box_selection.min = Vec2{
@@ -226,16 +226,6 @@ static void UpdateBoxSelect()
     }
 }
 
-static void ZoomView()
-{
-    float zoom_axis = GetAxis(g_asset_editor.input, MOUSE_SCROLL_Y);
-    if (zoom_axis < -0.5f || zoom_axis > 0.5f)
-    {
-        g_asset_editor.zoom -= zoom_axis;
-        UpdateCamera();
-    }
-}
-
 static void PanView()
 {
     // Start panning when space + mouse button are both pressed
@@ -243,7 +233,7 @@ static void PanView()
     {
         g_asset_editor.panning = true;
         g_asset_editor.pan_start_mouse = GetMousePosition();
-        
+
         // Get current camera bounds to extract position
         Bounds2 bounds = GetBounds(g_asset_editor.camera);
         g_asset_editor.pan_start_camera = Vec2{
@@ -251,7 +241,7 @@ static void PanView()
             (bounds.min.y + bounds.max.y) * 0.5f
         };
     }
-    
+
     // Continue panning while both space and mouse are held
     if (g_asset_editor.panning && IsButtonDown(g_asset_editor.input, KEY_SPACE) && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
     {
@@ -260,11 +250,11 @@ static void PanView()
         Vec2 world_delta_start = ScreenToWorld(g_asset_editor.camera, g_asset_editor.pan_start_mouse);
         Vec2 world_delta_current = ScreenToWorld(g_asset_editor.camera, g_asset_editor.pan_start_mouse + mouse_delta);
         Vec2 world_delta = world_delta_start - world_delta_current; // Invert for natural panning
-        
+
         // Apply pan offset to camera position
         SetPosition(g_asset_editor.camera, g_asset_editor.pan_start_camera + world_delta);
     }
-    
+
     // Stop panning when either space or mouse is released
     if (WasButtonReleased(g_asset_editor.input, KEY_SPACE) || WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
     {
@@ -272,17 +262,42 @@ static void PanView()
     }
 }
 
+static void UpdateView()
+{
+    // Pan
+    PanView();
+
+    // Frame
+    if (WasButtonPressed(g_asset_editor.input, KEY_F))
+    {
+        if (g_asset_editor.selected_asset != -1)
+            FrameView(g_asset_editor.selected_asset);
+    }
+
+    // Zoom
+    float zoom_axis = GetAxis(g_asset_editor.input, MOUSE_SCROLL_Y);
+    if (zoom_axis < -0.5f || zoom_axis > 0.5f)
+    {
+        g_asset_editor.zoom -= zoom_axis;
+        UpdateCamera();
+    }
+}
+
+
 void UpdateAssetEditor()
 {
+    g_asset_editor.world_mouse_position = ScreenToWorld(g_asset_editor.camera, GetMousePosition());
+
     if (!g_asset_editor.edit_mode)
-        g_asset_editor.hover_asset = HitTestAssets(ScreenToWorld(g_asset_editor.camera, GetMousePosition()));
+        g_asset_editor.hover_asset = HitTestAssets(g_asset_editor.world_mouse_position);
 
     if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE))
     {
         SaveAssetMetaData();
     }
 
-    if (WasButtonPressed(g_asset_editor.input, KEY_TAB))
+    // Enter / Exit edit mode
+    if (!g_asset_editor.box_selecting && WasButtonPressed(g_asset_editor.input, KEY_TAB))
     {
         if (g_asset_editor.selected_asset != -1)
         {
@@ -303,11 +318,6 @@ void UpdateAssetEditor()
         }
     }
 
-    if (WasButtonPressed(g_asset_editor.input, KEY_F))
-    {
-        if (g_asset_editor.selected_asset != -1)
-            FrameView(g_asset_editor.selected_asset);
-    }
 
     if (!g_asset_editor.edit_mode && WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
@@ -354,11 +364,11 @@ void UpdateAssetEditor()
     //     }
     // }
 
-    if (!g_asset_editor.edit_mode && WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) || WasButtonReleased(g_asset_editor.input, MOUSE_RIGHT))
-    {
-        g_asset_editor.dragging = false;
-        g_asset_editor.selected_vertex = -1;
-    }
+    // if (!g_asset_editor.edit_mode && WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) || WasButtonReleased(g_asset_editor.input, MOUSE_RIGHT))
+    // {
+    //     g_asset_editor.dragging = false;
+    //     g_asset_editor.selected_vertex = -1;
+    // }
 
     // if (WasButtonPressed(g_asset_editor.input, KEY_SPACE))
     // {
@@ -392,7 +402,7 @@ void UpdateAssetEditor()
     if (g_asset_editor.dragging && g_asset_editor.selected_asset != -1)
     {
         Vec2 drag_delta =
-            ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ScreenToWorld(g_asset_editor.camera, g_asset_editor.drag_start);
+            g_asset_editor.world_mouse_position - ScreenToWorld(g_asset_editor.camera, g_asset_editor.drag_start);
 
         Vec2 world = g_asset_editor.drag_position_start + drag_delta;
         if (IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
@@ -417,8 +427,7 @@ void UpdateAssetEditor()
     }
 
     UpdateBoxSelect();
-    PanView();
-    ZoomView();
+    UpdateView();
 }
 
 static void DrawBoxSelect()
@@ -533,9 +542,14 @@ int InitAssetEditor(int argc, const char* argv[])
     EnableButton(g_asset_editor.input, MOUSE_MIDDLE);
     EnableButton(g_asset_editor.input, KEY_X);
     EnableButton(g_asset_editor.input, KEY_F);
+    EnableButton(g_asset_editor.input, KEY_G);
+    EnableButton(g_asset_editor.input, KEY_R);
+    EnableButton(g_asset_editor.input, KEY_S);
     EnableButton(g_asset_editor.input, KEY_ESCAPE);
+    EnableButton(g_asset_editor.input, KEY_ENTER);
     EnableButton(g_asset_editor.input, KEY_SPACE);
     EnableButton(g_asset_editor.input, KEY_LEFT_CTRL);
+    EnableButton(g_asset_editor.input, KEY_LEFT_SHIFT);
     EnableButton(g_asset_editor.input, KEY_TAB);
     PushInputSet(g_asset_editor.input);
 

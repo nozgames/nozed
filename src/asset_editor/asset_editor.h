@@ -15,6 +15,7 @@ struct View;
 struct EditableVertex
 {
     Vec2 position;
+    Vec2 saved_position;
     bool selected;
 };
 
@@ -84,6 +85,7 @@ struct AssetEditor
     i32 hover_asset;
     i32 selected_asset;
     bool edit_mode;
+    Vec2 world_mouse_position;
 
     // Panning
     bool panning;
