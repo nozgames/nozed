@@ -12,6 +12,7 @@ add_subdirectory(noz noz)
 set(SOURCE_FILES
     src/main.cpp
     src/view.cpp
+    src/grid.cpp
     src/gltf_load.cpp
     src/gltf_save.cpp
     src/game_assets.cpp

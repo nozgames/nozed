@@ -193,6 +193,10 @@ void UpdateView(View* view)
 void RenderView(View* view)
 {
     BindCamera(view->camera);
+    
+    // Draw grid first (behind everything else)
+    DrawGrid(view->camera, view->zoom);
+    
     BindTransform(MAT3_IDENTITY);
     BindMaterial(view->material);
     DrawMesh(ToMesh(view->emesh));

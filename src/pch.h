@@ -44,3 +44,7 @@ struct EditableMesh
 
 
 #include "game_assets.h"
+
+extern void InitGrid(Allocator* allocator);
+extern void ShutdownGrid();
+extern void DrawGrid(Camera* camera, float zoom);
