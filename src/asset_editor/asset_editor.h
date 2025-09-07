@@ -78,6 +78,7 @@ struct AssetEditor
     Mesh* edge_mesh;
     float zoom;
     float zoom_ref_scale;
+    float ui_scale;
     InputSet* input;
     int selected_vertex;
     bool dragging;

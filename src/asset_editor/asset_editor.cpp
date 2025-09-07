@@ -107,7 +107,13 @@ static int HitTestEdge(float* pos)
 
 static void UpdateCamera()
 {
-    SetExtents(g_asset_editor.camera, F32_MIN, F32_MIN, -g_asset_editor.zoom * 0.5f, g_asset_editor.zoom * 0.5f);
+    float DPI = 72.0f * g_asset_editor.ui_scale * g_asset_editor.zoom;
+    Vec2Int screen_size = GetScreenSize();
+    f32 world_width = screen_size.x / DPI;
+    f32 world_height = screen_size.y / ((f32)screen_size.y * DPI / (f32)screen_size.y);
+    f32 half_width = world_width * 0.5f;
+    f32 half_height = world_height * 0.5f;
+    SetExtents(g_asset_editor.camera, -half_width, half_width, -half_height, half_height, false);
 }
 
 static void FrameView(int asset_index)
@@ -274,18 +280,35 @@ static void UpdateView()
             FrameView(g_asset_editor.selected_asset);
     }
 
-    // Zoom
+    // Zoom - multiplicative for consistent feel at all zoom levels
     float zoom_axis = GetAxis(g_asset_editor.input, MOUSE_SCROLL_Y);
     if (zoom_axis < -0.5f || zoom_axis > 0.5f)
     {
-        g_asset_editor.zoom -= zoom_axis;
+        float zoom_factor = 1.0f + zoom_axis * 0.1f; // 10% per scroll step
+        g_asset_editor.zoom *= zoom_factor;
+        g_asset_editor.zoom = Max(g_asset_editor.zoom, 0.1f); // Prevent zoom from going negative/zero
         UpdateCamera();
+    }
+    
+    // UI Scale controls
+    if (IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    {
+        // Handle both = and + (shift + =) for increasing UI scale
+        if (WasButtonPressed(g_asset_editor.input, KEY_EQUALS))
+        {
+            g_asset_editor.ui_scale = Min(g_asset_editor.ui_scale + 0.1f, 3.0f);
+        }
+        if (WasButtonPressed(g_asset_editor.input, KEY_MINUS))
+        {
+            g_asset_editor.ui_scale = Max(g_asset_editor.ui_scale - 0.1f, 0.3f);
+        }
     }
 }
 
-
 void UpdateAssetEditor()
 {
+    UpdateCamera();
+
     g_asset_editor.world_mouse_position = ScreenToWorld(g_asset_editor.camera, GetMousePosition());
 
     if (!g_asset_editor.edit_mode)
@@ -479,7 +502,19 @@ void RenderView()
 {
     BindCamera(g_asset_editor.camera);
 
-    g_asset_editor.zoom_ref_scale = g_asset_editor.zoom / REF_ZOOM;
+    // DPI-based physical size consistency
+    // This ensures UI elements stay the same physical size regardless of window size
+    constexpr float DPI = 72.0f; // Hardcoded for now
+    Vec2Int screen_size = GetScreenSize();
+    
+    // Calculate world units per inch based on current camera setup
+    float world_height = g_asset_editor.zoom; // Total world units visible vertically
+    float screen_height_inches = screen_size.y / DPI;
+    float world_units_per_inch = world_height / screen_height_inches;
+    
+    // Scale UI elements to be physically consistent
+    // REF_ZOOM represents the baseline world units for UI scaling
+    g_asset_editor.zoom_ref_scale = (world_units_per_inch / REF_ZOOM) * g_asset_editor.ui_scale;
 
     // Draw grid first (behind everything else)
     DrawGrid(g_asset_editor.camera, g_asset_editor.zoom);
@@ -531,6 +566,7 @@ int InitAssetEditor(int argc, const char* argv[])
     g_asset_editor.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders._default);
     g_asset_editor.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.ui);
     g_asset_editor.zoom = 20.0f;
+    g_asset_editor.ui_scale = 1.0f;
     g_asset_editor.selected_vertex = -1;
     g_asset_editor.selected_asset = -1;
     UpdateCamera();
@@ -551,6 +587,8 @@ int InitAssetEditor(int argc, const char* argv[])
     EnableButton(g_asset_editor.input, KEY_LEFT_CTRL);
     EnableButton(g_asset_editor.input, KEY_LEFT_SHIFT);
     EnableButton(g_asset_editor.input, KEY_TAB);
+    EnableButton(g_asset_editor.input, KEY_EQUALS);
+    EnableButton(g_asset_editor.input, KEY_MINUS);
     PushInputSet(g_asset_editor.input);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);
