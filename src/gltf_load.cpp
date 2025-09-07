@@ -9,7 +9,7 @@ extern void CreateEdges(EditableMesh* emesh);
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
-EditableMesh* LoadEditableMesh(const char* filename, Allocator* allocator)
+EditableMesh* LoadEditableMesh(Allocator* allocator, const char* filename)
 {
     if (!filename || !allocator)
         return nullptr;
@@ -101,22 +101,43 @@ EditableMesh* LoadEditableMesh(const char* filename, Allocator* allocator)
     // Load indices if present
     if (primitive->indices)
     {
-        cgltf_size num_indices = cgltf_accessor_unpack_indices(primitive->indices, nullptr, 0, sizeof(uint32_t));
-        uint32_t* indices = (uint32_t*)malloc(num_indices * sizeof(uint32_t));
-        cgltf_accessor_unpack_indices(primitive->indices, indices, num_indices, sizeof(uint32_t));
-        
-        mesh->triangle_count = (int)(num_indices / 3);
-        if (mesh->triangle_count > MAX_TRIANGLES)
-            mesh->triangle_count = MAX_TRIANGLES;
-        
-        for (int i = 0; i < mesh->triangle_count; ++i)
+        // Try using unpack_floats instead and convert to integers
+        cgltf_size num_floats = cgltf_accessor_unpack_floats(primitive->indices, nullptr, 0);
+        if (num_floats > 0)
         {
-            mesh->triangles[i].v0 = (int)indices[i * 3 + 0];
-            mesh->triangles[i].v1 = (int)indices[i * 3 + 1];
-            mesh->triangles[i].v2 = (int)indices[i * 3 + 2];
+            float* float_indices = (float*)malloc(num_floats * sizeof(float));
+            cgltf_accessor_unpack_floats(primitive->indices, float_indices, num_floats);
+            
+            mesh->triangle_count = (int)(num_floats / 3);
+            if (mesh->triangle_count > MAX_TRIANGLES)
+                mesh->triangle_count = MAX_TRIANGLES;
+            
+            for (int i = 0; i < mesh->triangle_count; ++i)
+            {
+                int v0 = (int)float_indices[i * 3 + 0];
+                int v1 = (int)float_indices[i * 3 + 1];
+                int v2 = (int)float_indices[i * 3 + 2];
+                
+                // Validate indices are within bounds
+                if (v0 >= 0 && v0 < mesh->vertex_count &&
+                    v1 >= 0 && v1 < mesh->vertex_count &&
+                    v2 >= 0 && v2 < mesh->vertex_count)
+                {
+                    mesh->triangles[i].v0 = v0;
+                    mesh->triangles[i].v1 = v1;
+                    mesh->triangles[i].v2 = v2;
+                }
+                else
+                {
+                    // Invalid triangle - set to 0,0,0 or skip
+                    mesh->triangles[i].v0 = 0;
+                    mesh->triangles[i].v1 = 0;
+                    mesh->triangles[i].v2 = 0;
+                }
+            }
+            
+            free(float_indices);
         }
-        
-        free(indices);
     }
     else
     {

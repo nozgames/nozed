@@ -85,8 +85,6 @@ Mesh* ToMesh(EditableMesh* emesh)
 
         Free(emesh->mesh);
         emesh->mesh = CreateMesh(ALLOCATOR_DEFAULT, emesh->builder, NAME_NONE);
-
-        CreateEdgeMesh(emesh);
     }
 
     return emesh->mesh;

@@ -17,6 +17,7 @@ extern void DeleteVertex(EditableMesh* mesh, int vertex_index);
 extern void DissolveVertex(EditableMesh* mesh, int vertex_index);
 extern void RotateEdge(EditableMesh* mesh, int edge_index);
 extern bool SaveEditableMesh(const EditableMesh* mesh, const char* filename);
+extern EditableMesh* LoadEditableMesh(Allocator* allocator, const char* filename);
 
 struct View
 {
@@ -203,7 +204,9 @@ void RenderView(View* view)
 View* CreateView(Allocator* allocator)
 {
     View* view = (View*)Alloc(allocator, sizeof(View));
-    view->emesh = CreateEditableMesh(allocator);
+    //view->emesh = CreateEditableMesh(allocator);
+    view->emesh = LoadEditableMesh(ALLOCATOR_DEFAULT, "d:\\test.glb");;
+
     view->camera = CreateCamera(allocator);
     view->material = CreateMaterial(allocator, g_assets.shaders._default);
     view->vertex_material = CreateMaterial(allocator, g_assets.shaders.ui);
