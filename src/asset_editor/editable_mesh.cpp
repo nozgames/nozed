@@ -2,6 +2,8 @@
 //  MeshZ - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "asset_editor.h"
+
 static void CreateEdgeMesh(EditableMesh* emesh)
 {
     Clear(emesh->builder);

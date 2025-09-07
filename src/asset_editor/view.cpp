@@ -2,6 +2,8 @@
 //  MeshZ - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "asset_editor.h"
+
 constexpr float VERTEX_SIZE = 0.1f;
 constexpr float REF_ZOOM = 10.0f;
 constexpr Color VERTEX_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f};

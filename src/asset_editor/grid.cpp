@@ -2,7 +2,7 @@
 //  MeshZ - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "pch.h"
+#include "asset_editor.h"
 
 constexpr float GRID_SPACING = 1.0f;
 constexpr float SECONDARY_GRID_FADE_MIN = 0.02f;  // Start fading in when grid cell is 2% of screen

@@ -5,8 +5,15 @@
             "folder_exclude_patterns": [
                 "build",
                 ".git",
-                ".idea"
+                ".idea",
+                "external"
             ],
+            "binary_file_patterns": [
+                "build/*",
+                ".git/*",
+                ".idea/*",
+                "external/*"
+            ]
         }
     ],
     "build_systems": [
@@ -17,9 +24,9 @@
             "variants": [
                 {
                     "name": "Build",
-                    "shell_cmd": "ninja -C build -j 30 2>&1 | findstr /C:\"): error\" /C:\"): warning\"",
+                    "shell_cmd": "ninja -C build -j 30  2>&1 | findstr /C:\": error\" /C:\": warning\" /C:\": fatal error\"",
                     "working_dir": "$project_path",
-                    "file_regex": "^([A-Z]:[^\\(]+)\\((\\d+)\\): error",
+                    "file_regex": "^([A-Z]:[^\\(]+)\\((\\d+)\\):\\s*(?:error|warning|fatal error)",
                     "syntax": "Packages/Makefile/Make Output.sublime-syntax"
                 },
                 {
@@ -49,16 +56,25 @@
                 {
                     "name": "Clean & Reconfigure", 
                     "windows": {
-                        "shell_cmd": "cmd /c \"(if exist build rd /s /q build) && call C:\\PROGRA~1\\MICROS~1\\2022\\Preview\\VC\\Auxiliary\\Build\\vcvars64.bat && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build -j 30\""
+                        "shell_cmd": "cmd /c \"(if exist build rd /s /q build) && call C:\\PROGRA~1\\MICROS~1\\2022\\Preview\\VC\\Auxiliary\\Build\\vcvars64.bat && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build -j 30  2>&1 | findstr /C:\"): error\" /C:\"): warning\" /C:\"): fatal error\"\"",
+                        "file_regex": "^([A-Z]:[^\\(]+)\\((\\d+)\\): (?:error|warning|fatal error)",
+                    "syntax": "Packages/Makefile/Make Output.sublime-syntax"
                     }
                 },
                 {
                     "name": "Run",
                     "windows": {
-                        "working_dir" : "$project_path/build",
-                        "shell_cmd": "$project_path\\build\\meshz.exe"
+                        "working_dir" : "d:\\git\\nockerz",
+                        "shell_cmd": "wt -d \"d:\\git\\nockerz\" cmd /c \"$project_path\\build\\nozed.exe\"",
                     }
+                },
+                {
+                    "name": "Debug",
+                    "windows": {
+                    "working_dir": "d:\\git\\nockerz",
+                    "shell_cmd": "c:\\programs\\raddbg.exe $project_path\\build\\nozed.exe a"
                 }
+            }
             ]
         }
     ]

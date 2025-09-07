@@ -2,7 +2,7 @@
 //  MeshZ - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "pch.h"
+#include "asset_editor.h"
 
 #define CGLTF_WRITE_IMPLEMENTATION
 #include <cgltf_write.h>

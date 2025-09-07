@@ -2,11 +2,10 @@
 //  MeshZ - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "pch.h"
+#include "asset_editor.h"
 
 extern void CreateEdges(EditableMesh* emesh);
 
-#define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
 EditableMesh* LoadEditableMesh(Allocator* allocator, const char* filename)

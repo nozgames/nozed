@@ -758,36 +758,12 @@
 		"side_bar_visible": false,
 		"status_bar_visible": false
 	},
-	"expanded_folders":
-	[
-		"/D/git/meshz",
-		"/D/git/meshz/src"
-	],
 	"file_history":
 	[
-		"/D/git/meshz/noz/external/vulkan/vulkan/vulkan.hpp",
-		"/D/git/meshz/noz/src/platform/windows/windows_render.cpp",
-		"/D/git/meshz/noz/src/platform.h",
-		"/D/git/meshz/src/main.cpp",
-		"/D/git/meshz/noz/src/render/mesh.cpp",
-		"/D/git/meshz/noz/src/platform/windows/windows_main.cpp",
-		"/D/git/meshz/meshz.sublime-project",
-		"/C/Windows/System32/%*",
-		"/D/git/meshz/noz/src/editor/editor_messages.h",
-		"/D/git/meshz/src/game_assets.cpp",
-		"/D/git/meshz/noz/CMakeLists.txt",
-		"/D/git/meshz/noz/editor/CMakeLists.txt",
-		"/D/git/meshz/noz/editor/src/editor_server.cpp",
-		"/D/git/meshz/src/gltf_load.cpp",
-		"/D/git/meshz/noz/src/application.cpp",
-		"/D/git/odin/main.odin",
-		"/C/Programs/Sublime Text/Packages/User/odin.sublime-build",
-		"/C/Programs/Sublime Text/Packages/User/.sublime-project",
-		"/D/git/odin/odin.sublime-build"
 	],
 	"find":
 	{
-		"height": 39.3333333333
+		"height": 27.3333333333
 	},
 	"find_in_files":
 	{
@@ -831,7 +807,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 28.0
+		"height": 27.3333333333
 	},
 	"input":
 	{
@@ -889,10 +865,10 @@
 		]
 	},
 	"pinned_build_system": "",
-	"project": "meshz.sublime-project",
+	"project": "nozed.sublime-project",
 	"replace":
 	{
-		"height": 52.0
+		"height": 50.6666666667
 	},
 	"save_all_on_build": true,
 	"select_file":
@@ -901,46 +877,6 @@
 		"last_filter": "",
 		"selected_items":
 		[
-			[
-				"mesh.cpp",
-				"noz\\src\\render\\mesh.cpp"
-			],
-			[
-				"render",
-				"noz\\src\\platform\\windows\\windows_render.cpp"
-			],
-			[
-				"platform.cpp",
-				"noz\\src\\platform\\windows\\windows_main.cpp"
-			],
-			[
-				"pla",
-				"noz\\src\\platform.h"
-			],
-			[
-				"mesh",
-				"noz\\src\\render\\mesh.cpp"
-			],
-			[
-				"main",
-				"src\\main.cpp"
-			],
-			[
-				"game",
-				"src\\game_assets.cpp"
-			],
-			[
-				"editor_me",
-				"noz\\src\\editor\\editor_messages.h"
-			],
-			[
-				"editor_ser",
-				"noz\\editor\\src\\editor_server.cpp"
-			],
-			[
-				"cmake",
-				"noz\\editor\\CMakeLists.txt"
-			]
 		],
 		"width": 0.0
 	},
