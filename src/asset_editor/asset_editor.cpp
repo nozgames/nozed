@@ -525,7 +525,7 @@ int InitAssetEditor(int argc, const char* argv[])
     traits.unload_assets = UnloadAssets;
     traits.renderer.vsync = true;
     traits.assets_path = "build/assets";
-    InitApplication(&traits);
+    InitApplication(&traits, argc, argv);
 
     g_asset_editor.camera = CreateCamera(ALLOCATOR_DEFAULT);
     g_asset_editor.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders._default);
@@ -581,9 +581,7 @@ int InitAssetEditor(int argc, const char* argv[])
     while (UpdateApplication())
     {
         BeginUI();
-
         UpdateAssetEditor();
-
         EndUI();
 
         BeginRenderFrame(VIEW_COLOR);

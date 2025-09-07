@@ -3,6 +3,7 @@
 //
 
 #include "asset_editor.h"
+#include "tui/text_input.h"
 
 extern int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float dist);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
@@ -28,6 +29,7 @@ struct MeshEditor
     Vec2 world_drag_start;
     Vec2 selection_drag_start;
     Vec2 selection_center;
+    Material* color_material;
 };
 
 static MeshEditor g_mesh_editor = {};
@@ -155,6 +157,11 @@ static void SetState(EditableAsset& ea, MeshEditorState state)
 
 void UpdateMeshEditor(EditableAsset& ea)
 {
+    BeginCanvas(UI_REF_WIDTH, UI_REF_HEIGHT);
+    SetStyleSheet(g_assets.ui.mesh_editor);
+    Image(g_mesh_editor.color_material, GetName("color_picker_image"));
+    EndCanvas();
+
     switch (g_mesh_editor.state)
     {
     case MESH_EDITOR_STATE_NONE:
@@ -265,5 +272,11 @@ void InitMeshEditor(EditableAsset& ea)
 
     for (int i=0; i<ea.mesh->vertex_count; i++)
         ea.mesh->vertices[i].selected = false;
+
+    if (!g_mesh_editor.color_material)
+    {
+        g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, g_core_assets.shaders.ui);
+        SetTexture(g_mesh_editor.color_material, g_assets.textures.palette, 0);
+    }
 }
 

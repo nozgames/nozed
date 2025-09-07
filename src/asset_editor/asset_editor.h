@@ -10,6 +10,9 @@ constexpr int MAX_TRIANGLES = MAX_VERTICES / 3;
 constexpr int MAX_INDICES = MAX_TRIANGLES * 3;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;
 
+constexpr int UI_REF_WIDTH = 1920;
+constexpr int UI_REF_HEIGHT = 1080;
+
 struct View;
 
 struct EditableVertex
@@ -99,7 +102,7 @@ struct AssetEditor
     Bounds2 box_selection;
 };
 
-#include "game_assets.h"
+#include "editor_assets.h"
 
 extern void InitGrid(Allocator* allocator);
 extern void ShutdownGrid();

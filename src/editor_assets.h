@@ -12,6 +12,9 @@
 // LoadedAssets.shaders.ui
 // LoadedAssets.shaders.vfx
 //
+// @stylesheets
+// LoadedAssets.ui.mesh_editor
+//
 // @textures
 // LoadedAssets.textures.palette
 //
@@ -48,6 +51,10 @@ struct LoadedAssets
     {
         Texture* palette;
     } textures;
+    struct
+    {
+        StyleSheet* mesh_editor;
+    } ui;
 };
 
 extern LoadedAssets g_assets;

@@ -15,7 +15,6 @@ set(SOURCE_FILES
     src/asset_editor/grid.cpp
     src/asset_editor/gltf_load.cpp
     src/asset_editor/gltf_save.cpp
-    src/asset_editor/game_assets.cpp
     src/asset_editor/editable_asset.cpp
     src/asset_editor/editable_mesh.cpp
     src/asset_editor/undo.cpp
@@ -50,6 +49,7 @@ set(SOURCE_FILES
     src/tui/tstring.cpp
     src/tui/windows_terminal.cpp
     src/views/log_view.cpp
+        src/editor_assets.cpp
     src/file_helpers.cpp
 )
 
