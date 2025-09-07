@@ -72,6 +72,7 @@ struct AssetEditor
     Mesh* vertex_mesh;
     Mesh* edge_mesh;
     float zoom;
+    float zoom_ref_scale;
     InputSet* input;
     int selected_vertex;
     bool dragging;
@@ -91,3 +92,5 @@ extern void ShutdownGrid();
 extern void DrawGrid(Camera* camera, float zoom);
 
 extern AssetEditor g_asset_editor;
+
+constexpr Color COLOR_SELECTED = { 1.0f, 0.788f, 0.055f, 1.0f};

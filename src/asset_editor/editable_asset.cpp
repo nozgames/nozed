@@ -110,3 +110,28 @@ void MoveTo(EditableAsset& asset, const Vec2& position)
     asset.position = position;
     asset.dirty = true;
 }
+
+void DrawEdges(const EditableAsset& ea, int min_edge_count, float zoom_scale, Color color)
+{
+    if (ea.type != EDITABLE_ASSET_TYPE_MESH)
+        return;
+
+    BindColor(color);
+    BindMaterial(g_asset_editor.vertex_material);
+
+    const EditableMesh& em = *ea.mesh;
+    for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
+    {
+        const EditableEdge& ee = em.edges[edge_index];
+        if (ee.triangle_count > min_edge_count)
+            continue;
+
+        const Vec2& v0 = em.vertices[ee.v0].position;
+        const Vec2& v1 = em.vertices[ee.v1].position;
+        Vec2 mid = (v0 + v1) * 0.5f;
+        Vec2 dir = Normalize(v1 - v0);
+        float length = Length(v1 - v0);
+        BindTransform(TRS(mid + ea.position, dir, Vec2{length * 0.5f, 0.01f * zoom_scale}));
+        DrawMesh(g_asset_editor.edge_mesh);
+    }
+}

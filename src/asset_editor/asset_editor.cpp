@@ -8,8 +8,6 @@
 constexpr float VERTEX_SIZE = 0.1f;
 constexpr float REF_ZOOM = 10.0f;
 constexpr Color VERTEX_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f};
-constexpr Color COLOR_SELECTED = { 1.0f, 0.788f, 0.055f, 1.0f};
-constexpr Color COLOR_EDGE = { 0.25f, 0.25f, 0.25f, 1.0f};;
 constexpr Color VIEW_COLOR = {0.05f, 0.05f, 0.05f, 1.0f};
 
 extern View* CreateView(Allocator* allocator);
@@ -28,10 +26,14 @@ extern bool SaveEditableMesh(const EditableMesh* mesh, const char* filename);
 extern void SetTriangleColor(EditableMesh* emesh, int index, const Vec2Int& color);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 extern i32 LoadEditableAssets(EditableAsset** assets);
-extern int HitTestVertex(EditableMesh* emesh, const Vec2& world_pos, float dist);
+extern int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float dist);
 extern int HitTestAssets(const Vec2& hit_pos);
 extern void MoveTo(EditableAsset& asset, const Vec2& position);
 extern void SaveAssetMetaData();
+extern void UpdateMeshEditor(EditableAsset& ea);
+extern void DrawEdges(const EditableAsset& ea, int min_edge_count, float zoom_scale, Color color);
+extern void InitMeshEditor(EditableAsset& ea);
+extern void RenderMeshEditor(EditableAsset& ea);
 
 AssetEditor g_asset_editor = {};
 
@@ -145,8 +147,47 @@ static void FrameView(int asset_index)
     UpdateCamera();
 }
 
+static bool s_panning = false;
+static Vec2 s_pan_start_mouse;
+static Vec2 s_pan_start_camera;
 
-void UpdateView()
+static void PanView()
+{
+    // Start panning when space + mouse button are both pressed
+    if (IsButtonDown(g_asset_editor.input, KEY_SPACE) && WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    {
+        s_panning = true;
+        s_pan_start_mouse = GetMousePosition();
+        
+        // Get current camera bounds to extract position
+        Bounds2 bounds = GetBounds(g_asset_editor.camera);
+        s_pan_start_camera = Vec2{
+            (bounds.min.x + bounds.max.x) * 0.5f,
+            (bounds.min.y + bounds.max.y) * 0.5f
+        };
+    }
+    
+    // Continue panning while both space and mouse are held
+    if (s_panning && IsButtonDown(g_asset_editor.input, KEY_SPACE) && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
+    {
+        // Calculate mouse delta in screen space, then convert to world space delta
+        Vec2 mouse_delta = GetMousePosition() - s_pan_start_mouse;
+        Vec2 world_delta_start = ScreenToWorld(g_asset_editor.camera, s_pan_start_mouse);
+        Vec2 world_delta_current = ScreenToWorld(g_asset_editor.camera, s_pan_start_mouse + mouse_delta);
+        Vec2 world_delta = world_delta_start - world_delta_current; // Invert for natural panning
+        
+        // Apply pan offset to camera position
+        SetPosition(g_asset_editor.camera, s_pan_start_camera + world_delta);
+    }
+    
+    // Stop panning when either space or mouse is released
+    if (WasButtonReleased(g_asset_editor.input, KEY_SPACE) || WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
+    {
+        s_panning = false;
+    }
+}
+
+void UpdateAssetEditor()
 {
     if (!g_asset_editor.edit_mode)
         g_asset_editor.hover_asset = HitTestAssets(ScreenToWorld(g_asset_editor.camera, GetMousePosition()));
@@ -161,6 +202,19 @@ void UpdateView()
         if (g_asset_editor.selected_asset != -1)
         {
             g_asset_editor.edit_mode = !g_asset_editor.edit_mode;
+            if (g_asset_editor.edit_mode && g_asset_editor.selected_asset != -1)
+            {
+                EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.selected_asset];
+                switch (ea.type)
+                {
+                case EDITABLE_ASSET_TYPE_MESH:
+                    InitMeshEditor(ea);
+                    break;
+
+                default:
+                    break;
+                }
+            }
         }
     }
 
@@ -169,7 +223,6 @@ void UpdateView()
         if (g_asset_editor.selected_asset != -1)
             FrameView(g_asset_editor.selected_asset);
     }
-
 
     if (!g_asset_editor.edit_mode && WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
@@ -250,6 +303,7 @@ void UpdateView()
     //     SetPosition(g_asset_editor.emesh, g_asset_editor.selected_vertex, world);
     // }
 
+    // Move selected asset
     if (g_asset_editor.dragging && g_asset_editor.selected_asset != -1)
     {
         Vec2 drag_delta =
@@ -262,7 +316,25 @@ void UpdateView()
         MoveTo(*g_asset_editor.assets[g_asset_editor.selected_asset], world);
     }
 
+    // Custom code for asset editor
+    if (g_asset_editor.edit_mode && g_asset_editor.selected_asset != -1)
+    {
+        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.selected_asset];
+        switch (ea.type)
+        {
+        case EDITABLE_ASSET_TYPE_MESH:
+            UpdateMeshEditor(ea);
+            break;
 
+        default:
+            break;
+        }
+    }
+
+    // Panning (called every frame to handle press/hold/release)
+    PanView();
+
+    // Zoom in / out
     float zoom_axis = GetAxis(g_asset_editor.input, MOUSE_SCROLL_Y);
     if (zoom_axis < -0.5f || zoom_axis > 0.5f)
     {
@@ -282,54 +354,13 @@ static void DrawMesh(int asset_index)
     DrawMesh(ToMesh(&em));
 }
 
-static void DrawEdges(int asset_index, int min_edge_count, float zoom_scale, Color color)
-{
-    const EditableAsset* ea = g_asset_editor.assets[asset_index];
-    if (ea->type != EDITABLE_ASSET_TYPE_MESH)
-        return;
-
-    BindColor(color);
-    BindMaterial(g_asset_editor.vertex_material);
-
-    const EditableMesh& em = *ea->mesh;
-    for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
-    {
-        const EditableEdge& ee = em.edges[edge_index];
-        if (ee.triangle_count > min_edge_count)
-            continue;
-
-        const Vec2& v0 = em.vertices[ee.v0].position;
-        const Vec2& v1 = em.vertices[ee.v1].position;
-        Vec2 mid = (v0 + v1) * 0.5f;
-        Vec2 dir = Normalize(v1 - v0);
-        float length = Length(v1 - v0);
-        BindTransform(TRS(mid + ea->position, dir, Vec2{length * 0.5f, 0.01f * zoom_scale}));
-        DrawMesh(g_asset_editor.edge_mesh);
-    }
-}
-
-static void DrawVertices(int asset_index, float zoom_scale, Color color)
-{
-    const EditableAsset* ea = g_asset_editor.assets[asset_index];
-    if (ea->type != EDITABLE_ASSET_TYPE_MESH)
-        return;
-
-    BindColor(color);
-    const EditableMesh& em = *ea->mesh;
-    for (int i=0; i<em.vertex_count; i++)
-    {
-        const EditableVertex& ev = em.vertices[i];
-        if (i == g_asset_editor.selected_vertex)
-            continue;
-        BindTransform(TRS(ev.position + ea->position, 0, VEC2_ONE * zoom_scale));
-        DrawMesh(g_asset_editor.vertex_mesh);
-    }
-}
 
 void RenderView()
 {
     BindCamera(g_asset_editor.camera);
-    
+
+    g_asset_editor.zoom_ref_scale = g_asset_editor.zoom / REF_ZOOM;
+
     // Draw grid first (behind everything else)
     DrawGrid(g_asset_editor.camera, g_asset_editor.zoom);
 
@@ -338,64 +369,28 @@ void RenderView()
     for (int i=0; i<g_asset_editor.asset_count; i++)
         DrawMesh(i);
 
-    float zoom_scale = g_asset_editor.zoom / REF_ZOOM;
 
     // Draw edges
     BindTransform(MAT3_IDENTITY);
 
     if (g_asset_editor.edit_mode)
     {
-        DrawEdges(g_asset_editor.selected_asset, 10000, zoom_scale, COLOR_EDGE);
-        DrawVertices(g_asset_editor.selected_asset, zoom_scale, VERTEX_COLOR);
-    }
-    else if (g_asset_editor.selected_asset != -1)
-        DrawEdges(g_asset_editor.selected_asset, 1, zoom_scale, COLOR_SELECTED);
-
-#if 0
-    for (i32 asset_index=0; asset_index<g_asset_editor.asset_count; asset_index++)
-    {
-        const EditableAsset* ea = g_asset_editor.assets[asset_index];
-        if (ea->type != EDITABLE_ASSET_TYPE_MESH)
-            continue;psele
-
-        const EditableMesh& em = *ea->mesh;
-        for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
+        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.selected_asset];
+        switch (ea.type)
         {
-            const EditableEdge& ee = g_asset_editor.emesh->edges[i];
-            if (ee.triangle_count > 1)
-                continue;
-            const Vec2& v0 = g_asset_editor.emesh->vertices[ee.v0].position;
-            const Vec2& v1 = g_asset_editor.emesh->vertices[ee.v1].position;
-            Vec2 mid = (v0 + v1) * 0.5f;
-            Vec2 dir = Normalize(v1 - v0);
-            float length = Length(v1 - v0);
-            BindTransform(TRS(mid, dir, Vec2{length * 0.5f, 0.01f * zoom_scale}));
-            DrawMesh(g_asset_editor.edge_mesh);
+        case EDITABLE_ASSET_TYPE_MESH:
+            RenderMeshEditor(ea);
+            break;
+
+        default:
+            break;
         }
     }
-#endif
-
-#if 0
-    // Draw verts
-    BindColor(VERTEX_COLOR);
-    for (int i=0; i<g_asset_editor.emesh->vertex_count; i++)
+    else if (g_asset_editor.selected_asset != -1)
     {
-        EditableVertex& ev = g_asset_editor.emesh->vertices[i];
-        if (i == g_asset_editor.selected_vertex)
-            continue;
-        BindTransform(TRS(ev.position, 0, VEC2_ONE * zoom_scale));
-        DrawMesh(g_asset_editor.vertex_mesh);
+        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.selected_asset];
+        DrawEdges(ea, 1, g_asset_editor.zoom_ref_scale, COLOR_SELECTED);
     }
-
-    // Draw selected vert
-    if (g_asset_editor.selected_vertex != -1)
-    {
-        EditableVertex& ev = g_asset_editor.emesh->vertices[g_asset_editor.selected_vertex];
-        BindTransform(TRS(ev.position, 0, VEC2_ONE * zoom_scale));
-        BindColor(COLOR_SELECTED);
-        DrawMesh(g_asset_editor.vertex_mesh);
-    }
-#endif
 }
 
 int InitAssetEditor(int argc, const char* argv[])
@@ -432,10 +427,10 @@ int InitAssetEditor(int argc, const char* argv[])
     PushInputSet(g_asset_editor.input);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);
-    AddVertex(builder, {                  0, -VERTEX_SIZE * 0.5f}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, { VERTEX_SIZE * 0.5f,                   0}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, {                  0,  VERTEX_SIZE * 0.5f}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, {-VERTEX_SIZE * 0.5f,                   0}, {0,0,1}, VEC2_ZERO, 0);
+    AddVertex(builder, {   0, -0.5f}, {0,0,1}, VEC2_ZERO, 0);
+    AddVertex(builder, { 0.5f, 0.0f}, {0,0,1}, VEC2_ZERO, 0);
+    AddVertex(builder, {   0,  0.5f}, {0,0,1}, VEC2_ZERO, 0);
+    AddVertex(builder, {-0.5f, 0.0f}, {0,0,1}, VEC2_ZERO, 0);
     AddTriangle(builder, 0, 1, 2);
     AddTriangle(builder, 2, 3, 0);
     g_asset_editor.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
@@ -460,7 +455,7 @@ int InitAssetEditor(int argc, const char* argv[])
     {
         BeginUI();
 
-        UpdateView();
+        UpdateAssetEditor();
 
         EndUI();
 

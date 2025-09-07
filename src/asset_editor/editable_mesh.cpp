@@ -507,11 +507,11 @@ int SplitEdge(EditableMesh* emesh, int edge_index, float edge_pos)
     return new_vertex_index;
 }
 
-int HitTestVertex(EditableMesh* emesh, const Vec2& world_pos, float size)
+int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float size)
 {
-    for (int i=0; i<emesh->vertex_count; i++)
+    for (int i=0; i<em.vertex_count; i++)
     {
-        EditableVertex& ev = emesh->vertices[i];
+        const EditableVertex& ev = em.vertices[i];
         float dist = Length(world_pos - ev.position);
         if (dist < size)
             return i;
