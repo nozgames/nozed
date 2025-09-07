@@ -588,7 +588,47 @@
 		"selected_items":
 		[
 			[
+				"push",
+				"Git: Push"
+			],
+			[
+				"comi",
+				"Git: Commit"
+			],
+			[
+				"add",
+				"Git: Add..."
+			],
+			[
+				"commit",
+				"Git: Commit"
+			],
+			[
+				"g",
+				"Git: Commit"
+			],
+			[
 				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"distr",
+				"Preferences: Settings – Distraction Free"
+			],
+			[
+				"settings",
+				"Preferences: Settings – Distraction Free"
+			],
+			[
+				"scheme",
+				"UI: Select Color Scheme"
+			],
+			[
+				"theme",
+				"UI: Select Theme"
+			],
+			[
+				"isntall",
 				"Package Control: Install Package"
 			],
 			[
@@ -704,7 +744,7 @@
 	},
 	"console":
 	{
-		"height": 0.0,
+		"height": 332.0,
 		"history":
 		[
 		]
@@ -720,13 +760,19 @@
 	},
 	"expanded_folders":
 	[
-		"/D/git/meshz"
+		"/D/git/meshz",
+		"/D/git/meshz/src"
 	],
 	"file_history":
 	[
-		"/C/Windows/System32/%*",
+		"/D/git/meshz/noz/external/vulkan/vulkan/vulkan.hpp",
+		"/D/git/meshz/noz/src/platform/windows/windows_render.cpp",
+		"/D/git/meshz/noz/src/platform.h",
+		"/D/git/meshz/src/main.cpp",
 		"/D/git/meshz/noz/src/render/mesh.cpp",
+		"/D/git/meshz/noz/src/platform/windows/windows_main.cpp",
 		"/D/git/meshz/meshz.sublime-project",
+		"/C/Windows/System32/%*",
 		"/D/git/meshz/noz/src/editor/editor_messages.h",
 		"/D/git/meshz/src/game_assets.cpp",
 		"/D/git/meshz/noz/CMakeLists.txt",
@@ -741,7 +787,7 @@
 	],
 	"find":
 	{
-		"height": 27.3333333333
+		"height": 39.3333333333
 	},
 	"find_in_files":
 	{
@@ -755,6 +801,8 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"vkDestroyBuffer",
+			"createbuffer",
 			"-B",
 			"pa"
 		],
@@ -783,7 +831,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 27.3333333333
+		"height": 28.0
 	},
 	"input":
 	{
@@ -833,11 +881,18 @@
 		[
 		]
 	},
+	"output.git":
+	{
+		"height": 130.0,
+		"history":
+		[
+		]
+	},
 	"pinned_build_system": "",
 	"project": "meshz.sublime-project",
 	"replace":
 	{
-		"height": 50.6666666667
+		"height": 52.0
 	},
 	"save_all_on_build": true,
 	"select_file":
@@ -847,12 +902,28 @@
 		"selected_items":
 		[
 			[
+				"mesh.cpp",
+				"noz\\src\\render\\mesh.cpp"
+			],
+			[
+				"render",
+				"noz\\src\\platform\\windows\\windows_render.cpp"
+			],
+			[
+				"platform.cpp",
+				"noz\\src\\platform\\windows\\windows_main.cpp"
+			],
+			[
+				"pla",
+				"noz\\src\\platform.h"
+			],
+			[
 				"mesh",
 				"noz\\src\\render\\mesh.cpp"
 			],
 			[
-				"mesh.cpp",
-				"noz\\src\\render\\mesh.cpp"
+				"main",
+				"src\\main.cpp"
 			],
 			[
 				"game",
@@ -894,12 +965,21 @@
 	"selected_group": 0,
 	"settings":
 	{
+		"last_automatic_layout":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		]
 	},
 	"show_minimap": true,
 	"show_open_files": false,
 	"show_tabs": true,
 	"side_bar_visible": true,
-	"side_bar_width": 300.0,
+	"side_bar_width": 791.0,
 	"status_bar_visible": true,
 	"template_settings":
 	{
