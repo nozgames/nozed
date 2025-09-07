@@ -35,6 +35,8 @@ static void CreateEdgeMesh(EditableMesh* emesh)
     emesh->edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, emesh->builder, NAME_NONE);
 }
 
+
+
 static int GetOrAddIndex(EditableMesh* emesh, int v0, int v1)
 {
     int fv0 = Min(v0, v1);
@@ -520,6 +522,19 @@ int SplitEdge(EditableMesh* emesh, int edge_index, float edge_pos)
     CreateEdges(emesh);
 
     return new_vertex_index;
+}
+
+int HitTestVertex(EditableMesh* emesh, const Vec2& world_pos, float size)
+{
+    for (int i=0; i<emesh->vertex_count; i++)
+    {
+        EditableVertex& ev = emesh->vertices[i];
+        float dist = Length(world_pos - ev.position);
+        if (dist < size)
+            return i;
+    }
+
+    return -1;
 }
 
 EditableMesh* CreateEditableMesh(Allocator* allocator)

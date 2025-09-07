@@ -11,7 +11,6 @@ add_subdirectory(noz noz)
     
 set(SOURCE_FILES
     src/asset_editor/asset_editor.cpp
-    src/asset_editor/view.cpp
     src/asset_editor/grid.cpp
     src/asset_editor/gltf_load.cpp
     src/asset_editor/gltf_save.cpp
