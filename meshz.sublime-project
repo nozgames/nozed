@@ -1,0 +1,65 @@
+{
+    "folders": [
+        {
+            "path": ".",
+            "folder_exclude_patterns": [
+                "build",
+                ".git",
+                ".idea"
+            ],
+        }
+    ],
+    "build_systems": [
+        {
+            "name": "Ninja",
+            "working_dir": "$project_path",
+            
+            "variants": [
+                {
+                    "name": "Build",
+                    "shell_cmd": "ninja -C build -j 30 2>&1 | findstr /C:\"): error\" /C:\"): warning\"",
+                    "working_dir": "$project_path",
+                    "file_regex": "^([A-Z]:[^\\(]+)\\((\\d+)\\): error",
+                    "syntax": "Packages/Makefile/Make Output.sublime-syntax"
+                },
+                {
+                    "name": "Configure (Release)",
+                    "windows": {
+                        "shell_cmd": "cmd /c \"\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release\""
+                    }
+                },
+                {
+                    "name": "Configure (Debug)",
+                    "windows": {
+                        "shell_cmd": "cmd /c \"\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug\""
+                    }
+                },
+                {
+                    "name": "Clean",
+                    "windows": {
+                        "shell_cmd": "cmd /c \"\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake --build build --target clean\""
+                    }
+                },
+                {
+                    "name": "Rebuild",
+                    "windows": {
+                        "shell_cmd": "cmd /c \"\"C:\\Program Files\\Microsoft Visual Studio\\2022\\Preview\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cmake --build build --clean-first -j 30\""
+                    }
+                },
+                {
+                    "name": "Clean & Reconfigure", 
+                    "windows": {
+                        "shell_cmd": "cmd /c \"(if exist build rd /s /q build) && call C:\\PROGRA~1\\MICROS~1\\2022\\Preview\\VC\\Auxiliary\\Build\\vcvars64.bat && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build -j 30\""
+                    }
+                },
+                {
+                    "name": "Run",
+                    "windows": {
+                        "working_dir" : "$project_path/build",
+                        "shell_cmd": "$project_path\\build\\meshz.exe"
+                    }
+                }
+            ]
+        }
+    ]
+}
