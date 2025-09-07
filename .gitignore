@@ -1,0 +1,10 @@
+out/
+build/
+.vs/
+.idea/
+vs
+_deps/
+
+# Large binary library files - track separately
+*.lib
+*.dll
