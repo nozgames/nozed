@@ -39,11 +39,11 @@ struct EditableMesh
     EditableTriangle triangles[MAX_TRIANGLES];
     MeshBuilder* builder;
     Mesh* mesh;
-    Mesh* edge_mesh;
     int vertex_count;
     int edge_count;
     int triangle_count;
     bool dirty;
+    Bounds2 bounds;
 };
 
 enum EditableAssetType
@@ -81,6 +81,7 @@ struct AssetEditor
     u32 asset_count;
     i32 hover_asset;
     i32 selected_asset;
+    bool edit_mode;
 };
 
 #include "game_assets.h"

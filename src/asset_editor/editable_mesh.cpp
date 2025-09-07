@@ -4,39 +4,6 @@
 
 #include "asset_editor.h"
 
-static void CreateEdgeMesh(EditableMesh* emesh)
-{
-    Clear(emesh->builder);
-
-    for (int i=0; i<emesh->edge_count; i++)
-    {
-        EditableEdge& ee = emesh->edges[i];
-        Vec2 p0 = emesh->vertices[ee.v0].position;
-        Vec2 p1 = emesh->vertices[ee.v1].position;
-
-        // add a quad for the edge
-        Vec2 dir = Normalize(p1 - p0);
-        Vec2 normal = Vec2{-dir.y, dir.x};
-        float half_thickness = 0.01f;
-        Vec2 v0 = p0 + normal * half_thickness;
-        Vec2 v1 = p1 + normal * half_thickness;
-        Vec2 v2 = p1 - normal * half_thickness;
-        Vec2 v3 = p0 - normal * half_thickness;
-
-        AddVertex(emesh->builder, v0, VEC3_FORWARD, VEC2_ZERO, 0);
-        AddVertex(emesh->builder, v1, VEC3_FORWARD, VEC2_ZERO, 0);
-        AddVertex(emesh->builder, v2, VEC3_FORWARD, VEC2_ZERO, 0);
-        AddVertex(emesh->builder, v3, VEC3_FORWARD, VEC2_ZERO, 0);
-
-        AddTriangle(emesh->builder, i*4+0, i*4+1, i*4+2);
-        AddTriangle(emesh->builder, i*4+0, i*4+2, i*4+3);
-    }
-
-    emesh->edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, emesh->builder, NAME_NONE);
-}
-
-
-
 static int GetOrAddIndex(EditableMesh* emesh, int v0, int v1)
 {
     int fv0 = Min(v0, v1);
@@ -67,13 +34,25 @@ static int GetOrAddIndex(EditableMesh* emesh, int v0, int v1)
 void CreateEdges(EditableMesh* emesh)
 {
     emesh->edge_count = 0;
+
+    Vec2 min = emesh->vertices[0].position;
+    Vec2 max = min;
+
+    for (int i = 1; i < emesh->vertex_count; i++)
+    {
+        EditableVertex& ev = emesh->vertices[i];
+        min = Min(ev.position, min);
+        max = Max(ev.position, max);
+    }
+
+    emesh->bounds = {min, max};
+
     for (int i = 0; i < emesh->triangle_count; i++)
     {
         EditableTriangle& et = emesh->triangles[i];
-
-        int e0 = GetOrAddIndex(emesh, et.v0, et.v1);
-        int e1 = GetOrAddIndex(emesh, et.v1, et.v2);
-        int e2 = GetOrAddIndex(emesh, et.v2, et.v0);
+        GetOrAddIndex(emesh, et.v0, et.v1);
+        GetOrAddIndex(emesh, et.v1, et.v2);
+        GetOrAddIndex(emesh, et.v2, et.v0);
     }
 }
 
@@ -600,6 +579,9 @@ bool HitTest(const EditableMesh& em, const EditableTriangle& et, const Vec2& pos
 
 int HitTest(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos)
 {
+    if (!Contains(mesh.bounds, hit_pos - position))
+        return -1;
+
     for (int i=0; i<mesh.triangle_count; i++)
     {
         const EditableTriangle& et = mesh.triangles[i];
