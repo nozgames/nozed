@@ -529,34 +529,34 @@ int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float size)
     return -1;
 }
 
-EditableMesh* CreateEditableMesh(Allocator* allocator)
+int HitTestEdge(const EditableMesh& em, const Vec2& hit_pos, float size, float* where)
 {
-    EditableMesh* em = (EditableMesh*)Alloc(allocator, sizeof(EditableMesh));
-    em->builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
-    em->vertex_count = 4;
-    em->vertices[0] = {
-        .position =  {-0.5f, -0.5f}
-    };
-    em->vertices[1] = {
-        .position =  { 0.5f, -0.5f}
-    };
-    em->vertices[2] = {
-        .position =  { 0.5f,  0.5f}
-    };
-    em->vertices[3] = {
-        .position =  {-0.5f,  0.5f}
-    };
+    for (int i=0; i<em.edge_count; i++)
+    {
+        const EditableEdge& ee = em.edges[i];
+        const Vec2& v0 = em.vertices[ee.v0].position;
+        const Vec2& v1 = em.vertices[ee.v1].position;
+        Vec2 edge_dir = Normalize(v1 - v0);
+        Vec2 to_mouse = hit_pos - v0;
+        float edge_length = Length(v1 - v0);
+        float proj = Dot(to_mouse, edge_dir);
+        if (proj >= 0 && proj <= edge_length)
+        {
+            Vec2 closest_point = v0 + edge_dir * proj;
+            float dist = Length(hit_pos - closest_point);
+            if (dist < size)
+            {
+                if (where)
+                    *where = proj / edge_length;
+                return i;
+            }
+        }
+    }
 
-    em->triangle_count = 2;
-    em->triangles[0] = { 0, 1, 2};
-    em->triangles[1] = { 0, 2, 3};
-
-    MarkDirty(*em);
-
-    return em;
+    return -1;
 }
 
-bool HitTest(const EditableMesh& em, const EditableTriangle& et, const Vec2& position, const Vec2& hit_pos, Vec2* where)
+bool HitTestTriangle(const EditableMesh& em, const EditableTriangle& et, const Vec2& position, const Vec2& hit_pos, Vec2* where)
 {
     Vec2 v0 = em.vertices[et.v0].position + position;
     Vec2 v1 = em.vertices[et.v1].position + position;
@@ -585,7 +585,7 @@ bool HitTest(const EditableMesh& em, const EditableTriangle& et, const Vec2& pos
     return false;
 }
 
-int HitTest(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos)
+int HitTestTriangle(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos, Vec2* where)
 {
     if (!Contains(mesh.bounds, hit_pos - position))
         return -1;
@@ -593,7 +593,7 @@ int HitTest(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos)
     for (int i=0; i<mesh.triangle_count; i++)
     {
         const EditableTriangle& et = mesh.triangles[i];
-        if (HitTest(mesh, et, position, hit_pos, nullptr))
+        if (HitTestTriangle(mesh, et, position, hit_pos, where))
             return i;
     }
 
@@ -624,4 +624,31 @@ Bounds2 GetSelectedBounds(const EditableMesh& emesh)
     }
 
     return bounds;
+}
+
+EditableMesh* CreateEditableMesh(Allocator* allocator)
+{
+    EditableMesh* em = (EditableMesh*)Alloc(allocator, sizeof(EditableMesh));
+    em->builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
+    em->vertex_count = 4;
+    em->vertices[0] = {
+        .position =  {-0.5f, -0.5f}
+    };
+    em->vertices[1] = {
+        .position =  { 0.5f, -0.5f}
+    };
+    em->vertices[2] = {
+        .position =  { 0.5f,  0.5f}
+    };
+    em->vertices[3] = {
+        .position =  {-0.5f,  0.5f}
+    };
+
+    em->triangle_count = 2;
+    em->triangles[0] = { 0, 1, 2};
+    em->triangles[1] = { 0, 2, 3};
+
+    MarkDirty(*em);
+
+    return em;
 }

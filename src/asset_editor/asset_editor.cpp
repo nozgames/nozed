@@ -17,13 +17,6 @@ constexpr Color BOX_SELECT_COLOR = Color {0.2f, 0.6f, 1.0f, 0.025f};
 constexpr Color BOX_SELECT_OUTLINE_COLOR = Color {0.2f, 0.6f, 1.0f, 0.2f};
 constexpr float FRAME_VIEW_PERCENTAGE = 1.0f / 0.75f;
 
-extern View* CreateView(Allocator* allocator);
-extern void InitGrid(Allocator* allocator);
-extern void ShutdownGrid();
-extern void SaveAssets();
-
-extern EditableMesh* CreateEditableMesh(Allocator* allocator);
-extern void DrawVertexHandles(EditableMesh* mesh);
 extern void SetPosition(EditableMesh* em, int index, const Vec2& position);
 extern int SplitEdge(EditableMesh* em, int edge_index, float edge_pos);
 extern void DeleteVertex(EditableMesh* em, int vertex_index);
@@ -31,83 +24,11 @@ extern void DissolveVertex(EditableMesh* em, int vertex_index);
 extern void RotateEdge(EditableMesh* em, int edge_index);
 extern void SetTriangleColor(EditableMesh* em, int index, const Vec2Int& color);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
-extern i32 LoadEditableAssets(EditableAsset** assets);
-extern int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float dist);
-extern void MoveTo(EditableAsset& asset, const Vec2& position);
-extern void SaveAssetMetaData();
-extern void UpdateMeshEditor(EditableAsset& ea);
-extern void InitMeshEditor(EditableAsset& ea);
-extern void RenderMeshEditor(EditableAsset& ea);
-extern void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds);
 
-static bool IsEditing() { return g_asset_editor.edit_asset_index != -1; }
+static bool IsEditing() { return g_asset_editor.state == ASSET_EDITOR_STATE_EDIT; }
 static EditableAsset& GetEditingAsset() { return *g_asset_editor.assets[g_asset_editor.edit_asset_index]; }
 
 AssetEditor g_asset_editor = {};
-
-#if 0
-static int HitTestVertex()
-{
-    Vec2 mouse = GetMousePosition();
-    Vec2 mouse_world = ScreenToWorld(g_asset_editor.camera, mouse);
-    return HitTestVertex(g_asset_editor.emesh, mouse_world, VERTEX_SIZE * g_asset_editor.zoom / REF_ZOOM);
-}
-
-static int HitTestTriangle()
-{
-    Vec2 mouse = GetMousePosition();
-    Vec2 mouse_world = ScreenToWorld(g_asset_editor.camera, mouse);
-
-    for (int i=0; i<g_asset_editor.emesh->triangle_count; i++)
-    {
-        EditableTriangle& et = g_asset_editor.emesh->triangles[i];
-        Vec2 v0 = g_asset_editor.emesh->vertices[et.v0].position;
-        Vec2 v1 = g_asset_editor.emesh->vertices[et.v1].position;
-        Vec2 v2 = g_asset_editor.emesh->vertices[et.v2].position;
-
-        // Barycentric technique
-        float area = 0.5f *(-v1.y * v2.x + v0.y * (-v1.x + v2.x) + v0.x * (v1.y - v2.y) + v1.x * v2.y);
-        float s = 1/(2*area)*(v0.y*v2.x - v0.x*v2.y + (v2.y - v0.y)*mouse_world.x + (v0.x - v2.x)*mouse_world.y);
-        float t = 1/(2*area)*(v0.x*v1.y - v0.y*v1.x + (v0.y - v1.y)*mouse_world.x + (v1.x - v0.x)*mouse_world.y);
-
-        if (s >= 0 && t >= 0 && (s + t) <= 1)
-            return i;
-    }
-
-    return -1;
-}
-
-static int HitTestEdge(float* pos)
-{
-    Vec2 mouse = GetMousePosition();
-    Vec2 mouse_world = ScreenToWorld(g_asset_editor.camera, mouse);
-    float zoom_scale = g_asset_editor.zoom / REF_ZOOM;
-
-    for (int i=0; i<g_asset_editor.emesh->edge_count; i++)
-    {
-        EditableEdge& ee = g_asset_editor.emesh->edges[i];
-        Vec2 v0 = g_asset_editor.emesh->vertices[ee.v0].position;
-        Vec2 v1 = g_asset_editor.emesh->vertices[ee.v1].position;
-        Vec2 edge_dir = Normalize(v1 - v0);
-        Vec2 to_mouse = mouse_world - v0;
-        float edge_length = Length(v1 - v0);
-        float proj = Dot(to_mouse, edge_dir);
-        if (proj >= 0 && proj <= edge_length)
-        {
-            Vec2 closest_point = v0 + edge_dir * proj;
-            float dist = Length(mouse_world - closest_point);
-            if (dist < VERTEX_SIZE * 0.5f * zoom_scale)
-            {
-                if (pos)
-                    *pos = proj / edge_length;
-                return i;
-            }
-        }
-    }
-
-    return -1;
-}
-#endif
 
 static void UpdateCamera()
 {
@@ -336,6 +257,23 @@ static void UpdateView()
 
 void UpdateAssetEditor()
 {
+    g_asset_editor.input_locked = false;
+
+    // Custom code for asset editor
+    if (IsEditing())
+    {
+        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
+        switch (ea.type)
+        {
+        case EDITABLE_ASSET_TYPE_MESH:
+            UpdateMeshEditor(ea);
+            break;
+
+        default:
+            break;
+        }
+    }
+
     UpdateCamera();
 
     g_asset_editor.world_mouse_position = ScreenToWorld(g_asset_editor.camera, GetMousePosition());
@@ -343,17 +281,13 @@ void UpdateAssetEditor()
     if (!IsEditing())
         g_asset_editor.hover_asset = HitTestAssets(g_asset_editor.world_mouse_position);
 
-    if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE))
-    {
-        SaveAssetMetaData();
-    }
-
     // Enter / Exit edit mode
     if (!g_asset_editor.box_selecting && WasButtonPressed(g_asset_editor.input, KEY_TAB))
     {
         if (IsEditing())
         {
             g_asset_editor.edit_asset_index = -1;
+            g_asset_editor.state = ASSET_EDITOR_STATE_NONE;
         }
         else if (g_asset_editor.selected_asset_count == 1)
         {
@@ -364,6 +298,7 @@ void UpdateAssetEditor()
             switch (ea.type)
             {
             case EDITABLE_ASSET_TYPE_MESH:
+                g_asset_editor.state = ASSET_EDITOR_STATE_EDIT;
                 InitMeshEditor(ea);
                 break;
 
@@ -466,26 +401,13 @@ void UpdateAssetEditor()
     //     MoveTo(*g_asset_editor.assets[g_asset_editor.selected_asset], world);
     // }
 
-    // Custom code for asset editor
-    if (IsEditing())
-    {
-        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
-        switch (ea.type)
-        {
-        case EDITABLE_ASSET_TYPE_MESH:
-            UpdateMeshEditor(ea);
-            break;
 
-        default:
-            break;
-        }
-    }
 
     // Save
-    if (WasButtonPressed(g_asset_editor.input, KEY_S) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    if (!g_asset_editor.input_locked && WasButtonPressed(g_asset_editor.input, KEY_S) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
     {
         ConsumeButton(g_asset_editor.input, KEY_S);
-        SaveAssets();
+        SaveEditableAssets();
     }
 
     UpdateBoxSelect();
@@ -635,6 +557,7 @@ int InitAssetEditor(int argc, const char* argv[])
     InitNotifications();
 
     g_asset_editor.asset_count = LoadEditableAssets(g_asset_editor.assets);
+    g_asset_editor.state = ASSET_EDITOR_STATE_NONE;
 
     // todo: read path from editor config
     while (UpdateApplication())

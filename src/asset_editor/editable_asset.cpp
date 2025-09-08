@@ -7,7 +7,6 @@
 
 extern EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename);
 extern bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& filename);
-extern int HitTest(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos);
 
 static EditableAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
 {
@@ -80,7 +79,7 @@ static void SaveAssetMetaData(const EditableAsset& asset)
     SaveProps(props, meta_path);
 }
 
-void SaveAssetMetaData()
+static void SaveAssetMetaData()
 {
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
     {
@@ -124,8 +123,10 @@ void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color)
     }
 }
 
-void SaveAssets()
+void SaveEditableAssets()
 {
+    SaveAssetMetaData();
+
     u32 count = 0;
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
     {
@@ -150,7 +151,7 @@ bool HitTestAsset(const EditableAsset& ea, const Vec2& hit_pos)
     switch (ea.type)
     {
     case EDITABLE_ASSET_TYPE_MESH:
-        return -1 != HitTest(*ea.mesh, ea.position, hit_pos);
+        return -1 != HitTestTriangle(*ea.mesh, ea.position, hit_pos);
 
     default:
         return false;

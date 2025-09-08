@@ -71,8 +71,16 @@ struct EditableAsset
     bool selected;
 };
 
+enum AssetEditorState
+{
+    ASSET_EDITOR_STATE_NONE,
+    ASSET_EDITOR_STATE_MOVE,
+    ASSET_EDITOR_STATE_EDIT
+};
+
 struct AssetEditor
 {
+    AssetEditorState state;
     Camera* camera;
     Material* material;
     Material* vertex_material;
@@ -90,6 +98,7 @@ struct AssetEditor
     i32 hover_asset;
     int edit_asset_index;
     Vec2 world_mouse_position;
+    bool input_locked;
 
     EditableAsset* assets[MAX_ASSETS];
     u32 asset_count;
@@ -109,8 +118,12 @@ struct AssetEditor
 
 #include "editor_assets.h"
 
+
+extern AssetEditor g_asset_editor;
+
+constexpr Color COLOR_SELECTED = { 1.0f, 0.788f, 0.055f, 1.0f};
+
 // @editor
-extern void UpdateBoxSelect(InputSet* set);
 extern void ClearBoxSelect();
 
 // @grid
@@ -118,12 +131,9 @@ extern void InitGrid(Allocator* allocator);
 extern void ShutdownGrid();
 extern void DrawGrid(Camera* camera);
 
-extern AssetEditor g_asset_editor;
-
-constexpr Color COLOR_SELECTED = { 1.0f, 0.788f, 0.055f, 1.0f};
-
-
 // @editable_asset
+extern i32 LoadEditableAssets(EditableAsset** assets);
+extern void SaveEditableAssets();
 extern bool HitTestAsset(const EditableAsset& ea, const Vec2& hit_pos);
 extern bool HitTestAsset(const EditableAsset& ea, const Bounds2& hit_bounds);
 extern int HitTestAssets(const Vec2& hit_pos);
@@ -133,9 +143,14 @@ extern void DrawAsset(const EditableAsset& ea);
 extern Bounds2 GetBounds(const EditableAsset& ea);
 extern int GetFirstSelectedAsset();
 extern Bounds2 GetSelectedBounds(const EditableAsset& ea);
+extern void MoveTo(EditableAsset& asset, const Vec2& position);
 
 // @editable_mesh
+extern EditableMesh* CreateEditableMesh(Allocator* allocator);
 extern bool HitTest(const EditableMesh& mesh, const Vec2& position, const Bounds2& hit_bounds);
+extern bool HitTestTriangle(const EditableMesh& em, const EditableTriangle& et, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
+extern int HitTestTriangle(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
+extern int HitTestEdge(const EditableMesh& em, const Vec2& hit_pos, float size, float* where=nullptr);
 extern Mesh* ToMesh(EditableMesh* emesh);
 extern Bounds2 GetSelectedBounds(const EditableMesh& emesh);
 extern void MarkDirty(EditableMesh& emesh);
@@ -145,3 +160,9 @@ extern void MarkModified(EditableMesh& emesh);
 extern void InitNotifications();
 extern void UpdateNotifications();
 extern void AddNotification(const char* format, ...);
+
+// @mesh_editor
+extern void UpdateMeshEditor(EditableAsset& ea);
+extern void InitMeshEditor(EditableAsset& ea);
+extern void RenderMeshEditor(EditableAsset& ea);
+extern void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds);
