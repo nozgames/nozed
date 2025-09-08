@@ -36,6 +36,7 @@ static Vec3 TriangleNormal(const Vec3& p0, const Vec3& p1, const Vec3& p2)
     Vec3 u = p1 - p0;
     Vec3 v = p2 - p0;
     Vec3 n = Cross(u, v);
+    if (n.z < 0) n.z *= -1.0f;
     return Normalize(n);
 }
 
@@ -465,20 +466,19 @@ static int GetTriangleEdgeIndex(const EditableTriangle& et, const EditableEdge& 
     return -1;
 }
 
-void RotateEdge(EditableMesh* em, int edge_index)
+void RotateEdge(EditableMesh& em, int edge_index)
 {
-    assert(em);
-    assert(edge_index >= 0 && edge_index < em->edge_count);
+    assert(edge_index >= 0 && edge_index < em.edge_count);
 
-    EditableEdge& edge = em->edges[edge_index];
+    EditableEdge& edge = em.edges[edge_index];
 
     // Find the two triangles that share this edge
     int triangle_indices[2];
     int triangle_count = 0;
 
-    for (int i = 0; i < em->triangle_count; i++)
+    for (int i = 0; i < em.triangle_count; i++)
     {
-        EditableTriangle& et = em->triangles[i];
+        EditableTriangle& et = em.triangles[i];
         if (GetTriangleEdgeIndex(et, edge) != -1)
         {
             if (triangle_count < 2)
@@ -493,8 +493,8 @@ void RotateEdge(EditableMesh* em, int edge_index)
     if (triangle_count != 2)
         return;
 
-    EditableTriangle& tri1 = em->triangles[triangle_indices[0]];
-    EditableTriangle& tri2 = em->triangles[triangle_indices[1]];
+    EditableTriangle& tri1 = em.triangles[triangle_indices[0]];
+    EditableTriangle& tri2 = em.triangles[triangle_indices[1]];
 
     // Find the vertices that are NOT part of the shared edge
     int opposite1 = -1, opposite2 = -1;
@@ -523,10 +523,10 @@ void RotateEdge(EditableMesh* em, int edge_index)
 
     // We need to determine the correct winding order by checking the original triangles
     // Get positions to calculate winding
-    Vec2 pos_opposite1 = em->vertices[opposite1].position;
-    Vec2 pos_opposite2 = em->vertices[opposite2].position;
-    Vec2 pos_v0 = em->vertices[edge.v0].position;
-    Vec2 pos_v1 = em->vertices[edge.v1].position;
+    Vec2 pos_opposite1 = em.vertices[opposite1].position;
+    Vec2 pos_opposite2 = em.vertices[opposite2].position;
+    Vec2 pos_v0 = em.vertices[edge.v0].position;
+    Vec2 pos_v1 = em.vertices[edge.v1].position;
 
     // Calculate cross product to determine winding for first triangle
     // We want: opposite1 -> edge.v0 -> opposite2 to maintain CCW winding
@@ -570,8 +570,8 @@ void RotateEdge(EditableMesh* em, int edge_index)
         tri2.v2 = opposite2;
     }
 
-    MarkModified(*em);
-    MarkDirty(*em);
+    MarkModified(em);
+    MarkDirty(em);
 }
 
 int SplitEdge(EditableMesh& em, int edge_index, float edge_pos)

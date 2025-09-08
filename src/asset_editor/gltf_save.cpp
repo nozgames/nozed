@@ -50,17 +50,17 @@ bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& fil
         // Vertex 0 of triangle
         vertex_data[(i * 3 + 0) * 3 + 0] = mesh->vertices[tri.v0].position.x;
         vertex_data[(i * 3 + 0) * 3 + 1] = mesh->vertices[tri.v0].position.y;
-        vertex_data[(i * 3 + 0) * 3 + 2] = 0.0f;
+        vertex_data[(i * 3 + 0) * 3 + 2] = mesh->vertices[tri.v0].height;
         
         // Vertex 1 of triangle
         vertex_data[(i * 3 + 1) * 3 + 0] = mesh->vertices[tri.v1].position.x;
         vertex_data[(i * 3 + 1) * 3 + 1] = mesh->vertices[tri.v1].position.y;
-        vertex_data[(i * 3 + 1) * 3 + 2] = 0.0f;
+        vertex_data[(i * 3 + 1) * 3 + 2] = mesh->vertices[tri.v1].height;
         
         // Vertex 2 of triangle
         vertex_data[(i * 3 + 2) * 3 + 0] = mesh->vertices[tri.v2].position.x;
         vertex_data[(i * 3 + 2) * 3 + 1] = mesh->vertices[tri.v2].position.y;
-        vertex_data[(i * 3 + 2) * 3 + 2] = 0.0f;
+        vertex_data[(i * 3 + 2) * 3 + 2] = mesh->vertices[tri.v2].height;;
     }
     
     // Fill normal data (calculate normal from triangle vertices)

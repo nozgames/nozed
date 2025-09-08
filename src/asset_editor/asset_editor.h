@@ -4,6 +4,7 @@
 
 #pragma once
 
+constexpr int STATE_STACK_SIZE = 16;
 constexpr int MAX_ASSETS = 1024;
 constexpr int MAX_VERTICES = 4096;
 constexpr int MAX_TRIANGLES = MAX_VERTICES / 3;
@@ -69,6 +70,7 @@ struct EditableAsset
     EditableAssetType type;
     EditableMesh* mesh;
     Vec2 position;
+    Vec2 saved_position;
     bool dirty;
     std::filesystem::path path;
     bool selected;
@@ -76,14 +78,17 @@ struct EditableAsset
 
 enum AssetEditorState
 {
-    ASSET_EDITOR_STATE_NONE,
+    ASSET_EDITOR_STATE_DEFAULT,
     ASSET_EDITOR_STATE_MOVE,
-    ASSET_EDITOR_STATE_EDIT
+    ASSET_EDITOR_STATE_EDIT,
+    ASSET_EDITOR_STATE_BOX_SELECT,
+    ASSET_EDITOR_STATE_PAN,
 };
 
 struct AssetEditor
 {
-    AssetEditorState state;
+    AssetEditorState state_stack[STATE_STACK_SIZE];
+    int state_stack_count;
     Camera* camera;
     Material* material;
     Material* vertex_material;
@@ -95,28 +100,24 @@ struct AssetEditor
     float dpi;
     InputSet* input;
     int selected_vertex;
-    bool dragging;
-    Vec2 drag_start;
-    Vec2 drag_position_start;
-    i32 hover_asset;
     int edit_asset_index;
-    Vec2 world_mouse_position;
-    bool input_locked;
+    bool clear_selection_on_release;
+    Vec2 pan_start;
 
     EditableAsset* assets[MAX_ASSETS];
     u32 asset_count;
     u32 selected_asset_count;
 
-    // Panning
-    bool panning;
-    Vec2 pan_start_mouse;
-    Vec2 pan_start_camera;
-
-    // Box select
-    bool box_selecting;
-    Vec2 box_start_mouse;
-    Vec2 box_start_world;
     Bounds2 box_selection;
+    Vec2 move_world_position;
+
+    bool drag;
+    Vec2 drag_position;
+    Vec2 drag_world_position;
+    Vec2 drag_delta;
+    Vec2 drag_world_delta;
+    Vec2 mouse_position;
+    Vec2 mouse_world_position;
 };
 
 #include "editor_assets.h"
@@ -128,6 +129,8 @@ constexpr Color COLOR_SELECTED = { 1.0f, 0.788f, 0.055f, 1.0f};
 
 // @editor
 extern void ClearBoxSelect();
+extern void PushState(AssetEditorState state);
+extern void PopState();
 
 // @grid
 extern void InitGrid(Allocator* allocator);
@@ -147,6 +150,9 @@ extern Bounds2 GetBounds(const EditableAsset& ea);
 extern int GetFirstSelectedAsset();
 extern Bounds2 GetSelectedBounds(const EditableAsset& ea);
 extern void MoveTo(EditableAsset& asset, const Vec2& position);
+extern void ClearAssetSelection();
+extern void SetAssetSelection(int asset_index);
+extern void AddAssetSelection(int asset_index);
 
 // @editable_mesh
 extern EditableMesh* CreateEditableMesh(Allocator* allocator);
@@ -168,6 +174,7 @@ extern void AddSelection(EditableMesh& em, int vertex_index);
 extern void ToggleSelection(EditableMesh& em, int vertex_index);
 extern void ClearSelection(EditableMesh& em);
 extern void SelectAll(EditableMesh& em);
+extern void RotateEdge(EditableMesh& em, int edge_index);
 
 // @notifications
 extern void InitNotifications();

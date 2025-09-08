@@ -80,22 +80,15 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
     cgltf_accessor_unpack_floats(position_accessor, positions, num_floats);
     
     // Load all positions into temporary array (allocate on heap to avoid stack overflow)
-    Vec2* loaded_positions = (Vec2*)malloc(MAX_VERTICES * sizeof(Vec2));
+    Vec3* loaded_positions = (Vec3*)malloc(MAX_VERTICES * sizeof(Vec3));
+    assert(position_accessor->type == cgltf_type_vec3);
     for (int i = 0; i < loaded_vertex_count; ++i)
     {
-        if (position_accessor->type == cgltf_type_vec2)
-        {
-            loaded_positions[i].x = positions[i * 2 + 0];
-            loaded_positions[i].y = positions[i * 2 + 1];
-        }
-        else if (position_accessor->type == cgltf_type_vec3)
-        {
-            loaded_positions[i].x = positions[i * 3 + 0];
-            loaded_positions[i].y = positions[i * 3 + 1];
-            // Ignore Z component for 2D mesh
-        }
+        loaded_positions[i].x = positions[i * 3 + 0];
+        loaded_positions[i].y = positions[i * 3 + 1];
+        loaded_positions[i].z = positions[i * 3 + 2];
     }
-    
+
     free(positions);
     
     // Load indices first to get the correct triangle mapping
@@ -194,7 +187,9 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
             // Create new merged vertex
             if (mesh->vertex_count < MAX_VERTICES)
             {
-                mesh->vertices[mesh->vertex_count].position = loaded_positions[i];
+                EditableVertex& ev = mesh->vertices[mesh->vertex_count];
+                ev.position = {loaded_positions[i].x, loaded_positions[i].y};
+                ev.height = loaded_positions[i].z;
                 vertex_remap[i] = mesh->vertex_count;
                 mesh->vertex_count++;
             }

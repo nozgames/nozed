@@ -202,7 +202,6 @@ void DrawAsset(const EditableAsset& ea)
     }
 }
 
-
 Bounds2 GetBounds(const EditableAsset& ea)
 {
     switch (ea.type)
@@ -246,4 +245,22 @@ void ClearAssetSelection()
         g_asset_editor.assets[i]->selected = false;
 
     g_asset_editor.selected_asset_count = 0;
+}
+
+void SetAssetSelection(int asset_index)
+{
+    ClearAssetSelection();
+    g_asset_editor.assets[asset_index]->selected = true;
+    g_asset_editor.selected_asset_count = 1;
+}
+
+
+void AddAssetSelection(int asset_index)
+{
+    EditableAsset& ea = *g_asset_editor.assets[asset_index];
+    if (ea.selected)
+        return;
+
+    ea.selected = true;
+    g_asset_editor.selected_asset_count++;
 }

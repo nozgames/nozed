@@ -5,6 +5,7 @@
 #include "asset_editor.h"
 #include "file_helpers.h"
 
+constexpr float DRAG_MIN = 1;
 constexpr float DEFAULT_DPI = 72.0f;
 constexpr float ZOOM_MIN = 0.1f;
 constexpr float ZOOM_MAX = 40.0f;
@@ -25,7 +26,7 @@ extern void RotateEdge(EditableMesh* em, int edge_index);
 extern void SetTriangleColor(EditableMesh* em, int index, const Vec2Int& color);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
-static bool IsEditing() { return g_asset_editor.state == ASSET_EDITOR_STATE_EDIT; }
+static AssetEditorState GetState() { return g_asset_editor.state_stack[g_asset_editor.state_stack_count-1]; }
 static EditableAsset& GetEditingAsset() { return *g_asset_editor.assets[g_asset_editor.edit_asset_index]; }
 
 AssetEditor g_asset_editor = {};
@@ -48,7 +49,7 @@ static void FrameView()
     Bounds2 bounds = {};
     bool first = true;
 
-    if (IsEditing())
+    if (g_asset_editor.edit_asset_index != -1)
     {
         EditableAsset& ea = GetEditingAsset();
         bounds = GetSelectedBounds(ea) + ea.position;
@@ -90,7 +91,7 @@ static void FrameView()
 static void HandleBoxSelect()
 {
     // When in edit mode let the editor handle it
-    if (IsEditing())
+    if (GetState() == ASSET_EDITOR_STATE_EDIT && g_asset_editor.edit_asset_index != -1)
     {
         EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
@@ -108,103 +109,41 @@ static void HandleBoxSelect()
         return;
     }
 
-    g_asset_editor.selected_asset_count = 0;
+    ClearAssetSelection();
     for (int i=0; i<g_asset_editor.asset_count; i++)
     {
         EditableAsset& ea = *g_asset_editor.assets[i];
-        ea.selected = HitTestAsset(ea, g_asset_editor.box_selection);
-        if (ea.selected)
-            g_asset_editor.selected_asset_count++;
+        if (HitTestAsset(ea, g_asset_editor.box_selection))
+            AddAssetSelection(i);
     }
 }
 
 static void UpdateBoxSelect()
 {
-    if (g_asset_editor.panning)
-        return;
-
-    // Start tracking potential box selection on left mouse press
-    if (!g_asset_editor.dragging && WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    if (!g_asset_editor.drag)
     {
-        g_asset_editor.box_start_mouse = GetMousePosition();
-        g_asset_editor.box_start_world = ScreenToWorld(g_asset_editor.camera, g_asset_editor.box_start_mouse);
-
-        // Initialize selection bounds but don't set box_selecting yet
-        g_asset_editor.box_selection.min = g_asset_editor.box_start_world;
-        g_asset_editor.box_selection.max = g_asset_editor.box_start_world;
-    }
-    
-    // Check for meaningful drag distance and start box selection
-    if (!g_asset_editor.box_selecting && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
-    {
-        Vec2 current_world = g_asset_editor.world_mouse_position;
-        float width = Abs(current_world.x - g_asset_editor.box_start_world.x);
-        float height = Abs(current_world.y - g_asset_editor.box_start_world.y);
-        
-        // Only start box selecting when drag is meaningful
-        if (width > 0.01f || height > 0.01f)
-        {
-            g_asset_editor.box_selecting = true;
-        }
-    }
-    
-    // Continue box selection while dragging
-    if (g_asset_editor.box_selecting && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
-    {
-        Vec2 current_world = g_asset_editor.world_mouse_position;
-        
-        // Update selection bounds
-        g_asset_editor.box_selection.min = Vec2{
-            Min(g_asset_editor.box_start_world.x, current_world.x),
-            Min(g_asset_editor.box_start_world.y, current_world.y)
-        };
-        g_asset_editor.box_selection.max = Vec2{
-            Max(g_asset_editor.box_start_world.x, current_world.x),
-            Max(g_asset_editor.box_start_world.y, current_world.y)
-        };
-    }
-    
-    // End box selection on mouse release
-    if (g_asset_editor.box_selecting && WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
-    {
-        g_asset_editor.box_selecting = false;
+        PopState();
         HandleBoxSelect();
+        return;
     }
+
+    g_asset_editor.box_selection.min = Min(g_asset_editor.drag_world_position, g_asset_editor.mouse_world_position);
+    g_asset_editor.box_selection.max = Max(g_asset_editor.drag_world_position, g_asset_editor.mouse_world_position);
 }
 
-static void PanView()
+static void UpdatePanState()
 {
-    // Start panning when space + mouse button are both pressed
-    if (IsButtonDown(g_asset_editor.input, KEY_SPACE) && WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    if (WasButtonReleased(g_asset_editor.input, KEY_SPACE))
     {
-        g_asset_editor.panning = true;
-        g_asset_editor.pan_start_mouse = GetMousePosition();
-
-        // Get current camera bounds to extract position
-        Bounds2 bounds = GetBounds(g_asset_editor.camera);
-        g_asset_editor.pan_start_camera = Vec2{
-            (bounds.min.x + bounds.max.x) * 0.5f,
-            (bounds.min.y + bounds.max.y) * 0.5f
-        };
+        PopState();
+        return;
     }
 
-    // Continue panning while both space and mouse are held
-    if (g_asset_editor.panning && IsButtonDown(g_asset_editor.input, KEY_SPACE) && IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
+    if (g_asset_editor.drag)
     {
-        // Calculate mouse delta in screen space, then convert to world space delta
-        Vec2 mouse_delta = GetMousePosition() - g_asset_editor.pan_start_mouse;
-        Vec2 world_delta_start = ScreenToWorld(g_asset_editor.camera, g_asset_editor.pan_start_mouse);
-        Vec2 world_delta_current = ScreenToWorld(g_asset_editor.camera, g_asset_editor.pan_start_mouse + mouse_delta);
-        Vec2 world_delta = world_delta_start - world_delta_current; // Invert for natural panning
-
-        // Apply pan offset to camera position
-        SetPosition(g_asset_editor.camera, g_asset_editor.pan_start_camera + world_delta);
-    }
-
-    // Stop panning when either space or mouse is released
-    if (WasButtonReleased(g_asset_editor.input, KEY_SPACE) || WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
-    {
-        g_asset_editor.panning = false;
+        Vec2 delta = g_asset_editor.mouse_position - g_asset_editor.drag_position;
+        Vec2 world_delta = ScreenToWorld(g_asset_editor.camera, delta) - ScreenToWorld(g_asset_editor.camera, VEC2_ZERO);
+        SetPosition(g_asset_editor.camera, g_asset_editor.pan_start - world_delta);
     }
 }
 
@@ -233,7 +172,6 @@ static void ZoomView()
 
 static void UpdateView()
 {
-    PanView();
     ZoomView();
 
     // Frame
@@ -255,13 +193,188 @@ static void UpdateView()
     }
 }
 
+static void UpdateMoveState()
+{
+    // Move all selected assets
+    Vec2 drag = g_asset_editor.mouse_world_position - g_asset_editor.move_world_position;
+    for (int i=0; i<g_asset_editor.asset_count; i++)
+    {
+        EditableAsset& ea = *g_asset_editor.assets[i];
+        if (!ea.selected)
+            continue;
+
+        MoveTo(ea, ea.saved_position + drag);
+    }
+
+    // Cancel move?
+    if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE))
+    {
+        for (int i=0; i<g_asset_editor.asset_count; i++)
+        {
+            EditableAsset& ea = *g_asset_editor.assets[i];
+            ea.position = ea.saved_position;
+        }
+
+        PopState();
+        return;
+    }
+
+    // Finish move?
+    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_G))
+    {
+        PopState();
+        return;
+    }
+}
+
+static void UpdateDefaultState()
+{
+    // Selection
+    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    {
+        g_asset_editor.clear_selection_on_release = true;
+
+        int asset_index = HitTestAssets(g_asset_editor.mouse_world_position);
+        if (asset_index != -1)
+        {
+            g_asset_editor.clear_selection_on_release = false;
+            SetAssetSelection(asset_index);
+            return;
+        }
+    }
+
+    if (g_asset_editor.drag)
+    {
+        PushState(ASSET_EDITOR_STATE_BOX_SELECT);
+        return;
+    }
+
+    if (WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) && g_asset_editor.clear_selection_on_release)
+    {
+        ClearAssetSelection();
+        return;
+    }
+
+    if (WasButtonPressed(g_asset_editor.input, KEY_SPACE))
+    {
+        PushState(ASSET_EDITOR_STATE_PAN);
+        return;
+    }
+
+    // Enter edit mode
+    if (WasButtonPressed(g_asset_editor.input, KEY_TAB) && g_asset_editor.selected_asset_count == 1)
+    {
+        g_asset_editor.edit_asset_index = GetFirstSelectedAsset();
+        assert(g_asset_editor.edit_asset_index != -1);
+
+        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
+        switch (ea.type)
+        {
+        case EDITABLE_ASSET_TYPE_MESH:
+            PushState(ASSET_EDITOR_STATE_EDIT);
+            InitMeshEditor(ea);
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    // Start an object move
+    if (WasButtonPressed(g_asset_editor.input, KEY_G) && g_asset_editor.selected_asset_count > 0)
+    {
+        PushState(ASSET_EDITOR_STATE_MOVE);
+        return;
+    }
+}
+
+void PushState(AssetEditorState state)
+{
+    assert(state != ASSET_EDITOR_STATE_DEFAULT);
+    assert(g_asset_editor.state_stack_count < STATE_STACK_SIZE);
+    g_asset_editor.state_stack[g_asset_editor.state_stack_count++] = state;
+
+    switch (state)
+    {
+    case ASSET_EDITOR_STATE_BOX_SELECT:
+        UpdateBoxSelect();
+        break;
+
+    case ASSET_EDITOR_STATE_MOVE:
+        g_asset_editor.move_world_position = g_asset_editor.mouse_world_position;
+        for (int i=0; i<g_asset_editor.asset_count; i++)
+        {
+            EditableAsset& ea = *g_asset_editor.assets[i];
+            ea.saved_position = ea.position;
+        }
+        break;
+
+    case ASSET_EDITOR_STATE_PAN:
+        g_asset_editor.move_world_position = g_asset_editor.mouse_world_position;
+        g_asset_editor.pan_start = GetPosition(g_asset_editor.camera);
+        break;
+
+    default:
+        break;
+    }
+}
+
+static void PopState()
+{
+    assert(g_asset_editor.state_stack_count > 1);
+    AssetEditorState state = GetState();
+    g_asset_editor.state_stack_count--;
+
+    switch (state)
+    {
+    case ASSET_EDITOR_STATE_EDIT:
+        g_asset_editor.edit_asset_index = -1;
+        break;
+
+    default:
+        break;
+    }
+}
+
+static void UpdateMouse()
+{
+    g_asset_editor.mouse_position = GetMousePosition();
+    g_asset_editor.mouse_world_position = ScreenToWorld(g_asset_editor.camera, g_asset_editor.mouse_position);
+
+    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    {
+        g_asset_editor.drag = false;
+        g_asset_editor.drag_world_delta = VEC2_ZERO;
+        g_asset_editor.drag_delta = VEC2_ZERO;
+        g_asset_editor.drag_position = g_asset_editor.mouse_position;
+        g_asset_editor.drag_world_position = g_asset_editor.mouse_world_position;
+    }
+
+    if (IsButtonDown(g_asset_editor.input, MOUSE_LEFT))
+    {
+        g_asset_editor.drag_delta = g_asset_editor.mouse_position - g_asset_editor.drag_position;
+        g_asset_editor.drag_world_delta = g_asset_editor.mouse_world_position - g_asset_editor.drag_world_position;
+        g_asset_editor.drag |= Length(g_asset_editor.drag_delta) >= DRAG_MIN;
+    }
+    else
+        g_asset_editor.drag = false;
+}
+
 void UpdateAssetEditor()
 {
-    g_asset_editor.input_locked = false;
+    UpdateCamera();
+    UpdateMouse();
 
-    // Custom code for asset editor
-    if (IsEditing())
+    switch (GetState())
     {
+    case ASSET_EDITOR_STATE_EDIT:
+    {
+        if (WasButtonPressed(g_asset_editor.input, KEY_TAB))
+        {
+            PopState();
+            return;
+        }
+
         EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
         {
@@ -272,155 +385,43 @@ void UpdateAssetEditor()
         default:
             break;
         }
+        break;
     }
 
-    UpdateCamera();
-
-    g_asset_editor.world_mouse_position = ScreenToWorld(g_asset_editor.camera, GetMousePosition());
-
-    if (!IsEditing())
-        g_asset_editor.hover_asset = HitTestAssets(g_asset_editor.world_mouse_position);
-
-    // Enter / Exit edit mode
-    if (!g_asset_editor.box_selecting && WasButtonPressed(g_asset_editor.input, KEY_TAB))
+    case ASSET_EDITOR_STATE_MOVE:
     {
-        if (IsEditing())
-        {
-            g_asset_editor.edit_asset_index = -1;
-            g_asset_editor.state = ASSET_EDITOR_STATE_NONE;
-        }
-        else if (g_asset_editor.selected_asset_count == 1)
-        {
-            g_asset_editor.edit_asset_index = GetFirstSelectedAsset();
-            assert(g_asset_editor.edit_asset_index != -1);
-
-            EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
-            switch (ea.type)
-            {
-            case EDITABLE_ASSET_TYPE_MESH:
-                g_asset_editor.state = ASSET_EDITOR_STATE_EDIT;
-                InitMeshEditor(ea);
-                break;
-
-            default:
-                break;
-            }
-        }
+        UpdateMoveState();
+        return;
     }
 
+    case ASSET_EDITOR_STATE_BOX_SELECT:
+        UpdateBoxSelect();
+        break;
 
-    if (!IsEditing() && WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
-    {
-        // if (g_asset_editor.hover_asset != -1 && g_asset_editor.selected_asset == g_asset_editor.hover_asset )
-        // {
-        //     g_asset_editor.dragging = true;
-        //     g_asset_editor.drag_start = GetMousePosition();
-        //     g_asset_editor.drag_position_start = g_asset_editor.assets[g_asset_editor.selected_asset]->position;
-        // }
-        // else
-        // {
-        //     g_asset_editor.selected_asset = g_asset_editor.hover_asset;
-        // }
+    case ASSET_EDITOR_STATE_PAN:
+        UpdatePanState();
+        break;
 
-        // g_asset_editor.selected_vertex = HitTestVertex();
-        // if (g_asset_editor.selected_vertex != -1)
-        // {
-        //     g_asset_editor.drag_start = GetMousePosition();
-        //     g_asset_editor.drag_position_start = g_asset_editor.emesh->vertices[g_asset_editor.selected_vertex].position;
-        // }
+    default:
+        UpdateDefaultState();
+        break;
     }
-
-    // if (WasButtonPressed(g_asset_editor.input, MOUSE_MIDDLE))
-    // {
-    //     int edge = HitTestEdge(nullptr);
-    //     if (edge != -1)
-    //         RotateEdge(g_asset_editor.emesh, edge);
-    // }
-
-    // if (WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
-    // {
-    //     float edge_pos = 0.0f;
-    //     int edge = HitTestEdge(&edge_pos);
-    //
-    //     if (edge != -1)
-    //     {
-    //         int new_vertex = SplitEdge(g_asset_editor.emesh, edge, edge_pos);
-    //         if (new_vertex != -1)
-    //         {
-    //             g_asset_editor.selected_vertex = new_vertex;
-    //             g_asset_editor.drag_start = GetMousePosition();
-    //             g_asset_editor.drag_position_start = g_asset_editor.emesh->vertices[g_asset_editor.selected_vertex].position;
-    //         }
-    //     }
-    // }
-
-    // if (!g_asset_editor.edit_mode && WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) || WasButtonReleased(g_asset_editor.input, MOUSE_RIGHT))
-    // {
-    //     g_asset_editor.dragging = false;
-    //     g_asset_editor.selected_vertex = -1;
-    // }
-
-    // if (WasButtonPressed(g_asset_editor.input, KEY_SPACE))
-    // {
-    //     int triangle = HitTestTriangle();
-    //     if (triangle != -1)
-    //     {
-    //         SetTriangleColor(g_asset_editor.emesh, triangle, Vec2Int{g_asset_editor.emesh->triangles[triangle].color.x + 1, 1});
-    //     }
-    // }
-
-
-    // if (g_asset_editor.selected_vertex != -1)
-    // {
-    //     Vec2 drag_delta =
-    //         ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ScreenToWorld(g_asset_editor.camera, g_asset_editor.drag_start);
-    //
-    //     Vec2 world = g_asset_editor.drag_position_start + drag_delta;
-    //     if (IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
-    //         world = SnapToGrid(world, true);
-    //
-    //     SetPosition(g_asset_editor.emesh, g_asset_editor.selected_vertex, world);
-    // }
-
-    // Move selected asset
-    // if (g_asset_editor.dragging && g_asset_editor.selected_asset != -1)
-    // {
-    //     Vec2 drag_delta =
-    //         g_asset_editor.world_mouse_position - ScreenToWorld(g_asset_editor.camera, g_asset_editor.drag_start);
-    //
-    //     Vec2 world = g_asset_editor.drag_position_start + drag_delta;
-    //     if (IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
-    //         world = SnapToGrid(world, true);
-    //
-    //     MoveTo(*g_asset_editor.assets[g_asset_editor.selected_asset], world);
-    // }
-
-
 
     // Save
-    if (!g_asset_editor.input_locked && WasButtonPressed(g_asset_editor.input, KEY_S) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
-    {
+    if (WasButtonPressed(g_asset_editor.input, KEY_S) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
         SaveEditableAssets();
-    }
 
-    UpdateBoxSelect();
     UpdateView();
     UpdateNotifications();
 }
 
 static void DrawBoxSelect()
 {
-    if (!g_asset_editor.box_selecting)
+    if (GetState() != ASSET_EDITOR_STATE_BOX_SELECT)
         return;
 
-    Vec2 center = Vec2{
-        (g_asset_editor.box_selection.min.x + g_asset_editor.box_selection.max.x) * 0.5f,
-        (g_asset_editor.box_selection.min.y + g_asset_editor.box_selection.max.y) * 0.5f
-    };
-    Vec2 size = Vec2{
-        g_asset_editor.box_selection.max.x - g_asset_editor.box_selection.min.x,
-        g_asset_editor.box_selection.max.y - g_asset_editor.box_selection.min.y
-    };
+    Vec2 center = GetCenter(g_asset_editor.box_selection);
+    Vec2 size = GetSize(g_asset_editor.box_selection);
 
     // center
     BindColor(BOX_SELECT_COLOR);
@@ -455,7 +456,7 @@ void RenderView()
         DrawAsset(*g_asset_editor.assets[i]);
 
     // Draw edges
-    if (IsEditing())
+    if (g_asset_editor.edit_asset_index != -1)
     {
         EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
@@ -553,7 +554,8 @@ int InitAssetEditor(int argc, const char* argv[])
     InitNotifications();
 
     g_asset_editor.asset_count = LoadEditableAssets(g_asset_editor.assets);
-    g_asset_editor.state = ASSET_EDITOR_STATE_NONE;
+    g_asset_editor.state_stack[0] = ASSET_EDITOR_STATE_DEFAULT;
+    g_asset_editor.state_stack_count = 1;
 
     // todo: read path from editor config
     while (UpdateApplication())

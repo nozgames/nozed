@@ -13,6 +13,7 @@ constexpr float TRANSITION_START = MAX_GRID_PIXELS * 0.3f; // Start fading in se
 constexpr float TRANSITION_END = MIN_GRID_PIXELS; // Complete transition at min
 constexpr Color PRIMARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.3f };
 constexpr Color SECONDARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.1f };
+constexpr Color ZERO_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.5f };
 
 struct Grid
 {
@@ -22,6 +23,34 @@ struct Grid
 };
 
 static Grid g_grid = {};
+
+static void DrawZeroGrid(Camera* camera)
+{
+    BindColor(ZERO_GRID_COLOR);
+
+    Vec2Int screen_size = GetScreenSize();
+    Bounds2 bounds = GetBounds(camera);
+    float left = bounds.min.x;
+    float right = bounds.max.x;
+    float bottom = bounds.min.y;
+    float top = bounds.max.y;
+    float world_height = top - bottom;
+    float pixels_per_world_unit = screen_size.y / world_height;
+    float line_thickness = 1.0f / pixels_per_world_unit;
+
+    // Draw vertical lines
+    float start_x = 0;
+    Vec2 line_center = { 0, (top + bottom) * 0.5f };
+    Vec2 line_scale = { line_thickness, (top - bottom) * 0.5f };
+    BindTransform(TRS(line_center, 0, line_scale));
+    DrawMesh(g_grid.quad_mesh);
+
+    // Draw horizontal lines
+    line_center = { (left + right) * 0.5f, 0 };
+    line_scale = { (right - left) * 0.5f, line_thickness };
+    BindTransform(TRS(line_center, 0, line_scale));
+    DrawMesh(g_grid.quad_mesh);
+}
 
 static void DrawGridLines(Camera* camera, float spacing, const Color& color, float alpha)
 {
@@ -98,6 +127,7 @@ void DrawGrid(Camera* camera)
     BindMaterial(g_grid.material);
     DrawGridInternal(camera, 72.0f, 1.0f, 1, 1);
     DrawGridInternal(camera, 72.0f, 0.1f, 0, 1);
+    DrawZeroGrid(camera);
 }
 
 void InitGrid(Allocator* allocator)

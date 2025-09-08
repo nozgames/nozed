@@ -10,8 +10,9 @@ extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
 constexpr float HEIGHT_MIN = -10.0f;
 constexpr float HEIGHT_MAX = 10.0f;
-constexpr float HEIGHT_RATE = 0.1f;
+constexpr float HEIGHT_RATE = 0.5f;
 constexpr float VERTEX_SIZE = 0.08f;
+constexpr float VERTEX_HIT_SIZE = VERTEX_SIZE * 5.0f;
 constexpr float CENTER_SIZE = 0.05f;
 constexpr Color COLOR_EDGE = { 0,0,0, 0.5f };
 constexpr Color COLOR_VERTEX = { 0,0,0,1 };
@@ -88,9 +89,9 @@ static void RevertPositions(EditableAsset& ea)
 
 static void UpdateHeightState(EditableAsset& ea)
 {
-    float delta =
-        (g_asset_editor.world_mouse_position.y - g_mesh_editor.selection_drag_start.y) -
-        (g_mesh_editor.world_drag_start.y - g_mesh_editor.selection_drag_start.y);
+    float delta = -(
+        (g_asset_editor.mouse_world_position.y - g_mesh_editor.selection_drag_start.y) -
+        (g_mesh_editor.world_drag_start.y - g_mesh_editor.selection_drag_start.y));
 
     EditableMesh& em = *ea.mesh;
     for (i32 i=0; i<em.vertex_count; i++)
@@ -120,7 +121,7 @@ static void UpdateHeightState(EditableAsset& ea)
 static void UpdateScaleState(EditableAsset& ea)
 {
     float delta =
-        Length(g_asset_editor.world_mouse_position - g_mesh_editor.selection_drag_start) -
+        Length(g_asset_editor.mouse_world_position - g_mesh_editor.selection_drag_start) -
         Length(g_mesh_editor.world_drag_start - g_mesh_editor.selection_drag_start);
 
     EditableMesh& em = *ea.mesh;
@@ -151,7 +152,7 @@ static void UpdateScaleState(EditableAsset& ea)
 
 static void UpdateMoveState(EditableAsset& ea)
 {
-    Vec2 delta = g_asset_editor.world_mouse_position - g_mesh_editor.world_drag_start;
+    Vec2 delta = g_asset_editor.mouse_world_position - g_mesh_editor.world_drag_start;
     Vec2 new_center = g_mesh_editor.selection_drag_start + delta;
     if (IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
         new_center = SnapToGrid(new_center, true);
@@ -171,7 +172,7 @@ static void UpdateMoveState(EditableAsset& ea)
 static void SetState(EditableAsset& ea, MeshEditorState state)
 {
     g_mesh_editor.state = state;
-    g_mesh_editor.world_drag_start = g_asset_editor.world_mouse_position;
+    g_mesh_editor.world_drag_start = g_asset_editor.mouse_world_position;
     g_mesh_editor.selection_drag_start = ea.position + g_mesh_editor.selection_center;
 
     for (int i=0; i<ea.mesh->vertex_count; i++)
@@ -188,7 +189,7 @@ static bool SelectVertex(EditableAsset& ea)
     int vertex_index = HitTestVertex(
         em,
         ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ea.position,
-        VERTEX_SIZE * g_asset_editor.zoom_ref_scale);
+        VERTEX_HIT_SIZE * g_asset_editor.zoom_ref_scale);
 
     if (vertex_index == -1)
         return false;
@@ -209,7 +210,7 @@ static bool SelectEdge(EditableAsset& ea)
     int edge_index = HitTestEdge(
         em,
         ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ea.position,
-        VERTEX_SIZE * g_asset_editor.zoom_ref_scale);
+        VERTEX_HIT_SIZE * g_asset_editor.zoom_ref_scale);
 
     if (edge_index == -1)
         return false;
@@ -258,7 +259,7 @@ static bool AddVertex(EditableAsset& ea)
     int vertex_index = HitTestVertex(
         em,
         ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ea.position,
-        VERTEX_SIZE * g_asset_editor.zoom_ref_scale);
+        VERTEX_HIT_SIZE * g_asset_editor.zoom_ref_scale);
     if (vertex_index != -1)
         return false;
 
@@ -267,7 +268,7 @@ static bool AddVertex(EditableAsset& ea)
     int edge_index = HitTestEdge(
         em,
         ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ea.position,
-        VERTEX_SIZE * g_asset_editor.zoom_ref_scale,
+        VERTEX_HIT_SIZE * g_asset_editor.zoom_ref_scale,
         &edge_pos);
 
     if (edge_index >= 0)
@@ -311,9 +312,39 @@ static void DissolveSelected(EditableAsset& ea)
     UpdateSelection(ea);
 }
 
+static bool RotateEdges(EditableAsset& ea)
+{
+    EditableMesh& em = *ea.mesh;
+    int count = 0;
+    for (int i=0; i<em.edge_count; i++)
+    {
+        EditableEdge& ee = em.edges[i];
+        if (!em.vertices[ee.v0].selected || !em.vertices[ee.v1].selected)
+            continue;
+
+        RotateEdge(em, i);
+        count++;
+    }
+
+    if (count == 0)
+        return false;
+
+    MarkDirty(em);
+    MarkModified(em);
+    UpdateSelection(ea);
+
+    return true;
+}
+
 static void UpdateDefaultState(EditableAsset& ea)
 {
     EditableMesh& em = *ea.mesh;
+
+    if (g_asset_editor.drag)
+    {
+        PushState(ASSET_EDITOR_STATE_BOX_SELECT);
+        return;
+    }
 
     // Select
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
@@ -366,6 +397,12 @@ static void UpdateDefaultState(EditableAsset& ea)
             return;
     }
 
+    // Rotate edge
+    if (WasButtonPressed(g_asset_editor.input, KEY_R))
+    {
+        if (RotateEdges(ea))
+            return;
+    }
 
     // Enter move state?
     if (g_mesh_editor.state == MESH_EDITOR_STATE_DEFAULT &&
@@ -439,8 +476,6 @@ void UpdateMeshEditor(EditableAsset& ea)
     default:
         break;
     }
-
-    g_asset_editor.input_locked = true;
 
     // Commit the tool
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
