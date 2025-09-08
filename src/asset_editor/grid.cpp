@@ -5,10 +5,14 @@
 #include "asset_editor.h"
 
 constexpr float GRID_SPACING = 1.0f;
+constexpr float MIN_GRID_PIXELS = 50.0f;
+constexpr float MAX_GRID_PIXELS = 500.0f;
 constexpr float SECONDARY_GRID_FADE_MIN = 0.02f;  // Start fading in when grid cell is 2% of screen
 constexpr float SECONDARY_GRID_FADE_MAX = 0.1f;  // Fully visible when grid cell is 10% of screen
+constexpr float TRANSITION_START = MAX_GRID_PIXELS * 0.3f; // Start fading in secondary at 30% of max
+constexpr float TRANSITION_END = MIN_GRID_PIXELS; // Complete transition at min
 constexpr Color PRIMARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.5f };
-constexpr Color SECONDARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.3f };
+constexpr Color SECONDARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.1f };
 
 struct Grid
 {
@@ -30,8 +34,12 @@ static void DrawGridLines(Camera* camera, float zoom, float spacing, const Color
     float bottom = bounds.min.y;
     float top = bounds.max.y;
     
-    // Calculate line thickness based on zoom
-    float line_thickness = 0.005f * zoom / 10.0f;
+    // Calculate line thickness based on world-to-screen scale
+    // Use world units for consistent visual thickness
+    Vec2Int screen_size = GetScreenSize();
+    float world_height = top - bottom;
+    float pixels_per_world_unit = screen_size.y / world_height;
+    float line_thickness = 1.0f / pixels_per_world_unit; // 1 pixel thick
     
     Color line_color = color;
     line_color.a *= alpha;
@@ -60,40 +68,34 @@ static void DrawGridLines(Camera* camera, float zoom, float spacing, const Color
 
 void DrawGrid(Camera* camera, float zoom)
 {
-    BindMaterial(g_grid.material);
-    
-    // Get screen dimensions to calculate grid cell size as percentage of screen
     Bounds2 bounds = GetBounds(camera);
-    float screen_width = bounds.max.x - bounds.min.x;
-    float screen_height = bounds.max.y - bounds.min.y;
-    float screen_size = Min(screen_width, screen_height);
-    
-    // Calculate what grid level we should be at
-    float base_cell_size = g_grid.grid_spacing / screen_size;
-    
-    // Find the integer grid level (how many times we've scaled by 10)
-    float log_scale = log10f(base_cell_size / SECONDARY_GRID_FADE_MAX);
+    float world_height = bounds.max.y - bounds.min.y;
+    Vec2Int screen_size = GetScreenSize();
+    float pixels_per_world_unit = (f32)screen_size.y / world_height;
+    float grid_cell_pixels = g_grid.grid_spacing * pixels_per_world_unit;
+    float log_scale = log10f(MAX_GRID_PIXELS / grid_cell_pixels);
     int grid_level = (int)floorf(log_scale);
-    float fractional_part = log_scale - grid_level;
-    
-    // Calculate primary grid spacing at this level
-    float primary_spacing = g_grid.grid_spacing * powf(0.1f, grid_level);
-    
-    // Draw primary grid (always visible)
-    DrawGridLines(camera, zoom, primary_spacing, PRIMARY_GRID_COLOR, 1.0f);
-    
-    // Calculate secondary grid (10x smaller)
-    float secondary_spacing = primary_spacing * 0.1f;
-    
-    // Use fractional part to determine secondary grid alpha
-    // When fractional_part is 0, we just switched to this level (secondary invisible)
-    // When fractional_part is 1, we're about to switch to next level (secondary fully visible)
-    float fade_alpha = fractional_part;
-    
-    if (fade_alpha > 0.0f)
+    float current_spacing = g_grid.grid_spacing * powf(10.0f, grid_level);
+    float next_spacing = current_spacing * 0.1f;
+    float current_pixels = current_spacing * pixels_per_world_unit;
+    float current_alpha = 1.0f;
+    float next_alpha = 0.0f;
+
+    if (current_pixels <= TRANSITION_START)
     {
-        DrawGridLines(camera, zoom, secondary_spacing, SECONDARY_GRID_COLOR, fade_alpha);
+        float transition_progress = (TRANSITION_START - current_pixels) / (TRANSITION_START - TRANSITION_END);
+        transition_progress = Max(0.0f, Min(1.0f, transition_progress));
+        current_alpha = 1.0f - transition_progress * 0.7f;
+        next_alpha = transition_progress;
     }
+
+    BindMaterial(g_grid.material);
+
+    if (current_alpha > 0.0f)
+        DrawGridLines(camera, zoom, current_spacing, PRIMARY_GRID_COLOR, current_alpha);
+    
+    if (next_alpha > 0.0f)
+        DrawGridLines(camera, zoom, next_spacing, SECONDARY_GRID_COLOR, next_alpha);
 }
 
 void InitGrid(Allocator* allocator)
