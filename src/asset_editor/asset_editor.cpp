@@ -536,7 +536,7 @@ void RenderView()
     g_asset_editor.zoom_ref_scale = (world_units_per_inch / REF_ZOOM) * g_asset_editor.ui_scale;
 
     // Draw grid first (behind everything else)
-    DrawGrid(g_asset_editor.camera, g_asset_editor.zoom);
+    DrawGrid(g_asset_editor.camera);
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_asset_editor.material);

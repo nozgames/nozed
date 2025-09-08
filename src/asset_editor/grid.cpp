@@ -11,7 +11,7 @@ constexpr float SECONDARY_GRID_FADE_MIN = 0.02f;  // Start fading in when grid c
 constexpr float SECONDARY_GRID_FADE_MAX = 0.1f;  // Fully visible when grid cell is 10% of screen
 constexpr float TRANSITION_START = MAX_GRID_PIXELS * 0.3f; // Start fading in secondary at 30% of max
 constexpr float TRANSITION_END = MIN_GRID_PIXELS; // Complete transition at min
-constexpr Color PRIMARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.5f };
+constexpr Color PRIMARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.3f };
 constexpr Color SECONDARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.1f };
 
 struct Grid
@@ -23,7 +23,7 @@ struct Grid
 
 static Grid g_grid = {};
 
-static void DrawGridLines(Camera* camera, float zoom, float spacing, const Color& color, float alpha)
+static void DrawGridLines(Camera* camera, float spacing, const Color& color, float alpha)
 {
     if (alpha <= 0.0f) return;
     
@@ -66,36 +66,38 @@ static void DrawGridLines(Camera* camera, float zoom, float spacing, const Color
     }
 }
 
-void DrawGrid(Camera* camera, float zoom)
+static void DrawGridInternal(Camera* camera, float min_pixels, float grid_spacing, float min_alpha, float max_alpha)
 {
-    Bounds2 bounds = GetBounds(camera);
-    float world_height = bounds.max.y - bounds.min.y;
-    Vec2Int screen_size = GetScreenSize();
-    float pixels_per_world_unit = (f32)screen_size.y / world_height;
-    float grid_cell_pixels = g_grid.grid_spacing * pixels_per_world_unit;
-    float log_scale = log10f(MAX_GRID_PIXELS / grid_cell_pixels);
-    int grid_level = (int)floorf(log_scale);
-    float current_spacing = g_grid.grid_spacing * powf(10.0f, grid_level);
-    float next_spacing = current_spacing * 0.1f;
-    float current_pixels = current_spacing * pixels_per_world_unit;
-    float current_alpha = 1.0f;
-    float next_alpha = 0.0f;
-
-    if (current_pixels <= TRANSITION_START)
-    {
-        float transition_progress = (TRANSITION_START - current_pixels) / (TRANSITION_START - TRANSITION_END);
-        transition_progress = Max(0.0f, Min(1.0f, transition_progress));
-        current_alpha = 1.0f - transition_progress * 0.7f;
-        next_alpha = transition_progress;
-    }
-
     BindMaterial(g_grid.material);
 
-    if (current_alpha > 0.0f)
-        DrawGridLines(camera, zoom, current_spacing, PRIMARY_GRID_COLOR, current_alpha);
-    
-    if (next_alpha > 0.0f)
-        DrawGridLines(camera, zoom, next_spacing, SECONDARY_GRID_COLOR, next_alpha);
+    // Use camera to find how big this spacing is on screen
+    Vec2 world_0 = WorldToScreen(camera, Vec2{0, 0});
+    Vec2 world_1 = WorldToScreen(camera, Vec2{1.0f, 0});
+    f32 pixels_per_grid = Length(world_1 - world_0);
+
+    // Scale up by 10x as long as grid is smaller than threshold
+    while (pixels_per_grid < min_pixels)
+    {
+        grid_spacing *= 10.0f;
+        pixels_per_grid *= 10.0f;
+    }
+
+    // Scale down by 10x as long as grid is larger than threshold * 10
+    while (pixels_per_grid > min_pixels * 10.0f)
+    {
+        grid_spacing *= 0.1f;
+        pixels_per_grid *= 0.1f;
+    }
+
+    f32 alpha = Mix(min_alpha, max_alpha, (pixels_per_grid - min_pixels) / (min_pixels * 10.0f));
+    DrawGridLines(camera, grid_spacing, PRIMARY_GRID_COLOR, alpha);
+}
+
+void DrawGrid(Camera* camera)
+{
+    BindMaterial(g_grid.material);
+    DrawGridInternal(camera, 72.0f, 1.0f, 1, 1);
+    DrawGridInternal(camera, 72.0f, 0.1f, 0, 1);
 }
 
 void InitGrid(Allocator* allocator)

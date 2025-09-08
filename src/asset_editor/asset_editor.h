@@ -107,7 +107,7 @@ struct AssetEditor
 
 extern void InitGrid(Allocator* allocator);
 extern void ShutdownGrid();
-extern void DrawGrid(Camera* camera, float zoom);
+extern void DrawGrid(Camera* camera);
 
 extern AssetEditor g_asset_editor;
 
