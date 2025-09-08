@@ -5,6 +5,9 @@
 #include "asset_editor.h"
 #include "file_helpers.h"
 
+constexpr float ZOOM_MIN = 0.1f;
+constexpr float ZOOM_MAX = 40.0f;
+constexpr float ZOOM_STEP = 0.1f;
 constexpr float VERTEX_SIZE = 0.1f;
 constexpr float REF_ZOOM = 10.0f;
 constexpr Color VERTEX_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f};
@@ -268,10 +271,33 @@ static void PanView()
     }
 }
 
+static void ZoomView()
+{
+    float zoom_axis = GetAxis(g_asset_editor.input, MOUSE_SCROLL_Y);
+    if (zoom_axis > -0.5f && zoom_axis < 0.5f)
+        return;
+
+    Vec2 mouse_screen = GetMousePosition();
+    Vec2 world_under_cursor = ScreenToWorld(g_asset_editor.camera, mouse_screen);
+
+    f32 zoom_factor = 1.0f + zoom_axis * ZOOM_STEP;
+    g_asset_editor.zoom *= zoom_factor;
+    g_asset_editor.zoom = Clamp(g_asset_editor.zoom, ZOOM_MIN, ZOOM_MAX);
+
+    UpdateCamera();
+
+    Vec2 new_screen_pos = WorldToScreen(g_asset_editor.camera, world_under_cursor);
+    Vec2 screen_offset = mouse_screen - new_screen_pos;
+    Vec2 world_offset = ScreenToWorld(g_asset_editor.camera, screen_offset) - ScreenToWorld(g_asset_editor.camera, VEC2_ZERO);
+    Bounds2 bounds = GetBounds(g_asset_editor.camera);
+    Vec2 current_center = Vec2{(bounds.min.x + bounds.max.x) * 0.5f, (bounds.min.y + bounds.max.y) * 0.5f};
+    SetPosition(g_asset_editor.camera, current_center + world_offset);
+}
+
 static void UpdateView()
 {
-    // Pan
     PanView();
+    ZoomView();
 
     // Frame
     if (WasButtonPressed(g_asset_editor.input, KEY_F))
@@ -280,35 +306,6 @@ static void UpdateView()
             FrameView(g_asset_editor.selected_asset);
     }
 
-    // Zoom - multiplicative with zoom-to-cursor
-    float zoom_axis = GetAxis(g_asset_editor.input, MOUSE_SCROLL_Y);
-    if (zoom_axis < -0.5f || zoom_axis > 0.5f)
-    {
-        // Save world coordinate under cursor before zoom
-        Vec2 mouse_screen = GetMousePosition();
-        Vec2 world_under_cursor = ScreenToWorld(g_asset_editor.camera, mouse_screen);
-        
-        // Apply zoom
-        float zoom_factor = 1.0f + zoom_axis * 0.1f; // 10% per scroll step
-        g_asset_editor.zoom *= zoom_factor;
-        g_asset_editor.zoom = Max(g_asset_editor.zoom, 0.1f); // Prevent zoom from going negative/zero
-        
-        // Update camera with new zoom
-        UpdateCamera();
-        
-        // Calculate where that world coordinate is now on screen
-        Vec2 new_screen_pos = WorldToScreen(g_asset_editor.camera, world_under_cursor);
-        
-        // Calculate the offset and adjust camera position
-        Vec2 screen_offset = mouse_screen - new_screen_pos;
-        Vec2 world_offset = ScreenToWorld(g_asset_editor.camera, screen_offset) - ScreenToWorld(g_asset_editor.camera, VEC2_ZERO);
-        
-        // Get current camera position and adjust it
-        Bounds2 bounds = GetBounds(g_asset_editor.camera);
-        Vec2 current_center = Vec2{(bounds.min.x + bounds.max.x) * 0.5f, (bounds.min.y + bounds.max.y) * 0.5f};
-        SetPosition(g_asset_editor.camera, current_center + world_offset);
-    }
-    
     // UI Scale controls
     if (IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
     {
