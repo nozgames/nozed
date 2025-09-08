@@ -7,9 +7,9 @@
 #define CGLTF_WRITE_IMPLEMENTATION
 #include <cgltf_write.h>
 
-bool SaveEditableMesh(const EditableMesh* mesh, const char* filename)
+bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& filename)
 {
-    if (!mesh || !filename)
+    if (!mesh)
         return false;
 
     // Create cgltf_data structure
@@ -299,7 +299,7 @@ bool SaveEditableMesh(const EditableMesh* mesh, const char* filename)
     cgltf_options options = {};
     options.type = cgltf_file_type_glb;
     
-    cgltf_result result = cgltf_write_file(&options, filename, data);
+    cgltf_result result = cgltf_write_file(&options, filename.string().c_str(), data);
     bool success = (result == cgltf_result_success);
 
     // Cleanup - free buffer data after writing

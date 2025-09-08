@@ -6,6 +6,7 @@
 #include "file_helpers.h"
 
 extern EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename);
+extern bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& filename);
 extern int HitTest(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos);
 
 static EditableAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
@@ -41,20 +42,6 @@ static void ReadMetaData(EditableAsset& asset, const std::filesystem::path& path
         return;
 
     asset.position = props->GetVec2("editor", "position", VEC2_ZERO);
-}
-
-int HitTestAssets(const Vec2& hit_pos)
-{
-    for (int i=0, c=g_asset_editor.asset_count; i<c; i++)
-    {
-        EditableAsset* ea = g_asset_editor.assets[i];
-        const EditableMesh& em = *ea->mesh;
-        const Vec2& position = ea->position;
-        if (-1 != HitTest(em, position, hit_pos))
-            return i;
-    }
-
-    return -1;
 }
 
 i32 LoadEditableAssets(EditableAsset** assets)
@@ -111,7 +98,7 @@ void MoveTo(EditableAsset& asset, const Vec2& position)
     asset.dirty = true;
 }
 
-void DrawEdges(const EditableAsset& ea, int min_edge_count, float zoom_scale, Color color)
+void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color)
 {
     if (ea.type != EDITABLE_ASSET_TYPE_MESH)
         return;
@@ -120,6 +107,7 @@ void DrawEdges(const EditableAsset& ea, int min_edge_count, float zoom_scale, Co
     BindMaterial(g_asset_editor.vertex_material);
 
     const EditableMesh& em = *ea.mesh;
+    const f32 zoom_scale = g_asset_editor.zoom_ref_scale;
     for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
     {
         const EditableEdge& ee = em.edges[edge_index];
@@ -134,4 +122,122 @@ void DrawEdges(const EditableAsset& ea, int min_edge_count, float zoom_scale, Co
         BindTransform(TRS(mid + ea.position, dir, Vec2{length * 0.5f, 0.01f * zoom_scale}));
         DrawMesh(g_asset_editor.edge_mesh);
     }
+}
+
+void SaveAssets()
+{
+    for (i32 i=0; i<g_asset_editor.asset_count; i++)
+    {
+        EditableAsset& asset = *g_asset_editor.assets[i];
+        if (asset.type != EDITABLE_ASSET_TYPE_MESH)
+            continue;
+
+        if (!asset.mesh->modified)
+            continue;
+
+        SaveEditableMesh(asset.mesh, asset.path);
+        asset.dirty = false;
+    }
+}
+
+bool HitTestAsset(const EditableAsset& ea, const Vec2& hit_pos)
+{
+    switch (ea.type)
+    {
+    case EDITABLE_ASSET_TYPE_MESH:
+        return -1 != HitTest(*ea.mesh, ea.position, hit_pos);
+
+    default:
+        return false;
+    }
+}
+
+int HitTestAssets(const Vec2& hit_pos)
+{
+    for (int i=0, c=g_asset_editor.asset_count; i<c; i++)
+        if (HitTestAsset(*g_asset_editor.assets[i], hit_pos))
+            return i;
+
+    return -1;
+}
+
+bool HitTestAsset(const EditableAsset& ea, const Bounds2& hit_bounds)
+{
+    switch (ea.type)
+    {
+    case EDITABLE_ASSET_TYPE_MESH:
+        return HitTest(*ea.mesh, ea.position, hit_bounds);
+
+    default:
+        return false;
+    }
+}
+
+int HitTestAssets(const Bounds2& hit_bounds)
+{
+    for (int i=0, c=g_asset_editor.asset_count; i<c; i++)
+        if (HitTestAsset(*g_asset_editor.assets[i], hit_bounds))
+            return i;
+
+    return -1;
+}
+
+void DrawAsset(const EditableAsset& ea)
+{
+    switch (ea.type)
+    {
+    case EDITABLE_ASSET_TYPE_MESH:
+        BindTransform(TRS(ea.position, 0, VEC2_ONE));
+        DrawMesh(ToMesh(&*ea.mesh));
+        break;
+
+    default:
+        break;
+    }
+}
+
+
+Bounds2 GetBounds(const EditableAsset& ea)
+{
+    switch (ea.type)
+    {
+    case EDITABLE_ASSET_TYPE_MESH:
+        return ea.mesh->bounds;
+
+    default:
+        break;
+    }
+
+    return { VEC2_ZERO, VEC2_ZERO };
+}
+
+Bounds2 GetSelectedBounds(const EditableAsset& ea)
+{
+    switch (ea.type)
+    {
+    case EDITABLE_ASSET_TYPE_MESH:
+        return GetSelectedBounds(*ea.mesh);
+
+    default:
+        break;
+    }
+
+    return { VEC2_ZERO, VEC2_ZERO };
+}
+
+int GetFirstSelectedAsset()
+{
+    for (int i=0; i<g_asset_editor.asset_count; i++)
+        if (g_asset_editor.assets[i]->selected)
+            return i;
+
+    return -1;
+}
+
+void ClearAssetSelection()
+{
+    for (int i=0; i<g_asset_editor.asset_count; i++)
+        g_asset_editor.assets[i]->selected = false;
+
+    g_asset_editor.selected_asset_count = 0;
 }

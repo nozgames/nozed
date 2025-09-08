@@ -49,6 +49,7 @@ struct EditableMesh
     int triangle_count;
     bool dirty;
     Bounds2 bounds;
+    bool modified;
 };
 
 enum EditableAssetType
@@ -67,6 +68,7 @@ struct EditableAsset
     Vec2 position;
     bool dirty;
     std::filesystem::path path;
+    bool selected;
 };
 
 struct AssetEditor
@@ -79,17 +81,19 @@ struct AssetEditor
     float zoom;
     float zoom_ref_scale;
     float ui_scale;
+    float dpi;
     InputSet* input;
     int selected_vertex;
     bool dragging;
     Vec2 drag_start;
     Vec2 drag_position_start;
+    i32 hover_asset;
+    int edit_asset_index;
+    Vec2 world_mouse_position;
+
     EditableAsset* assets[MAX_ASSETS];
     u32 asset_count;
-    i32 hover_asset;
-    i32 selected_asset;
-    bool edit_mode;
-    Vec2 world_mouse_position;
+    u32 selected_asset_count;
 
     // Panning
     bool panning;
@@ -112,3 +116,20 @@ extern void DrawGrid(Camera* camera);
 extern AssetEditor g_asset_editor;
 
 constexpr Color COLOR_SELECTED = { 1.0f, 0.788f, 0.055f, 1.0f};
+
+
+// @editable_asset
+extern bool HitTestAsset(const EditableAsset& ea, const Vec2& hit_pos);
+extern bool HitTestAsset(const EditableAsset& ea, const Bounds2& hit_bounds);
+extern int HitTestAssets(const Vec2& hit_pos);
+extern int HitTestAssets(const Bounds2& bit_bounds);
+extern void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color);
+extern void DrawAsset(const EditableAsset& ea);
+extern Bounds2 GetBounds(const EditableAsset& ea);
+extern int GetFirstSelectedAsset();
+extern Bounds2 GetSelectedBounds(const EditableAsset& ea);
+
+// @editable_mesh
+extern bool HitTest(const EditableMesh& mesh, const Vec2& position, const Bounds2& hit_bounds);
+extern Mesh* ToMesh(EditableMesh* emesh);
+extern Bounds2 GetSelectedBounds(const EditableMesh& emesh);

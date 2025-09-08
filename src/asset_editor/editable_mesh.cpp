@@ -4,14 +4,14 @@
 
 #include "asset_editor.h"
 
-static int GetOrAddIndex(EditableMesh* emesh, int v0, int v1)
+static int GetOrAddEdge(EditableMesh& em, int v0, int v1)
 {
     int fv0 = Min(v0, v1);
     int fv1 = Max(v0, v1);
 
-    for (int i = 0; i < emesh->edge_count; i++)
+    for (int i = 0; i < em.edge_count; i++)
     {
-        EditableEdge& ee = emesh->edges[i];
+        EditableEdge& ee = em.edges[i];
         if (ee.v0 == fv0 && ee.v1 == fv1)
         {
             ee.triangle_count++;
@@ -20,40 +20,47 @@ static int GetOrAddIndex(EditableMesh* emesh, int v0, int v1)
     }
 
     // Not found - add it
-    if (emesh->edge_count >= MAX_EDGES)
+    if (em.edge_count >= MAX_EDGES)
         return -1;
 
-    int edge_index = emesh->edge_count++;
-    EditableEdge& ee = emesh->edges[edge_index];
+    int edge_index = em.edge_count++;
+    EditableEdge& ee = em.edges[edge_index];
     ee.triangle_count = 1;
     ee.v0 = fv0;
     ee.v1 = fv1;
     return edge_index;
 }
 
-void CreateEdges(EditableMesh* emesh)
+static void UpdateEdges(EditableMesh& em)
 {
-    emesh->edge_count = 0;
+    em.edge_count = 0;
 
-    Vec2 min = emesh->vertices[0].position;
+    Vec2 min = em.vertices[0].position;
     Vec2 max = min;
 
-    for (int i = 1; i < emesh->vertex_count; i++)
+    for (int i = 1; i < em.vertex_count; i++)
     {
-        EditableVertex& ev = emesh->vertices[i];
+        EditableVertex& ev = em.vertices[i];
         min = Min(ev.position, min);
         max = Max(ev.position, max);
     }
 
-    emesh->bounds = {min, max};
+    em.bounds = {min, max};
 
-    for (int i = 0; i < emesh->triangle_count; i++)
+    for (int i = 0; i < em.triangle_count; i++)
     {
-        EditableTriangle& et = emesh->triangles[i];
-        GetOrAddIndex(emesh, et.v0, et.v1);
-        GetOrAddIndex(emesh, et.v1, et.v2);
-        GetOrAddIndex(emesh, et.v2, et.v0);
+        EditableTriangle& et = em.triangles[i];
+        GetOrAddEdge(em, et.v0, et.v1);
+        GetOrAddEdge(em, et.v1, et.v2);
+        GetOrAddEdge(em, et.v2, et.v0);
     }
+}
+
+void MarkDirty(EditableMesh& em)
+{
+    em.dirty = true;
+    em.modified = true;
+    UpdateEdges(em);
 }
 
 Mesh* ToMesh(EditableMesh* emesh)
@@ -80,22 +87,22 @@ Mesh* ToMesh(EditableMesh* emesh)
     return emesh->mesh;
 }
 
-void SetTriangleColor(EditableMesh* emesh, int index, const Vec2Int& color)
+void SetTriangleColor(EditableMesh* em, int index, const Vec2Int& color)
 {
-    if (index < 0 || index >= emesh->triangle_count)
+    if (index < 0 || index >= em->triangle_count)
         return;
 
-    emesh->triangles[index].color = color;
-    emesh->dirty = true;
+    em->triangles[index].color = color;
+    MarkDirty(*em);
 }
 
-void SetPosition(EditableMesh* emesh, int index, const Vec2& position)
+void SetPosition(EditableMesh* em, int index, const Vec2& position)
 {
-    if (index < 0 || index >= emesh->vertex_count)
+    if (index < 0 || index >= em->vertex_count)
         return;
 
-    emesh->vertices[index].position = position;
-    emesh->dirty = true;
+    em->vertices[index].position = position;
+    MarkDirty(*em);
 }
 
 void DissolveVertex(EditableMesh* mesh, int vertex_index)
@@ -255,9 +262,8 @@ void DissolveVertex(EditableMesh* mesh, int vertex_index)
         if (et.v1 > vertex_index) et.v1--;
         if (et.v2 > vertex_index) et.v2--;
     }
-    
-    mesh->dirty = true;
-    CreateEdges(mesh);
+
+    MarkDirty(*mesh);
 }
 
 void DeleteVertex(EditableMesh* mesh, int vertex_index)
@@ -323,8 +329,7 @@ void DeleteVertex(EditableMesh* mesh, int vertex_index)
         }
     }
 
-    mesh->dirty = true;
-    CreateEdges(mesh);
+    MarkDirty(*mesh);
 }
 
 static int GetTriangleEdgeIndex(const EditableTriangle& et, const EditableEdge& ee)
@@ -441,40 +446,39 @@ void RotateEdge(EditableMesh* mesh, int edge_index)
         tri2.v1 = edge.v1;
         tri2.v2 = opposite2;
     }
-    
-    mesh->dirty = true;
-    CreateEdges(mesh);
+
+    MarkDirty(*mesh);
 }
 
-int SplitEdge(EditableMesh* emesh, int edge_index, float edge_pos)
+int SplitEdge(EditableMesh* em, int edge_index, float edge_pos)
 {
-    assert(emesh);
-    assert(edge_index >=0 && edge_index < emesh->edge_count);
+    assert(em);
+    assert(edge_index >=0 && edge_index < em->edge_count);
 
-    if (emesh->vertex_count >= MAX_VERTICES)
+    if (em->vertex_count >= MAX_VERTICES)
         return -1;
 
-    if (emesh->triangle_count + 2 >= MAX_TRIANGLES)
+    if (em->triangle_count + 2 >= MAX_TRIANGLES)
         return -1;
 
-    EditableEdge& ee = emesh->edges[edge_index];
-    EditableVertex& v0 = emesh->vertices[ee.v0];
-    EditableVertex& v1 = emesh->vertices[ee.v1];
+    EditableEdge& ee = em->edges[edge_index];
+    EditableVertex& v0 = em->vertices[ee.v0];
+    EditableVertex& v1 = em->vertices[ee.v1];
 
-    int new_vertex_index = emesh->vertex_count++;
-    EditableVertex& new_vertex = emesh->vertices[new_vertex_index];
+    int new_vertex_index = em->vertex_count++;
+    EditableVertex& new_vertex = em->vertices[new_vertex_index];
     new_vertex.position = (v0.position * (1.0f - edge_pos) + v1.position * edge_pos);
 
-    int triangle_count = emesh->triangle_count;
+    int triangle_count = em->triangle_count;
     for (int i = 0; i < triangle_count; i++)
     {
-        EditableTriangle& et = emesh->triangles[i];
+        EditableTriangle& et = em->triangles[i];
 
         int triangle_edge = GetTriangleEdgeIndex(et, ee);
         if (triangle_edge == -1)
             continue;
 
-        EditableTriangle& split_tri = emesh->triangles[emesh->triangle_count++];
+        EditableTriangle& split_tri = em->triangles[em->triangle_count++];
         split_tri.color = et.color;
 
         if (triangle_edge == 0)
@@ -500,9 +504,7 @@ int SplitEdge(EditableMesh* emesh, int edge_index, float edge_pos)
         }
     }
 
-    emesh->dirty = true;
-
-    CreateEdges(emesh);
+    MarkDirty(*em);
 
     return new_vertex_index;
 }
@@ -522,30 +524,28 @@ int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float size)
 
 EditableMesh* CreateEditableMesh(Allocator* allocator)
 {
-    EditableMesh* emesh = (EditableMesh*)Alloc(allocator, sizeof(EditableMesh));
-    emesh->builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
-    emesh->vertex_count = 4;
-    emesh->vertices[0] = {
+    EditableMesh* em = (EditableMesh*)Alloc(allocator, sizeof(EditableMesh));
+    em->builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
+    em->vertex_count = 4;
+    em->vertices[0] = {
         .position =  {-0.5f, -0.5f}
     };
-    emesh->vertices[1] = {
+    em->vertices[1] = {
         .position =  { 0.5f, -0.5f}
     };
-    emesh->vertices[2] = {
+    em->vertices[2] = {
         .position =  { 0.5f,  0.5f}
     };
-    emesh->vertices[3] = {
+    em->vertices[3] = {
         .position =  {-0.5f,  0.5f}
     };
 
-    emesh->triangle_count = 2;
-    emesh->triangles[0] = { 0, 1, 2};
-    emesh->triangles[1] = { 0, 2, 3};
-    emesh->dirty = true;
+    em->triangle_count = 2;
+    em->triangles[0] = { 0, 1, 2};
+    em->triangles[1] = { 0, 2, 3};
+    MarkDirty(*em);
 
-    CreateEdges(emesh);
-
-    return emesh;
+    return em;
 }
 
 bool HitTest(const EditableMesh& em, const EditableTriangle& et, const Vec2& position, const Vec2& hit_pos, Vec2* where)
@@ -590,4 +590,30 @@ int HitTest(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos)
     }
 
     return -1;
+}
+
+bool HitTest(const EditableMesh& mesh, const Vec2& position, const Bounds2& hit_bounds)
+{
+    return Intersects(mesh.bounds + position, hit_bounds);
+}
+
+Bounds2 GetSelectedBounds(const EditableMesh& emesh)
+{
+    Bounds2 bounds;
+    bool first = true;
+    for (int i=0; i<emesh.vertex_count; i++)
+    {
+        const EditableVertex& ev = emesh.vertices[i];
+        if (!ev.selected)
+            continue;
+
+        if (first)
+            bounds = { ev.position, ev.position };
+        else
+            bounds = Union(bounds, ev.position);
+
+        first = false;
+    }
+
+    return bounds;
 }

@@ -4,7 +4,7 @@
 
 #include "asset_editor.h"
 
-extern void CreateEdges(EditableMesh* emesh);
+extern void MarkDirty(EditableMesh& emesh);
 
 #include <cgltf.h>
 
@@ -285,8 +285,7 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
 
     // UV coordinates were already loaded before vertex merging
 
-    mesh->dirty = true;
-    CreateEdges(mesh);
+    MarkDirty(*mesh);
 
     // Cleanup heap allocated arrays
     free(loaded_positions);

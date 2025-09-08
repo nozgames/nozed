@@ -34,8 +34,6 @@ struct MeshEditor
 
 static MeshEditor g_mesh_editor = {};
 
-extern void DrawEdges(const EditableAsset& ea, int min_edge_count, float zoom_scale, Color color);
-
 static void DrawVertices(const EditableAsset& ea, bool selected)
 {
     const EditableMesh& em = *ea.mesh;
@@ -235,7 +233,7 @@ void UpdateMeshEditor(EditableAsset& ea)
 
 void RenderMeshEditor(EditableAsset& ea)
 {
-    DrawEdges(ea, 10000, g_asset_editor.zoom_ref_scale, COLOR_EDGE);
+    DrawEdges(ea, 10000, COLOR_EDGE);
     BindColor(COLOR_VERTEX);
     DrawVertices(ea, false);
 
