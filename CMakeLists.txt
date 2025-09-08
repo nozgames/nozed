@@ -19,6 +19,7 @@ set(SOURCE_FILES
     src/asset_editor/editable_mesh.cpp
     src/asset_editor/notifications.cpp
     src/asset_editor/undo.cpp
+    src/asset_editor/draw_utils.cpp
     src/asset_manifest.cpp
     src/editor_server.cpp
     src/editor.cpp

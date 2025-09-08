@@ -97,6 +97,7 @@ void MoveTo(EditableAsset& asset, const Vec2& position)
     asset.dirty = true;
 }
 
+
 void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color)
 {
     if (ea.type != EDITABLE_ASSET_TYPE_MESH)
@@ -115,11 +116,7 @@ void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color)
 
         const Vec2& v0 = em.vertices[ee.v0].position;
         const Vec2& v1 = em.vertices[ee.v1].position;
-        Vec2 mid = (v0 + v1) * 0.5f;
-        Vec2 dir = Normalize(v1 - v0);
-        float length = Length(v1 - v0);
-        BindTransform(TRS(mid + ea.position, dir, Vec2{length * 0.5f, 0.01f * zoom_scale}));
-        DrawMesh(g_asset_editor.edge_mesh);
+        DrawLine(v0 + ea.position, v1 + ea.position, 0.01f);
     }
 }
 

@@ -125,7 +125,7 @@ struct AssetEditor
 
 extern AssetEditor g_asset_editor;
 
-constexpr Color COLOR_SELECTED = { 1.0f, 0.788f, 0.055f, 1.0f};
+constexpr Color COLOR_SELECTED = { 1,1,1,1 };
 
 // @editor
 extern void ClearBoxSelect();
@@ -184,5 +184,9 @@ extern void AddNotification(const char* format, ...);
 // @mesh_editor
 extern void UpdateMeshEditor(EditableAsset& ea);
 extern void InitMeshEditor(EditableAsset& ea);
-extern void RenderMeshEditor(EditableAsset& ea);
+extern void DrawMeshEditor(EditableAsset& ea);
 extern void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds);
+
+// @draw
+extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
+extern void DrawVertex(const Vec2& v, f32 size);

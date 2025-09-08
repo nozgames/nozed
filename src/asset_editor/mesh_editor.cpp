@@ -8,15 +8,20 @@
 extern int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float dist);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
-constexpr float HEIGHT_MIN = -10.0f;
-constexpr float HEIGHT_MAX = 10.0f;
-constexpr float HEIGHT_RATE = 0.5f;
+constexpr float HEIGHT_MIN = -5.0f;
+constexpr float HEIGHT_MAX = 5.0f;
+constexpr float HEIGHT_SLIDER_SIZE = 2.0f;
 constexpr float VERTEX_SIZE = 0.08f;
 constexpr float VERTEX_HIT_SIZE = VERTEX_SIZE * 5.0f;
-constexpr float CENTER_SIZE = 0.05f;
+constexpr float CENTER_SIZE = 0.2f;
+constexpr float ORIGIN_SIZE = 0.1f;
+constexpr float ORIGIN_BORDER_SIZE = 0.12f;
+constexpr float SCALE_TOOL_WIDTH = 0.02f;
 constexpr Color COLOR_EDGE = { 0,0,0, 0.5f };
 constexpr Color COLOR_VERTEX = { 0,0,0,1 };
-constexpr Color COLOR_CENTER = { 1, 0, 0, 1};
+constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
+constexpr Color COLOR_ORIGIN = { 1.0f, 159.0f / 255.0f, 44.0f / 255.0f, 1};
+constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 
 enum MeshEditorState
 {
@@ -35,6 +40,10 @@ struct MeshEditor
     Vec2 selection_center;
     Material* color_material;
     bool clear_selection_on_up;
+    Vec2 state_mouse;
+    bool use_fixed_value;
+    bool use_negative_fixed_value;
+    float fixed_value;
 };
 
 static MeshEditor g_mesh_editor = {};
@@ -89,9 +98,24 @@ static void RevertPositions(EditableAsset& ea)
 
 static void UpdateHeightState(EditableAsset& ea)
 {
-    float delta = -(
-        (g_asset_editor.mouse_world_position.y - g_mesh_editor.selection_drag_start.y) -
-        (g_mesh_editor.world_drag_start.y - g_mesh_editor.selection_drag_start.y));
+    float delta = (g_asset_editor.mouse_position.y - g_mesh_editor.state_mouse.y) / (g_asset_editor.dpi * HEIGHT_SLIDER_SIZE);
+
+    if (WasButtonPressed(g_asset_editor.input, KEY_0))
+    {
+        g_mesh_editor.use_fixed_value = true;
+        g_mesh_editor.use_negative_fixed_value = false;
+        g_mesh_editor.fixed_value = 0.0f;
+    }
+    else if (WasButtonPressed(g_asset_editor.input, KEY_1))
+    {
+        g_mesh_editor.use_fixed_value = true;
+        if (g_mesh_editor.use_negative_fixed_value)
+            g_mesh_editor.fixed_value = HEIGHT_MIN;
+        else
+            g_mesh_editor.fixed_value = HEIGHT_MAX;
+    }
+    else if (WasButtonPressed(g_asset_editor.input, KEY_MINUS))
+        g_mesh_editor.use_negative_fixed_value = true;
 
     EditableMesh& em = *ea.mesh;
     for (i32 i=0; i<em.vertex_count; i++)
@@ -100,15 +124,17 @@ static void UpdateHeightState(EditableAsset& ea)
         if (!ev.selected)
             continue;
 
-        ev.height = Clamp(ev.saved_height + delta * HEIGHT_RATE, HEIGHT_MIN, HEIGHT_MAX);
+        if (g_mesh_editor.use_fixed_value)
+            ev.height = g_mesh_editor.fixed_value;
+        else
+            ev.height = Clamp(ev.saved_height - delta * (HEIGHT_MAX-HEIGHT_MIN) * 0.5f, HEIGHT_MIN, HEIGHT_MAX);
     }
 
     MarkDirty(em);
     MarkModified(em);
 
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
     {
-        UpdateSelection(ea);
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
     else if (WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
@@ -173,7 +199,10 @@ static void SetState(EditableAsset& ea, MeshEditorState state)
 {
     g_mesh_editor.state = state;
     g_mesh_editor.world_drag_start = g_asset_editor.mouse_world_position;
+    g_mesh_editor.state_mouse = g_asset_editor.mouse_position;
     g_mesh_editor.selection_drag_start = ea.position + g_mesh_editor.selection_center;
+    g_mesh_editor.use_fixed_value = false;
+    g_mesh_editor.use_negative_fixed_value = false;
 
     for (int i=0; i<ea.mesh->vertex_count; i++)
     {
@@ -491,7 +520,46 @@ void UpdateMeshEditor(EditableAsset& ea)
     }
 }
 
-void RenderMeshEditor(EditableAsset& ea)
+static void DrawScaleState(EditableAsset& ea)
+{
+    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
+    DrawVertex(g_mesh_editor.selection_drag_start, CENTER_SIZE * 0.75f);
+    BindColor(COLOR_CENTER);
+    DrawLine(g_asset_editor.mouse_world_position, g_mesh_editor.selection_drag_start, SCALE_TOOL_WIDTH);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(g_asset_editor.mouse_world_position, CENTER_SIZE);
+}
+
+static void DrawHeightState(EditableAsset& ea)
+{
+    Vec2 h1 =
+        ScreenToWorld(g_asset_editor.camera, {0, g_asset_editor.dpi * HEIGHT_SLIDER_SIZE}) -
+        ScreenToWorld(g_asset_editor.camera, VEC2_ZERO);
+
+    float total_height = 0.0f;
+    int height_count = 0;
+    for (int i=0; i<ea.mesh->vertex_count; i++)
+    {
+        EditableVertex& ev = ea.mesh->vertices[i];
+        if (!ev.selected)
+            continue;
+
+        total_height += ev.height;
+        height_count++;
+    }
+
+    float avg_height = total_height / (f32)Max(1, height_count);
+    float height_ratio = (avg_height - HEIGHT_MIN) / (HEIGHT_MAX - HEIGHT_MIN);
+
+    BindColor(SetAlpha(COLOR_CENTER, 0.5f));
+    DrawVertex(g_mesh_editor.world_drag_start, CENTER_SIZE * 0.75f);
+    BindColor(COLOR_CENTER);
+    DrawLine(g_mesh_editor.world_drag_start + h1, g_mesh_editor.world_drag_start - h1, SCALE_TOOL_WIDTH);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(g_mesh_editor.world_drag_start + Mix(h1, -h1, height_ratio), CENTER_SIZE);
+}
+
+void DrawMeshEditor(EditableAsset& ea)
 {
     DrawEdges(ea, 10000, COLOR_EDGE);
     BindColor(COLOR_VERTEX);
@@ -500,9 +568,27 @@ void RenderMeshEditor(EditableAsset& ea)
     BindColor(COLOR_SELECTED);
     DrawVertices(ea, true);
 
-    BindColor(COLOR_CENTER);
-    BindTransform(TRS(ea.position, 0, VEC2_ONE * g_asset_editor.zoom_ref_scale * CENTER_SIZE));
+    BindColor(COLOR_ORIGIN_BORDER);
+    DrawVertex(ea.position, ORIGIN_BORDER_SIZE);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(ea.position, ORIGIN_SIZE);
+
+    BindTransform(TRS(ea.position, 0, VEC2_ONE * g_asset_editor.zoom_ref_scale * ORIGIN_SIZE));
     DrawMesh(g_asset_editor.vertex_mesh);
+
+    switch (g_mesh_editor.state)
+    {
+    case MESH_EDITOR_STATE_SCALE:
+        DrawScaleState(ea);
+        break;
+
+    case MESH_EDITOR_STATE_HEIGHT:
+        DrawHeightState(ea);
+        break;
+
+    default:
+        break;
+    }
 }
 
 void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds)

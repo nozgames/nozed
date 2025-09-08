@@ -462,7 +462,7 @@ void RenderView()
         switch (ea.type)
         {
         case EDITABLE_ASSET_TYPE_MESH:
-            RenderMeshEditor(ea);
+            DrawMeshEditor(ea);
             break;
 
         default:
@@ -517,6 +517,8 @@ int InitAssetEditor(int argc, const char* argv[])
     EnableButton(g_asset_editor.input, KEY_R);
     EnableButton(g_asset_editor.input, KEY_M);
     EnableButton(g_asset_editor.input, KEY_Q);
+    EnableButton(g_asset_editor.input, KEY_0);
+    EnableButton(g_asset_editor.input, KEY_1);
     EnableButton(g_asset_editor.input, KEY_A);
     EnableButton(g_asset_editor.input, KEY_V);
     EnableButton(g_asset_editor.input, KEY_ESCAPE);
