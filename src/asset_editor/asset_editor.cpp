@@ -9,6 +9,7 @@ constexpr float DEFAULT_DPI = 72.0f;
 constexpr float ZOOM_MIN = 0.1f;
 constexpr float ZOOM_MAX = 40.0f;
 constexpr float ZOOM_STEP = 0.1f;
+constexpr float ZOOM_DEFAULT = 1.0f;
 constexpr float VERTEX_SIZE = 0.1f;
 constexpr Color VERTEX_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f};
 constexpr Color VIEW_COLOR = {0.05f, 0.05f, 0.05f, 1.0f};
@@ -505,7 +506,7 @@ int InitAssetEditor(int argc, const char* argv[])
     g_asset_editor.camera = CreateCamera(ALLOCATOR_DEFAULT);
     g_asset_editor.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders._default);
     g_asset_editor.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.ui);
-    g_asset_editor.zoom = 20.0f;
+    g_asset_editor.zoom = ZOOM_DEFAULT;
     g_asset_editor.ui_scale = 1.0f;
     g_asset_editor.dpi = 72.0f;
     g_asset_editor.selected_vertex = -1;

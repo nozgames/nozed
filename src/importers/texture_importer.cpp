@@ -35,47 +35,6 @@ static void ConvertSRGBToLinear(uint8_t* pixels, int width, int height, int chan
     }
 }
 
-static void GenerateMipmap(
-    const uint8_t* src, int src_width, int src_height, 
-    uint8_t* dst, int dst_width, int dst_height, 
-    int channels)
-{
-    float x_ratio = (float)src_width / dst_width;
-    float y_ratio = (float)src_height / dst_height;
-    
-    for (int y = 0; y < dst_height; y++)
-    {
-        for (int x = 0; x < dst_width; x++)
-        {
-            // Simple box filter for downsampling
-            float src_x = x * x_ratio;
-            float src_y = y * y_ratio;
-            
-            int src_x0 = (int)src_x;
-            int src_y0 = (int)src_y;
-            int src_x1 = Min(src_x0 + 1, src_width - 1);
-            int src_y1 = Min(src_y0 + 1, src_height - 1);
-            
-            float fx = src_x - src_x0;
-            float fy = src_y - src_y0;
-            
-            for (int c = 0; c < channels; c++)
-            {
-                float v00 = src[(src_y0 * src_width + src_x0) * channels + c];
-                float v10 = src[(src_y0 * src_width + src_x1) * channels + c];
-                float v01 = src[(src_y1 * src_width + src_x0) * channels + c];
-                float v11 = src[(src_y1 * src_width + src_x1) * channels + c];
-                
-                float v0 = v00 * (1 - fx) + v10 * fx;
-                float v1 = v01 * (1 - fx) + v11 * fx;
-                float v = v0 * (1 - fy) + v1 * fy;
-                
-                dst[(y * dst_width + x) * channels + c] = (uint8_t)v;
-            }
-        }
-    }
-}
-
 static void WriteTextureData(
     Stream* stream,
     const uint8_t* data,
@@ -83,8 +42,7 @@ static void WriteTextureData(
     int height,
     int channels,
     const std::string& filter,
-    const std::string& clamp,
-    bool has_mipmaps)
+    const std::string& clamp)
 {
     // Write asset header
     AssetHeader header = {};
@@ -93,7 +51,6 @@ static void WriteTextureData(
     header.flags = 0;
     WriteAssetHeader(stream, &header);
     
-    // Convert string options to enum values
     TextureFilter filter_value = filter == "nearest" || filter == "point"
         ? TEXTURE_FILTER_NEAREST
         : TEXTURE_FILTER_LINEAR;
@@ -104,14 +61,13 @@ static void WriteTextureData(
     
     TextureFormat format = TEXTURE_FORMAT_RGBA8;
     WriteU8(stream, (u8)format);
-    WriteU32(stream, width);
-    WriteU32(stream, height);
     WriteU8(stream, (u8)filter_value);
     WriteU8(stream, (u8)clamp_value);
+    WriteU32(stream, width);
+    WriteU32(stream, height);
 
     // Write pixel data
     size_t data_size = width * height * channels;
-    WriteU32(stream, data_size);
     WriteBytes(stream, (void*)data, data_size);
 }
 
@@ -165,8 +121,7 @@ void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* co
         height,
         channels,
         filter,
-        clamp,
-        false
+        clamp
     );
 }
 
