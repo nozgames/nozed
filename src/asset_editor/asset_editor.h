@@ -5,7 +5,7 @@
 #pragma once
 
 constexpr int MAX_ASSETS = 1024;
-constexpr int MAX_VERTICES = 65536;
+constexpr int MAX_VERTICES = 4096;
 constexpr int MAX_TRIANGLES = MAX_VERTICES / 3;
 constexpr int MAX_INDICES = MAX_TRIANGLES * 3;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;
@@ -19,6 +19,8 @@ struct EditableVertex
 {
     Vec2 position;
     Vec2 saved_position;
+    float height;
+    float saved_height;
     bool selected;
 };
 
@@ -35,6 +37,7 @@ struct EditableTriangle
     int v1;
     int v2;
     Vec2Int color;
+    Vec3 normal;
 };
 
 struct EditableMesh
@@ -50,6 +53,7 @@ struct EditableMesh
     bool dirty;
     Bounds2 bounds;
     bool modified;
+    int selected_vertex_count;
 };
 
 enum EditableAssetType
@@ -58,7 +62,6 @@ enum EditableAssetType
     EDITABLE_ASSET_TYPE_MESH,
     EDITABLE_ASSET_TYPE_COUNT,
 };
-
 
 struct EditableAsset
 {
@@ -155,6 +158,15 @@ extern Mesh* ToMesh(EditableMesh* emesh);
 extern Bounds2 GetSelectedBounds(const EditableMesh& emesh);
 extern void MarkDirty(EditableMesh& emesh);
 extern void MarkModified(EditableMesh& emesh);
+extern void SetSelectedTrianglesColor(EditableMesh& em, const Vec2Int& color);
+extern void MergeSelectedVerticies(EditableMesh& em);
+extern void DissolveSelectedVertices(EditableMesh& em);
+extern void SetHeight(EditableMesh& em, int index, float height);
+extern int SplitEdge(EditableMesh& em, int edge_index, float edge_pos);
+extern void SetSelection(EditableMesh& em, int vertex_index);
+extern void AddSelection(EditableMesh& em, int vertex_index);
+extern void ToggleSelection(EditableMesh& em, int vertex_index);
+extern void ClearSelection(EditableMesh& em);
 
 // @notifications
 extern void InitNotifications();

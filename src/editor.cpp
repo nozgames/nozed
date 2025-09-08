@@ -485,7 +485,6 @@ int main(int argc, const char* argv[])
     g_main_thread_id = std::this_thread::get_id();
 
     InitConfig();
-    InitLog(HandleLog);
     InitImporter();
 
     if (argc > 1 && argv[1][0] == 'a')
@@ -496,6 +495,7 @@ int main(int argc, const char* argv[])
         return 0;
     }
 
+    InitLog(HandleLog);
     InitEditor();
     RunEditor();
     ShutdownEditor();

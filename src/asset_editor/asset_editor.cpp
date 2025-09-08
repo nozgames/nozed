@@ -21,7 +21,6 @@ constexpr float FRAME_VIEW_PERCENTAGE = 1.0f / 0.75f;
 extern void SetPosition(EditableMesh* em, int index, const Vec2& position);
 extern int SplitEdge(EditableMesh* em, int edge_index, float edge_pos);
 extern void DeleteVertex(EditableMesh* em, int vertex_index);
-extern void DissolveVertex(EditableMesh* em, int vertex_index);
 extern void RotateEdge(EditableMesh* em, int edge_index);
 extern void SetTriangleColor(EditableMesh* em, int index, const Vec2Int& color);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
@@ -370,12 +369,6 @@ void UpdateAssetEditor()
     //     }
     // }
 
-    // if (WasButtonPressed(g_asset_editor.input, KEY_X))
-    // {
-    //     int vertex = HitTestVertex();
-    //     if (vertex != -1)
-    //         DissolveVertex(g_asset_editor.emesh, vertex);
-    // }
 
     // if (g_asset_editor.selected_vertex != -1)
     // {
@@ -407,7 +400,6 @@ void UpdateAssetEditor()
     // Save
     if (!g_asset_editor.input_locked && WasButtonPressed(g_asset_editor.input, KEY_S) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
     {
-        ConsumeButton(g_asset_editor.input, KEY_S);
         SaveEditableAssets();
     }
 
@@ -522,7 +514,9 @@ int InitAssetEditor(int argc, const char* argv[])
     EnableButton(g_asset_editor.input, KEY_F);
     EnableButton(g_asset_editor.input, KEY_G);
     EnableButton(g_asset_editor.input, KEY_R);
-    EnableButton(g_asset_editor.input, KEY_S);
+    EnableButton(g_asset_editor.input, KEY_M);
+    EnableButton(g_asset_editor.input, KEY_Q);
+    EnableButton(g_asset_editor.input, KEY_A);
     EnableButton(g_asset_editor.input, KEY_ESCAPE);
     EnableButton(g_asset_editor.input, KEY_ENTER);
     EnableButton(g_asset_editor.input, KEY_SPACE);
@@ -563,7 +557,7 @@ int InitAssetEditor(int argc, const char* argv[])
     // todo: read path from editor config
     while (UpdateApplication())
     {
-        BeginUI();
+        BeginUI(UI_REF_WIDTH, UI_REF_HEIGHT);
         UpdateAssetEditor();
         EndUI();
 
