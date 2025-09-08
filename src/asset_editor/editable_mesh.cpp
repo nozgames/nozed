@@ -801,3 +801,11 @@ void ToggleSelection(EditableMesh& em, int vertex_index)
         em.selected_vertex_count++;
     }
 }
+
+void SelectAll(EditableMesh& em)
+{
+    for (int i=0; i<em.vertex_count; i++)
+        em.vertices[i].selected = true;
+
+    em.selected_vertex_count = em.vertex_count;
+}

@@ -167,6 +167,7 @@ extern void SetSelection(EditableMesh& em, int vertex_index);
 extern void AddSelection(EditableMesh& em, int vertex_index);
 extern void ToggleSelection(EditableMesh& em, int vertex_index);
 extern void ClearSelection(EditableMesh& em);
+extern void SelectAll(EditableMesh& em);
 
 // @notifications
 extern void InitNotifications();

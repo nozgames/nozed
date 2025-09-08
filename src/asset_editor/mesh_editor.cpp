@@ -8,10 +8,13 @@
 extern int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float dist);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
-constexpr float VERTEX_SIZE = 0.1f;
+constexpr float HEIGHT_MIN = -10.0f;
+constexpr float HEIGHT_MAX = 10.0f;
+constexpr float HEIGHT_RATE = 0.1f;
+constexpr float VERTEX_SIZE = 0.08f;
 constexpr float CENTER_SIZE = 0.05f;
-constexpr Color COLOR_EDGE = { 0.25f, 0.25f, 0.25f, 1.0f};
-constexpr Color COLOR_VERTEX = { 0.95f, 0.95f, 0.95f, 1.0f};
+constexpr Color COLOR_EDGE = { 0,0,0, 0.5f };
+constexpr Color COLOR_VERTEX = { 0,0,0,1 };
 constexpr Color COLOR_CENTER = { 1, 0, 0, 1};
 
 enum MeshEditorState
@@ -30,6 +33,7 @@ struct MeshEditor
     Vec2 selection_drag_start;
     Vec2 selection_center;
     Material* color_material;
+    bool clear_selection_on_up;
 };
 
 static MeshEditor g_mesh_editor = {};
@@ -85,8 +89,8 @@ static void RevertPositions(EditableAsset& ea)
 static void UpdateHeightState(EditableAsset& ea)
 {
     float delta =
-        Length(g_asset_editor.world_mouse_position - g_mesh_editor.selection_drag_start) -
-        Length(g_mesh_editor.world_drag_start - g_mesh_editor.selection_drag_start);
+        (g_asset_editor.world_mouse_position.y - g_mesh_editor.selection_drag_start.y) -
+        (g_mesh_editor.world_drag_start.y - g_mesh_editor.selection_drag_start.y);
 
     EditableMesh& em = *ea.mesh;
     for (i32 i=0; i<em.vertex_count; i++)
@@ -95,7 +99,7 @@ static void UpdateHeightState(EditableAsset& ea)
         if (!ev.selected)
             continue;
 
-        ev.height = ev.saved_height + delta;
+        ev.height = Clamp(ev.saved_height + delta * HEIGHT_RATE, HEIGHT_MIN, HEIGHT_MAX);
     }
 
     MarkDirty(em);
@@ -189,7 +193,7 @@ static bool SelectVertex(EditableAsset& ea)
     if (vertex_index == -1)
         return false;
 
-    if (!IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    if (!IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL) && !IsButtonDown(g_asset_editor.input, KEY_LEFT_SHIFT))
         SetSelection(em, vertex_index);
     else
         ToggleSelection(em, vertex_index);
@@ -210,7 +214,7 @@ static bool SelectEdge(EditableAsset& ea)
     if (edge_index == -1)
         return false;
 
-    if (!IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    if (!IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL) && !IsButtonDown(g_asset_editor.input, KEY_LEFT_SHIFT))
         ClearSelection(em);
 
     EditableEdge& ee = em.edges[edge_index];
@@ -233,7 +237,7 @@ static bool SelectTriangle(EditableAsset& ea)
     if (triangle_index == -1)
         return false;
 
-    if (!IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    if (!IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL) && !IsButtonDown(g_asset_editor.input, KEY_LEFT_SHIFT))
         ClearSelection(em);
 
     EditableTriangle& et = em.triangles[triangle_index];
@@ -314,6 +318,8 @@ static void UpdateDefaultState(EditableAsset& ea)
     // Select
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
+        g_mesh_editor.clear_selection_on_up = false;
+
         if (SelectVertex(ea))
             return;
 
@@ -322,6 +328,21 @@ static void UpdateDefaultState(EditableAsset& ea)
 
         if (SelectTriangle(ea))
             return;
+
+        g_mesh_editor.clear_selection_on_up = true;
+    }
+
+    if (WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) && g_mesh_editor.clear_selection_on_up)
+    {
+        ClearSelection(em);
+        UpdateSelection(ea);
+    }
+
+    // Select All
+    if (WasButtonPressed(g_asset_editor.input, KEY_A))
+    {
+        SelectAll(em);
+        return;
     }
 
     // Dissolve
@@ -339,11 +360,12 @@ static void UpdateDefaultState(EditableAsset& ea)
     }
 
     // Add
-    if (WasButtonPressed(g_asset_editor.input, KEY_A))
+    if (WasButtonPressed(g_asset_editor.input, KEY_V))
     {
         if (AddVertex(ea))
             return;
     }
+
 
     // Enter move state?
     if (g_mesh_editor.state == MESH_EDITOR_STATE_DEFAULT &&

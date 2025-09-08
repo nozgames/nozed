@@ -517,6 +517,7 @@ int InitAssetEditor(int argc, const char* argv[])
     EnableButton(g_asset_editor.input, KEY_M);
     EnableButton(g_asset_editor.input, KEY_Q);
     EnableButton(g_asset_editor.input, KEY_A);
+    EnableButton(g_asset_editor.input, KEY_V);
     EnableButton(g_asset_editor.input, KEY_ESCAPE);
     EnableButton(g_asset_editor.input, KEY_ENTER);
     EnableButton(g_asset_editor.input, KEY_SPACE);
