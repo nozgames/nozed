@@ -17,6 +17,7 @@ set(SOURCE_FILES
     src/asset_editor/gltf_save.cpp
     src/asset_editor/editable_asset.cpp
     src/asset_editor/editable_mesh.cpp
+    src/asset_editor/notifications.cpp
     src/asset_editor/undo.cpp
     src/asset_manifest.cpp
     src/editor_server.cpp

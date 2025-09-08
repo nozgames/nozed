@@ -118,17 +118,7 @@ bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& fil
     for (int i = 0; i < mesh->triangle_count; i++)
     {
         const EditableTriangle& tri = mesh->triangles[i];
-        
-        // Convert Vec2Int color to UV coordinates using ColorUV
         Vec2 uv_color = ColorUV(tri.color.x, tri.color.y);
-        
-        // Debug: Print first few triangles being saved
-        if (i < 3)
-        {
-            printf("SAVE Triangle %d: Color(%d, %d) -> UV(%.3f, %.3f)\n", i, tri.color.x, tri.color.y, uv_color.x, uv_color.y);
-        }
-        
-        // Set same UV for all 3 vertices of this triangle (Vec2, not Vec3)
         for (int v = 0; v < 3; v++)
         {
             uv_data[(i * 3 + v) * 2 + 0] = uv_color.x;

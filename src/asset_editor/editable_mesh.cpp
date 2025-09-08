@@ -56,10 +56,14 @@ static void UpdateEdges(EditableMesh& em)
     }
 }
 
+void MarkModified(EditableMesh& em)
+{
+    em.modified = true;
+}
+
 void MarkDirty(EditableMesh& em)
 {
     em.dirty = true;
-    em.modified = true;
     UpdateEdges(em);
 }
 
@@ -93,6 +97,7 @@ void SetTriangleColor(EditableMesh* em, int index, const Vec2Int& color)
         return;
 
     em->triangles[index].color = color;
+    MarkModified(*em);
     MarkDirty(*em);
 }
 
@@ -102,13 +107,14 @@ void SetPosition(EditableMesh* em, int index, const Vec2& position)
         return;
 
     em->vertices[index].position = position;
+    MarkModified(*em);
     MarkDirty(*em);
 }
 
-void DissolveVertex(EditableMesh* mesh, int vertex_index)
+void DissolveVertex(EditableMesh* em, int vertex_index)
 {
-    assert(mesh);
-    assert(vertex_index >= 0 && vertex_index < mesh->vertex_count);
+    assert(em);
+    assert(vertex_index >= 0 && vertex_index < em->vertex_count);
 
     /*
 
@@ -122,9 +128,9 @@ void DissolveVertex(EditableMesh* mesh, int vertex_index)
     int boundary_count = 0;
     
     // Find all triangles using this vertex and collect their edges
-    for (int i = 0; i < mesh->triangle_count; i++)
+    for (int i = 0; i < em->triangle_count; i++)
     {
-        EditableTriangle& et = mesh->triangles[i];
+        EditableTriangle& et = em->triangles[i];
         if (et.v0 == vertex_index || et.v1 == vertex_index || et.v2 == vertex_index)
         {
             // Get the edge opposite to the vertex being dissolved
@@ -155,14 +161,14 @@ void DissolveVertex(EditableMesh* mesh, int vertex_index)
     }
     
     // Remove all triangles that reference this vertex
-    for (int i = mesh->triangle_count - 1; i >= 0; i--)
+    for (int i = em->triangle_count - 1; i >= 0; i--)
     {
-        EditableTriangle& et = mesh->triangles[i];
+        EditableTriangle& et = em->triangles[i];
         if (et.v0 == vertex_index || et.v1 == vertex_index || et.v2 == vertex_index)
         {
             // Remove triangle by swapping with last and reducing count
-            mesh->triangles[i] = mesh->triangles[mesh->triangle_count - 1];
-            mesh->triangle_count--;
+            em->triangles[i] = em->triangles[em->triangle_count - 1];
+            em->triangle_count--;
         }
     }
     
@@ -239,8 +245,8 @@ void DissolveVertex(EditableMesh* mesh, int vertex_index)
         // Triangulate the ordered polygon using fan triangulation
         for (int i = 1; i < ordered_count - 1; i++)
         {
-            if (mesh->triangle_count < MAX_TRIANGLES) {
-                EditableTriangle& new_tri = mesh->triangles[mesh->triangle_count++];
+            if (em->triangle_count < MAX_TRIANGLES) {
+                EditableTriangle& new_tri = em->triangles[em->triangle_count++];
                 new_tri.v0 = ordered_vertices[0];
                 new_tri.v1 = ordered_vertices[i];
                 new_tri.v2 = ordered_vertices[i + 1];
@@ -249,62 +255,63 @@ void DissolveVertex(EditableMesh* mesh, int vertex_index)
     }
     
     // Shift all vertices down as long as it wasn't the last vertex
-    for (int i = vertex_index; i < mesh->vertex_count - 1; i++)
-        mesh->vertices[i] = mesh->vertices[i + 1];
+    for (int i = vertex_index; i < em->vertex_count - 1; i++)
+        em->vertices[i] = em->vertices[i + 1];
     
-    mesh->vertex_count--;
+    em->vertex_count--;
     
     // Update all triangle vertex indices that are greater than vertex_index
-    for (int i = 0; i < mesh->triangle_count; i++)
+    for (int i = 0; i < em->triangle_count; i++)
     {
-        EditableTriangle& et = mesh->triangles[i];
+        EditableTriangle& et = em->triangles[i];
         if (et.v0 > vertex_index) et.v0--;
         if (et.v1 > vertex_index) et.v1--;
         if (et.v2 > vertex_index) et.v2--;
     }
 
-    MarkDirty(*mesh);
+    MarkModified(*em);
+    MarkDirty(*em);
 }
 
-void DeleteVertex(EditableMesh* mesh, int vertex_index)
+void DeleteVertex(EditableMesh* em, int vertex_index)
 {
-    assert(mesh);
-    assert(vertex_index >= 0 && vertex_index < mesh->vertex_count);
+    assert(em);
+    assert(vertex_index >= 0 && vertex_index < em->vertex_count);
 
     // Remove any triangles that reference this vertex
-    for (int i = mesh->triangle_count - 1; i >= 0; i--)
+    for (int i = em->triangle_count - 1; i >= 0; i--)
     {
-        EditableTriangle& et = mesh->triangles[i];
+        EditableTriangle& et = em->triangles[i];
         if (et.v0 == vertex_index || et.v1 == vertex_index || et.v2 == vertex_index)
         {
             // Remove triangle by swapping with last and reducing count
-            mesh->triangles[i] = mesh->triangles[mesh->triangle_count - 1];
-            mesh->triangle_count--;
+            em->triangles[i] = em->triangles[em->triangle_count - 1];
+            em->triangle_count--;
         }
     }
 
     // Iterate over all triangles and decrement vertex indices greater than vertex_index
-    for (int i = 0; i < mesh->triangle_count; i++)
+    for (int i = 0; i < em->triangle_count; i++)
     {
-        EditableTriangle& et = mesh->triangles[i];
+        EditableTriangle& et = em->triangles[i];
         if (et.v0 > vertex_index) et.v0--;
         if (et.v1 > vertex_index) et.v1--;
         if (et.v2 > vertex_index) et.v2--;
     }
 
     // shift all verticies down as long as it wasnt the last vertex
-    for (int i = vertex_index; i < mesh->vertex_count - 1; i++)
-        mesh->vertices[i] = mesh->vertices[i + 1];
+    for (int i = vertex_index; i < em->vertex_count - 1; i++)
+        em->vertices[i] = em->vertices[i + 1];
 
-    mesh->vertex_count--;
+    em->vertex_count--;
 
     // We could end up with vertices that no longer have a triangle, we need to find them and remove them
-    for (int i = mesh->vertex_count - 1; i >= 0; i--)
+    for (int i = em->vertex_count - 1; i >= 0; i--)
     {
         bool used = false;
-        for (int j = 0; j < mesh->triangle_count; j++)
+        for (int j = 0; j < em->triangle_count; j++)
         {
-            EditableTriangle& et = mesh->triangles[j];
+            EditableTriangle& et = em->triangles[j];
             if (et.v0 == i || et.v1 == i || et.v2 == i)
             {
                 used = true;
@@ -315,13 +322,13 @@ void DeleteVertex(EditableMesh* mesh, int vertex_index)
         if (!used)
         {
             // Remove vertex by swapping with last and reducing count
-            mesh->vertices[i] = mesh->vertices[mesh->vertex_count - 1];
-            mesh->vertex_count--;
+            em->vertices[i] = em->vertices[em->vertex_count - 1];
+            em->vertex_count--;
 
             // Iterate over all triangles and decrement vertex indices greater than i
-            for (int j = 0; j < mesh->triangle_count; j++)
+            for (int j = 0; j < em->triangle_count; j++)
             {
-                EditableTriangle& et = mesh->triangles[j];
+                EditableTriangle& et = em->triangles[j];
                 if (et.v0 > i) et.v0--;
                 if (et.v1 > i) et.v1--;
                 if (et.v2 > i) et.v2--;
@@ -329,7 +336,8 @@ void DeleteVertex(EditableMesh* mesh, int vertex_index)
         }
     }
 
-    MarkDirty(*mesh);
+    MarkModified(*em);
+    MarkDirty(*em);
 }
 
 static int GetTriangleEdgeIndex(const EditableTriangle& et, const EditableEdge& ee)
@@ -348,20 +356,20 @@ static int GetTriangleEdgeIndex(const EditableTriangle& et, const EditableEdge& 
 }
 
 
-void RotateEdge(EditableMesh* mesh, int edge_index)
+void RotateEdge(EditableMesh* em, int edge_index)
 {
-    assert(mesh);
-    assert(edge_index >= 0 && edge_index < mesh->edge_count);
+    assert(em);
+    assert(edge_index >= 0 && edge_index < em->edge_count);
     
-    EditableEdge& edge = mesh->edges[edge_index];
+    EditableEdge& edge = em->edges[edge_index];
     
     // Find the two triangles that share this edge
     int triangle_indices[2];
     int triangle_count = 0;
     
-    for (int i = 0; i < mesh->triangle_count; i++)
+    for (int i = 0; i < em->triangle_count; i++)
     {
-        EditableTriangle& et = mesh->triangles[i];
+        EditableTriangle& et = em->triangles[i];
         if (GetTriangleEdgeIndex(et, edge) != -1)
         {
             if (triangle_count < 2)
@@ -376,8 +384,8 @@ void RotateEdge(EditableMesh* mesh, int edge_index)
     if (triangle_count != 2)
         return;
     
-    EditableTriangle& tri1 = mesh->triangles[triangle_indices[0]];
-    EditableTriangle& tri2 = mesh->triangles[triangle_indices[1]];
+    EditableTriangle& tri1 = em->triangles[triangle_indices[0]];
+    EditableTriangle& tri2 = em->triangles[triangle_indices[1]];
     
     // Find the vertices that are NOT part of the shared edge
     int opposite1 = -1, opposite2 = -1;
@@ -406,10 +414,10 @@ void RotateEdge(EditableMesh* mesh, int edge_index)
     
     // We need to determine the correct winding order by checking the original triangles
     // Get positions to calculate winding
-    Vec2 pos_opposite1 = mesh->vertices[opposite1].position;
-    Vec2 pos_opposite2 = mesh->vertices[opposite2].position;
-    Vec2 pos_v0 = mesh->vertices[edge.v0].position;
-    Vec2 pos_v1 = mesh->vertices[edge.v1].position;
+    Vec2 pos_opposite1 = em->vertices[opposite1].position;
+    Vec2 pos_opposite2 = em->vertices[opposite2].position;
+    Vec2 pos_v0 = em->vertices[edge.v0].position;
+    Vec2 pos_v1 = em->vertices[edge.v1].position;
     
     // Calculate cross product to determine winding for first triangle
     // We want: opposite1 -> edge.v0 -> opposite2 to maintain CCW winding
@@ -447,7 +455,8 @@ void RotateEdge(EditableMesh* mesh, int edge_index)
         tri2.v2 = opposite2;
     }
 
-    MarkDirty(*mesh);
+    MarkModified(*em);
+    MarkDirty(*em);
 }
 
 int SplitEdge(EditableMesh* em, int edge_index, float edge_pos)
@@ -504,8 +513,6 @@ int SplitEdge(EditableMesh* em, int edge_index, float edge_pos)
         }
     }
 
-    MarkDirty(*em);
-
     return new_vertex_index;
 }
 
@@ -543,6 +550,7 @@ EditableMesh* CreateEditableMesh(Allocator* allocator)
     em->triangle_count = 2;
     em->triangles[0] = { 0, 1, 2};
     em->triangles[1] = { 0, 2, 3};
+
     MarkDirty(*em);
 
     return em;

@@ -109,6 +109,11 @@ struct AssetEditor
 
 #include "editor_assets.h"
 
+// @editor
+extern void UpdateBoxSelect(InputSet* set);
+extern void ClearBoxSelect();
+
+// @grid
 extern void InitGrid(Allocator* allocator);
 extern void ShutdownGrid();
 extern void DrawGrid(Camera* camera);
@@ -133,3 +138,10 @@ extern Bounds2 GetSelectedBounds(const EditableAsset& ea);
 extern bool HitTest(const EditableMesh& mesh, const Vec2& position, const Bounds2& hit_bounds);
 extern Mesh* ToMesh(EditableMesh* emesh);
 extern Bounds2 GetSelectedBounds(const EditableMesh& emesh);
+extern void MarkDirty(EditableMesh& emesh);
+extern void MarkModified(EditableMesh& emesh);
+
+// @notifications
+extern void InitNotifications();
+extern void UpdateNotifications();
+extern void AddNotification(const char* format, ...);

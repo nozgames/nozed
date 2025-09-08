@@ -14,6 +14,7 @@
 //
 // @stylesheets
 // LoadedAssets.ui.mesh_editor
+// LoadedAssets.ui.notifications
 //
 // @textures
 // LoadedAssets.textures.palette
@@ -54,6 +55,7 @@ struct LoadedAssets
     struct
     {
         StyleSheet* mesh_editor;
+        StyleSheet* notifications;
     } ui;
 };
 

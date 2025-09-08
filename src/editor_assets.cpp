@@ -4,8 +4,8 @@
 //
 
 // @includes
-#include "editor_assets.h"
 #include <noz/noz.h>
+#include "editor_assets.h"
 
 // @assets
 LoadedAssets g_assets = {};
@@ -19,6 +19,7 @@ static const Name* NAME_shaders_ui;
 static const Name* NAME_shaders_vfx;
 static const Name* NAME_textures_palette;
 static const Name* NAME_ui_mesh_editor;
+static const Name* NAME_ui_notifications;
 
 #ifdef NOZ_EDITOR
 
@@ -35,6 +36,7 @@ void HotloadAsset(const Name* incoming_name)
 
     // @stylesheets
     NOZ_RELOAD_STYLE_SHEET(NAME_ui_mesh_editor, g_assets.ui.mesh_editor);
+    NOZ_RELOAD_STYLE_SHEET(NAME_ui_notifications, g_assets.ui.notifications);
 
     // @textures
     NOZ_RELOAD_TEXTURE(NAME_textures_palette, g_assets.textures.palette);
@@ -53,6 +55,7 @@ bool LoadAssets(Allocator* allocator)
     NAME_shaders_vfx = GetName("shaders/vfx");
     NAME_textures_palette = GetName("textures/palette");
     NAME_ui_mesh_editor = GetName("ui/mesh_editor");
+    NAME_ui_notifications = GetName("ui/notifications");
 
     NOZ_LOAD_FONT(allocator, NAME_fonts_roboto_black, g_assets.fonts.roboto_black);
     NOZ_LOAD_SHADER(allocator, NAME_shaders_default, g_assets.shaders._default);
@@ -61,6 +64,7 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_SHADER(allocator, NAME_shaders_vfx, g_assets.shaders.vfx);
     NOZ_LOAD_TEXTURE(allocator, NAME_textures_palette, g_assets.textures.palette);
     NOZ_LOAD_STYLE_SHEET(allocator, NAME_ui_mesh_editor, g_assets.ui.mesh_editor);
+    NOZ_LOAD_STYLE_SHEET(allocator, NAME_ui_notifications, g_assets.ui.notifications);
 
     // Assign core engine assets
     g_core_assets.shaders.ui = g_assets.shaders.ui;

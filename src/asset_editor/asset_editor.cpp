@@ -26,9 +26,9 @@ extern EditableMesh* CreateEditableMesh(Allocator* allocator);
 extern void DrawVertexHandles(EditableMesh* mesh);
 extern void SetPosition(EditableMesh* em, int index, const Vec2& position);
 extern int SplitEdge(EditableMesh* em, int edge_index, float edge_pos);
-extern void DeleteVertex(EditableMesh* mesh, int vertex_index);
-extern void DissolveVertex(EditableMesh* mesh, int vertex_index);
-extern void RotateEdge(EditableMesh* mesh, int edge_index);
+extern void DeleteVertex(EditableMesh* em, int vertex_index);
+extern void DissolveVertex(EditableMesh* em, int vertex_index);
+extern void RotateEdge(EditableMesh* em, int edge_index);
 extern void SetTriangleColor(EditableMesh* em, int index, const Vec2Int& color);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 extern i32 LoadEditableAssets(EditableAsset** assets);
@@ -481,12 +481,16 @@ void UpdateAssetEditor()
         }
     }
 
-    UpdateBoxSelect();
-    UpdateView();
-
     // Save
     if (WasButtonPressed(g_asset_editor.input, KEY_S) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    {
+        ConsumeButton(g_asset_editor.input, KEY_S);
         SaveAssets();
+    }
+
+    UpdateBoxSelect();
+    UpdateView();
+    UpdateNotifications();
 }
 
 static void DrawBoxSelect()
@@ -628,6 +632,7 @@ int InitAssetEditor(int argc, const char* argv[])
     Free(builder);
 
     InitGrid(ALLOCATOR_DEFAULT);
+    InitNotifications();
 
     g_asset_editor.asset_count = LoadEditableAssets(g_asset_editor.assets);
 

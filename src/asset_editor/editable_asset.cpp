@@ -126,6 +126,7 @@ void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color)
 
 void SaveAssets()
 {
+    u32 count = 0;
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
     {
         EditableAsset& asset = *g_asset_editor.assets[i];
@@ -136,8 +137,12 @@ void SaveAssets()
             continue;
 
         SaveEditableMesh(asset.mesh, asset.path);
-        asset.dirty = false;
+        asset.mesh->modified = false;
+        count++;
     }
+
+    if (count > 0)
+        AddNotification("Saved %d asset(s)", count);
 }
 
 bool HitTestAsset(const EditableAsset& ea, const Vec2& hit_pos)

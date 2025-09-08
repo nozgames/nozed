@@ -78,7 +78,8 @@ static void RevertPositions(EditableAsset& ea)
         ev.position = ev.saved_position;
     }
 
-    ea.dirty = true;
+    MarkDirty(em);
+    MarkModified(em);
     UpdateSelection(ea);
 }
 
@@ -99,7 +100,8 @@ static void UpdateScaleState(EditableAsset& ea)
         ev.position = g_mesh_editor.selection_center + dir * (1.0f + delta);
     }
 
-    em.dirty = true;
+    MarkDirty(em);
+    MarkModified(em);
 
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
@@ -128,7 +130,8 @@ static void UpdateMoveState(EditableAsset& ea)
             ev.position = ev.saved_position + delta;
     }
 
-    em.dirty = true;
+    MarkDirty(em);
+    MarkModified(em);
 }
 
 static void ClearVertexSelection(EditableAsset& ea)
@@ -193,6 +196,7 @@ void UpdateMeshEditor(EditableAsset& ea)
         }
         // Scale mode
         else if (g_mesh_editor.state == MESH_EDITOR_STATE_NONE &&
+            !IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL) &&
             WasButtonPressed(g_asset_editor.input, KEY_S) &&
             g_mesh_editor.selected_vertex_count > 0)
         {

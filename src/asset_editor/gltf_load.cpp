@@ -4,8 +4,6 @@
 
 #include "asset_editor.h"
 
-extern void MarkDirty(EditableMesh& emesh);
-
 #include <cgltf.h>
 
 EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename)
@@ -134,31 +132,19 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
             {
                 int vertex_index;
                 if (float_indices)
-                {
-                    // Use the first vertex index of this triangle
                     vertex_index = (int)float_indices[i * 3 + 0];
-                }
                 else
-                {
-                    // Sequential vertex order
                     vertex_index = i * 3;
-                }
-                
+
                 if (vertex_index * 2 + 1 < (int)num_uv_floats)
                 {
                     float u = uv_data[vertex_index * 2 + 0]; // U of first vertex of triangle i
                     float v = uv_data[vertex_index * 2 + 1]; // V of first vertex of triangle i
                     
-                    int col = (int)(u * 128.0f);
-                    int row = (int)(v * 128.0f);
+                    int col = (int)(u * 16.0f);
+                    int row = (int)(v * 16.0f);
                     triangle_colors[i].x = col;
                     triangle_colors[i].y = row;
-                    
-                    // Debug: Print first few triangles
-                    if (i < 3)
-                    {
-                        printf("LOAD Triangle %d: vertex_index=%d UV(%.3f, %.3f) -> Color(%d, %d)\n", i, vertex_index, u, v, col, row);
-                    }
                 }
                 else
                 {
