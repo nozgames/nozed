@@ -231,12 +231,6 @@ static void UpdateMoveState()
 
 static void UpdateDefaultState()
 {
-    if (WasButtonPressed(g_asset_editor.input, KEY_Z) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
-    {
-        Undo();
-        return;
-    }
-
     // Selection
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
@@ -373,10 +367,20 @@ static void UpdateMouse()
         g_asset_editor.drag = false;
 }
 
+static void UpdateCommon()
+{
+    if (WasButtonPressed(g_asset_editor.input, KEY_Z) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    {
+        Undo();
+        return;
+    }
+}
+
 static void UpdateAssetEditorInternal()
 {
     UpdateCamera();
     UpdateMouse();
+    UpdateCommon();
 
     switch (GetState())
     {

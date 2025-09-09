@@ -109,6 +109,7 @@ static void UpdateHeightState(EditableAsset& ea)
             ev.height = ev.saved_height;;
         }
 
+        CancelUndo();
         MarkDirty(em);
         MarkModified(em);
         return;
@@ -517,6 +518,7 @@ void UpdateMeshEditor(EditableAsset& ea)
     // Cancel the tool
     else if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE) || WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
     {
+        CancelUndo();
         RevertPositions(ea);
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
