@@ -34,7 +34,6 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
     
     // Initialize mesh
     memset(mesh, 0, sizeof(EditableMesh));
-    mesh->builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
 
     // Find first mesh and primitive
     if (data->meshes_count == 0 || data->meshes[0].primitives_count == 0)

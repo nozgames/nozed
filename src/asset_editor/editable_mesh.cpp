@@ -4,10 +4,20 @@
 
 #include "asset_editor.h"
 
+
+
 static int GetOrAddEdge(EditableMesh& em, int v0, int v1)
 {
     int fv0 = Min(v0, v1);
     int fv1 = Max(v0, v1);
+
+    Vec2 en = Normalize(em.vertices[v1].position - em.vertices[v0].position);
+    en = Vec2{en.y, -en.x};
+
+    EditableVertex& ev0 = em.vertices[v0];
+    EditableVertex& ev1 = em.vertices[v1];
+    ev0.edge_normal += en;
+    ev1.edge_normal += en;
 
     for (int i = 0; i < em.edge_count; i++)
     {
@@ -28,6 +38,7 @@ static int GetOrAddEdge(EditableMesh& em, int v0, int v1)
     ee.triangle_count = 1;
     ee.v0 = fv0;
     ee.v1 = fv1;
+
     return edge_index;
 }
 
@@ -63,11 +74,14 @@ static void UpdateEdges(EditableMesh& em)
     Vec2 min = em.vertices[0].position;
     Vec2 max = min;
 
+    em.vertices[0].edge_normal = VEC2_ZERO;
+
     for (int i = 1; i < em.vertex_count; i++)
     {
         EditableVertex& ev = em.vertices[i];
         min = Min(ev.position, min);
         max = Max(ev.position, max);
+        ev.edge_normal = VEC2_ZERO;
     }
 
     em.bounds = {min, max};
@@ -78,6 +92,12 @@ static void UpdateEdges(EditableMesh& em)
         GetOrAddEdge(em, et.v0, et.v1);
         GetOrAddEdge(em, et.v1, et.v2);
         GetOrAddEdge(em, et.v2, et.v0);
+    }
+
+    for (int i = 1; i < em.vertex_count; i++)
+    {
+        EditableVertex& ev = em.vertices[i];
+        //ev.edge_normal = Normalize(ev.edge_normal);
     }
 }
 
@@ -93,28 +113,55 @@ void MarkDirty(EditableMesh& em)
     UpdateNormals(em);
 }
 
-Mesh* ToMesh(EditableMesh* emesh)
+Mesh* ToMesh(EditableMesh& em)
 {
-    if (emesh->dirty)
+    if (!em.dirty)
+        return em.mesh;
+
+    // Free old mesh
+    Free(em.mesh);
+
+    PushScratch();
+    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_SCRATCH, MAX_VERTICES, MAX_INDICES);
+
+    // Generate the mesh body
+    for (int i = 0; i < em.triangle_count; i++)
     {
-        Clear(emesh->builder);
-
-        for (int i = 0; i < emesh->triangle_count; i++)
-        {
-            const EditableTriangle& tri = emesh->triangles[i];
-
-            Vec2 uv_color = ColorUV(tri.color.x, tri.color.y);
-            AddVertex(emesh->builder, emesh->vertices[tri.v0].position, tri.normal, uv_color, 0);
-            AddVertex(emesh->builder, emesh->vertices[tri.v1].position, tri.normal, uv_color, 0);
-            AddVertex(emesh->builder, emesh->vertices[tri.v2].position, tri.normal, uv_color, 0);
-            AddTriangle(emesh->builder, i * 3, i * 3 + 1, i * 3 + 2);
-        }
-
-        Free(emesh->mesh);
-        emesh->mesh = CreateMesh(ALLOCATOR_DEFAULT, emesh->builder, NAME_NONE);
+        const EditableTriangle& tri = em.triangles[i];
+        Vec2 uv_color = ColorUV(tri.color.x, tri.color.y);
+        AddVertex(builder, em.vertices[tri.v0].position, tri.normal, uv_color, 0);
+        AddVertex(builder, em.vertices[tri.v1].position, tri.normal, uv_color, 0);
+        AddVertex(builder, em.vertices[tri.v2].position, tri.normal, uv_color, 0);
+        AddTriangle(builder, i * 3, i * 3 + 1, i * 3 + 2);
     }
 
-    return emesh->mesh;
+    // Generate edges
+    Vec2 edge_uv = ColorUV(0,0);
+    for (int i=0; i < em.edge_count; i++)
+    {
+        constexpr float edge_width = 0.01f;
+
+        const EditableEdge& ee = em.edges[i];
+        if (ee.triangle_count > 1)
+            continue;
+
+        const EditableVertex& v0 = em.vertices[ee.v0];
+        const EditableVertex& v1 = em.vertices[ee.v1];
+        Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
+        Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
+        int base = GetVertexCount(builder);
+        AddVertex(builder, ToVec2(p0), VEC3_FORWARD, edge_uv, 0);
+        AddVertex(builder, ToVec2(p0) + v0.edge_normal * edge_width, VEC3_FORWARD, edge_uv, 0);
+        AddVertex(builder, ToVec2(p1) + v1.edge_normal * edge_width, VEC3_FORWARD, edge_uv, 0);
+        AddVertex(builder, ToVec2(p1), VEC3_FORWARD, edge_uv, 0);
+        AddTriangle(builder, base+0, base+1, base+3);
+        AddTriangle(builder, base+1, base+2, base+3);
+    }
+
+    em.mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+    PopScratch();
+
+    return em.mesh;
 }
 
 void SetTriangleColor(EditableMesh* em, int index, const Vec2Int& color)
@@ -794,19 +841,7 @@ Bounds2 GetSelectedBounds(const EditableMesh& emesh)
 EditableMesh* CreateEditableMesh(Allocator* allocator)
 {
     EditableMesh* em = (EditableMesh*)Alloc(allocator, sizeof(EditableMesh));
-    em->builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
-    em->vertex_count = 4;
-    em->vertices[0] = {.position = {-0.5f, -0.5f}};
-    em->vertices[1] = {.position = {0.5f, -0.5f}};
-    em->vertices[2] = {.position = {0.5f, 0.5f}};
-    em->vertices[3] = {.position = {-0.5f, 0.5f}};
-
-    em->triangle_count = 2;
-    em->triangles[0] = {0, 1, 2};
-    em->triangles[1] = {0, 2, 3};
-
     MarkDirty(*em);
-
     return em;
 }
 
@@ -971,4 +1006,47 @@ int AddVertex(EditableMesh& em, const Vec2& position)
     MarkDirty(em);
     MarkModified(em);
     return new_vertex_index;
+}
+
+void FixNormals(EditableMesh& em)
+{
+    for (int i=0; i<em.triangle_count; i++)
+    {
+        // Ensure all triangles have CCW winding
+        EditableTriangle& et = em.triangles[i];
+        const Vec2& v0 = em.vertices[et.v0].position;
+        const Vec2& v1 = em.vertices[et.v1].position;
+        const Vec2& v2 = em.vertices[et.v2].position;
+
+        Vec2 e0 = v1 - v0;
+        Vec2 e1 = v2 - v0;
+        float cross = e0.x * e1.y - e0.y * e1.x;
+        if (cross < 0)
+        {
+            // Swap v1 and v2 to change winding
+            int temp = et.v1;
+            et.v1 = et.v2;
+            et.v2 = temp;
+        }
+    }
+}
+
+EditableMesh* Clone(Allocator* allocator, const EditableMesh& em)
+{
+    EditableMesh* clone = CreateEditableMesh(allocator);
+    *clone = em;
+    clone->mesh = nullptr;
+    return clone;
+}
+
+
+void Copy(EditableMesh& dst, const EditableMesh& src)
+{
+    if (dst.mesh)
+        Free(dst.mesh);
+
+    dst = src;
+    dst.mesh = nullptr;
+    dst.dirty = true;
+    dst.modified = true;
 }

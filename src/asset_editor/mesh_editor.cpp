@@ -3,7 +3,6 @@
 //
 
 #include "asset_editor.h"
-#include "tui/text_input.h"
 
 extern int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float dist);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
@@ -100,6 +99,20 @@ static void UpdateHeightState(EditableAsset& ea)
 {
     float delta = (g_asset_editor.mouse_position.y - g_mesh_editor.state_mouse.y) / (g_asset_editor.dpi * HEIGHT_SLIDER_SIZE);
 
+    if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE))
+    {
+        EditableMesh& em = *ea.mesh;
+        for (i32 i=0; i<em.vertex_count; i++)
+        {
+            EditableVertex& ev = em.vertices[i];
+            if (!ev.selected) continue;
+            ev.height = ev.saved_height;;
+        }
+
+        MarkDirty(em);
+        MarkModified(em);
+        return;
+    }
     if (WasButtonPressed(g_asset_editor.input, KEY_0))
     {
         g_mesh_editor.use_fixed_value = true;
@@ -209,6 +222,24 @@ static void SetState(EditableAsset& ea, MeshEditorState state)
         EditableVertex& ev = ea.mesh->vertices[i];
         ev.saved_position = ev.position;
         ev.saved_height = ev.height;
+    }
+
+    switch (state)
+    {
+    case MESH_EDITOR_STATE_MOVE:
+        RecordUndo(ea);
+        break;
+
+    case MESH_EDITOR_STATE_SCALE:
+        RecordUndo(ea);
+        break;
+
+    case MESH_EDITOR_STATE_HEIGHT:
+        RecordUndo(ea);
+        break;
+
+    default:
+        break;
     }
 }
 

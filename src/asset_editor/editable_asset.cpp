@@ -7,6 +7,7 @@
 
 extern EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename);
 extern bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& filename);
+extern void FixNormals(EditableMesh& em);
 
 static EditableAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
 {
@@ -31,6 +32,8 @@ static EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
         Free(ea);
         ea = nullptr;
     }
+    else
+        FixNormals(*ea->mesh);
     return ea;
 }
 
@@ -191,7 +194,7 @@ void DrawAsset(const EditableAsset& ea)
     {
     case EDITABLE_ASSET_TYPE_MESH:
         BindTransform(TRS(ea.position, 0, VEC2_ONE));
-        DrawMesh(ToMesh(&*ea.mesh));
+        DrawMesh(ToMesh(*ea.mesh));
         break;
 
     default:
@@ -269,4 +272,22 @@ int FindAssetByName(const Name* name)
             return i;
 
     return -1;
+}
+
+EditableAsset* Clone(Allocator* allocator, const EditableAsset& ea)
+{
+    EditableAsset* clone = CreateEditableAsset(ea.path, ea.type);
+    *clone = ea;
+    if (clone->mesh)
+        clone->mesh = Clone(allocator, *clone->mesh);
+
+    return clone;
+}
+
+void Copy(EditableAsset& dst, const EditableAsset& src)
+{
+    dst = src;
+
+    if (dst.mesh)
+        Copy(*dst.mesh, *src.mesh);
 }

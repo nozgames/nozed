@@ -23,6 +23,7 @@ struct EditableVertex
     float height;
     float saved_height;
     bool selected;
+    Vec2 edge_normal;
 };
 
 struct EditableEdge
@@ -30,6 +31,7 @@ struct EditableEdge
     int v0;
     int v1;
     int triangle_count;
+    Vec2 normal;
 };
 
 struct EditableTriangle
@@ -46,7 +48,6 @@ struct EditableMesh
     EditableVertex vertices[MAX_VERTICES];
     EditableEdge edges[MAX_EDGES];
     EditableTriangle triangles[MAX_TRIANGLES];
-    MeshBuilder* builder;
     Mesh* mesh;
     int vertex_count;
     int edge_count;
@@ -137,12 +138,21 @@ extern void ClearBoxSelect();
 extern void PushState(AssetEditorState state);
 extern void PopState();
 extern void FocusAsset(int asset_index);
-extern void HandleCommand(const std::string& str);
 
 // @grid
 extern void InitGrid(Allocator* allocator);
 extern void ShutdownGrid();
 extern void DrawGrid(Camera* camera);
+
+// @undo
+extern void InitUndo();
+extern void ShutdownUndo();
+extern void HandleCommand(const std::string& str);
+extern void RecordUndo(EditableAsset& ea);
+extern void BeginUndoGroup();
+extern void EndUndoGroup();
+extern void Undo();
+extern void CancelUndo();
 
 // @editable_asset
 extern i32 LoadEditableAssets(EditableAsset** assets);
@@ -161,6 +171,8 @@ extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
 extern void AddAssetSelection(int asset_index);
 extern int FindAssetByName(const Name* name);
+extern EditableAsset* Clone(Allocator* allocator, const EditableAsset& ea);
+extern void Copy(EditableAsset& dst, const EditableAsset& src);
 
 // @editable_mesh
 extern EditableMesh* CreateEditableMesh(Allocator* allocator);
@@ -168,7 +180,7 @@ extern bool HitTest(const EditableMesh& mesh, const Vec2& position, const Bounds
 extern bool HitTestTriangle(const EditableMesh& em, const EditableTriangle& et, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
 extern int HitTestTriangle(const EditableMesh& mesh, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
 extern int HitTestEdge(const EditableMesh& em, const Vec2& hit_pos, float size, float* where=nullptr);
-extern Mesh* ToMesh(EditableMesh* emesh);
+extern Mesh* ToMesh(EditableMesh& em);
 extern Bounds2 GetSelectedBounds(const EditableMesh& emesh);
 extern void MarkDirty(EditableMesh& emesh);
 extern void MarkModified(EditableMesh& emesh);
@@ -185,6 +197,8 @@ extern void ToggleSelection(EditableMesh& em, int vertex_index);
 extern void ClearSelection(EditableMesh& em);
 extern void SelectAll(EditableMesh& em);
 extern void RotateEdge(EditableMesh& em, int edge_index);
+extern EditableMesh* Clone(Allocator* allocator, const EditableMesh& em);
+extern void Copy(EditableMesh& dst, const EditableMesh& src);
 
 // @notifications
 extern void InitNotifications();

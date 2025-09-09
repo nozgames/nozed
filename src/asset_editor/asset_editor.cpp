@@ -217,6 +217,7 @@ static void UpdateMoveState()
         }
 
         PopState();
+        CancelUndo();
         return;
     }
 
@@ -230,6 +231,12 @@ static void UpdateMoveState()
 
 static void UpdateDefaultState()
 {
+    if (WasButtonPressed(g_asset_editor.input, KEY_Z) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    {
+        Undo();
+        return;
+    }
+
     // Selection
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
@@ -263,7 +270,9 @@ static void UpdateDefaultState()
     }
 
     // Enter edit mode
-    if (WasButtonPressed(g_asset_editor.input, KEY_TAB) && g_asset_editor.selected_asset_count == 1)
+    if (WasButtonPressed(g_asset_editor.input, KEY_TAB) &&
+        !IsButtonDown(g_asset_editor.input, KEY_LEFT_ALT) &&
+        g_asset_editor.selected_asset_count == 1)
     {
         g_asset_editor.edit_asset_index = GetFirstSelectedAsset();
         assert(g_asset_editor.edit_asset_index != -1);
@@ -303,11 +312,14 @@ void PushState(AssetEditorState state)
 
     case ASSET_EDITOR_STATE_MOVE:
         g_asset_editor.move_world_position = g_asset_editor.mouse_world_position;
+        BeginUndoGroup();
         for (int i=0; i<g_asset_editor.asset_count; i++)
         {
             EditableAsset& ea = *g_asset_editor.assets[i];
+            RecordUndo(ea);
             ea.saved_position = ea.position;
         }
+        EndUndoGroup();
         break;
 
     case ASSET_EDITOR_STATE_PAN:
@@ -485,90 +497,6 @@ void RenderView()
     DrawBoxSelect();
 }
 
-void InitAssetEditor()
-{
-    InitWindow();
-
-    // ApplicationTraits traits = {};
-    // Init(traits);
-    // traits.name = "meshz";
-    // traits.title = "MeshZ";
-    // traits.load_assets = LoadAssets;
-    // traits.unload_assets = UnloadAssets;
-    // traits.renderer.vsync = true;
-    // traits.assets_path = "build/assets";
-    // InitApplication(&traits, argc, argv);
-
-    g_asset_editor.camera = CreateCamera(ALLOCATOR_DEFAULT);
-    g_asset_editor.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders._default);
-    g_asset_editor.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.ui);
-    g_asset_editor.zoom = ZOOM_DEFAULT;
-    g_asset_editor.ui_scale = 1.0f;
-    g_asset_editor.dpi = 72.0f;
-    g_asset_editor.selected_vertex = -1;
-    g_asset_editor.edit_asset_index = -1;
-    UpdateCamera();
-    SetTexture(g_asset_editor.material, g_assets.textures.palette, 0);
-
-    g_asset_editor.input = CreateInputSet(ALLOCATOR_DEFAULT);
-    EnableButton(g_asset_editor.input, MOUSE_LEFT);
-    EnableButton(g_asset_editor.input, MOUSE_RIGHT);
-    EnableButton(g_asset_editor.input, MOUSE_MIDDLE);
-    EnableButton(g_asset_editor.input, KEY_X);
-    EnableButton(g_asset_editor.input, KEY_F);
-    EnableButton(g_asset_editor.input, KEY_G);
-    EnableButton(g_asset_editor.input, KEY_R);
-    EnableButton(g_asset_editor.input, KEY_M);
-    EnableButton(g_asset_editor.input, KEY_Q);
-    EnableButton(g_asset_editor.input, KEY_0);
-    EnableButton(g_asset_editor.input, KEY_1);
-    EnableButton(g_asset_editor.input, KEY_A);
-    EnableButton(g_asset_editor.input, KEY_V);
-    EnableButton(g_asset_editor.input, KEY_ESCAPE);
-    EnableButton(g_asset_editor.input, KEY_ENTER);
-    EnableButton(g_asset_editor.input, KEY_SPACE);
-    EnableButton(g_asset_editor.input, KEY_SEMICOLON);
-    EnableButton(g_asset_editor.input, KEY_LEFT_CTRL);
-    EnableButton(g_asset_editor.input, KEY_LEFT_SHIFT);
-    EnableButton(g_asset_editor.input, KEY_RIGHT_SHIFT);
-    EnableButton(g_asset_editor.input, KEY_TAB);
-    EnableButton(g_asset_editor.input, KEY_S);
-    EnableButton(g_asset_editor.input, KEY_EQUALS);
-    EnableButton(g_asset_editor.input, KEY_MINUS);
-    PushInputSet(g_asset_editor.input);
-
-    g_asset_editor.command_input = CreateInputSet(ALLOCATOR_DEFAULT);
-    EnableButton(g_asset_editor.command_input, KEY_ESCAPE);
-    EnableButton(g_asset_editor.command_input, KEY_ENTER);
-
-    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);
-    AddVertex(builder, {   0, -0.5f}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, { 0.5f, 0.0f}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, {   0,  0.5f}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, {-0.5f, 0.0f}, {0,0,1}, VEC2_ZERO, 0);
-    AddTriangle(builder, 0, 1, 2);
-    AddTriangle(builder, 2, 3, 0);
-    g_asset_editor.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
-
-    Clear(builder);
-    AddVertex(builder, { -1, -1});
-    AddVertex(builder, {  1, -1});
-    AddVertex(builder, {  1,  1});
-    AddVertex(builder, { -1,  1});
-    AddTriangle(builder, 0, 1, 2);
-    AddTriangle(builder, 2, 3, 0);
-    g_asset_editor.edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
-
-    Free(builder);
-
-    InitGrid(ALLOCATOR_DEFAULT);
-    InitNotifications();
-
-    g_asset_editor.asset_count = LoadEditableAssets(g_asset_editor.assets);
-    g_asset_editor.state_stack[0] = ASSET_EDITOR_STATE_DEFAULT;
-    g_asset_editor.state_stack_count = 1;
-}
-
 void FocusAsset(int asset_index)
 {
     if (g_asset_editor.edit_asset_index != -1)
@@ -643,10 +571,89 @@ void UpdateAssetEditor()
     EndRenderFrame();
 }
 
+
+void InitAssetEditor()
+{
+    InitUndo();
+    InitWindow();
+
+    g_asset_editor.camera = CreateCamera(ALLOCATOR_DEFAULT);
+    g_asset_editor.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders._default);
+    g_asset_editor.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.ui);
+    g_asset_editor.zoom = ZOOM_DEFAULT;
+    g_asset_editor.ui_scale = 1.0f;
+    g_asset_editor.dpi = 72.0f;
+    g_asset_editor.selected_vertex = -1;
+    g_asset_editor.edit_asset_index = -1;
+    UpdateCamera();
+    SetTexture(g_asset_editor.material, g_assets.textures.palette, 0);
+
+    g_asset_editor.input = CreateInputSet(ALLOCATOR_DEFAULT);
+    EnableButton(g_asset_editor.input, MOUSE_LEFT);
+    EnableButton(g_asset_editor.input, MOUSE_RIGHT);
+    EnableButton(g_asset_editor.input, MOUSE_MIDDLE);
+    EnableButton(g_asset_editor.input, KEY_X);
+    EnableButton(g_asset_editor.input, KEY_F);
+    EnableButton(g_asset_editor.input, KEY_G);
+    EnableButton(g_asset_editor.input, KEY_R);
+    EnableButton(g_asset_editor.input, KEY_M);
+    EnableButton(g_asset_editor.input, KEY_Q);
+    EnableButton(g_asset_editor.input, KEY_0);
+    EnableButton(g_asset_editor.input, KEY_1);
+    EnableButton(g_asset_editor.input, KEY_A);
+    EnableButton(g_asset_editor.input, KEY_V);
+    EnableButton(g_asset_editor.input, KEY_ESCAPE);
+    EnableButton(g_asset_editor.input, KEY_ENTER);
+    EnableButton(g_asset_editor.input, KEY_SPACE);
+    EnableButton(g_asset_editor.input, KEY_SEMICOLON);
+    EnableButton(g_asset_editor.input, KEY_LEFT_CTRL);
+    EnableButton(g_asset_editor.input, KEY_LEFT_SHIFT);
+    EnableButton(g_asset_editor.input, KEY_RIGHT_SHIFT);
+    EnableButton(g_asset_editor.input, KEY_TAB);
+    EnableButton(g_asset_editor.input, KEY_LEFT_ALT);
+    EnableButton(g_asset_editor.input, KEY_S);
+    EnableButton(g_asset_editor.input, KEY_Z);
+    EnableButton(g_asset_editor.input, KEY_EQUALS);
+    EnableButton(g_asset_editor.input, KEY_MINUS);
+    PushInputSet(g_asset_editor.input);
+
+    g_asset_editor.command_input = CreateInputSet(ALLOCATOR_DEFAULT);
+    EnableButton(g_asset_editor.command_input, KEY_ESCAPE);
+    EnableButton(g_asset_editor.command_input, KEY_ENTER);
+
+    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);
+    AddVertex(builder, {   0, -0.5f}, {0,0,1}, VEC2_ZERO, 0);
+    AddVertex(builder, { 0.5f, 0.0f}, {0,0,1}, VEC2_ZERO, 0);
+    AddVertex(builder, {   0,  0.5f}, {0,0,1}, VEC2_ZERO, 0);
+    AddVertex(builder, {-0.5f, 0.0f}, {0,0,1}, VEC2_ZERO, 0);
+    AddTriangle(builder, 0, 1, 2);
+    AddTriangle(builder, 2, 3, 0);
+    g_asset_editor.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+
+    Clear(builder);
+    AddVertex(builder, { -1, -1});
+    AddVertex(builder, {  1, -1});
+    AddVertex(builder, {  1,  1});
+    AddVertex(builder, { -1,  1});
+    AddTriangle(builder, 0, 1, 2);
+    AddTriangle(builder, 2, 3, 0);
+    g_asset_editor.edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+
+    Free(builder);
+
+    InitGrid(ALLOCATOR_DEFAULT);
+    InitNotifications();
+
+    g_asset_editor.asset_count = LoadEditableAssets(g_asset_editor.assets);
+    g_asset_editor.state_stack[0] = ASSET_EDITOR_STATE_DEFAULT;
+    g_asset_editor.state_stack_count = 1;
+}
+
 void ShutdownAssetEditor()
 {
     g_asset_editor = {};
 
     ShutdownGrid();
     ShutdownWindow();
+    ShutdownUndo();
 }
