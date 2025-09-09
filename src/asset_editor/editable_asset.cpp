@@ -5,9 +5,8 @@
 #include "asset_editor.h"
 #include "file_helpers.h"
 
-extern EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename);
-extern bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& filename);
-extern void FixNormals(EditableMesh& em);
+extern EditorMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename);
+extern void FixNormals(EditorMesh& em);
 
 static EditableAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
 {
@@ -23,10 +22,10 @@ static EditableAsset* CreateEditableAsset(const std::filesystem::path& path, Edi
     return ea;
 }
 
-static EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
+EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
 {
     EditableAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
-    ea->mesh = LoadEditableMesh(ALLOCATOR_DEFAULT, path);
+    ea->mesh = LoadEditorMesh(ALLOCATOR_DEFAULT, path);
     if (!ea->mesh)
     {
         Free(ea);
@@ -54,7 +53,7 @@ i32 LoadEditableAssets(EditableAsset** assets)
         std::filesystem::path ext = asset_path.extension();
         EditableAsset* ea = nullptr;
 
-        if (ext == ".glb")
+        if (ext == ".mesh")
             ea = CreateEditableMeshAsset(asset_path);
 
         if (ea)
@@ -109,11 +108,11 @@ void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color)
     BindColor(color);
     BindMaterial(g_asset_editor.vertex_material);
 
-    const EditableMesh& em = *ea.mesh;
+    const EditorMesh& em = *ea.mesh;
     const f32 zoom_scale = g_asset_editor.zoom_ref_scale;
     for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
     {
-        const EditableEdge& ee = em.edges[edge_index];
+        const EditorEdge& ee = em.edges[edge_index];
         if (ee.triangle_count > min_edge_count)
             continue;
 
@@ -137,7 +136,7 @@ void SaveEditableAssets()
         if (!asset.mesh->modified)
             continue;
 
-        SaveEditableMesh(asset.mesh, asset.path);
+        SaveEditorMesh(*asset.mesh, asset.path);
         asset.mesh->modified = false;
         count++;
     }

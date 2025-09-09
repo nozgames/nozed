@@ -76,9 +76,11 @@ void Redo()
     }
 }
 
-
 void CancelUndo()
 {
+    if (GetCount(g_undo.undo) == 0)
+        return;
+
     int group_id = ((UndoItem*)GetBack(g_undo.undo))->group_id;
 
     while (!IsEmpty(g_undo.undo))

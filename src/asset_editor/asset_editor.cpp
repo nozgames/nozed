@@ -20,11 +20,11 @@ constexpr Color BOX_SELECT_COLOR = Color {0.2f, 0.6f, 1.0f, 0.025f};
 constexpr Color BOX_SELECT_OUTLINE_COLOR = Color {0.2f, 0.6f, 1.0f, 0.2f};
 constexpr float FRAME_VIEW_PERCENTAGE = 1.0f / 0.75f;
 
-extern void SetPosition(EditableMesh* em, int index, const Vec2& position);
-extern int SplitEdge(EditableMesh* em, int edge_index, float edge_pos);
-extern void DeleteVertex(EditableMesh* em, int vertex_index);
-extern void RotateEdge(EditableMesh* em, int edge_index);
-extern void SetTriangleColor(EditableMesh* em, int index, const Vec2Int& color);
+extern void SetPosition(EditorMesh* em, int index, const Vec2& position);
+extern int SplitEdge(EditorMesh* em, int edge_index, float edge_pos);
+extern void DeleteVertex(EditorMesh* em, int vertex_index);
+extern void RotateEdge(EditorMesh* em, int edge_index);
+extern void SetTriangleColor(EditorMesh* em, int index, const Vec2Int& color);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
 static AssetEditorState GetState() { return g_asset_editor.state_stack[g_asset_editor.state_stack_count-1]; }

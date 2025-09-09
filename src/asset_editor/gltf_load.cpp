@@ -4,9 +4,10 @@
 
 #include "asset_editor.h"
 
+#if 0
 #include <cgltf.h>
 
-EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename)
+EditorMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename)
 {
     // Parse the glTF file
     cgltf_options options = {};
@@ -25,7 +26,7 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
     }
 
     // Create EditableMesh
-    EditableMesh* mesh = (EditableMesh*)Alloc(allocator, sizeof(EditableMesh));
+    EditorMesh* mesh = (EditorMesh*)Alloc(allocator, sizeof(EditorMesh));
     if (!mesh)
     {
         cgltf_free(data);
@@ -33,7 +34,7 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
     }
     
     // Initialize mesh
-    memset(mesh, 0, sizeof(EditableMesh));
+    memset(mesh, 0, sizeof(EditorMesh));
 
     // Find first mesh and primitive
     if (data->meshes_count == 0 || data->meshes[0].primitives_count == 0)
@@ -186,7 +187,7 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
             // Create new merged vertex
             if (mesh->vertex_count < MAX_VERTICES)
             {
-                EditableVertex& ev = mesh->vertices[mesh->vertex_count];
+                EditorVertex& ev = mesh->vertices[mesh->vertex_count];
                 ev.position = {loaded_positions[i].x, loaded_positions[i].y};
                 ev.height = loaded_positions[i].z;
                 vertex_remap[i] = mesh->vertex_count;
@@ -202,11 +203,11 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
     // Load indices if present (reuse float_indices from above)
     if (primitive->indices && float_indices)
     {
-        mesh->triangle_count = loaded_triangle_count;
-        if (mesh->triangle_count > MAX_TRIANGLES)
-            mesh->triangle_count = MAX_TRIANGLES;
+        mesh->face_count = loaded_triangle_count;
+        if (mesh->face_count > MAX_TRIANGLES)
+            mesh->face_count = MAX_TRIANGLES;
             
-        for (int i = 0; i < mesh->triangle_count; ++i)
+        for (int i = 0; i < mesh->face_count; ++i)
         {
             int loaded_v0 = (int)float_indices[i * 3 + 0];
             int loaded_v1 = (int)float_indices[i * 3 + 1];
@@ -217,44 +218,44 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
                 loaded_v1 >= 0 && loaded_v1 < loaded_vertex_count &&
                 loaded_v2 >= 0 && loaded_v2 < loaded_vertex_count)
             {
-                mesh->triangles[i].v0 = vertex_remap[loaded_v0];
-                mesh->triangles[i].v1 = vertex_remap[loaded_v1];
-                mesh->triangles[i].v2 = vertex_remap[loaded_v2];
+                mesh->faces[i].v0 = vertex_remap[loaded_v0];
+                mesh->faces[i].v1 = vertex_remap[loaded_v1];
+                mesh->faces[i].v2 = vertex_remap[loaded_v2];
 
                 // Assign color from pre-loaded triangle colors
                 if (i < loaded_triangle_count)
                 {
-                    mesh->triangles[i].color = triangle_colors[i];
+                    mesh->faces[i].color = triangle_colors[i];
                 }
             }
             else
             {
                 // Invalid triangle - set to 0,0,0 or skip
-                mesh->triangles[i].v0 = 0;
-                mesh->triangles[i].v1 = 0;
-                mesh->triangles[i].v2 = 0;
-                mesh->triangles[i].color = {0, 0};
+                mesh->faces[i].v0 = 0;
+                mesh->faces[i].v1 = 0;
+                mesh->faces[i].v2 = 0;
+                mesh->faces[i].color = {0, 0};
             }
         }
     }
     else
     {
         // Generate triangles from vertex order if no indices
-        mesh->triangle_count = loaded_triangle_count;
-        if (mesh->triangle_count > MAX_TRIANGLES)
-            mesh->triangle_count = MAX_TRIANGLES;
+        mesh->face_count = loaded_triangle_count;
+        if (mesh->face_count > MAX_TRIANGLES)
+            mesh->face_count = MAX_TRIANGLES;
         
-        for (int i = 0; i < mesh->triangle_count; ++i)
+        for (int i = 0; i < mesh->face_count; ++i)
         {
             // Remap loaded vertex indices to merged vertex indices
-            mesh->triangles[i].v0 = vertex_remap[i * 3 + 0];
-            mesh->triangles[i].v1 = vertex_remap[i * 3 + 1];
-            mesh->triangles[i].v2 = vertex_remap[i * 3 + 2];
+            mesh->faces[i].v0 = vertex_remap[i * 3 + 0];
+            mesh->faces[i].v1 = vertex_remap[i * 3 + 1];
+            mesh->faces[i].v2 = vertex_remap[i * 3 + 2];
             
             // Assign color from pre-loaded triangle colors
             if (i < loaded_triangle_count)
             {
-                mesh->triangles[i].color = triangle_colors[i];
+                mesh->faces[i].color = triangle_colors[i];
             }
         }
     }
@@ -275,3 +276,5 @@ EditableMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path
     cgltf_free(data);
     return mesh;
 }
+
+#endif

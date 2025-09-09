@@ -16,7 +16,6 @@ set(SOURCE_FILES
     src/asset_editor/gltf_load.cpp
     src/asset_editor/gltf_save.cpp
     src/asset_editor/editable_asset.cpp
-    src/asset_editor/editable_mesh.cpp
     src/asset_editor/notifications.cpp
     src/asset_editor/undo.cpp
     src/asset_editor/draw_utils.cpp
@@ -44,6 +43,7 @@ set(SOURCE_FILES
     src/msdf/SignedDistance.cpp
     src/rect_packer.cpp
     src/props.cpp
+    src/editor_mesh.cpp
     src/tokenizer.cpp
     src/ttf/TrueTypeFont.cpp
     src/ttf/TrueTypeFontReader.cpp

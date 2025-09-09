@@ -52,3 +52,25 @@ std::filesystem::path FixSlashes(const std::filesystem::path& path)
             c = '/';
     return result;
 }
+
+std::string ReadAllText(const std::filesystem::path& path)
+{
+    std::string result;
+
+    PushScratch();
+    Stream* stream = LoadStream(ALLOCATOR_SCRATCH, path);
+    if (stream)
+    {
+        size_t size = GetSize(stream);
+        if (size > 0)
+        {
+            result.resize(size + 1);
+            ReadBytes(stream, result.data(), size);
+            result[size] = 0;
+        }
+        Free(stream);
+    }
+    PopScratch();
+
+    return result;
+}

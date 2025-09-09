@@ -7,7 +7,7 @@
 #define CGLTF_WRITE_IMPLEMENTATION
 #include <cgltf_write.h>
 
-bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& filename)
+bool SaveEditableMesh(const EditorMesh* mesh, const std::filesystem::path& filename)
 {
     if (!mesh)
         return false;
@@ -22,7 +22,7 @@ bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& fil
     data->asset.generator = (char*)"MeshZ";
 
     // Generate separate vertices for each triangle (3 verts per triangle)
-    int total_vertices = mesh->triangle_count * 3;
+    int total_vertices = mesh->face_count * 3;
     size_t vertex_buffer_size = total_vertices * 3 * sizeof(float); // Vec3 positions (x,y,0)
     size_t normal_buffer_size = total_vertices * 3 * sizeof(float); // Vec3 normals
     size_t uv_buffer_size = total_vertices * 2 * sizeof(float); // Vec2 UVs (u,v)
@@ -43,9 +43,9 @@ bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& fil
     
     // Fill vertex data (separate vertex for each triangle vertex)
     float* vertex_data = (float*)data->buffers[0].data;
-    for (int i = 0; i < mesh->triangle_count; i++)
+    for (int i = 0; i < mesh->face_count; i++)
     {
-        const EditableTriangle& tri = mesh->triangles[i];
+        const EditorFace& tri = mesh->faces[i];
         
         // Vertex 0 of triangle
         vertex_data[(i * 3 + 0) * 3 + 0] = mesh->vertices[tri.v0].position.x;
@@ -65,9 +65,9 @@ bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& fil
     
     // Fill normal data (calculate normal from triangle vertices)
     float* normal_data = (float*)((char*)data->buffers[0].data + vertex_buffer_size);
-    for (int i = 0; i < mesh->triangle_count; i++)
+    for (int i = 0; i < mesh->face_count; i++)
     {
-        const EditableTriangle& tri = mesh->triangles[i];
+        const EditorFace& tri = mesh->faces[i];
         
         // Get triangle vertex positions
         Vec2 v0_pos = mesh->vertices[tri.v0].position;
@@ -115,9 +115,9 @@ bool SaveEditableMesh(const EditableMesh* mesh, const std::filesystem::path& fil
     
     // Fill UV data (same UV for all 3 vertices of each triangle)
     float* uv_data = (float*)((char*)data->buffers[0].data + vertex_buffer_size + normal_buffer_size);
-    for (int i = 0; i < mesh->triangle_count; i++)
+    for (int i = 0; i < mesh->face_count; i++)
     {
-        const EditableTriangle& tri = mesh->triangles[i];
+        const EditorFace& tri = mesh->faces[i];
         Vec2 uv_color = ColorUV(tri.color.x, tri.color.y);
         for (int v = 0; v < 3; v++)
         {

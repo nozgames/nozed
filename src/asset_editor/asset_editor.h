@@ -6,10 +6,6 @@
 
 constexpr int STATE_STACK_SIZE = 16;
 constexpr int MAX_ASSETS = 1024;
-constexpr int MAX_VERTICES = 4096;
-constexpr int MAX_TRIANGLES = MAX_VERTICES / 3;
-constexpr int MAX_INDICES = MAX_TRIANGLES * 3;
-constexpr int MAX_EDGES = MAX_VERTICES * 2;
 
 constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
@@ -29,7 +25,7 @@ struct EditableAsset
 {
     const Name* name;
     EditableAssetType type;
-    EditableMesh* mesh;
+    EditorMesh* mesh;
     Vec2 position;
     Vec2 saved_position;
     bool dirty;
@@ -116,6 +112,7 @@ extern void Redo();
 extern void CancelUndo();
 
 // @editable_asset
+extern EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path);
 extern i32 LoadEditableAssets(EditableAsset** assets);
 extern void SaveEditableAssets();
 extern bool HitTestAsset(const EditableAsset& ea, const Vec2& hit_pos);
