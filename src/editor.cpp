@@ -2,13 +2,14 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "../noz/src/platform/windows/windows_vulkan.h"
+#include "asset_editor/asset_editor.h"
+#include "editor_assets.h"
 #include "server.h"
 #include "tui/screen.h"
 #include "tui/terminal.h"
 #include "tui/text_input.h"
 #include "views/views.h"
-#include "asset_editor/asset_editor.h"
-#include "editor_assets.h"
 
 constexpr int MAX_VIEWS = 16;
 
@@ -30,7 +31,8 @@ struct Editor
     TextInput* search_input;
     bool command_mode;
     bool search_mode;
-    std::atomic<bool> is_running;
+    bool is_running;
+    bool auto_quit;
     int fps;
     bool stats_requested;
     const char* exe;
@@ -230,8 +232,16 @@ static void DrawCommandLine(const RectInt& rect)
 }
 
 
-static void HandleCommand(const std::string& command)
+static void HandleCommand(const std::string& str)
 {
+    Tokenizer tokenizer;
+    Token token;
+    Init(tokenizer, str.c_str());
+
+    ExpectIdentifier(tokenizer, &token);
+
+    std::string command = ToString(token);
+
     if (command == "q" || command == "quit")
     {
         // If there are views on the stack, pop one instead of quitting
@@ -239,6 +249,10 @@ static void HandleCommand(const std::string& command)
             PopView();
         else
             g_editor.is_running = false;
+    }
+    else if (command == "s" && IsWindowCreated())
+    {
+        SaveEditableAssets();
     }
     else if (command == "a")
     {
@@ -486,24 +500,33 @@ int main(int argc, const char* argv[])
 
     ApplicationTraits traits = {};
     Init(traits);
+    traits.assets_path = "build/assets";
     traits.console = true;
     traits.load_assets = LoadAssets;
     traits.unload_assets = UnloadAssets;
-
-    if (argc > 1 && argv[1][0] == 'a')
-    {
-        // InitAssetEditor(argc, argv);
-        // ShutdownImporter();
-        // delete g_config;
-        return 0;
-    }
 
     InitApplication(&traits, argc, argv);
     InitEditor();
     InitLog(HandleLog);
 
+    for (int i = 1; i < argc; i++)
+    {
+        HandleCommand(argv[i]);
+
+        // IF a quit was specified then it means to auto-quit after processing commands
+        if (!g_editor.is_running)
+        {
+            g_editor.is_running = true;
+            g_editor.auto_quit = true;
+        }
+    }
+
+    bool had_window = IsWindowCreated();
     while (UpdateApplication() && g_editor.is_running)
     {
+        if (had_window && !IsWindowCreated() && g_editor.auto_quit)
+            break;
+
         UpdateEditor();
 
         if (IsWindowCreated())
