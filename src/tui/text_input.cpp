@@ -7,7 +7,7 @@
 #include "screen.h"
 #include "terminal.h"
 
-struct TextInputImpl : TextInput
+struct TextInputImpl : TextInputBox
 {
     std::string buffer;
     i32 cursor_pos;
@@ -17,7 +17,7 @@ struct TextInputImpl : TextInput
     bool active;
 };
 
-TextInput* CreateTextInput(int x, int y, int width)
+TextInputBox* CreateTextInput(int x, int y, int width)
 {
     auto ti = new TextInputImpl;
     ti->x = x;
@@ -27,7 +27,7 @@ TextInput* CreateTextInput(int x, int y, int width)
     return ti;
 }
 
-void Destroy(TextInput* input)
+void Destroy(TextInputBox* input)
 {
     if (input)
     {
@@ -36,7 +36,7 @@ void Destroy(TextInput* input)
     }
 }
 
-void Render(TextInput* input)
+void Render(TextInputBox* input)
 {
     assert(input);
     TextInputImpl* impl = static_cast<TextInputImpl*>(input);
@@ -52,14 +52,14 @@ void Render(TextInput* input)
     }
 }
 
-void SetActive(TextInput* input, bool active)
+void SetActive(TextInputBox* input, bool active)
 {
     assert(input);
     auto impl = static_cast<TextInputImpl*>(input);
     impl->active = active;
 }
 
-bool HandleKey(TextInput* input, int key)
+bool HandleKey(TextInputBox* input, int key)
 {
     assert(input);
     auto* impl = static_cast<TextInputImpl*>(input);
@@ -118,7 +118,7 @@ bool HandleKey(TextInput* input, int key)
     return false;
 }
 
-void Clear(TextInput* input)
+void Clear(TextInputBox* input)
 {
     assert(input);
     TextInputImpl* impl = static_cast<TextInputImpl*>(input);
@@ -126,14 +126,14 @@ void Clear(TextInput* input)
     impl->cursor_pos = 0;
 }
 
-const std::string& GetText(TextInput* input)
+const std::string& GetText(TextInputBox* input)
 {
     assert(input);
     TextInputImpl* impl = static_cast<TextInputImpl*>(input);
     return impl->buffer;
 }
 
-void SetText(TextInput* input, const std::string& text)
+void SetText(TextInputBox* input, const std::string& text)
 {
     assert(input);
     TextInputImpl* impl = static_cast<TextInputImpl*>(input);
@@ -141,14 +141,14 @@ void SetText(TextInput* input, const std::string& text)
     impl->cursor_pos = impl->buffer.length();
 }
 
-size_t GetCursorPos(TextInput* input)
+size_t GetCursorPos(TextInputBox* input)
 {
     assert(input);
     TextInputImpl* impl = static_cast<TextInputImpl*>(input);
     return impl->cursor_pos;
 }
 
-bool IsActive(TextInput* input)
+bool IsActive(TextInputBox* input)
 {
     assert(input);
     TextInputImpl* impl = static_cast<TextInputImpl*>(input);

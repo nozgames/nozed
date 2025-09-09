@@ -99,10 +99,14 @@ struct AssetEditor
     float ui_scale;
     float dpi;
     InputSet* input;
+    InputSet* command_input;
     int selected_vertex;
     int edit_asset_index;
     bool clear_selection_on_release;
     Vec2 pan_start;
+    bool command_palette;
+    char command_text[256];
+    u32 command_text_length;
 
     EditableAsset* assets[MAX_ASSETS];
     u32 asset_count;

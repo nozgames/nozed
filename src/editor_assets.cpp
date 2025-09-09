@@ -26,6 +26,7 @@ void HotloadAsset(const Name* incoming_name)
     NOZ_RELOAD_SHADER(g_assets.paths.shaders_vfx, g_assets.shaders.vfx);
 
     // @stylesheets
+    NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_command_palette, g_assets.ui.command_palette);
     NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_mesh_editor, g_assets.ui.mesh_editor);
     NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_notifications, g_assets.ui.notifications);
 
@@ -44,8 +45,13 @@ bool LoadAssets(Allocator* allocator)
     g_assets.paths.shaders_ui = GetName("shaders/ui");
     g_assets.paths.shaders_vfx = GetName("shaders/vfx");
     g_assets.paths.textures_palette = GetName("textures/palette");
+    g_assets.paths.ui_command_palette = GetName("ui/command_palette");
     g_assets.paths.ui_mesh_editor = GetName("ui/mesh_editor");
     g_assets.paths.ui_notifications = GetName("ui/notifications");
+    g_names.command_palette = GetName("command_palette");
+    g_names.command_input = GetName("command_input");
+    g_names.command_text = GetName("command_text");
+    g_names.command_text_cursor = GetName("command_text_cursor");
     g_names.color_picker_image = GetName("color_picker_image");
     g_names.notification_container = GetName("notification_container");
     g_names.notification = GetName("notification");
@@ -58,6 +64,7 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_ui, g_assets.shaders.ui);
     NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_vfx, g_assets.shaders.vfx);
     NOZ_LOAD_TEXTURE(allocator, g_assets.paths.textures_palette, g_assets.textures.palette);
+    NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_command_palette, g_assets.ui.command_palette);
     NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_mesh_editor, g_assets.ui.mesh_editor);
     NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_notifications, g_assets.ui.notifications);
 

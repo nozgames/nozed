@@ -1,0 +1,23 @@
+[command_palette]
+background-color=#555558
+margin-left = auto
+margin-top = auto
+margin-right = auto
+margin-bottom = 40
+padding=4
+
+[command_input]
+flex-direction = column
+width = 600
+height = 30
+
+[command_text]
+font-size = 30
+color = black
+height = 30
+
+[command_text_cursor]
+background-color = white
+height = 30
+width = 12
+margin-left=4

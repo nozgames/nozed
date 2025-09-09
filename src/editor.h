@@ -8,15 +8,15 @@ constexpr int MAX_VIEWS = 16;
 
 struct LogView;
 struct View;
-struct TextInput;
+struct TextInputBox;
 
 struct Editor
 {
     LogView* log_view;
     View* view_stack[MAX_VIEWS];
     u32 view_stack_count = 0;
-    TextInput* command_input;
-    TextInput* search_input;
+    TextInputBox* command_input;
+    TextInputBox* search_input;
     bool command_mode;
     bool search_mode;
     bool is_running;

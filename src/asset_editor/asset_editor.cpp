@@ -5,6 +5,7 @@
 #include "asset_editor.h"
 #include "file_helpers.h"
 
+constexpr int MAX_COMMAND_LENGTH = 1024;
 constexpr float DRAG_MIN = 1;
 constexpr float DEFAULT_DPI = 72.0f;
 constexpr float ZOOM_MIN = 0.1f;
@@ -526,13 +527,20 @@ void InitAssetEditor()
     EnableButton(g_asset_editor.input, KEY_ESCAPE);
     EnableButton(g_asset_editor.input, KEY_ENTER);
     EnableButton(g_asset_editor.input, KEY_SPACE);
+    EnableButton(g_asset_editor.input, KEY_SEMICOLON);
     EnableButton(g_asset_editor.input, KEY_LEFT_CTRL);
     EnableButton(g_asset_editor.input, KEY_LEFT_SHIFT);
+    EnableButton(g_asset_editor.input, KEY_RIGHT_SHIFT);
     EnableButton(g_asset_editor.input, KEY_TAB);
     EnableButton(g_asset_editor.input, KEY_S);
     EnableButton(g_asset_editor.input, KEY_EQUALS);
     EnableButton(g_asset_editor.input, KEY_MINUS);
     PushInputSet(g_asset_editor.input);
+
+    g_asset_editor.command_input = CreateInputSet(ALLOCATOR_DEFAULT);
+    EnableButton(g_asset_editor.command_input, KEY_ESCAPE);
+    EnableButton(g_asset_editor.command_input, KEY_BACKSPACE);
+    EnableCharacters(g_asset_editor.command_input);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);
     AddVertex(builder, {   0, -0.5f}, {0,0,1}, VEC2_ZERO, 0);
@@ -574,7 +582,41 @@ void FocusAsset(int asset_index)
 
 void UpdateCommandPalette()
 {
+    if (WasButtonPressed(g_asset_editor.input, KEY_SEMICOLON) &&
+        (IsButtonDown(g_asset_editor.input, KEY_LEFT_SHIFT) ||
+         IsButtonDown(g_asset_editor.input, KEY_RIGHT_SHIFT)))
+    {
+        g_asset_editor.command_palette = true;
+        g_asset_editor.command_text[0] = 0;
+        g_asset_editor.command_text_length = 0;
+        ClearTextInput();
+        PushInputSet(g_asset_editor.command_input);
+    }
+
+    if (!g_asset_editor.command_palette)
+        return;
+
+    if (WasButtonPressed(g_asset_editor.command_input, KEY_ESCAPE))
+    {
+        g_asset_editor.command_palette = false;
+        PopInputSet();
+        return;
+    }
+
+    if (WasButtonPressed(g_asset_editor.command_input, KEY_BACKSPACE) && g_asset_editor.command_text_length > 0)
+        g_asset_editor.command_text[--g_asset_editor.command_text_length] = 0;
+
+    g_asset_editor.command_text_length = (int)Length(g_asset_editor.command_text);
+
     BeginCanvas();
+    SetStyleSheet(g_assets.ui.command_palette);
+    BeginElement(g_names.command_palette);
+        BeginElement(g_names.command_input);
+            Label(GetTextInput().value, g_names.command_text);
+            BeginElement(g_names.command_text_cursor);
+            EndElement();
+        EndElement();
+    EndElement();
     EndCanvas();
 }
 
@@ -582,6 +624,7 @@ void UpdateAssetEditor()
 {
     BeginUI(UI_REF_WIDTH, UI_REF_HEIGHT);
     UpdateAssetEditorInternal();
+    UpdateCommandPalette();
     EndUI();
 
     BeginRenderFrame(VIEW_COLOR);

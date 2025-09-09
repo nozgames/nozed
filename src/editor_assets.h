@@ -13,6 +13,7 @@
 // LoadedAssets.shaders.vfx
 //
 // @stylesheets
+// LoadedAssets.ui.command_palette
 // LoadedAssets.ui.mesh_editor
 // LoadedAssets.ui.notifications
 //
@@ -45,6 +46,7 @@ struct LoadedAssets
         const Name* shaders_ui;
         const Name* shaders_vfx;
         const Name* textures_palette;
+        const Name* ui_command_palette;
         const Name* ui_mesh_editor;
         const Name* ui_notifications;
     } paths;
@@ -65,6 +67,7 @@ struct LoadedAssets
     } textures;
     struct
     {
+        StyleSheet* command_palette;
         StyleSheet* mesh_editor;
         StyleSheet* notifications;
     } ui;
@@ -72,6 +75,10 @@ struct LoadedAssets
 
 struct LoadedNames
 {
+    const Name* command_palette;
+    const Name* command_input;
+    const Name* command_text;
+    const Name* command_text_cursor;
     const Name* color_picker_image;
     const Name* notification_container;
     const Name* notification;
