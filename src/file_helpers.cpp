@@ -36,10 +36,8 @@ static AssetSignature GetAssetSignatureInternal(Stream* stream)
 
 AssetSignature GetAssetSignature(const std::filesystem::path& path)
 {
-    PushScratch();
-    Stream* stream = LoadStream(ALLOCATOR_SCRATCH, path);
+    Stream* stream = LoadStream(ALLOCATOR_DEFAULT, path);
     AssetSignature result = GetAssetSignatureInternal(stream);
-    PopScratch();
     Free(stream);
     return result;
 }
@@ -53,12 +51,11 @@ std::filesystem::path FixSlashes(const std::filesystem::path& path)
     return result;
 }
 
-std::string ReadAllText(const std::filesystem::path& path)
+std::string ReadAllText(Allocator* allocator, const std::filesystem::path& path)
 {
     std::string result;
 
-    PushScratch();
-    Stream* stream = LoadStream(ALLOCATOR_SCRATCH, path);
+    Stream* stream = LoadStream(allocator, path);
     if (stream)
     {
         size_t size = GetSize(stream);
@@ -70,7 +67,6 @@ std::string ReadAllText(const std::filesystem::path& path)
         }
         Free(stream);
     }
-    PopScratch();
 
     return result;
 }

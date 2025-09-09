@@ -121,8 +121,7 @@ Mesh* ToMesh(EditorMesh& em)
     // Free old mesh
     Free(em.mesh);
 
-    PushScratch();
-    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_SCRATCH, MAX_VERTICES, MAX_INDICES);
+    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
 
     // Generate the mesh body
     for (int i = 0; i < em.face_count; i++)
@@ -159,7 +158,7 @@ Mesh* ToMesh(EditorMesh& em)
     }
 
     em.mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
-    PopScratch();
+    Free(builder);
 
     return em.mesh;
 }
@@ -1103,9 +1102,9 @@ static void Optimize(EditorMesh& em)
     em.vertex_count = vertex_count;
 }
 
-static EditorMesh* LoadEditorMeshInternal(Allocator* allocator, const std::filesystem::path& path)
+EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path)
 {
-    std::string contents = ReadAllText(path);
+    std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
     Token token={};
@@ -1233,25 +1232,9 @@ static EditorMesh* LoadEditorMeshInternal(Allocator* allocator, const std::files
     return em;
 }
 
-EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path)
-{
-    PushScratch();
-    EditorMesh* mesh = LoadEditorMeshInternal(allocator, path);
-    PopScratch();
-
-    if (mesh)
-    {
-        //Optimize(*mesh);
-        //MarkDirty(*mesh);
-    }
-
-    return mesh;
-}
-
 void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path)
 {
-    PushScratch();
-    Stream* stream = CreateStream(ALLOCATOR_SCRATCH, 4096);
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
     for (int i=0; i<em.vertex_count; i++)
     {
@@ -1268,5 +1251,5 @@ void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path)
     }
 
     SaveStream(stream, path);
-    PopScratch();
+    Free(stream);
 }

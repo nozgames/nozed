@@ -301,13 +301,16 @@ VfxColorCurve ParseColorCurve(const std::string& str, const VfxColorCurve& defau
 
 void ImportVfx(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
-    Stream* input_stream = LoadStream(ALLOCATOR_SCRATCH, source_path);
+    Stream* input_stream = LoadStream(ALLOCATOR_DEFAULT, source_path);
     if (!input_stream)
         throw std::runtime_error("could not read file");
 
     Props* source = Props::Load(input_stream);
     if (!source)
+    {
+        Free(input_stream);
         throw std::runtime_error("could not load source file");
+    }
 
     // Write asset header
     AssetHeader header = {};
@@ -353,6 +356,8 @@ void ImportVfx(const fs::path& source_path, Stream* output_stream, Props* config
         WriteStruct(output_stream, ParseFloat(source->GetString(particle_section.c_str(), "drag", "0"), VFX_FLOAT_ZERO));
         WriteStruct(output_stream, ParseFloatCurve(source->GetString(particle_section.c_str(), "rotation", "0.0"), VFX_FLOAT_CURVE_ZERO));
     }
+
+    Free(input_stream);
 }
 
 static const char* g_vfx_extensions[] = {

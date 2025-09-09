@@ -761,14 +761,9 @@ static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream
 
 static void ScanAssetForNames(const fs::path& file_path, ManifestGenerator* generator)
 {
-    PushScratch();
-
-    Stream* stream = LoadStream(ALLOCATOR_SCRATCH, file_path);
+    Stream* stream = LoadStream(ALLOCATOR_DEFAULT, file_path);
     if (!stream)
-    {
-        PopScratch();
         return;
-    }
 
     // Try to read the asset header
     AssetHeader header;
@@ -781,7 +776,7 @@ static void ScanAssetForNames(const fs::path& file_path, ManifestGenerator* gene
 
     }
 
-    PopScratch();
+    Free(stream);
 }
 
 static void GenerateNamesHeader(ManifestGenerator* generator, Stream* stream)

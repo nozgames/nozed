@@ -31,8 +31,8 @@ EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
         Free(ea);
         ea = nullptr;
     }
-    else
-        FixNormals(*ea->mesh);
+    // else
+    //     FixNormals(*ea->mesh);
     return ea;
 }
 
@@ -109,7 +109,6 @@ void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color)
     BindMaterial(g_asset_editor.vertex_material);
 
     const EditorMesh& em = *ea.mesh;
-    const f32 zoom_scale = g_asset_editor.zoom_ref_scale;
     for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
     {
         const EditorEdge& ee = em.edges[edge_index];

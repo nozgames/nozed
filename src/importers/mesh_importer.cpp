@@ -23,7 +23,8 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
 {
     const fs::path& src_path = source_path;
 
-    EditorMesh* em = LoadEditorMesh(ALLOCATOR_SCRATCH, src_path);
+    throw std::runtime_error("invalid mesh");
+    EditorMesh* em = LoadEditorMesh(ALLOCATOR_DEFAULT, src_path);
     if (!em)
         throw std::runtime_error("invalid mesh");
 
@@ -41,21 +42,18 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
         const EditorFace& ef = em->faces[i];
         MeshVertex v = {};
         v.position = em->vertices[ef.v0].position;
-        v.normal = VEC3_FORWARD;
-        v.uv0 = VEC2_DOWN;
-        v.bone = 0;
+        v.normal = ef.normal;
+        v.uv0 = ColorUV(ef.color.x, ef.color.y);
         WriteBytes(output_stream, &v, sizeof(MeshVertex));
 
         v.position = em->vertices[ef.v1].position;
-        v.normal = VEC3_FORWARD;
-        v.uv0 = VEC2_DOWN;
-        v.bone = 0;
+        v.normal = ef.normal;
+        v.uv0 = ColorUV(ef.color.x, ef.color.y);
         WriteBytes(output_stream, &v, sizeof(MeshVertex));
 
         v.position = em->vertices[ef.v2].position;
-        v.normal = VEC3_FORWARD;
-        v.uv0 = VEC2_DOWN;
-        v.bone = 0;
+        v.normal = ef.normal;
+        v.uv0 = ColorUV(ef.color.x, ef.color.y);
         WriteBytes(output_stream, &v, sizeof(MeshVertex));
     }
 

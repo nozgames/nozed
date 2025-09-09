@@ -289,13 +289,12 @@ bool Props::HasGroup(const char* group) const
 
 Props* LoadProps(const std::filesystem::path& path)
 {
-    PushScratch();
-    Stream* stream = LoadStream(ALLOCATOR_SCRATCH, path);
+    Stream* stream = LoadStream(ALLOCATOR_DEFAULT, path);
     Props* props = nullptr;
     if (stream)
         props = Props::Load(stream);
-    PopScratch();
 
+    Free(stream);
     return props;
 }
 
@@ -303,8 +302,7 @@ void SaveProps(Props* props, const std::filesystem::path& path)
 {
     if (!props) return;
     
-    PushScratch();
-    Stream* stream = CreateStream(ALLOCATOR_SCRATCH, 4096);
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
     
     // Get all groups and write them out in INI format
     auto groups = props->GetGroups();
@@ -326,5 +324,5 @@ void SaveProps(Props* props, const std::filesystem::path& path)
     }
     
     SaveStream(stream, path);
-    PopScratch();
+    Free(stream);
 }

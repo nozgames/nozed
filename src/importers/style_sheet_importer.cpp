@@ -77,7 +77,7 @@ static void WriteStyleSheetData(Stream* stream, const StyleDictionary& styles)
     for (const auto& [style_key, style] : styles)
         name_set.insert(GetName(style_key.first.c_str()));
 
-    const Name** name_table = (const Name**)Alloc(ALLOCATOR_SCRATCH, sizeof(const Name*) * name_set.size());
+    const Name** name_table = (const Name**)Alloc(ALLOCATOR_DEFAULT, sizeof(const Name*) * name_set.size());
     u32 name_index = 0;
     for (const auto& name : name_set)
         name_table[name_index++] = name;
