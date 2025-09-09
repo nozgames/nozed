@@ -113,7 +113,7 @@ void MarkDirty(EditorMesh& em)
     UpdateNormals(em);
 }
 
-Mesh* ToMesh(EditorMesh& em)
+Mesh* ToMesh(EditorMesh& em, bool upload)
 {
     if (!em.dirty)
         return em.mesh;

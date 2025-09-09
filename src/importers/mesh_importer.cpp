@@ -23,10 +23,11 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
 {
     const fs::path& src_path = source_path;
 
-    throw std::runtime_error("invalid mesh");
     EditorMesh* em = LoadEditorMesh(ALLOCATOR_DEFAULT, src_path);
     if (!em)
         throw std::runtime_error("invalid mesh");
+
+    Mesh* m = ToMesh(*em, false);
 
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_MESH;
@@ -34,36 +35,19 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
     WriteAssetHeader(output_stream, &header);
 
     WriteStruct(output_stream, em->bounds);
-    WriteU16(output_stream, (u16)(em->face_count * 3));
-    WriteU16(output_stream, (u16)(em->face_count * 3));
+    WriteU16(output_stream, (u16)GetVertexCount(m));
+    WriteU16(output_stream, (u16)GetIndexCount(m));
 
-    for (int i=0; i<em->face_count; i++)
+    const MeshVertex* v = GetVertices(m);
+    for (int i=0, c=GetVertexCount(m); i<c; i++)
     {
-        const EditorFace& ef = em->faces[i];
-        MeshVertex v = {};
-        v.position = em->vertices[ef.v0].position;
-        v.normal = ef.normal;
-        v.uv0 = ColorUV(ef.color.x, ef.color.y);
-        WriteBytes(output_stream, &v, sizeof(MeshVertex));
-
-        v.position = em->vertices[ef.v1].position;
-        v.normal = ef.normal;
-        v.uv0 = ColorUV(ef.color.x, ef.color.y);
-        WriteBytes(output_stream, &v, sizeof(MeshVertex));
-
-        v.position = em->vertices[ef.v2].position;
-        v.normal = ef.normal;
-        v.uv0 = ColorUV(ef.color.x, ef.color.y);
-        WriteBytes(output_stream, &v, sizeof(MeshVertex));
+        MeshVertex t = v[i];
+        t.position.y = -t.position.y;
+        WriteBytes(output_stream, &t, sizeof(MeshVertex));
     }
 
-    for (int i=0; i<em->face_count; i++)
-    {
-        int v0 = i*3;
-        WriteU16(output_stream, v0+0);
-        WriteU16(output_stream, v0+1);
-        WriteU16(output_stream, v0+2);
-    }
+    const u16* i = GetIndices(m);
+    WriteBytes(output_stream, i, sizeof(u16) * GetIndexCount(m));
 }
 
 bool CanImportMesh(const fs::path& source_path)

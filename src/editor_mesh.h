@@ -58,7 +58,7 @@ extern bool HitTest(const EditorMesh& mesh, const Vec2& position, const Bounds2&
 extern bool HitTestTriangle(const EditorMesh& em, const EditorFace& et, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
 extern int HitTestTriangle(const EditorMesh& mesh, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
 extern int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float size, float* where=nullptr);
-extern Mesh* ToMesh(EditorMesh& em);
+extern Mesh* ToMesh(EditorMesh& em, bool upload=true);
 extern Bounds2 GetSelectedBounds(const EditorMesh& emesh);
 extern void MarkDirty(EditorMesh& emesh);
 extern void MarkModified(EditorMesh& emesh);
