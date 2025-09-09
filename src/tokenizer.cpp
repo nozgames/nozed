@@ -659,6 +659,36 @@ std::string ToString(const Token& token)
     return std::string(start, end-start+1);
 }
 
+const Name* ToName(const Token& token)
+{
+    char name[MAX_NAME_LENGTH];
+    ToString(token, name, MAX_NAME_LENGTH);
+    return GetName(name);
+}
+
+char* ToString(const Token& token, char* dst, u32 dst_size)
+{
+    assert(dst);
+    assert(dst_size > 0);
+
+    if (token.length == 0)
+    {
+        *dst = '\0';
+        return dst;
+    }
+
+    const char* start = token.value;
+    const char* end = token.value + token.length - 1;
+
+    while (start < end && IsWhitespace(*start))
+        start++;
+
+    while (end > start && IsWhitespace(*end))
+        end--;
+
+    Copy(dst, dst_size, start);
+    return dst;
+}
 
 bool ExpectToken(Tokenizer& tok, TokenType type, Token* token)
 {

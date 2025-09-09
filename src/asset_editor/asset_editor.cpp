@@ -562,6 +562,22 @@ void InitAssetEditor()
     g_asset_editor.state_stack_count = 1;
 }
 
+void FocusAsset(int asset_index)
+{
+    if (g_asset_editor.edit_asset_index != -1)
+        return;
+
+    ClearAssetSelection();
+    SetAssetSelection(asset_index);
+    FrameView();
+}
+
+void UpdateCommandPalette()
+{
+    BeginCanvas();
+    EndCanvas();
+}
+
 void UpdateAssetEditor()
 {
     BeginUI(UI_REF_WIDTH, UI_REF_HEIGHT);

@@ -756,3 +756,4 @@ static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream
     WriteCSTR(stream, "}\n");
     WriteCSTR(stream, "#endif // NOZ_EDITOR\n\n");
 }
+

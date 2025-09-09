@@ -40,15 +40,6 @@ static Importer g_importer = {};
 
 static bool ProcessImportQueue();
 
-static std::string CleanPath(const std::string& path)
-{
-    std::string result = path;
-    for (char& c : result)
-        if (c == '\\')
-            c = '/';
-    return result;
-}
-
 static bool LoadConfig()
 {
     std::filesystem::path config_path = "./editor.cfg";
@@ -256,7 +247,7 @@ static bool ProcessImportQueue()
                     }
                     catch (const std::exception& e)
                     {
-                        LogError("%s: %s", CleanPath(job.source_path.string()).c_str(), e.what());
+                        //LogError("%s: %s", CleanPath(job.source_path.string()).c_str(), e.what());
                         continue;
                     }
                 }

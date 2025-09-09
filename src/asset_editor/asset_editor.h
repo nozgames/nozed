@@ -134,6 +134,7 @@ extern void ShutdownAssetEditor();
 extern void ClearBoxSelect();
 extern void PushState(AssetEditorState state);
 extern void PopState();
+extern void FocusAsset(int asset_index);
 
 // @grid
 extern void InitGrid(Allocator* allocator);

@@ -34,6 +34,23 @@ static void HandleEdit(Tokenizer& tk)
         FocusWindow();
     else
         InitAssetEditor();
+
+    Token token;
+    if (!ReadLine(tk, &token))
+        return;
+
+    const Name* name = ToName(token);
+    if (name == NAME_NONE)
+        return;
+
+    int asset_index = FindAssetByName(name);
+    if (asset_index == -1)
+    {
+        LogError("unknown asset: %s", name->value);
+        return;
+    }
+
+    FocusAsset(asset_index);
 }
 
 static CommandDef g_commands[] = {

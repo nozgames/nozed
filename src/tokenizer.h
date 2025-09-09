@@ -63,11 +63,12 @@ char NextChar(Tokenizer& tok);
 bool ExpectChar(Tokenizer& tok, char expected);
 
 // @token
-void InitToken(Token* token);
-void ClearToken(Token* token);
-bool IsTokenType(Token* token, TokenType type);
-bool IsValue(const Token& token, const char* value, bool ignore_case=false);
-
+extern void InitToken(Token* token);
+extern void ClearToken(Token* token);
+extern bool IsTokenType(Token* token, TokenType type);
+extern bool IsValue(const Token& token, const char* value, bool ignore_case=false);
+extern char* ToString(const Token& token, char* dst, u32 dst_size);
+extern const Name* ToName(const Token& token);
 
 #if defined(_STRING_)
 std::string ToString(const Token& token);
