@@ -10,36 +10,27 @@
 // @assets
 LoadedAssets g_assets = {};
 
-// @names
-// Static asset names for efficient comparison and safer asset management
-static const Name* NAME_fonts_roboto_black;
-static const Name* NAME_shaders_default;
-static const Name* NAME_shaders_text;
-static const Name* NAME_shaders_ui;
-static const Name* NAME_shaders_vfx;
-static const Name* NAME_textures_palette;
-static const Name* NAME_ui_mesh_editor;
-static const Name* NAME_ui_notifications;
+LoadedNames g_names = {};
 
 #ifdef NOZ_EDITOR
 
 void HotloadAsset(const Name* incoming_name)
 {
     // @fonts
-    NOZ_RELOAD_FONT(NAME_fonts_roboto_black, g_assets.fonts.roboto_black);
+    NOZ_RELOAD_FONT(g_assets.paths.fonts_roboto_black, g_assets.fonts.roboto_black);
 
     // @shaders
-    NOZ_RELOAD_SHADER(NAME_shaders_default, g_assets.shaders._default);
-    NOZ_RELOAD_SHADER(NAME_shaders_text, g_assets.shaders.text);
-    NOZ_RELOAD_SHADER(NAME_shaders_ui, g_assets.shaders.ui);
-    NOZ_RELOAD_SHADER(NAME_shaders_vfx, g_assets.shaders.vfx);
+    NOZ_RELOAD_SHADER(g_assets.paths.shaders_default, g_assets.shaders._default);
+    NOZ_RELOAD_SHADER(g_assets.paths.shaders_text, g_assets.shaders.text);
+    NOZ_RELOAD_SHADER(g_assets.paths.shaders_ui, g_assets.shaders.ui);
+    NOZ_RELOAD_SHADER(g_assets.paths.shaders_vfx, g_assets.shaders.vfx);
 
     // @stylesheets
-    NOZ_RELOAD_STYLE_SHEET(NAME_ui_mesh_editor, g_assets.ui.mesh_editor);
-    NOZ_RELOAD_STYLE_SHEET(NAME_ui_notifications, g_assets.ui.notifications);
+    NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_mesh_editor, g_assets.ui.mesh_editor);
+    NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_notifications, g_assets.ui.notifications);
 
     // @textures
-    NOZ_RELOAD_TEXTURE(NAME_textures_palette, g_assets.textures.palette);
+    NOZ_RELOAD_TEXTURE(g_assets.paths.textures_palette, g_assets.textures.palette);
 
 }
 #endif // NOZ_EDITOR
@@ -47,24 +38,28 @@ void HotloadAsset(const Name* incoming_name)
 // @init
 bool LoadAssets(Allocator* allocator)
 {
-    // Initialize static name_t variables for asset management
-    NAME_fonts_roboto_black = GetName("fonts/Roboto-Black");
-    NAME_shaders_default = GetName("shaders/default");
-    NAME_shaders_text = GetName("shaders/text");
-    NAME_shaders_ui = GetName("shaders/ui");
-    NAME_shaders_vfx = GetName("shaders/vfx");
-    NAME_textures_palette = GetName("textures/palette");
-    NAME_ui_mesh_editor = GetName("ui/mesh_editor");
-    NAME_ui_notifications = GetName("ui/notifications");
+    g_assets.paths.fonts_roboto_black = GetName("fonts/Roboto-Black");
+    g_assets.paths.shaders_default = GetName("shaders/default");
+    g_assets.paths.shaders_text = GetName("shaders/text");
+    g_assets.paths.shaders_ui = GetName("shaders/ui");
+    g_assets.paths.shaders_vfx = GetName("shaders/vfx");
+    g_assets.paths.textures_palette = GetName("textures/palette");
+    g_assets.paths.ui_mesh_editor = GetName("ui/mesh_editor");
+    g_assets.paths.ui_notifications = GetName("ui/notifications");
+    g_names.color_picker_image = GetName("color_picker_image");
+    g_names.notification_container = GetName("notification_container");
+    g_names.notification = GetName("notification");
+    g_names.notification_text = GetName("notification_text");
 
-    NOZ_LOAD_FONT(allocator, NAME_fonts_roboto_black, g_assets.fonts.roboto_black);
-    NOZ_LOAD_SHADER(allocator, NAME_shaders_default, g_assets.shaders._default);
-    NOZ_LOAD_SHADER(allocator, NAME_shaders_text, g_assets.shaders.text);
-    NOZ_LOAD_SHADER(allocator, NAME_shaders_ui, g_assets.shaders.ui);
-    NOZ_LOAD_SHADER(allocator, NAME_shaders_vfx, g_assets.shaders.vfx);
-    NOZ_LOAD_TEXTURE(allocator, NAME_textures_palette, g_assets.textures.palette);
-    NOZ_LOAD_STYLE_SHEET(allocator, NAME_ui_mesh_editor, g_assets.ui.mesh_editor);
-    NOZ_LOAD_STYLE_SHEET(allocator, NAME_ui_notifications, g_assets.ui.notifications);
+
+    NOZ_LOAD_FONT(allocator, g_assets.paths.fonts_roboto_black, g_assets.fonts.roboto_black);
+    NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_default, g_assets.shaders._default);
+    NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_text, g_assets.shaders.text);
+    NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_ui, g_assets.shaders.ui);
+    NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_vfx, g_assets.shaders.vfx);
+    NOZ_LOAD_TEXTURE(allocator, g_assets.paths.textures_palette, g_assets.textures.palette);
+    NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_mesh_editor, g_assets.ui.mesh_editor);
+    NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_notifications, g_assets.ui.notifications);
 
     // Assign core engine assets
     g_core_assets.shaders.ui = g_assets.shaders.ui;

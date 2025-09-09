@@ -15,18 +15,12 @@ namespace fs = std::filesystem;
 struct AssetEntry
 {
     std::string path;
+    const Name* name;
     uint32_t signature;
     size_t file_size;
-    std::string var_name;
 };
 
-struct NameEntry
-{
-    std::string name;
-    std::string var_name;
-};
-
-struct PathNode 
+struct PathNode
 {
     std::map<std::string, std::unique_ptr<PathNode>> children;
     std::vector<AssetEntry> assets;
@@ -35,11 +29,13 @@ struct PathNode
 struct ManifestGenerator
 {
     std::vector<AssetEntry> asset_entries;
-    std::vector<NameEntry> name_entries;
+    std::set<const Name*> name_entries;
     fs::path output_dir;
     Stream* manifest_stream;
     const std::vector<AssetImporterTraits*>* importers;
     Props* config;
+    const Name* assets_global;
+    const Name* names_global;
 };
 
 static std::vector<std::pair<std::string, std::string>> core_assets = {
@@ -52,16 +48,15 @@ static std::vector<std::pair<std::string, std::string>> core_assets = {
 static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& header_path, Props* config);
 static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& header_path);
 static std::string PathToVarName(const std::string& path);
-static std::string PathToNameVar(const std::string& path);
+static std::string NameToVar(const std::string& path);
 static void OrganizeAssetsByType(ManifestGenerator* generator);
 static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generator);
 static const char* ToStringFromSignature(AssetSignature signature, const std::vector<AssetImporterTraits*>& importers);
 static const char* ToMacroFromSignature(AssetSignature signature, const std::vector<AssetImporterTraits*>& importers);
 static const char* ToReloadMacroFromSignature(AssetSignature signature, const std::vector<AssetImporterTraits*>& importers);
 static void GenerateCoreAssetAssignments(ManifestGenerator* generator, Stream* stream, Props* config);
-static void GenerateHotloadNames(ManifestGenerator* generator, Stream* stream);
 static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream, Props* config);
-static void ScanStyleFile(const fs::path& file_path, ManifestGenerator* generator);
+static void ScanAssetForNames(const fs::path& file_path, ManifestGenerator* generator);
 static void GenerateNamesHeader(ManifestGenerator* generator, Stream* stream);
 static void GenerateNamesInitialization(ManifestGenerator* generator, Stream* stream);
 
@@ -83,6 +78,8 @@ bool GenerateAssetManifest(
     generator.asset_entries.reserve(64);
     generator.importers = &importers;
     generator.config = config;
+    generator.assets_global = GetName(config->GetString("manifest", "assets_global", "g_assets").c_str());
+    generator.names_global = GetName(config->GetString("manifest", "names_global", "g_names").c_str());
 
     generator.manifest_stream = CreateStream(nullptr, 4096);
     if (!generator.manifest_stream)
@@ -129,25 +126,21 @@ bool GenerateAssetManifest(
         return false;
     }
     
-    // Also scan for .styles files in assets directory (for name extraction)
-    fs::path assets_dir = generator.output_dir.parent_path() / "assets";
-    if (fs::exists(assets_dir) && fs::is_directory(assets_dir))
+    // Scan all assets again for name tables
+    try
     {
-        try
+        for (const auto& entry : fs::recursive_directory_iterator(generator.output_dir))
         {
-            for (const auto& entry : fs::recursive_directory_iterator(assets_dir))
+            if (entry.is_regular_file())
             {
-                if (entry.is_regular_file() && entry.path().extension() == ".styles")
-                {
-                    ScanStyleFile(entry.path(), &generator);
-                }
+                ScanAssetForNames(entry.path(), &generator);
             }
         }
-        catch (const std::exception& e)
-        {
-            printf("WARNING: Failed to scan styles directory: %s - %s\n", 
-                   assets_dir.string().c_str(), e.what());
-        }
+    }
+    catch (const std::exception& e)
+    {
+        printf("WARNING: Failed to scan assets for names: %s - %s\n", 
+               generator.output_dir.string().c_str(), e.what());
     }
 
     // Generate header file (change .cpp to .h)
@@ -288,7 +281,18 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
     if (generator->asset_entries.empty())
         WriteCSTR(header_stream, "    void* _dummy;\n");
     else
+    {
+        WriteCSTR(header_stream, "    struct\n    {\n");
+        for (auto& entry : generator->asset_entries)
+        {
+            std::string var_name = NameToVar(entry.name->value);
+            WriteCSTR(header_stream, "        const Name* %s;\n", var_name.c_str());
+        }
+
+        WriteCSTR(header_stream, "    } paths;\n");
+
         WriteHeaderNestedStructs(header_stream, root, *generator->importers);
+    }
 
     WriteCSTR(header_stream, "};\n\n");
     
@@ -300,13 +304,14 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
     {
         for (const auto& entry : generator->name_entries)
         {
-            WriteCSTR(header_stream, "    const Name* %s;\n", entry.var_name.c_str());
+            std::string var_name = NameToVar(entry->value);
+            WriteCSTR(header_stream, "    const Name* %s;\n", var_name.c_str());
         }
     }
     WriteCSTR(header_stream, "};\n\n");
     
-    WriteCSTR(header_stream, "extern LoadedAssets %s;\n", generator->config->GetString("manifest", "global_variable", "Assets").c_str());
-    WriteCSTR(header_stream, "extern LoadedNames g_names;\n");
+    WriteCSTR(header_stream, "extern LoadedAssets %s;\n", generator->assets_global->value);
+    WriteCSTR(header_stream, "extern LoadedNames %s;\n", generator->names_global->value);
     WriteCSTR(header_stream, "extern LoadedCoreAssets g_core_assets;\n\n");
     WriteCSTR(header_stream, "bool LoadAssets(Allocator* allocator);\n");
     WriteCSTR(header_stream, "void UnloadAssets();\n\n");
@@ -374,28 +379,9 @@ static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generato
     AssetEntry entry = {};
     entry.path = relative_str;
     entry.file_size = fs::file_size(file_path);
-    entry.var_name = PathToVarName(entry.path);
+    entry.name = GetName(relative_str.c_str());
     entry.signature = signature;
     generator->asset_entries.push_back(entry);
-    
-    // Also add asset path as a name entry
-    bool name_already_exists = false;
-    for (const auto& existing : generator->name_entries)
-    {
-        if (existing.name == relative_str)
-        {
-            name_already_exists = true;
-            break;
-        }
-    }
-    
-    if (!name_already_exists)
-    {
-        NameEntry name_entry = {};
-        name_entry.name = relative_str;
-        name_entry.var_name = PathToVarName(relative_str);
-        generator->name_entries.push_back(name_entry);
-    }
 }
 
 static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& header_path, Props* config)
@@ -415,16 +401,9 @@ static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& h
         "#include \"%s\"\n\n", header_filename.c_str());
 
     WriteCSTR(stream, "// @assets\n");
-    WriteCSTR(stream, "LoadedAssets %s = {};\n\n", config->GetString("manifest", "global_variable", "Assets").c_str());
+    WriteCSTR(stream, "LoadedAssets %s = {};\n\n", generator->assets_global->value);
 
-    // Generate name variables
-    GenerateHotloadNames(generator, stream);
-    
-    // Generate names header and initialization
     GenerateNamesHeader(generator, stream);
-    GenerateNamesInitialization(generator, stream);
-    
-    // Generate hotload function
     GenerateHotloadFunction(generator, stream, config);
 
     OrganizeAssetsByType(generator);
@@ -434,25 +413,7 @@ static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& h
         "bool LoadAssets(Allocator* allocator)\n"
         "{\n");
     
-    // Initialize static name_t variables for asset management
-    WriteCSTR(stream, "    // Initialize static name_t variables for asset management\n");
-    
-    // Collect unique asset paths to avoid duplicate initialization
-    std::set<std::string> unique_paths;
-    for (const auto& entry : generator->asset_entries)
-    {
-        // Convert backslashes to forward slashes for the asset path
-        std::string normalized_path = entry.path;
-        std::replace(normalized_path.begin(), normalized_path.end(), '\\', '/');
-        unique_paths.insert(normalized_path);
-    }
-    
-    // Initialize name variables for unique paths only
-    for (const auto& path : unique_paths)
-    {
-        std::string name_var = PathToNameVar(path);
-        WriteCSTR(stream, "    %s = GetName(\"%s\");\n", name_var.c_str(), path.c_str());
-    }
+    GenerateNamesInitialization(generator, stream);
     
     WriteCSTR(stream, "\n");
     
@@ -468,7 +429,7 @@ static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& h
 
         // Build nested access path (e.g., Assets.textures.icons.myicon)
         fs::path asset_path(entry.path);
-        std::string access_path = config->GetString("manifest", "global_variable", "Assets");
+        std::string access_path = generator->assets_global->value;
         
         auto parent_path = asset_path.parent_path();
         for (const auto& part : parent_path)
@@ -479,11 +440,12 @@ static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& h
         std::string var_name = PathToVarName(asset_path.filename().replace_extension("").string());
         access_path += "." + var_name;
 
-        std::string name_var = PathToNameVar(normalized_path);
+        std::string name_var = NameToVar(normalized_path);
         WriteCSTR(
             stream,
-            "    %s(allocator, %s, %s);\n",
+            "    %s(allocator, %s.paths.%s, %s);\n",
             macro_name,
+            generator->assets_global->value,
             name_var.c_str(),
             access_path.c_str());
     }
@@ -493,16 +455,13 @@ static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& h
     
     WriteCSTR(stream, "\n    return true;\n}\n\n");
 
-    std::string global_var = config->GetString("manifest", "global_variable", "Assets");
-
-    // Write UnloadAssets function
     WriteCSTR(stream,
         "// @uninit\n"
         "void UnloadAssets()\n"
         "{\n"
         "    // Clear all asset pointers\n"
         "    memset(&%s, 0, sizeof(%s));\n"
-        "}\n", global_var.c_str(), global_var.c_str());
+        "}\n", generator->assets_global->value, generator->assets_global->value);
 }
 
 
@@ -571,7 +530,7 @@ static void WriteNestedStructs(Stream* stream, const PathNode& node, const std::
         const char* type_name = ToStringFromSignature(entry.signature, importers);
         if (type_name)
         {
-            WriteCSTR(stream, "%s%s* %s;\n", indent.c_str(), type_name, entry.var_name.c_str());
+            WriteCSTR(stream, "%s%s* %s;\n", indent.c_str(), type_name, entry.name->value);
         }
     }
 }
@@ -600,7 +559,7 @@ static void OrganizeAssetsByType(ManifestGenerator* generator)
         
         // Update var_name to just be the filename
         AssetEntry modified_entry = entry;
-        modified_entry.var_name = PathToVarName(asset_path.filename().replace_extension("").string());
+        modified_entry.name = GetName(asset_path.filename().replace_extension("").string().c_str());
         
         // Add asset to the final directory
         current->assets.push_back(modified_entry);
@@ -705,7 +664,7 @@ static void GenerateCoreAssetAssignments(ManifestGenerator* generator, Stream* s
     {
         // Convert asset path to access path (e.g., "shaders/shadow" -> "Assets.shaders.shadow")
         fs::path path(asset_path);
-        std::string access_path = config->GetString("manifest", "global_variable", "Assets");
+        std::string access_path = generator->assets_global->value;
 
         auto parent_path = path.parent_path();
         for (const auto& part : parent_path)
@@ -719,48 +678,20 @@ static void GenerateCoreAssetAssignments(ManifestGenerator* generator, Stream* s
     }
 }
 
-static std::string PathToNameVar(const std::string& path)
+static std::string NameToVar(const std::string& path)
 {
-    // Convert path to NAME_ variable format
-    // e.g., "textures/icons/button" -> "NAME_textures_icons_button"
-    std::string result = "NAME_";
-    
+    std::string result = "";
     for (char c : path)
     {
-        if (std::isalnum(c))
+        if (c == '\\')
+            result += '/';
+        else if (std::isalnum(c))
             result += std::tolower(c);
         else
             result += '_';
     }
     
     return result;
-}
-
-
-static void GenerateHotloadNames(ManifestGenerator* generator, Stream* stream)
-{
-    WriteCSTR(stream, "// @names\n");
-    WriteCSTR(stream, "// Static asset names for efficient comparison and safer asset management\n");
-    
-    // Collect unique asset paths to avoid duplicate name variables
-    std::set<std::string> unique_paths;
-    
-    for (const auto& entry : generator->asset_entries)
-    {
-        // Convert backslashes to forward slashes for the asset path
-        std::string normalized_path = entry.path;
-        std::replace(normalized_path.begin(), normalized_path.end(), '\\', '/');
-        unique_paths.insert(normalized_path);
-    }
-    
-    // Generate name variables for unique paths only
-    for (const auto& path : unique_paths)
-    {
-        std::string name_var = PathToNameVar(path);
-        WriteCSTR(stream, "static const Name* %s;\n", name_var.c_str());
-    }
-    
-    WriteCSTR(stream, "\n");
 }
 
 static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream, Props* config)
@@ -794,11 +725,11 @@ static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream
             std::string normalized_path = entry.path;
             std::replace(normalized_path.begin(), normalized_path.end(), '\\', '/');
             
-            std::string name_var = PathToNameVar(normalized_path);
+            std::string name_var = NameToVar(normalized_path);
             
             // Build nested access path (e.g., Assets.textures.icons.myicon)
             fs::path asset_path(entry.path);
-            std::string access_path = config->GetString("manifest", "global_variable", "Assets");
+            std::string access_path = generator->assets_global->value;
             
             auto parent_path = asset_path.parent_path();
             for (const auto& part : parent_path)
@@ -813,8 +744,9 @@ static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream
             const char* reload_macro = ToReloadMacroFromSignature(entry.signature, *generator->importers);
             if (reload_macro)
             {
-                WriteCSTR(stream, "    %s(%s, %s);\n",
+                WriteCSTR(stream, "    %s(%s.paths.%s, %s);\n",
                     reload_macro,
+                    generator->assets_global->value,
                     name_var.c_str(),
                     access_path.c_str());
             }
@@ -827,61 +759,53 @@ static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream
     WriteCSTR(stream, "#endif // NOZ_EDITOR\n\n");
 }
 
-static void ScanStyleFile(const fs::path& file_path, ManifestGenerator* generator)
+static void ScanAssetForNames(const fs::path& file_path, ManifestGenerator* generator)
 {
-    std::ifstream file(file_path);
-    if (!file.is_open())
-        return;
+    PushScratch();
 
-    std::string line;
-    while (std::getline(file, line))
+    Stream* stream = LoadStream(ALLOCATOR_SCRATCH, file_path);
+    if (!stream)
     {
-        // Look for style definitions [style_name]
-        if (!line.empty() && line.front() == '[' && line.back() == ']')
-        {
-            std::string style_name = line.substr(1, line.length() - 2);
-            if (!style_name.empty())
-            {
-                // Check if this name is already in the list
-                bool already_exists = false;
-                for (const auto& existing : generator->name_entries)
-                {
-                    if (existing.name == style_name)
-                    {
-                        already_exists = true;
-                        break;
-                    }
-                }
-                
-                if (!already_exists)
-                {
-                    NameEntry entry = {};
-                    entry.name = style_name;
-                    entry.var_name = PathToVarName(style_name);
-                    generator->name_entries.push_back(entry);
-                }
-            }
-        }
+        PopScratch();
+        return;
     }
+
+    // Try to read the asset header
+    AssetHeader header;
+    if (ReadAssetHeader(stream, &header) && header.names > 0)
+    {
+        const Name** name_table = ReadNameTable(header, stream);
+        if (name_table)
+            for (uint32_t i = 0; i < header.names; i++)
+                generator->name_entries.insert(name_table[i]);
+
+    }
+
+    PopScratch();
 }
 
 static void GenerateNamesHeader(ManifestGenerator* generator, Stream* stream)
 {
-    WriteCSTR(stream, "// @g_names\n");
-    WriteCSTR(stream, "LoadedNames g_names = {};\n\n");
+    WriteCSTR(stream, "LoadedNames %s = {};\n\n", generator->names_global->value);
 }
 
 static void GenerateNamesInitialization(ManifestGenerator* generator, Stream* stream)
 {
     if (generator->name_entries.empty())
         return;
-        
-    WriteCSTR(stream, "    // Initialize g_names\n");
+
+    for (const auto& entry : generator->asset_entries)
+    {
+        std::string var_name = NameToVar(entry.name->value);
+        WriteCSTR(stream, "    %s.paths.%s = GetName(\"%s\");\n", generator->assets_global->value, var_name.c_str(), entry.name->value);
+    }
+
     for (const auto& entry : generator->name_entries)
     {
-        WriteCSTR(stream, "    g_names.%s = GetName(\"%s\");\n", 
-                  entry.var_name.c_str(), entry.name.c_str());
+        std::string var_name = NameToVar(entry->value);
+        WriteCSTR(stream, "    %s.%s = GetName(\"%s\");\n", generator->names_global->value, var_name.c_str(), entry->value);
     }
+
     WriteCSTR(stream, "\n");
 }
 

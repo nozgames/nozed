@@ -451,7 +451,7 @@ void UpdateMeshEditor(EditableAsset& ea)
 {
     BeginCanvas();
     SetStyleSheet(g_assets.ui.mesh_editor);
-    Image(g_mesh_editor.color_material, GetName("color_picker_image"));
+    Image(g_mesh_editor.color_material, g_names.color_picker_image);
     SetInputHandler(HandleColorPickerInput, &ea);
     EndCanvas();
 

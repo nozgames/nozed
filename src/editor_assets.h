@@ -39,6 +39,17 @@ struct LoadedAssets
 {
     struct
     {
+        const Name* fonts_roboto_black;
+        const Name* shaders_default;
+        const Name* shaders_text;
+        const Name* shaders_ui;
+        const Name* shaders_vfx;
+        const Name* textures_palette;
+        const Name* ui_mesh_editor;
+        const Name* ui_notifications;
+    } paths;
+    struct
+    {
         Font* roboto_black;
     } fonts;
     struct
@@ -59,7 +70,16 @@ struct LoadedAssets
     } ui;
 };
 
+struct LoadedNames
+{
+    const Name* color_picker_image;
+    const Name* notification_container;
+    const Name* notification;
+    const Name* notification_text;
+};
+
 extern LoadedAssets g_assets;
+extern LoadedNames g_names;
 extern LoadedCoreAssets g_core_assets;
 
 bool LoadAssets(Allocator* allocator);

@@ -74,7 +74,7 @@ void UpdateNotifications()
 void InitNotifications()
 {
     g_notifications.buffer = CreateRingBuffer(ALLOCATOR_DEFAULT, sizeof(Notification), MAX_NOTIFICATIONS);
-    g_notifications.names.notification = GetName("notification");
-    g_notifications.names.notification_container = GetName("notification_container");
-    g_notifications.names.notification_text = GetName("notification_text");
+    g_notifications.names.notification = g_names.notification;
+    g_notifications.names.notification_container = g_names.notification_container;
+    g_notifications.names.notification_text = g_names.notification_text;
 }
