@@ -539,8 +539,7 @@ void InitAssetEditor()
 
     g_asset_editor.command_input = CreateInputSet(ALLOCATOR_DEFAULT);
     EnableButton(g_asset_editor.command_input, KEY_ESCAPE);
-    EnableButton(g_asset_editor.command_input, KEY_BACKSPACE);
-    EnableCharacters(g_asset_editor.command_input);
+    EnableButton(g_asset_editor.command_input, KEY_ENTER);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);
     AddVertex(builder, {   0, -0.5f}, {0,0,1}, VEC2_ZERO, 0);
@@ -582,19 +581,26 @@ void FocusAsset(int asset_index)
 
 void UpdateCommandPalette()
 {
-    if (WasButtonPressed(g_asset_editor.input, KEY_SEMICOLON) &&
-        (IsButtonDown(g_asset_editor.input, KEY_LEFT_SHIFT) ||
-         IsButtonDown(g_asset_editor.input, KEY_RIGHT_SHIFT)))
-    {
-        g_asset_editor.command_palette = true;
-        g_asset_editor.command_text[0] = 0;
-        g_asset_editor.command_text_length = 0;
-        ClearTextInput();
-        PushInputSet(g_asset_editor.command_input);
-    }
+    const TextInput& input = GetTextInput();
 
     if (!g_asset_editor.command_palette)
-        return;
+    {
+        if (input.value[0] == ':')
+        {
+            g_asset_editor.command_palette = true;
+            TextInput clipped = {};
+            Copy(clipped.value, TEXT_INPUT_MAX_LENGTH, input.value + 1);
+            clipped.length = input.length - 1;
+            clipped.cursor = input.cursor - 1;
+            SetTextInput(clipped);
+            PushInputSet(g_asset_editor.command_input);
+        }
+        else
+        {
+            ClearTextInput();
+            return;
+        }
+    }
 
     if (WasButtonPressed(g_asset_editor.command_input, KEY_ESCAPE))
     {
@@ -603,16 +609,20 @@ void UpdateCommandPalette()
         return;
     }
 
-    if (WasButtonPressed(g_asset_editor.command_input, KEY_BACKSPACE) && g_asset_editor.command_text_length > 0)
-        g_asset_editor.command_text[--g_asset_editor.command_text_length] = 0;
-
-    g_asset_editor.command_text_length = (int)Length(g_asset_editor.command_text);
+    if (WasButtonPressed(g_asset_editor.command_input, KEY_ENTER))
+    {
+        PopInputSet();
+        g_asset_editor.command_palette = false;
+        HandleCommand(GetTextInput().value);
+        return;
+    }
 
     BeginCanvas();
     SetStyleSheet(g_assets.ui.command_palette);
     BeginElement(g_names.command_palette);
         BeginElement(g_names.command_input);
-            Label(GetTextInput().value, g_names.command_text);
+            Label(":", g_names.command_colon);
+            Label(input.value, g_names.command_text);
             BeginElement(g_names.command_text_cursor);
             EndElement();
         EndElement();

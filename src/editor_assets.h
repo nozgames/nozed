@@ -4,7 +4,7 @@
 //
 
 // @fonts
-// LoadedAssets.fonts.roboto_black
+// LoadedAssets.fonts.seguisb
 //
 // @shaders
 // LoadedAssets.shaders._default
@@ -40,7 +40,7 @@ struct LoadedAssets
 {
     struct
     {
-        const Name* fonts_roboto_black;
+        const Name* fonts_seguisb;
         const Name* shaders_default;
         const Name* shaders_text;
         const Name* shaders_ui;
@@ -52,7 +52,7 @@ struct LoadedAssets
     } paths;
     struct
     {
-        Font* roboto_black;
+        Font* seguisb;
     } fonts;
     struct
     {
@@ -77,6 +77,7 @@ struct LoadedNames
 {
     const Name* command_palette;
     const Name* command_input;
+    const Name* command_colon;
     const Name* command_text;
     const Name* command_text_cursor;
     const Name* color_picker_image;

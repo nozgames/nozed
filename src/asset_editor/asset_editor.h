@@ -105,8 +105,6 @@ struct AssetEditor
     bool clear_selection_on_release;
     Vec2 pan_start;
     bool command_palette;
-    char command_text[256];
-    u32 command_text_length;
 
     EditableAsset* assets[MAX_ASSETS];
     u32 asset_count;
@@ -139,6 +137,7 @@ extern void ClearBoxSelect();
 extern void PushState(AssetEditorState state);
 extern void PopState();
 extern void FocusAsset(int asset_index);
+extern void HandleCommand(const std::string& str);
 
 // @grid
 extern void InitGrid(Allocator* allocator);

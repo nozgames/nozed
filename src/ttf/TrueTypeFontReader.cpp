@@ -24,7 +24,7 @@ namespace noz::ttf
 
     bool TrueTypeFontReader::isInFilter(char c) const
     {
-        return _filter.find('c') != -1;
+        return _filter.find(c) != -1;
     }
 
     float TrueTypeFontReader::readFixed()
@@ -267,6 +267,10 @@ namespace noz::ttf
             auto glyph = _ttf->_glyphs[i];
             if (glyph == nullptr)
                 continue;
+
+            if (glyph->ascii == 58)
+                printf("test\n");
+
 
             // Seek to the glyph in the GLYF table
             if (_indexToLocFormat == 1)

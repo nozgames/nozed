@@ -42,7 +42,7 @@ static std::vector<std::pair<std::string, std::string>> core_assets = {
     { "shaders.ui", "shaders/ui" },
     { "shaders.text", "shaders/text" },
     { "shaders.vfx", "shaders/vfx" },
-    { "fonts.fallback", "fonts/Roboto-Black" }
+    { "fonts.fallback", "fonts/seguisb" }
 };
 
 static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& header_path, Props* config);
