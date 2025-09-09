@@ -152,6 +152,7 @@ extern void RecordUndo(EditableAsset& ea);
 extern void BeginUndoGroup();
 extern void EndUndoGroup();
 extern void Undo();
+extern void Redo();
 extern void CancelUndo();
 
 // @editable_asset

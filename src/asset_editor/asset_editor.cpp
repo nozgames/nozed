@@ -374,6 +374,12 @@ static void UpdateCommon()
         Undo();
         return;
     }
+
+    if (WasButtonPressed(g_asset_editor.input, KEY_Y) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    {
+        Redo();
+        return;
+    }
 }
 
 static void UpdateAssetEditorInternal()
@@ -617,6 +623,7 @@ void InitAssetEditor()
     EnableButton(g_asset_editor.input, KEY_LEFT_ALT);
     EnableButton(g_asset_editor.input, KEY_S);
     EnableButton(g_asset_editor.input, KEY_Z);
+    EnableButton(g_asset_editor.input, KEY_Y);
     EnableButton(g_asset_editor.input, KEY_EQUALS);
     EnableButton(g_asset_editor.input, KEY_MINUS);
     PushInputSet(g_asset_editor.input);
