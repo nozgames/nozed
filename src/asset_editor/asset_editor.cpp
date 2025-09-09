@@ -504,6 +504,11 @@ void RenderView()
         }
     }
 
+    // Draw origins
+    for (int i=0; i<g_asset_editor.asset_count; i++)
+        if (g_asset_editor.assets[i]->selected)
+            DrawOrigin(*g_asset_editor.assets[i]);
+
     DrawBoxSelect();
 }
 

@@ -85,6 +85,11 @@ struct AssetEditor
 extern AssetEditor g_asset_editor;
 
 constexpr Color COLOR_SELECTED = { 1,1,1,1 };
+constexpr Color COLOR_EDGE = { 0,0,0, 0.5f };
+constexpr Color COLOR_VERTEX = { 0,0,0,1 };
+constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
+constexpr Color COLOR_ORIGIN = { 1.0f, 159.0f / 255.0f, 44.0f / 255.0f, 1};
+constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 
 // @editor
 extern void InitAssetEditor();
@@ -146,3 +151,4 @@ extern void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds);
 // @draw
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v, f32 size);
+extern void DrawOrigin(const EditableAsset& ea);

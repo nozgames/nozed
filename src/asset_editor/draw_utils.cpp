@@ -4,6 +4,9 @@
 
 #include "asset_editor.h"
 
+constexpr float ORIGIN_SIZE = 0.1f;
+constexpr float ORIGIN_BORDER_SIZE = 0.12f;
+
 void DrawLine(const Vec2& v0, const Vec2& v1, f32 width)
 {
     Vec2 mid = (v0 + v1) * 0.5f;
@@ -17,4 +20,13 @@ void DrawVertex(const Vec2& v, f32 size)
 {
     BindTransform(TRS(v, 0, VEC2_ONE * g_asset_editor.zoom_ref_scale * size));
     DrawMesh(g_asset_editor.vertex_mesh);
+}
+
+void DrawOrigin(const EditableAsset& ea)
+{
+    BindMaterial(g_asset_editor.vertex_material);
+    BindColor(COLOR_ORIGIN_BORDER);
+    DrawVertex(ea.position, ORIGIN_BORDER_SIZE);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(ea.position, ORIGIN_SIZE);
 }

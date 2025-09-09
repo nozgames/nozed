@@ -16,11 +16,6 @@ constexpr float CENTER_SIZE = 0.2f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 constexpr float SCALE_TOOL_WIDTH = 0.02f;
-constexpr Color COLOR_EDGE = { 0,0,0, 0.5f };
-constexpr Color COLOR_VERTEX = { 0,0,0,1 };
-constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
-constexpr Color COLOR_ORIGIN = { 1.0f, 159.0f / 255.0f, 44.0f / 255.0f, 1};
-constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 
 enum MeshEditorState
 {
@@ -572,10 +567,7 @@ void DrawMeshEditor(EditableAsset& ea)
     BindColor(COLOR_SELECTED);
     DrawVertices(ea, true);
 
-    BindColor(COLOR_ORIGIN_BORDER);
-    DrawVertex(ea.position, ORIGIN_BORDER_SIZE);
-    BindColor(COLOR_ORIGIN);
-    DrawVertex(ea.position, ORIGIN_SIZE);
+    DrawOrigin(ea);
 
     BindTransform(TRS(ea.position, 0, VEC2_ONE * g_asset_editor.zoom_ref_scale * ORIGIN_SIZE));
     DrawMesh(g_asset_editor.vertex_mesh);
