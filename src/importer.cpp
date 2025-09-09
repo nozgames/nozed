@@ -2,7 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <noz/platform.h>
 #include "file_watcher.h"
 #include "asset_manifest.h"
 #include "server.h"

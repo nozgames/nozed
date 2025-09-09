@@ -630,6 +630,56 @@ int SplitEdge(EditableMesh& em, int edge_index, float edge_pos)
     return new_vertex_index;
 }
 
+int SplitTriangle(EditableMesh& em, int triangle_index, const Vec2& position)
+{
+    assert(triangle_index >= 0 && triangle_index < em.triangle_count);
+
+    if (em.vertex_count >= MAX_VERTICES)
+        return -1;
+
+    if (em.triangle_count + 2 >= MAX_TRIANGLES)
+        return -1;
+
+    EditableTriangle& et = em.triangles[triangle_index];
+    
+    // Create new vertex at the position
+    int new_vertex_index = em.vertex_count++;
+    EditableVertex& new_vertex = em.vertices[new_vertex_index];
+    new_vertex.position = position;
+    new_vertex.height = 0.0f;
+    new_vertex.saved_height = 0.0f;
+    new_vertex.selected = false;
+    
+    // Create two new triangles
+    EditableTriangle& tri1 = em.triangles[em.triangle_count++];
+    EditableTriangle& tri2 = em.triangles[em.triangle_count++];
+    
+    // Copy color from original triangle
+    tri1.color = et.color;
+    tri2.color = et.color;
+    
+    // Split original triangle into three triangles:
+    // Original: (v0, v1, new_vertex)
+    // tri1: (v1, v2, new_vertex)  
+    // tri2: (v2, v0, new_vertex)
+    
+    // Modify original triangle
+    int original_v2 = et.v2;
+    et.v2 = new_vertex_index;
+    
+    // First new triangle
+    tri1.v0 = et.v1;
+    tri1.v1 = original_v2;
+    tri1.v2 = new_vertex_index;
+    
+    // Second new triangle  
+    tri2.v0 = original_v2;
+    tri2.v1 = et.v0;
+    tri2.v2 = new_vertex_index;
+
+    return new_vertex_index;
+}
+
 int HitTestVertex(const EditableMesh& em, const Vec2& world_pos, float size)
 {
     for (int i = 0; i < em.vertex_count; i++)
@@ -808,4 +858,117 @@ void SelectAll(EditableMesh& em)
         em.vertices[i].selected = true;
 
     em.selected_vertex_count = em.vertex_count;
+}
+
+int AddVertex(EditableMesh& em, const Vec2& position)
+{
+    constexpr float VERTEX_HIT_SIZE = 0.08f * 5.0f;
+    
+    // If on a vertex then return -1
+    int vertex_index = HitTestVertex(em, position, VERTEX_HIT_SIZE);
+    if (vertex_index != -1)
+        return -1;
+
+    // If on an edge then split the edge and add the point
+    float edge_pos;
+    int edge_index = HitTestEdge(em, position, VERTEX_HIT_SIZE, &edge_pos);
+    if (edge_index >= 0)
+    {
+        int new_vertex = SplitEdge(em, edge_index, edge_pos);
+        if (new_vertex != -1)
+        {
+            MarkDirty(em);
+            MarkModified(em);
+        }
+        return new_vertex;
+    }
+
+    // If inside a triangle then split the triangle into three triangles and add the point
+    Vec2 tri_pos;
+    int triangle_index = HitTestTriangle(em, VEC2_ZERO, position, &tri_pos);
+    if (triangle_index >= 0)
+    {
+        int new_vertex = SplitTriangle(em, triangle_index, position);
+        if (new_vertex != -1)
+        {
+            MarkDirty(em);
+            MarkModified(em);
+        }
+        return new_vertex;
+    }
+
+    // If outside all triangles, find the closest edge and create a triangle with it
+    int closest_edge = -1;
+    float closest_dist = FLT_MAX;
+    Vec2 closest_point;
+    
+    for (int i = 0; i < em.edge_count; i++)
+    {
+        const EditableEdge& ee = em.edges[i];
+        const Vec2& v0 = em.vertices[ee.v0].position;
+        const Vec2& v1 = em.vertices[ee.v1].position;
+        
+        // Calculate closest point on edge to position
+        Vec2 edge_dir = v1 - v0;
+        float edge_length_sq = Dot(edge_dir, edge_dir);
+        if (edge_length_sq < 1e-6f) continue; // Skip degenerate edges
+        
+        Vec2 to_pos = position - v0;
+        float t = Clamp(Dot(to_pos, edge_dir) / edge_length_sq, 0.0f, 1.0f);
+        Vec2 point_on_edge = v0 + edge_dir * t;
+        float dist = Length(position - point_on_edge);
+        
+        if (dist < closest_dist)
+        {
+            closest_dist = dist;
+            closest_edge = i;
+            closest_point = point_on_edge;
+        }
+    }
+    
+    // If no edge found or mesh is empty, create a standalone vertex
+    if (closest_edge == -1 || em.vertex_count >= MAX_VERTICES)
+    {
+        if (em.vertex_count >= MAX_VERTICES)
+            return -1;
+            
+        // Create a standalone vertex
+        int new_vertex_index = em.vertex_count++;
+        EditableVertex& new_vertex = em.vertices[new_vertex_index];
+        new_vertex.position = position;
+        new_vertex.height = 0.0f;
+        new_vertex.saved_height = 0.0f;
+        new_vertex.selected = false;
+        
+        MarkDirty(em);
+        MarkModified(em);
+        return new_vertex_index;
+    }
+    
+    // Create triangle with closest edge if we have room
+    if (em.triangle_count >= MAX_TRIANGLES)
+        return -1;
+        
+    if (em.vertex_count >= MAX_VERTICES)
+        return -1;
+    
+    // Create new vertex
+    int new_vertex_index = em.vertex_count++;
+    EditableVertex& new_vertex = em.vertices[new_vertex_index];
+    new_vertex.position = position;
+    new_vertex.height = 0.0f;
+    new_vertex.saved_height = 0.0f;
+    new_vertex.selected = false;
+    
+    // Create triangle with the closest edge
+    const EditableEdge& ee = em.edges[closest_edge];
+    EditableTriangle& new_triangle = em.triangles[em.triangle_count++];
+    new_triangle.v0 = ee.v0;
+    new_triangle.v1 = ee.v1;
+    new_triangle.v2 = new_vertex_index;
+    new_triangle.color = {0, 0}; // Default color
+    
+    MarkDirty(em);
+    MarkModified(em);
+    return new_vertex_index;
 }

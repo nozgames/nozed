@@ -7,6 +7,8 @@
 #include "tui/terminal.h"
 #include "tui/text_input.h"
 #include "views/views.h"
+#include "asset_editor/asset_editor.h"
+#include "editor_assets.h"
 
 constexpr int MAX_VIEWS = 16;
 
@@ -240,9 +242,12 @@ static void HandleCommand(const std::string& command)
     }
     else if (command == "a")
     {
-        // Execute the program again with 'a' argument from current working directory
-        std::string cmd = "cd \"" + std::filesystem::current_path().string() + "\" && " + std::string(g_editor.exe) + " a";
-        system(cmd.c_str());
+        if (IsWindowCreated())
+            FocusWindow();
+        else
+            InitAssetEditor();
+
+        Clear(g_editor.command_input);
     }
     else if (command == "clear")
     {
@@ -255,148 +260,142 @@ static void HandleCommand(const std::string& command)
     }
 }
 
-static void RunEditor()
+static void UpdateEditor()
 {
-    RenderTerminal();
+    // Process any queued log messages from background threads
+    ProcessQueuedLogMessages();
 
-    while (g_editor.is_running)
+    UpdateEditorServer();
+    UpdateTerminal();
+
+    int key = GetTerminalKey();
+    if (key == ERR)
     {
-        // Process any queued log messages from background threads
-        ProcessQueuedLogMessages();
+        RenderTerminal();
+        std::this_thread::yield();
+        return;
+    }
 
-        UpdateEditorServer();
-        UpdateTerminal();
+    // Handle mouse events (including scroll) to prevent terminal scrolling
+    if (key == KEY_MOUSE)
+    {
+        // Just consume the mouse event to prevent terminal scrolling
+        // TODO: Implement proper mouse/scroll handling later
+        return; // Don't process mouse events as regular keys
+    }
 
-        int key = GetTerminalKey();
-        if (key == ERR)
+    if (g_editor.search_mode)
+    {
+        if (key == '\n' || key == '\r')
         {
-            RenderTerminal();
-            std::this_thread::yield();
-            continue;
+            // Finish search input but keep the filtered view
+            g_editor.search_mode = false;
+            SetActive(g_editor.search_input, false);
+
+            // Show cursor in current view when exiting search mode
+            // View* view = GetView();
+            // view->SetCursorVisible(true);
         }
-        
-        // Handle mouse events (including scroll) to prevent terminal scrolling
-        if (key == KEY_MOUSE)
-        {
-            // Just consume the mouse event to prevent terminal scrolling
-            // TODO: Implement proper mouse/scroll handling later
-            continue; // Don't process mouse events as regular keys
-        }
+        else if (key == 27)
+        { // Escape
+            // Cancel search and return to full unfiltered view
+            g_editor.search_mode = false;
+            SetActive(g_editor.search_input, false);
+            Clear(g_editor.search_input);
 
-        if (g_editor.search_mode)
+            // IView* current_view = GetView();
+            // current_view->ClearSearch();
+            // current_view->SetCursorVisible(true);
+        }
+        else
         {
-            if (key == '\n' || key == '\r')
+            HandleKey(g_editor.search_input, key);
+
+            // Update search in real-time
+            // std::string pattern = GetText(g_editor.search_input);
+            // IView* current_view = GetView();
+            // current_view->SetSearchPattern(pattern);
+        }
+    }
+    else if (g_editor.command_mode)
+    {
+        if (key == '\n' || key == '\r')
+        {
+            std::string command = GetText(g_editor.command_input);
+            HandleCommand(command);
+            g_editor.command_mode = false;
+            SetActive(g_editor.command_input, false);
+            Clear(g_editor.command_input);
+
+            // Show cursor in current view when exiting command mode
+            // IView* current_view = GetView();
+            // current_view->SetCursorVisible(true);
+        }
+        else if (key == 27)
+        { // Escape
+            g_editor.command_mode = false;
+            SetActive(g_editor.command_input, false);
+            Clear(g_editor.command_input);
+
+            // Show cursor in current view when exiting command mode
+            // IView* current_view = GetView();
+            // current_view->SetCursorVisible(true);
+        }
+        else
+        {
+            HandleKey(g_editor.command_input, key);
+        }
+    }
+    else
+    {
+        View* current_view = GetView();
+
+        if (key == '/')
+        {
+        }
+        else if (key == ':')
+        {
+            g_editor.command_mode = true;
+            SetActive(g_editor.command_input, true);
+            Clear(g_editor.command_input);
+            SetCursorVisible(true);
+
+            // Hide cursor in current view when entering command mode
+//                current_view->SetCursorVisible(false);
+        }
+        else if (key == 'q')
+        {
+            g_editor.is_running = false;
+        }
+        else if (key == 27)  // Escape - clear search or pop view from stack
+        {
+            // Check if there's an active search to clear
+            std::string search_text = GetText(g_editor.search_input);
+            if (!search_text.empty())
             {
-                // Finish search input but keep the filtered view
-                g_editor.search_mode = false;
-                SetActive(g_editor.search_input, false);
-                
-                // Show cursor in current view when exiting search mode
-                // View* view = GetView();
-                // view->SetCursorVisible(true);
-            }
-            else if (key == 27)
-            { // Escape
-                // Cancel search and return to full unfiltered view
-                g_editor.search_mode = false;
-                SetActive(g_editor.search_input, false);
+                // Clear active search
                 Clear(g_editor.search_input);
-                
-                // IView* current_view = GetView();
+                // View* view = GetView();
                 // current_view->ClearSearch();
-                // current_view->SetCursorVisible(true);
             }
             else
             {
-                HandleKey(g_editor.search_input, key);
-                
-                // Update search in real-time
-                // std::string pattern = GetText(g_editor.search_input);
-                // IView* current_view = GetView();
-                // current_view->SetSearchPattern(pattern);
-            }
-        }
-        else if (g_editor.command_mode)
-        {
-            if (key == '\n' || key == '\r')
-            {
-                std::string command = GetText(g_editor.command_input);
-                HandleCommand(command);
-                g_editor.command_mode = false;
-                SetActive(g_editor.command_input, false);
-                Clear(g_editor.command_input);
-                
-                // Show cursor in current view when exiting command mode
-                // IView* current_view = GetView();
-                // current_view->SetCursorVisible(true);
-            }
-            else if (key == 27)
-            { // Escape
-                g_editor.command_mode = false;
-                SetActive(g_editor.command_input, false);
-                Clear(g_editor.command_input);
-                
-                // Show cursor in current view when exiting command mode
-                // IView* current_view = GetView();
-                // current_view->SetCursorVisible(true);
-            }
-            else
-            {
-                HandleKey(g_editor.command_input, key);
+                // No search to clear, pop view from stack
+                PopView();
             }
         }
         else
         {
-            View* current_view = GetView();
-            
-            if (key == '/')
-            {
-            }
-            else if (key == ':')
-            {
-                g_editor.command_mode = true;
-                SetActive(g_editor.command_input, true);
-                Clear(g_editor.command_input);
-                SetCursorVisible(true);
-                
-                // Hide cursor in current view when entering command mode
-//                current_view->SetCursorVisible(false);
-            }
-            else if (key == 'q')
-            {
-                g_editor.is_running = false;
-            }
-            else if (key == 27)  // Escape - clear search or pop view from stack
-            {
-                // Check if there's an active search to clear
-                std::string search_text = GetText(g_editor.search_input);
-                if (!search_text.empty())
-                {
-                    // Clear active search
-                    Clear(g_editor.search_input);
-                    // View* view = GetView();
-                    // current_view->ClearSearch();
-                }
-                else
-                {
-                    // No search to clear, pop view from stack
-                    PopView();
-                }
-            }
-            else
-            {
-                // Route input to current view
-                // if (!current_view->HandleKey(key))
-                // {
-                //     // View didn't handle the key, could add default handling here
-                // }
-            }
+            // Route input to current view
+            // if (!current_view->HandleKey(key))
+            // {
+            //     // View didn't handle the key, could add default handling here
+            // }
         }
-
-        RenderTerminal();
     }
-}
 
+    RenderTerminal();
+}
 
 void RenderEditor(const RectInt& rect)
 {
@@ -476,8 +475,6 @@ void ShutdownEditor()
     }
 }
 
-extern int InitAssetEditor(int argc, const char* argv[]);
-
 int main(int argc, const char* argv[])
 {
     g_editor.exe = argv[0];
@@ -487,17 +484,39 @@ int main(int argc, const char* argv[])
     InitConfig();
     InitImporter();
 
+    ApplicationTraits traits = {};
+    Init(traits);
+    traits.console = true;
+    traits.load_assets = LoadAssets;
+    traits.unload_assets = UnloadAssets;
+
     if (argc > 1 && argv[1][0] == 'a')
     {
-        InitAssetEditor(argc, argv);
-        ShutdownImporter();
-        delete g_config;
+        // InitAssetEditor(argc, argv);
+        // ShutdownImporter();
+        // delete g_config;
         return 0;
     }
 
-    InitLog(HandleLog);
+    InitApplication(&traits, argc, argv);
     InitEditor();
-    RunEditor();
+    InitLog(HandleLog);
+
+    while (UpdateApplication() && g_editor.is_running)
+    {
+        UpdateEditor();
+
+        if (IsWindowCreated())
+            UpdateAssetEditor();
+        else
+            thread_sleep_ms(1);
+    }
+
+    if (IsWindowCreated())
+        ShutdownAssetEditor();
+
     ShutdownEditor();
+    ShutdownApplication();
+
     return 0;
 }

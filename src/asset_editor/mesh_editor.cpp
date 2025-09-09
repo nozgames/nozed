@@ -280,46 +280,17 @@ static bool SelectTriangle(EditableAsset& ea)
     return true;
 }
 
-static bool AddVertex(EditableAsset& ea)
+static bool AddVertexAtMouse(EditableAsset& ea)
 {
     EditableMesh& em = *ea.mesh;
-
-    // If vertex was sleected then ignore
-    int vertex_index = HitTestVertex(
-        em,
-        ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ea.position,
-        VERTEX_HIT_SIZE * g_asset_editor.zoom_ref_scale);
-    if (vertex_index != -1)
-        return false;
-
-    // Mouse over edge?
-    float edge_pos;
-    int edge_index = HitTestEdge(
-        em,
-        ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ea.position,
-        VERTEX_HIT_SIZE * g_asset_editor.zoom_ref_scale,
-        &edge_pos);
-
-    if (edge_index >= 0)
+    int new_vertex = AddVertex(em, g_asset_editor.mouse_world_position - ea.position);
+    if (new_vertex != -1)
     {
-        int new_vertex = SplitEdge(em, edge_index, edge_pos);
-        if (new_vertex != -1)
-        {
-            SetSelection(em, new_vertex);
-            MarkDirty(em);
-            UpdateSelection(ea);
-        }
-
+        SetSelection(em, new_vertex);
+        UpdateSelection(ea);
         return true;
     }
-
-    Vec2 tri_pos;
-    int triangle_index = HitTestTriangle(
-        em,
-        ea.position,
-        ScreenToWorld(g_asset_editor.camera, GetMousePosition()),
-        &tri_pos);
-
+    
     return false;
 }
 
@@ -422,7 +393,7 @@ static void UpdateDefaultState(EditableAsset& ea)
     // Add
     if (WasButtonPressed(g_asset_editor.input, KEY_V))
     {
-        if (AddVertex(ea))
+        if (AddVertexAtMouse(ea))
             return;
     }
 

@@ -128,6 +128,9 @@ extern AssetEditor g_asset_editor;
 constexpr Color COLOR_SELECTED = { 1,1,1,1 };
 
 // @editor
+extern void InitAssetEditor();
+extern void UpdateAssetEditor();
+extern void ShutdownAssetEditor();
 extern void ClearBoxSelect();
 extern void PushState(AssetEditorState state);
 extern void PopState();
@@ -169,6 +172,8 @@ extern void MergeSelectedVerticies(EditableMesh& em);
 extern void DissolveSelectedVertices(EditableMesh& em);
 extern void SetHeight(EditableMesh& em, int index, float height);
 extern int SplitEdge(EditableMesh& em, int edge_index, float edge_pos);
+extern int SplitTriangle(EditableMesh& em, int triangle_index, const Vec2& position);
+extern int AddVertex(EditableMesh& em, const Vec2& position);
 extern void SetSelection(EditableMesh& em, int vertex_index);
 extern void AddSelection(EditableMesh& em, int vertex_index);
 extern void ToggleSelection(EditableMesh& em, int vertex_index);

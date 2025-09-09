@@ -360,7 +360,7 @@ static void UpdateMouse()
         g_asset_editor.drag = false;
 }
 
-void UpdateAssetEditor()
+static void UpdateAssetEditorInternal()
 {
     UpdateCamera();
     UpdateMouse();
@@ -484,17 +484,19 @@ void RenderView()
     DrawBoxSelect();
 }
 
-int InitAssetEditor(int argc, const char* argv[])
+void InitAssetEditor()
 {
-    ApplicationTraits traits = {};
-    Init(traits);
-    traits.name = "meshz";
-    traits.title = "MeshZ";
-    traits.load_assets = LoadAssets;
-    traits.unload_assets = UnloadAssets;
-    traits.renderer.vsync = true;
-    traits.assets_path = "build/assets";
-    InitApplication(&traits, argc, argv);
+    InitWindow();
+
+    // ApplicationTraits traits = {};
+    // Init(traits);
+    // traits.name = "meshz";
+    // traits.title = "MeshZ";
+    // traits.load_assets = LoadAssets;
+    // traits.unload_assets = UnloadAssets;
+    // traits.renderer.vsync = true;
+    // traits.assets_path = "build/assets";
+    // InitApplication(&traits, argc, argv);
 
     g_asset_editor.camera = CreateCamera(ALLOCATOR_DEFAULT);
     g_asset_editor.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders._default);
@@ -558,23 +560,24 @@ int InitAssetEditor(int argc, const char* argv[])
     g_asset_editor.asset_count = LoadEditableAssets(g_asset_editor.assets);
     g_asset_editor.state_stack[0] = ASSET_EDITOR_STATE_DEFAULT;
     g_asset_editor.state_stack_count = 1;
-
-    // todo: read path from editor config
-    while (UpdateApplication())
-    {
-        BeginUI(UI_REF_WIDTH, UI_REF_HEIGHT);
-        UpdateAssetEditor();
-        EndUI();
-
-        BeginRenderFrame(VIEW_COLOR);
-        RenderView();
-        DrawUI();
-        EndRenderFrame();
-    }
-
-    ShutdownGrid();
-    ShutdownApplication();
-
-    return 0;
 }
 
+void UpdateAssetEditor()
+{
+    BeginUI(UI_REF_WIDTH, UI_REF_HEIGHT);
+    UpdateAssetEditorInternal();
+    EndUI();
+
+    BeginRenderFrame(VIEW_COLOR);
+    RenderView();
+    DrawUI();
+    EndRenderFrame();
+}
+
+void ShutdownAssetEditor()
+{
+    g_asset_editor = {};
+
+    ShutdownGrid();
+    ShutdownWindow();
+}
