@@ -7,6 +7,8 @@
 #include "asset_manifest.h"
 #include <vector>
 #include <map>
+#include <fstream>
+#include <set>
 
 namespace fs = std::filesystem;
 
@@ -15,6 +17,12 @@ struct AssetEntry
     std::string path;
     uint32_t signature;
     size_t file_size;
+    std::string var_name;
+};
+
+struct NameEntry
+{
+    std::string name;
     std::string var_name;
 };
 
@@ -27,6 +35,7 @@ struct PathNode
 struct ManifestGenerator
 {
     std::vector<AssetEntry> asset_entries;
+    std::vector<NameEntry> name_entries;
     fs::path output_dir;
     Stream* manifest_stream;
     const std::vector<AssetImporterTraits*>* importers;
@@ -52,6 +61,9 @@ static const char* ToReloadMacroFromSignature(AssetSignature signature, const st
 static void GenerateCoreAssetAssignments(ManifestGenerator* generator, Stream* stream, Props* config);
 static void GenerateHotloadNames(ManifestGenerator* generator, Stream* stream);
 static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream, Props* config);
+static void ScanStyleFile(const fs::path& file_path, ManifestGenerator* generator);
+static void GenerateNamesHeader(ManifestGenerator* generator, Stream* stream);
+static void GenerateNamesInitialization(ManifestGenerator* generator, Stream* stream);
 
 bool GenerateAssetManifest(
     const fs::path& output_directory,
@@ -115,6 +127,27 @@ bool GenerateAssetManifest(
                generator.output_dir.string().c_str(), e.what());
         Free(generator.manifest_stream);
         return false;
+    }
+    
+    // Also scan for .styles files in assets directory (for name extraction)
+    fs::path assets_dir = generator.output_dir.parent_path() / "assets";
+    if (fs::exists(assets_dir) && fs::is_directory(assets_dir))
+    {
+        try
+        {
+            for (const auto& entry : fs::recursive_directory_iterator(assets_dir))
+            {
+                if (entry.is_regular_file() && entry.path().extension() == ".styles")
+                {
+                    ScanStyleFile(entry.path(), &generator);
+                }
+            }
+        }
+        catch (const std::exception& e)
+        {
+            printf("WARNING: Failed to scan styles directory: %s - %s\n", 
+                   assets_dir.string().c_str(), e.what());
+        }
     }
 
     // Generate header file (change .cpp to .h)
@@ -259,7 +292,21 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
 
     WriteCSTR(header_stream, "};\n\n");
     
+    // Generate LoadedNames struct
+    WriteCSTR(header_stream, "struct LoadedNames\n{\n");
+    if (generator->name_entries.empty())
+        WriteCSTR(header_stream, "    void* _dummy;\n");
+    else
+    {
+        for (const auto& entry : generator->name_entries)
+        {
+            WriteCSTR(header_stream, "    const Name* %s;\n", entry.var_name.c_str());
+        }
+    }
+    WriteCSTR(header_stream, "};\n\n");
+    
     WriteCSTR(header_stream, "extern LoadedAssets %s;\n", generator->config->GetString("manifest", "global_variable", "Assets").c_str());
+    WriteCSTR(header_stream, "extern LoadedNames g_names;\n");
     WriteCSTR(header_stream, "extern LoadedCoreAssets g_core_assets;\n\n");
     WriteCSTR(header_stream, "bool LoadAssets(Allocator* allocator);\n");
     WriteCSTR(header_stream, "void UnloadAssets();\n\n");
@@ -330,6 +377,25 @@ static void ScanAssetFile(const fs::path& file_path, ManifestGenerator* generato
     entry.var_name = PathToVarName(entry.path);
     entry.signature = signature;
     generator->asset_entries.push_back(entry);
+    
+    // Also add asset path as a name entry
+    bool name_already_exists = false;
+    for (const auto& existing : generator->name_entries)
+    {
+        if (existing.name == relative_str)
+        {
+            name_already_exists = true;
+            break;
+        }
+    }
+    
+    if (!name_already_exists)
+    {
+        NameEntry name_entry = {};
+        name_entry.name = relative_str;
+        name_entry.var_name = PathToVarName(relative_str);
+        generator->name_entries.push_back(name_entry);
+    }
 }
 
 static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& header_path, Props* config)
@@ -353,6 +419,10 @@ static void GenerateManifestCode(ManifestGenerator* generator, const fs::path& h
 
     // Generate name variables
     GenerateHotloadNames(generator, stream);
+    
+    // Generate names header and initialization
+    GenerateNamesHeader(generator, stream);
+    GenerateNamesInitialization(generator, stream);
     
     // Generate hotload function
     GenerateHotloadFunction(generator, stream, config);
@@ -755,5 +825,63 @@ static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream
     
     WriteCSTR(stream, "}\n");
     WriteCSTR(stream, "#endif // NOZ_EDITOR\n\n");
+}
+
+static void ScanStyleFile(const fs::path& file_path, ManifestGenerator* generator)
+{
+    std::ifstream file(file_path);
+    if (!file.is_open())
+        return;
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        // Look for style definitions [style_name]
+        if (!line.empty() && line.front() == '[' && line.back() == ']')
+        {
+            std::string style_name = line.substr(1, line.length() - 2);
+            if (!style_name.empty())
+            {
+                // Check if this name is already in the list
+                bool already_exists = false;
+                for (const auto& existing : generator->name_entries)
+                {
+                    if (existing.name == style_name)
+                    {
+                        already_exists = true;
+                        break;
+                    }
+                }
+                
+                if (!already_exists)
+                {
+                    NameEntry entry = {};
+                    entry.name = style_name;
+                    entry.var_name = PathToVarName(style_name);
+                    generator->name_entries.push_back(entry);
+                }
+            }
+        }
+    }
+}
+
+static void GenerateNamesHeader(ManifestGenerator* generator, Stream* stream)
+{
+    WriteCSTR(stream, "// @g_names\n");
+    WriteCSTR(stream, "LoadedNames g_names = {};\n\n");
+}
+
+static void GenerateNamesInitialization(ManifestGenerator* generator, Stream* stream)
+{
+    if (generator->name_entries.empty())
+        return;
+        
+    WriteCSTR(stream, "    // Initialize g_names\n");
+    for (const auto& entry : generator->name_entries)
+    {
+        WriteCSTR(stream, "    g_names.%s = GetName(\"%s\");\n", 
+                  entry.var_name.c_str(), entry.name.c_str());
+    }
+    WriteCSTR(stream, "\n");
 }
 

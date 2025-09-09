@@ -151,7 +151,7 @@ void ImportSound(const fs::path& source_path, Stream* output_stream, Props* conf
     }
     
     // Write NoZ sound asset header
-    AssetHeader asset_header;
+    AssetHeader asset_header = {};
     asset_header.signature = ASSET_SIGNATURE_SOUND;
     asset_header.version = 1;
     asset_header.flags = 0;

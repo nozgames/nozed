@@ -72,12 +72,23 @@ static StyleFlexDirection ParseStyleFlexDirection(const string& value)
 
 static void WriteStyleSheetData(Stream* stream, const StyleDictionary& styles)
 {
+    // Create a name table of all the style names
+    set<const Name*> name_set;
+    for (const auto& [style_key, style] : styles)
+        name_set.insert(GetName(style_key.first.c_str()));
+
+    const Name** name_table = (const Name**)Alloc(ALLOCATOR_SCRATCH, sizeof(const Name*) * name_set.size());
+    u32 name_index = 0;
+    for (const auto& name : name_set)
+        name_table[name_index++] = name;
+
     // Write asset header
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_STYLE_SHEET;
     header.version = 1;
     header.flags = 0;
-    WriteAssetHeader(stream, &header);
+    header.names = (u32)name_set.size();
+    WriteAssetHeader(stream, &header, name_table);
 
     // Write number of styles
     WriteU32(stream, static_cast<uint32_t>(styles.size()));
@@ -89,9 +100,18 @@ static void WriteStyleSheetData(Stream* stream, const StyleDictionary& styles)
     // Write the style names / states
     for (const auto& [style_key, style] : styles)
     {
-        WriteString(stream, style_key.first.c_str());
+        const Name* style_name = GetName(style_key.first.c_str());
+        for (u32 i=0; i<header.names; i++)
+            if (name_table[i] == style_name)
+            {
+                WriteU32(stream, i);
+                break;
+            }
+
         WriteU32(stream, style_key.second);
     }
+
+    Free(name_table);
 }
 
 static bool ParseParameter(const string& group, const string& key, Props* source, Style& style)
