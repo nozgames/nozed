@@ -156,6 +156,7 @@ extern void MoveTo(EditableAsset& asset, const Vec2& position);
 extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
 extern void AddAssetSelection(int asset_index);
+extern int FindAssetByName(const Name* name);
 
 // @editable_mesh
 extern EditableMesh* CreateEditableMesh(Allocator* allocator);

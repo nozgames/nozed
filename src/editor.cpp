@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../noz/src/platform/windows/windows_vulkan.h"
+#include "editor.h"
 #include "asset_editor/asset_editor.h"
 #include "editor_assets.h"
 #include "server.h"
@@ -11,38 +11,21 @@
 #include "tui/text_input.h"
 #include "views/views.h"
 
-constexpr int MAX_VIEWS = 16;
 
 extern void InitEvent(ApplicationTraits* traits);
 extern void RequestStats();
 extern void InitEditorServer(Props* config);
 extern void UpdateEditorServer();
 extern void ShutdownEditorServer();
+extern void HandleCommand(const std::string& str);
 
 void InitImporter();
 void ShutdownImporter();
 
-struct Editor
-{
-    LogView* log_view;
-    View* view_stack[MAX_VIEWS];
-    u32 view_stack_count = 0;
-    TextInput* command_input;
-    TextInput* search_input;
-    bool command_mode;
-    bool search_mode;
-    bool is_running;
-    bool auto_quit;
-    int fps;
-    bool stats_requested;
-    const char* exe;
-};
-
-static Editor g_editor = {};
+Editor g_editor = {};
 Props* g_config = nullptr;
 
-
-static View* GetView()
+View* GetView()
 {
     if (g_editor.view_stack_count == 0)
         return g_editor.log_view;
@@ -50,14 +33,14 @@ static View* GetView()
     return g_editor.view_stack[g_editor.view_stack_count-1];
 }
 
-static void PushView(View* view)
+void PushView(View* view)
 {
     assert(view);
     assert(g_editor.view_stack_count < MAX_VIEWS);
     g_editor.view_stack[g_editor.view_stack_count++] = view;
 }
 
-static void PopView()
+void PopView()
 {
     assert(g_editor.view_stack_count > 0);
     auto current = g_editor.view_stack[g_editor.view_stack_count-1];
@@ -229,49 +212,6 @@ static void DrawCommandLine(const RectInt& rect)
             AddChar(' ');
     }
 #endif
-}
-
-
-static void HandleCommand(const std::string& str)
-{
-    Tokenizer tokenizer;
-    Token token;
-    Init(tokenizer, str.c_str());
-
-    ExpectIdentifier(tokenizer, &token);
-
-    std::string command = ToString(token);
-
-    if (command == "q" || command == "quit")
-    {
-        // If there are views on the stack, pop one instead of quitting
-        if (g_editor.view_stack_count > 0)
-            PopView();
-        else
-            g_editor.is_running = false;
-    }
-    else if (command == "s" && IsWindowCreated())
-    {
-        SaveEditableAssets();
-    }
-    else if (command == "a")
-    {
-        if (IsWindowCreated())
-            FocusWindow();
-        else
-            InitAssetEditor();
-
-        Clear(g_editor.command_input);
-    }
-    else if (command == "clear")
-    {
-        //g_editor.log_view->Clear();
-    }
-    else if (!command.empty())
-    {
-        LogInfo("Unknown command: %s", command.c_str());
-        LogInfo("Available commands: clear, quit, tree (t), inspector (i)");
-    }
 }
 
 static void UpdateEditor()

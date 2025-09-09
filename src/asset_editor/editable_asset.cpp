@@ -261,3 +261,12 @@ void AddAssetSelection(int asset_index)
     ea.selected = true;
     g_asset_editor.selected_asset_count++;
 }
+
+int FindAssetByName(const Name* name)
+{
+    for (int i=0; i<g_asset_editor.asset_count; i++)
+        if (g_asset_editor.assets[i]->name == name)
+            return i;
+
+    return -1;
+}

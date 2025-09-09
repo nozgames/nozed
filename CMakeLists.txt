@@ -26,6 +26,7 @@ set(SOURCE_FILES
     src/file_watcher.cpp
     src/gltf.cpp
     src/importer.cpp
+    src/commands.cpp
     src/importers/mesh_importer.cpp
     src/importers/font_importer.cpp
     src/importers/shader_importer.cpp
