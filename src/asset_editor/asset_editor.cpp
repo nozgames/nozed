@@ -6,7 +6,8 @@
 #include "file_helpers.h"
 
 constexpr int MAX_COMMAND_LENGTH = 1024;
-constexpr float DRAG_MIN = 1;
+constexpr float SELECT_SIZE = 20.0f;
+constexpr float DRAG_MIN = 5;
 constexpr float DEFAULT_DPI = 72.0f;
 constexpr float ZOOM_MIN = 0.1f;
 constexpr float ZOOM_MAX = 40.0f;
@@ -45,6 +46,8 @@ static void UpdateCamera()
     SetExtents(g_asset_editor.camera, -half_width, half_width, -half_height, half_height, false);
 
     g_asset_editor.zoom_ref_scale = 1.0f / g_asset_editor.zoom;
+    g_asset_editor.select_size = (ScreenToWorld(g_asset_editor.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_asset_editor.camera, VEC2_ZERO)).y;
+
 }
 
 static void FrameView()
@@ -91,28 +94,24 @@ static void FrameView()
     UpdateCamera();
 }
 
+void BeginBoxSelect(void (*callback)(const Bounds2& bounds))
+{
+    g_asset_editor.box_select_callback = callback;
+    PushState(ASSET_EDITOR_STATE_BOX_SELECT);
+}
+
 static void HandleBoxSelect()
 {
-    // When in edit mode let the editor handle it
-    if (GetState() == ASSET_EDITOR_STATE_EDIT && g_asset_editor.edit_asset_index != -1)
+    if (g_asset_editor.box_select_callback)
     {
-        EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
-        switch (ea.type)
-        {
-        case EDITABLE_ASSET_TYPE_MESH:
-        {
-            HandleMeshEditorBoxSelect(ea, g_asset_editor.box_selection);
-            break;
-        }
-
-        default:
-            break;
-        }
-
+        auto box_select_callback = g_asset_editor.box_select_callback;
+        g_asset_editor.box_select_callback = nullptr;
+        box_select_callback(g_asset_editor.box_selection);
         return;
     }
 
     ClearAssetSelection();
+
     for (int i=0; i<g_asset_editor.asset_count; i++)
     {
         EditorAsset& ea = *g_asset_editor.assets[i];
@@ -251,7 +250,7 @@ static void UpdateDefaultState()
 
     // Enter edit mode
     if (WasButtonPressed(g_asset_editor.input, KEY_TAB) &&
-        !IsButtonDown(g_asset_editor.input, KEY_LEFT_ALT) &&
+        !IsAltDown(g_asset_editor.input) &&
         g_asset_editor.selected_asset_count == 1)
     {
         g_asset_editor.edit_asset_index = GetFirstSelectedAsset();
@@ -375,7 +374,7 @@ static void UpdateAssetEditorInternal()
     {
     case ASSET_EDITOR_STATE_EDIT:
     {
-        if (WasButtonPressed(g_asset_editor.input, KEY_TAB))
+        if (WasButtonPressed(g_asset_editor.input, KEY_TAB) && !IsAltDown(g_asset_editor.input))
         {
             PopState();
             return;

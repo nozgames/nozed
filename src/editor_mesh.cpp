@@ -727,21 +727,28 @@ int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& position)
     return new_vertex_index;
 }
 
-int HitTestVertex(const EditorMesh& em, const Vec2& world_pos, float size)
+int HitTestVertex(const EditorMesh& em, const Vec2& world_pos)
 {
+    const float size = g_asset_editor.select_size;
+    float best_dist = F32_MAX;
+    int best_vertex = -1;
     for (int i = 0; i < em.vertex_count; i++)
     {
         const EditorVertex& ev = em.vertices[i];
         float dist = Length(world_pos - ev.position);
-        if (dist < size)
-            return i;
+        if (dist < size && dist < best_dist)
+        {
+            best_vertex = i;
+            best_dist = dist;
+        }
     }
 
-    return -1;
+    return best_vertex;
 }
 
-int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float size, float* where)
+int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float* where)
 {
+    const float size = g_asset_editor.select_size * 0.5f;
     for (int i = 0; i < em.edge_count; i++)
     {
         const EditorEdge& ee = em.edges[i];
@@ -871,6 +878,17 @@ void AddSelection(EditorMesh& em, int vertex_index)
     em.selected_vertex_count++;
 }
 
+void RemoveSelection(EditorMesh& em, int vertex_index)
+{
+    assert(vertex_index >= 0 && vertex_index < em.vertex_count);
+    EditorVertex& ev = em.vertices[vertex_index];
+    if (!ev.selected)
+        return;
+
+    ev.selected = false;
+    em.selected_vertex_count--;
+}
+
 void ToggleSelection(EditorMesh& em, int vertex_index)
 {
     assert(vertex_index >= 0 && vertex_index < em.vertex_count);
@@ -897,16 +915,14 @@ void SelectAll(EditorMesh& em)
 
 int AddVertex(EditorMesh& em, const Vec2& position)
 {
-    constexpr float VERTEX_HIT_SIZE = 0.08f * 5.0f;
-
     // If on a vertex then return -1
-    int vertex_index = HitTestVertex(em, position, VERTEX_HIT_SIZE);
+    int vertex_index = HitTestVertex(em, position);
     if (vertex_index != -1)
         return -1;
 
     // If on an edge then split the edge and add the point
     float edge_pos;
-    int edge_index = HitTestEdge(em, position, VERTEX_HIT_SIZE, &edge_pos);
+    int edge_index = HitTestEdge(em, position, &edge_pos);
     if (edge_index >= 0)
     {
         int new_vertex = SplitEdge(em, edge_index, edge_pos);

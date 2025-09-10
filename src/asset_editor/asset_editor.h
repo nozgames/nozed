@@ -53,6 +53,7 @@ struct AssetEditor
     Mesh* edge_mesh;
     float zoom;
     float zoom_ref_scale;
+    float select_size;
     float ui_scale;
     float dpi;
     InputSet* input;
@@ -68,6 +69,7 @@ struct AssetEditor
     u32 selected_asset_count;
 
     Bounds2 box_selection;
+    void (*box_select_callback)(const Bounds2& bounds);
     Vec2 move_world_position;
 
     bool drag;
@@ -95,6 +97,7 @@ constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 extern void InitAssetEditor();
 extern void UpdateAssetEditor();
 extern void ShutdownAssetEditor();
+extern void BeginBoxSelect(void (*callback)(const Bounds2& bounds));
 extern void ClearBoxSelect();
 extern void PushState(AssetEditorState state);
 extern void PopState();
@@ -147,7 +150,7 @@ extern void AddNotification(const char* format, ...);
 extern void UpdateMeshEditor(EditorAsset& ea);
 extern void InitMeshEditor(EditorAsset& ea);
 extern void DrawMeshEditor(EditorAsset& ea);
-extern void HandleMeshEditorBoxSelect(EditorAsset& ea, const Bounds2& bounds);
+extern void HandleBoxSelect(const Bounds2& bounds);
 
 // @draw
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);

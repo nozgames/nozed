@@ -59,7 +59,8 @@ extern EditorMesh* CreateEditableMesh(Allocator* allocator);
 extern bool HitTest(const EditorMesh& mesh, const Vec2& position, const Bounds2& hit_bounds);
 extern bool HitTestTriangle(const EditorMesh& em, const EditorFace& et, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
 extern int HitTestTriangle(const EditorMesh& mesh, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
-extern int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float size, float* where=nullptr);
+extern int HitTestVertex(const EditorMesh& em, const Vec2& world_pos);
+extern int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float* where=nullptr);
 extern Mesh* ToMesh(EditorMesh& em, bool upload=true);
 extern Bounds2 GetSelectedBounds(const EditorMesh& emesh);
 extern void MarkDirty(EditorMesh& emesh);
@@ -73,6 +74,7 @@ extern int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& positio
 extern int AddVertex(EditorMesh& em, const Vec2& position);
 extern void SetSelection(EditorMesh& em, int vertex_index);
 extern void AddSelection(EditorMesh& em, int vertex_index);
+extern void RemoveSelection(EditorMesh& em, int vertex_index);
 extern void ToggleSelection(EditorMesh& em, int vertex_index);
 extern void ClearSelection(EditorMesh& em);
 extern void SelectAll(EditorMesh& em);

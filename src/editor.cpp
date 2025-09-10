@@ -312,6 +312,9 @@ static void UpdateEditor()
 
 void RenderEditor(const RectInt& rect)
 {
+    if (rect.width == 0 || rect.height == 0)
+        return;
+
     ClearScreen(TCHAR_NONE);
     DrawStatusBar(rect);
     DrawCommandLine({rect.x, rect.height - 1, rect.width, 1});
@@ -371,7 +374,7 @@ void InitEditor()
 
 void ShutdownEditor()
 {
-    ShutdownEditorServer();
+    //ShutdownEditorServer();
     Destroy(g_editor.command_input);
     Destroy(g_editor.search_input);
     ShutdownImporter();
@@ -414,7 +417,10 @@ int main(int argc, const char* argv[])
     while (UpdateApplication() && g_editor.is_running)
     {
         if (had_window && !IsWindowCreated() && g_editor.auto_quit)
+        {
+            LogInfo("QUIT!");
             break;
+        }
 
         UpdateEditor();
 
