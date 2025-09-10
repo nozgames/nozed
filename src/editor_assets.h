@@ -7,7 +7,7 @@
 // LoadedAssets.fonts.seguisb
 //
 // @shaders
-// LoadedAssets.shaders._default
+// LoadedAssets.shaders.lit
 // LoadedAssets.shaders.text
 // LoadedAssets.shaders.ui
 // LoadedAssets.shaders.vfx
@@ -41,7 +41,7 @@ struct LoadedAssets
     struct
     {
         const Name* fonts_seguisb;
-        const Name* shaders_default;
+        const Name* shaders_lit;
         const Name* shaders_text;
         const Name* shaders_ui;
         const Name* shaders_vfx;
@@ -56,7 +56,7 @@ struct LoadedAssets
     } fonts;
     struct
     {
-        Shader* _default;
+        Shader* lit;
         Shader* text;
         Shader* ui;
         Shader* vfx;

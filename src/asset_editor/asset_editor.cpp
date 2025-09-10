@@ -351,6 +351,12 @@ static void UpdateCommon()
 {
     CheckShortcuts(g_common_shortcuts);
 
+    if (IsButtonDown(g_asset_editor.input, MOUSE_RIGHT))
+    {
+        Vec2 dir = Normalize(g_asset_editor.mouse_position - GetScreenCenter());
+        g_asset_editor.light_dir = Vec3{dir.x, dir.y, 1.0f};
+    }
+
     if (WasButtonPressed(g_asset_editor.input, KEY_Z) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
     {
         Undo();
@@ -450,6 +456,7 @@ static void DrawBoxSelect()
 void RenderView()
 {
     BindCamera(g_asset_editor.camera);
+    BindLight(g_asset_editor.light_dir, COLOR_WHITE, COLOR_BLACK);
 
     // Grid
     DrawGrid(g_asset_editor.camera);
@@ -605,7 +612,7 @@ void InitAssetEditor()
     InitWindow();
 
     g_asset_editor.camera = CreateCamera(ALLOCATOR_DEFAULT);
-    g_asset_editor.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders._default);
+    g_asset_editor.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.lit);
     g_asset_editor.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.ui);
     g_asset_editor.zoom = ZOOM_DEFAULT;
     g_asset_editor.ui_scale = 1.0f;

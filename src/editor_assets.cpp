@@ -20,7 +20,7 @@ void HotloadAsset(const Name* incoming_name)
     NOZ_RELOAD_FONT(g_assets.paths.fonts_seguisb, g_assets.fonts.seguisb);
 
     // @shaders
-    NOZ_RELOAD_SHADER(g_assets.paths.shaders_default, g_assets.shaders._default);
+    NOZ_RELOAD_SHADER(g_assets.paths.shaders_lit, g_assets.shaders.lit);
     NOZ_RELOAD_SHADER(g_assets.paths.shaders_text, g_assets.shaders.text);
     NOZ_RELOAD_SHADER(g_assets.paths.shaders_ui, g_assets.shaders.ui);
     NOZ_RELOAD_SHADER(g_assets.paths.shaders_vfx, g_assets.shaders.vfx);
@@ -40,7 +40,7 @@ void HotloadAsset(const Name* incoming_name)
 bool LoadAssets(Allocator* allocator)
 {
     g_assets.paths.fonts_seguisb = GetName("fonts/seguisb");
-    g_assets.paths.shaders_default = GetName("shaders/default");
+    g_assets.paths.shaders_lit = GetName("shaders/lit");
     g_assets.paths.shaders_text = GetName("shaders/text");
     g_assets.paths.shaders_ui = GetName("shaders/ui");
     g_assets.paths.shaders_vfx = GetName("shaders/vfx");
@@ -60,7 +60,7 @@ bool LoadAssets(Allocator* allocator)
 
 
     NOZ_LOAD_FONT(allocator, g_assets.paths.fonts_seguisb, g_assets.fonts.seguisb);
-    NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_default, g_assets.shaders._default);
+    NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_lit, g_assets.shaders.lit);
     NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_text, g_assets.shaders.text);
     NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_ui, g_assets.shaders.ui);
     NOZ_LOAD_SHADER(allocator, g_assets.paths.shaders_vfx, g_assets.shaders.vfx);
@@ -70,6 +70,7 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_notifications, g_assets.ui.notifications);
 
     // Assign core engine assets
+    g_core_assets.shaders.lit = g_assets.shaders.lit;
     g_core_assets.shaders.ui = g_assets.shaders.ui;
     g_core_assets.shaders.text = g_assets.shaders.text;
     g_core_assets.shaders.vfx = g_assets.shaders.vfx;

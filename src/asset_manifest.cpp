@@ -39,6 +39,7 @@ struct ManifestGenerator
 };
 
 static std::vector<std::pair<std::string, std::string>> core_assets = {
+    { "shaders.lit", "shaders/lit" },
     { "shaders.ui", "shaders/ui" },
     { "shaders.text", "shaders/text" },
     { "shaders.vfx", "shaders/vfx" },

@@ -268,10 +268,6 @@ namespace noz::ttf
             if (glyph == nullptr)
                 continue;
 
-            if (glyph->ascii == 58)
-                printf("test\n");
-
-
             // Seek to the glyph in the GLYF table
             if (_indexToLocFormat == 1)
             {

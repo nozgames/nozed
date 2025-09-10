@@ -182,7 +182,7 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
         AddTriangle(builder, base+1, base+2, base+3);
     }
 
-    em.mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+    em.mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
     Free(builder);
 
     return em.mesh;

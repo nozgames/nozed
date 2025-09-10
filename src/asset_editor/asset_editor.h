@@ -79,6 +79,8 @@ struct AssetEditor
     Vec2 drag_world_delta;
     Vec2 mouse_position;
     Vec2 mouse_world_position;
+
+    Vec3 light_dir;
 };
 
 #include "editor_assets.h"

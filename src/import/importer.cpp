@@ -247,7 +247,10 @@ static bool ProcessImportQueue()
                     }
                     catch (const std::exception& e)
                     {
-                        //LogError("%s: %s", CleanPath(job.source_path.string()).c_str(), e.what());
+                        char path[1024];
+                        Copy(path, 1024, job.source_path.string().c_str());
+                        CleanPath(path);
+                        LogError("%s: %s", path, e.what());
                         continue;
                     }
                 }
