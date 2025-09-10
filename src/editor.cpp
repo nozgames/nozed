@@ -70,19 +70,19 @@ static void HandleLog(LogType type, const char* message)
     // Add type prefix with color for display
     std::string formatted_message;
     switch(type) {
-    case LOG_TYPE_INFO: 
-        formatted_message = std::string(message); 
+    case LOG_TYPE_INFO:
+        formatted_message = std::string(message);
         break;
-    case LOG_TYPE_WARNING: 
+    case LOG_TYPE_WARNING:
         // Nice yellow (not fully saturated) - RGB(200, 180, 0)
-        formatted_message = "\033[38;2;200;180;0m[WARNING]\033[0m " + std::string(message); 
+        formatted_message = "\033[38;2;200;180;0m[WARNING]\033[0m " + std::string(message);
         break;
-    case LOG_TYPE_ERROR: 
+    case LOG_TYPE_ERROR:
         // Nice red (not fully saturated) - RGB(200, 80, 80)
-        formatted_message = "\033[38;2;200;80;80m[ERROR]\033[0m " + std::string(message); 
+        formatted_message = "\033[38;2;200;80;80m[ERROR]\033[0m " + std::string(message);
         break;
-    default: 
-        formatted_message = std::string(message); 
+    default:
+        formatted_message = std::string(message);
         break;
     }
 
@@ -165,7 +165,7 @@ static void DrawCommandLine(const RectInt& rect)
             AddString(search_text.c_str());
             AddString(" (filtered - ESC to clear)");
         }
-        
+
         // Fill remaining space
         int used_chars = GetCursorX();
         for (int i = used_chars; i < width; i++)
@@ -331,6 +331,12 @@ void HandleStatsEvents(EventId event, const void* event_data)
     g_editor.stats_requested = false;
 }
 
+void HandleImported(EventId event_id, const void* event_data)
+{
+    HotloadEvent event = { (const char*)event_data };
+    Send(EVENT_HOTLOAD, &event);
+}
+
 static void InitConfig()
 {
     std::filesystem::path config_path = "./editor.cfg";
@@ -370,11 +376,12 @@ void InitEditor()
     InitEditorServer(g_config);
 
     Listen(EDITOR_EVENT_STATS, HandleStatsEvents);
+    Listen(EDITOR_EVENT_IMPORTED, HandleImported);
 }
 
 void ShutdownEditor()
 {
-    //ShutdownEditorServer();
+    ShutdownEditorServer();
     Destroy(g_editor.command_input);
     Destroy(g_editor.search_input);
     ShutdownImporter();
@@ -396,6 +403,7 @@ int main(int argc, const char* argv[])
     traits.console = true;
     traits.load_assets = LoadAssets;
     traits.unload_assets = UnloadAssets;
+    traits.hotload_asset = HotloadAsset;
 
     InitApplication(&traits, argc, argv);
     InitEditor();

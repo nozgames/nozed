@@ -69,7 +69,8 @@ struct EditorEventStats
 
 enum EditorEvent
 {
-    EDITOR_EVENT_STATS
+    EDITOR_EVENT_STATS,
+    EDITOR_EVENT_IMPORTED
 };
 
 extern Props* g_config;

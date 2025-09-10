@@ -92,18 +92,18 @@ bool WatchDirectory(const std::filesystem::path& directory)
     if (!g_watcher.initialized || directory.empty())
         return false;
 
-    std::string dir_str = directory.string();
-
+    std::filesystem::path full_path = std::filesystem::current_path() / directory;
+    std::string dir_str = full_path.string();
     std::lock_guard lock(g_watcher.dirs_mutex);
     
-    auto it = std::find(g_watcher.watched_dirs.begin(), g_watcher.watched_dirs.end(), directory);
+    auto it = std::find(g_watcher.watched_dirs.begin(), g_watcher.watched_dirs.end(), full_path);
     if (it != g_watcher.watched_dirs.end())
         return true;
 
     if (g_watcher.watched_dirs.size() >= MAX_WATCHED_DIRS)
         return false;
 
-    g_watcher.watched_dirs.push_back(directory);
+    g_watcher.watched_dirs.push_back(full_path);
     
     if (!g_watcher.running && g_watcher.watched_dirs.size() == 1)
         StartFileWatcher();
@@ -161,11 +161,10 @@ bool GetFileChangeEvent(FileChangeEvent* event)
 
 static void FileWatcherThread()
 {
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     while (!g_watcher.should_stop)
     {
-        if (begin < end)
+        if (std::chrono::steady_clock::now() < end)
         {
             ThreadYield();
             continue;
@@ -195,8 +194,7 @@ static void FileWatcherThread()
             }
         }
 
-        begin = std::chrono::steady_clock::now();
-        end = begin + std::chrono::milliseconds(g_watcher.poll_interval_ms);
+        end = std::chrono::steady_clock::now() + std::chrono::milliseconds(g_watcher.poll_interval_ms);
         ThreadYield();
     }
 }

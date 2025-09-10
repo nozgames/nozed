@@ -121,6 +121,8 @@ void UpdateEditorServer()
 // @broadcast
 void BroadcastAssetChange(const std::string& asset_name)
 {
+    Send(EDITOR_EVENT_IMPORTED, asset_name.c_str());
+
     if (!HasConnectedClient())
         return;
 
