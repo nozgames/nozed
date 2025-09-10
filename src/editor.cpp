@@ -50,18 +50,6 @@ void PopView()
     g_editor.view_stack_count--;
 }
 
-struct DebugLog
-{
-    std::mutex mutex;
-    FILE* file = nullptr;
-};
-
-static DebugLog& GetDebugLog()
-{
-    static DebugLog instance;
-    return instance;
-}
-
 // Thread safety for log messages
 static std::thread::id g_main_thread_id;
 
@@ -77,30 +65,8 @@ static LogQueue& GetLogQueue()
     return instance;
 }
 
-static void HandleResize(int new_width, int new_height)
-{
-    //g_editor.command_input = std::make_unique<text_input>(1, new_height - 1, new_width - 1);
-}
-
 static void HandleLog(LogType type, const char* message)
 {
-    // Handle debug logging to file (thread-safe)
-    if (type == LOG_TYPE_DEBUG)
-    {
-        DebugLog& debug_log = GetDebugLog();
-        std::lock_guard<std::mutex> lock(debug_log.mutex);
-        
-        if (!debug_log.file)
-            debug_log.file = fopen("debug.log", "w");
-
-        if (debug_log.file)
-        {
-            fprintf(debug_log.file, "[DEBUG] %s\n", message);
-            fflush(debug_log.file);
-        }
-        return;
-    }
-
     // Add type prefix with color for display
     std::string formatted_message;
     switch(type) {
@@ -398,7 +364,6 @@ void InitEditor()
     InitLog(HandleLog);
     InitTerminal();
     SetRenderCallback([](int width, int height) { RenderEditor({0, 0, width, height}); });
-    SetResizeCallback([](int new_width, int new_height) { HandleResize(new_width, new_height); });
     int term_height = GetScreenHeight();
     int term_width = GetScreenWidth();
     g_editor.log_view = CreateLogView(ALLOCATOR_DEFAULT);
@@ -418,15 +383,6 @@ void ShutdownEditor()
     Destroy(g_editor.search_input);
     ShutdownImporter();
     ShutdownTerminal();
-
-    // Close debug log file (thread-safe)
-    DebugLog& debug_log = GetDebugLog();
-    std::lock_guard<std::mutex> lock(debug_log.mutex);
-    if (debug_log.file)
-    {
-        fclose(debug_log.file);
-        debug_log.file = nullptr;
-    }
 }
 
 int main(int argc, const char* argv[])

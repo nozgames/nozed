@@ -8,8 +8,8 @@
 
 struct UndoItem
 {
-    EditableAsset* ea;
-    EditableAsset* saved;
+    EditorAsset* ea;
+    EditorAsset* saved;
     int group_id;
 };
 
@@ -109,7 +109,7 @@ void EndUndoGroup()
     g_undo.current_group_id = -1;
 }
 
-void RecordUndo(EditableAsset& ea)
+void RecordUndo(EditorAsset& ea)
 {
     // Maxium undo size
     if (IsFull(g_undo.undo))

@@ -53,10 +53,43 @@ static void HandleEdit(Tokenizer& tk)
     FocusAsset(asset_index);
 }
 
+// @new
+static void HandleNew(Tokenizer& tk)
+{
+    Token token;
+    SkipWhitespace(tk);
+
+    if (!ExpectIdentifier(tk, &token))
+    {
+        LogError("missing asset type (mesh, etc)");
+        return;
+    }
+
+    std::string type_name = ToString(token);
+    if (type_name != "mesh")
+    {
+        LogError("invalid asset type: %s", type_name.c_str());
+        return;
+    }
+
+    if (!ReadLine(tk, &token))
+    {
+        LogError("missing asset name");
+        return;
+    }
+
+    const Name* name = ToName(token);
+    if (name == NAME_NONE)
+        return;
+
+    CreateNewEditorMesh(name->value);
+}
+
 static CommandDef g_commands[] = {
     { "q", "quit", HandleQuit },
     { "s", "save", HandleSave },
     { "e", "edit", HandleEdit },
+    { "n", "new", HandleNew },
     { nullptr, nullptr, nullptr }
 };
 

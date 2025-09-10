@@ -4,6 +4,8 @@
 
 #pragma once
 
+struct EditorAsset;
+
 constexpr int MAX_VERTICES = 4096;
 constexpr int MAX_TRIANGLES = MAX_VERTICES / 3;
 constexpr int MAX_INDICES = MAX_TRIANGLES * 3;
@@ -79,3 +81,4 @@ extern EditorMesh* Clone(Allocator* allocator, const EditorMesh& em);
 extern void Copy(EditorMesh& dst, const EditorMesh& src);
 extern EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path);
 extern void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path);
+extern EditorAsset* CreateNewEditorMesh(const std::filesystem::path& path);

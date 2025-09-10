@@ -28,7 +28,7 @@ extern void SetTriangleColor(EditorMesh* em, int index, const Vec2Int& color);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
 static AssetEditorState GetState() { return g_asset_editor.state_stack[g_asset_editor.state_stack_count-1]; }
-static EditableAsset& GetEditingAsset() { return *g_asset_editor.assets[g_asset_editor.edit_asset_index]; }
+static EditorAsset& GetEditingAsset() { return *g_asset_editor.assets[g_asset_editor.edit_asset_index]; }
 
 AssetEditor g_asset_editor = {};
 
@@ -52,7 +52,7 @@ static void FrameView()
 
     if (g_asset_editor.edit_asset_index != -1)
     {
-        EditableAsset& ea = GetEditingAsset();
+        EditorAsset& ea = GetEditingAsset();
         bounds = GetSelectedBounds(ea) + ea.position;
         first = GetSize(bounds) == VEC2_ZERO;
     }
@@ -61,7 +61,7 @@ static void FrameView()
     {
         for (int i=0; i<g_asset_editor.asset_count; i++)
         {
-            const EditableAsset& ea = *g_asset_editor.assets[i];
+            const EditorAsset& ea = *g_asset_editor.assets[i];
             if (!ea.selected)
                 continue;
 
@@ -94,7 +94,7 @@ static void HandleBoxSelect()
     // When in edit mode let the editor handle it
     if (GetState() == ASSET_EDITOR_STATE_EDIT && g_asset_editor.edit_asset_index != -1)
     {
-        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
+        EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
         {
         case EDITABLE_ASSET_TYPE_MESH:
@@ -113,7 +113,7 @@ static void HandleBoxSelect()
     ClearAssetSelection();
     for (int i=0; i<g_asset_editor.asset_count; i++)
     {
-        EditableAsset& ea = *g_asset_editor.assets[i];
+        EditorAsset& ea = *g_asset_editor.assets[i];
         if (HitTestAsset(ea, g_asset_editor.box_selection))
             AddAssetSelection(i);
     }
@@ -200,7 +200,7 @@ static void UpdateMoveState()
     Vec2 drag = g_asset_editor.mouse_world_position - g_asset_editor.move_world_position;
     for (int i=0; i<g_asset_editor.asset_count; i++)
     {
-        EditableAsset& ea = *g_asset_editor.assets[i];
+        EditorAsset& ea = *g_asset_editor.assets[i];
         if (!ea.selected)
             continue;
 
@@ -212,7 +212,7 @@ static void UpdateMoveState()
     {
         for (int i=0; i<g_asset_editor.asset_count; i++)
         {
-            EditableAsset& ea = *g_asset_editor.assets[i];
+            EditorAsset& ea = *g_asset_editor.assets[i];
             ea.position = ea.saved_position;
         }
 
@@ -271,7 +271,7 @@ static void UpdateDefaultState()
         g_asset_editor.edit_asset_index = GetFirstSelectedAsset();
         assert(g_asset_editor.edit_asset_index != -1);
 
-        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
+        EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
         {
         case EDITABLE_ASSET_TYPE_MESH:
@@ -309,7 +309,7 @@ void PushState(AssetEditorState state)
         BeginUndoGroup();
         for (int i=0; i<g_asset_editor.asset_count; i++)
         {
-            EditableAsset& ea = *g_asset_editor.assets[i];
+            EditorAsset& ea = *g_asset_editor.assets[i];
             RecordUndo(ea);
             ea.saved_position = ea.position;
         }
@@ -398,7 +398,7 @@ static void UpdateAssetEditorInternal()
             return;
         }
 
-        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
+        EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
         {
         case EDITABLE_ASSET_TYPE_MESH:
@@ -481,7 +481,7 @@ void RenderView()
     // Draw edges
     if (g_asset_editor.edit_asset_index != -1)
     {
-        EditableAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
+        EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
         {
         case EDITABLE_ASSET_TYPE_MESH:
@@ -496,7 +496,7 @@ void RenderView()
     {
         for (int i=0; i<g_asset_editor.asset_count; i++)
         {
-            const EditableAsset& ea = *g_asset_editor.assets[i];
+            const EditorAsset& ea = *g_asset_editor.assets[i];
             if (!ea.selected)
                 continue;
 
@@ -659,8 +659,7 @@ void InitAssetEditor()
 
     InitGrid(ALLOCATOR_DEFAULT);
     InitNotifications();
-
-    g_asset_editor.asset_count = LoadEditableAssets(g_asset_editor.assets);
+    LoadEditableAssets();
     g_asset_editor.state_stack[0] = ASSET_EDITOR_STATE_DEFAULT;
     g_asset_editor.state_stack_count = 1;
 }

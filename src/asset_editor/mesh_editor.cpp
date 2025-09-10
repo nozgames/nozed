@@ -42,7 +42,7 @@ struct MeshEditor
 
 static MeshEditor g_mesh_editor = {};
 
-static void DrawVertices(const EditableAsset& ea, bool selected)
+static void DrawVertices(const EditorAsset& ea, bool selected)
 {
     const EditorMesh& em = *ea.mesh;
     for (int i=0; i<em.vertex_count; i++)
@@ -55,7 +55,7 @@ static void DrawVertices(const EditableAsset& ea, bool selected)
     }
 }
 
-static void UpdateSelection(EditableAsset& ea)
+static void UpdateSelection(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     Vec2 center = VEC2_ZERO;
@@ -76,7 +76,7 @@ static void UpdateSelection(EditableAsset& ea)
     g_mesh_editor.selection_center = center;
 }
 
-static void RevertPositions(EditableAsset& ea)
+static void RevertPositions(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     for (int i=0; i<em.vertex_count; i++)
@@ -90,7 +90,7 @@ static void RevertPositions(EditableAsset& ea)
     UpdateSelection(ea);
 }
 
-static void UpdateHeightState(EditableAsset& ea)
+static void UpdateHeightState(EditorAsset& ea)
 {
     float delta = (g_asset_editor.mouse_position.y - g_mesh_editor.state_mouse.y) / (g_asset_editor.dpi * HEIGHT_SLIDER_SIZE);
 
@@ -153,7 +153,7 @@ static void UpdateHeightState(EditableAsset& ea)
     }
 }
 
-static void UpdateScaleState(EditableAsset& ea)
+static void UpdateScaleState(EditorAsset& ea)
 {
     float delta =
         Length(g_asset_editor.mouse_world_position - g_mesh_editor.selection_drag_start) -
@@ -185,7 +185,7 @@ static void UpdateScaleState(EditableAsset& ea)
     }
 }
 
-static void UpdateMoveState(EditableAsset& ea)
+static void UpdateMoveState(EditorAsset& ea)
 {
     Vec2 delta = g_asset_editor.mouse_world_position - g_mesh_editor.world_drag_start;
     Vec2 new_center = g_mesh_editor.selection_drag_start + delta;
@@ -204,7 +204,7 @@ static void UpdateMoveState(EditableAsset& ea)
     MarkModified(em);
 }
 
-static void SetState(EditableAsset& ea, MeshEditorState state)
+static void SetState(EditorAsset& ea, MeshEditorState state)
 {
     g_mesh_editor.state = state;
     g_mesh_editor.world_drag_start = g_asset_editor.mouse_world_position;
@@ -239,7 +239,7 @@ static void SetState(EditableAsset& ea, MeshEditorState state)
     }
 }
 
-static bool SelectVertex(EditableAsset& ea)
+static bool SelectVertex(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     int vertex_index = HitTestVertex(
@@ -260,7 +260,7 @@ static bool SelectVertex(EditableAsset& ea)
     return true;
 }
 
-static bool SelectEdge(EditableAsset& ea)
+static bool SelectEdge(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     int edge_index = HitTestEdge(
@@ -282,7 +282,7 @@ static bool SelectEdge(EditableAsset& ea)
     return true;
 }
 
-static bool SelectTriangle(EditableAsset& ea)
+static bool SelectTriangle(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     int triangle_index = HitTestTriangle(
@@ -307,7 +307,7 @@ static bool SelectTriangle(EditableAsset& ea)
     return true;
 }
 
-static bool AddVertexAtMouse(EditableAsset& ea)
+static bool AddVertexAtMouse(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     int new_vertex = AddVertex(em, g_asset_editor.mouse_world_position - ea.position);
@@ -321,7 +321,7 @@ static bool AddVertexAtMouse(EditableAsset& ea)
     return false;
 }
 
-static void MergeVertices(EditableAsset& ea)
+static void MergeVertices(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     MergeSelectedVerticies(em);
@@ -330,7 +330,7 @@ static void MergeVertices(EditableAsset& ea)
     UpdateSelection(ea);
 }
 
-static void DissolveSelected(EditableAsset& ea)
+static void DissolveSelected(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     DissolveSelectedVertices(em);
@@ -339,7 +339,7 @@ static void DissolveSelected(EditableAsset& ea)
     UpdateSelection(ea);
 }
 
-static bool RotateEdges(EditableAsset& ea)
+static bool RotateEdges(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
     int count = 0;
@@ -363,7 +363,7 @@ static bool RotateEdges(EditableAsset& ea)
     return true;
 }
 
-static void UpdateDefaultState(EditableAsset& ea)
+static void UpdateDefaultState(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
 
@@ -469,12 +469,12 @@ bool HandleColorPickerInput(const ElementInput& input)
     i32 col = (i32)(x * 16.0f);
     i32 row = (i32)(y * 16.0f);
 
-    EditableAsset& ea = *(EditableAsset*)input.user_data;
+    EditorAsset& ea = *(EditorAsset*)input.user_data;
     SetSelectedTrianglesColor(*ea.mesh, { col, row });
     return true;
 }
 
-void UpdateMeshEditor(EditableAsset& ea)
+void UpdateMeshEditor(EditorAsset& ea)
 {
     BeginCanvas();
     SetStyleSheet(g_assets.ui.mesh_editor);
@@ -519,7 +519,7 @@ void UpdateMeshEditor(EditableAsset& ea)
     }
 }
 
-static void DrawScaleState(EditableAsset& ea)
+static void DrawScaleState(EditorAsset& ea)
 {
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
     DrawVertex(g_mesh_editor.selection_drag_start, CENTER_SIZE * 0.75f);
@@ -529,7 +529,7 @@ static void DrawScaleState(EditableAsset& ea)
     DrawVertex(g_asset_editor.mouse_world_position, CENTER_SIZE);
 }
 
-static void DrawHeightState(EditableAsset& ea)
+static void DrawHeightState(EditorAsset& ea)
 {
     Vec2 h1 =
         ScreenToWorld(g_asset_editor.camera, {0, g_asset_editor.dpi * HEIGHT_SLIDER_SIZE}) -
@@ -558,7 +558,7 @@ static void DrawHeightState(EditableAsset& ea)
     DrawVertex(g_mesh_editor.world_drag_start + Mix(h1, -h1, height_ratio), CENTER_SIZE);
 }
 
-void DrawMeshEditor(EditableAsset& ea)
+void DrawMeshEditor(EditorAsset& ea)
 {
     DrawEdges(ea, 10000, COLOR_EDGE);
     BindColor(COLOR_VERTEX);
@@ -587,7 +587,7 @@ void DrawMeshEditor(EditableAsset& ea)
     }
 }
 
-void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds)
+void HandleMeshEditorBoxSelect(EditorAsset& ea, const Bounds2& bounds)
 {
     EditorMesh& em = *ea.mesh;
     ClearSelection(em);
@@ -603,7 +603,7 @@ void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds)
     UpdateSelection(ea);
 }
 
-void InitMeshEditor(EditableAsset& ea)
+void InitMeshEditor(EditorAsset& ea)
 {
     g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
 

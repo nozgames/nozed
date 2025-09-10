@@ -5,26 +5,31 @@
 #include "asset_editor.h"
 #include "file_helpers.h"
 
-extern EditorMesh* LoadEditableMesh(Allocator* allocator, const std::filesystem::path& filename);
-extern void FixNormals(EditorMesh& em);
-
-static EditableAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
+static EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
 {
     std::error_code ec;
     std::filesystem::path relative_path = std::filesystem::relative(path, "assets", ec);
     relative_path.replace_extension("");
     relative_path = FixSlashes(relative_path);
 
-    EditableAsset* ea = (EditableAsset*)Alloc(ALLOCATOR_DEFAULT, sizeof(EditableAsset));
-    ea->path = path;
+    EditorAsset* ea = (EditorAsset*)Alloc(ALLOCATOR_DEFAULT, sizeof(EditorAsset));
+    Copy(ea->path, sizeof(ea->path), path.string().c_str());
     ea->name = GetName(relative_path.string().c_str());
     ea->type = type;
+
     return ea;
 }
 
-EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
+EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em)
 {
-    EditableAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
+    EditorAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
+    ea->mesh = em;
+    return ea;
+}
+
+EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
+{
+    EditorAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
     ea->mesh = LoadEditorMesh(ALLOCATOR_DEFAULT, path);
     if (!ea->mesh)
     {
@@ -33,10 +38,11 @@ EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
     }
     // else
     //     FixNormals(*ea->mesh);
+
     return ea;
 }
 
-static void ReadMetaData(EditableAsset& asset, const std::filesystem::path& path)
+static void ReadMetaData(EditorAsset& asset, const std::filesystem::path& path)
 {
     Props* props = LoadProps(std::filesystem::path(path.string() + ".meta"));
     if (!props)
@@ -45,35 +51,27 @@ static void ReadMetaData(EditableAsset& asset, const std::filesystem::path& path
     asset.position = props->GetVec2("editor", "position", VEC2_ZERO);
 }
 
-i32 LoadEditableAssets(EditableAsset** assets)
+void LoadEditableAssets()
 {
-    i32 asset_count = 0;
     for (auto& asset_path : GetFilesInDirectory("assets"))
     {
         std::filesystem::path ext = asset_path.extension();
-        EditableAsset* ea = nullptr;
+        EditorAsset* ea = nullptr;
 
         if (ext == ".mesh")
             ea = CreateEditableMeshAsset(asset_path);
 
         if (ea)
         {
-            assets[asset_count++] = ea;
             ReadMetaData(*ea, asset_path);
-
-            if (asset_count > MAX_ASSETS)
-                return asset_count;
+            g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
         }
     }
-
-    g_asset_editor.asset_count = asset_count;
-
-    return asset_count;
 }
 
-static void SaveAssetMetaData(const EditableAsset& asset)
+static void SaveAssetMetaData(const EditorAsset& asset)
 {
-    std::filesystem::path meta_path = std::filesystem::path(asset.path.string() + ".meta");
+    std::filesystem::path meta_path = std::filesystem::path(std::string(asset.path) + ".meta");
     Props* props = LoadProps(meta_path);
     if (!props)
         props = new Props{};
@@ -85,7 +83,7 @@ static void SaveAssetMetaData()
 {
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
     {
-        EditableAsset& asset = *g_asset_editor.assets[i];
+        EditorAsset& asset = *g_asset_editor.assets[i];
         if (!asset.dirty)
             continue;
 
@@ -93,14 +91,13 @@ static void SaveAssetMetaData()
     }
 }
 
-void MoveTo(EditableAsset& asset, const Vec2& position)
+void MoveTo(EditorAsset& asset, const Vec2& position)
 {
     asset.position = position;
     asset.dirty = true;
 }
 
-
-void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color)
+void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color)
 {
     if (ea.type != EDITABLE_ASSET_TYPE_MESH)
         return;
@@ -128,7 +125,7 @@ void SaveEditableAssets()
     u32 count = 0;
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
     {
-        EditableAsset& asset = *g_asset_editor.assets[i];
+        EditorAsset& asset = *g_asset_editor.assets[i];
         if (asset.type != EDITABLE_ASSET_TYPE_MESH)
             continue;
 
@@ -144,7 +141,7 @@ void SaveEditableAssets()
         AddNotification("Saved %d asset(s)", count);
 }
 
-bool HitTestAsset(const EditableAsset& ea, const Vec2& hit_pos)
+bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos)
 {
     switch (ea.type)
     {
@@ -165,7 +162,7 @@ int HitTestAssets(const Vec2& hit_pos)
     return -1;
 }
 
-bool HitTestAsset(const EditableAsset& ea, const Bounds2& hit_bounds)
+bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds)
 {
     switch (ea.type)
     {
@@ -186,7 +183,7 @@ int HitTestAssets(const Bounds2& hit_bounds)
     return -1;
 }
 
-void DrawAsset(const EditableAsset& ea)
+void DrawAsset(const EditorAsset& ea)
 {
     switch (ea.type)
     {
@@ -200,7 +197,7 @@ void DrawAsset(const EditableAsset& ea)
     }
 }
 
-Bounds2 GetBounds(const EditableAsset& ea)
+Bounds2 GetBounds(const EditorAsset& ea)
 {
     switch (ea.type)
     {
@@ -214,7 +211,7 @@ Bounds2 GetBounds(const EditableAsset& ea)
     return { VEC2_ZERO, VEC2_ZERO };
 }
 
-Bounds2 GetSelectedBounds(const EditableAsset& ea)
+Bounds2 GetSelectedBounds(const EditorAsset& ea)
 {
     switch (ea.type)
     {
@@ -255,7 +252,7 @@ void SetAssetSelection(int asset_index)
 
 void AddAssetSelection(int asset_index)
 {
-    EditableAsset& ea = *g_asset_editor.assets[asset_index];
+    EditorAsset& ea = *g_asset_editor.assets[asset_index];
     if (ea.selected)
         return;
 
@@ -272,9 +269,9 @@ int FindAssetByName(const Name* name)
     return -1;
 }
 
-EditableAsset* Clone(Allocator* allocator, const EditableAsset& ea)
+EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea)
 {
-    EditableAsset* clone = CreateEditableAsset(ea.path, ea.type);
+    EditorAsset* clone = CreateEditableAsset(ea.path, ea.type);
     *clone = ea;
     if (clone->mesh)
         clone->mesh = Clone(allocator, *clone->mesh);
@@ -282,7 +279,7 @@ EditableAsset* Clone(Allocator* allocator, const EditableAsset& ea)
     return clone;
 }
 
-void Copy(EditableAsset& dst, const EditableAsset& src)
+void Copy(EditorAsset& dst, const EditorAsset& src)
 {
     dst = src;
 

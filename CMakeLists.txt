@@ -15,7 +15,7 @@ set(SOURCE_FILES
     src/asset_editor/grid.cpp
     src/asset_editor/gltf_load.cpp
     src/asset_editor/gltf_save.cpp
-    src/asset_editor/editable_asset.cpp
+        src/asset_editor/editor_asset.cpp
     src/asset_editor/notifications.cpp
     src/asset_editor/undo.cpp
     src/asset_editor/draw_utils.cpp
@@ -24,17 +24,17 @@ set(SOURCE_FILES
     src/editor.cpp
     src/file_watcher.cpp
     src/gltf.cpp
-    src/importer.cpp
     src/commands.cpp
-    src/importers/mesh_importer.cpp
-    src/importers/font_importer.cpp
-    src/importers/shader_importer.cpp
-    src/importers/animation_importer.cpp
-    src/importers/skeleton_importer.cpp
-    src/importers/style_sheet_importer.cpp
-    src/importers/vfx_importer.cpp
-    src/importers/texture_importer.cpp
-    src/importers/sound_importer.cpp
+        src/import/importer.cpp
+        src/import/mesh_importer.cpp
+        src/import/font_importer.cpp
+        src/import/shader_importer.cpp
+        src/import/animation_importer.cpp
+        src/import/skeleton_importer.cpp
+        src/import/style_sheet_importer.cpp
+        src/import/vfx_importer.cpp
+        src/import/texture_importer.cpp
+        src/import/sound_importer.cpp
     src/msdf/Contour.cpp
     src/msdf/Edge.cpp
     src/msdf/Shape.cpp

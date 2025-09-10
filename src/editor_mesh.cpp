@@ -4,6 +4,7 @@
 
 #include "editor_mesh.h"
 
+#include "asset_editor/asset_editor.h"
 #include "file_helpers.h"
 
 static int GetOrAddEdge(EditorMesh& em, int v0, int v1)
@@ -1252,4 +1253,30 @@ void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path)
 
     SaveStream(stream, path);
     Free(stream);
+}
+
+EditorAsset* CreateNewEditorMesh(const std::filesystem::path& path)
+{
+    const char* default_mesh = "v -1 -1 e 1 h 0\n"
+                               "v 1 -1 e 1 h 0\n"
+                               "v 1 1 e 1 h 0\n"
+                               "v -1 1 e 1 h 0\n"
+                               "\n"
+                               "f 0 1 2 c 1 0\n"
+                               "f 0 2 3 c 1 0\n";
+
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / path : path;
+    full_path += ".mesh";
+
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+    WriteCSTR(stream, default_mesh);
+    SaveStream(stream, full_path);
+    Free(stream);
+
+    EditorAsset* ea = CreateEditableAsset(full_path, LoadEditorMesh(ALLOCATOR_DEFAULT, full_path));
+    if (!ea)
+        return nullptr;
+
+    g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
+    return ea;
 }

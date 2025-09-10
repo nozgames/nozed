@@ -22,7 +22,7 @@ void DrawVertex(const Vec2& v, f32 size)
     DrawMesh(g_asset_editor.vertex_mesh);
 }
 
-void DrawOrigin(const EditableAsset& ea)
+void DrawOrigin(const EditorAsset& ea)
 {
     BindMaterial(g_asset_editor.vertex_material);
     BindColor(COLOR_ORIGIN_BORDER);

@@ -21,7 +21,7 @@ enum EditableAssetType
     EDITABLE_ASSET_TYPE_COUNT,
 };
 
-struct EditableAsset
+struct EditorAsset
 {
     const Name* name;
     EditableAssetType type;
@@ -29,7 +29,7 @@ struct EditableAsset
     Vec2 position;
     Vec2 saved_position;
     bool dirty;
-    std::filesystem::path path;
+    char path[1024];
     bool selected;
 };
 
@@ -63,7 +63,7 @@ struct AssetEditor
     Vec2 pan_start;
     bool command_palette;
 
-    EditableAsset* assets[MAX_ASSETS];
+    EditorAsset* assets[MAX_ASSETS];
     u32 asset_count;
     u32 selected_asset_count;
 
@@ -109,7 +109,7 @@ extern void DrawGrid(Camera* camera);
 extern void InitUndo();
 extern void ShutdownUndo();
 extern void HandleCommand(const std::string& str);
-extern void RecordUndo(EditableAsset& ea);
+extern void RecordUndo(EditorAsset& ea);
 extern void BeginUndoGroup();
 extern void EndUndoGroup();
 extern void Undo();
@@ -117,25 +117,26 @@ extern void Redo();
 extern void CancelUndo();
 
 // @editable_asset
-extern EditableAsset* CreateEditableMeshAsset(const std::filesystem::path& path);
-extern i32 LoadEditableAssets(EditableAsset** assets);
+extern EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path);
+extern void LoadEditableAssets();
 extern void SaveEditableAssets();
-extern bool HitTestAsset(const EditableAsset& ea, const Vec2& hit_pos);
-extern bool HitTestAsset(const EditableAsset& ea, const Bounds2& hit_bounds);
+extern bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos);
+extern bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds);
 extern int HitTestAssets(const Vec2& hit_pos);
 extern int HitTestAssets(const Bounds2& bit_bounds);
-extern void DrawEdges(const EditableAsset& ea, int min_edge_count, Color color);
-extern void DrawAsset(const EditableAsset& ea);
-extern Bounds2 GetBounds(const EditableAsset& ea);
+extern void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color);
+extern void DrawAsset(const EditorAsset& ea);
+extern Bounds2 GetBounds(const EditorAsset& ea);
 extern int GetFirstSelectedAsset();
-extern Bounds2 GetSelectedBounds(const EditableAsset& ea);
-extern void MoveTo(EditableAsset& asset, const Vec2& position);
+extern Bounds2 GetSelectedBounds(const EditorAsset& ea);
+extern void MoveTo(EditorAsset& asset, const Vec2& position);
 extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
 extern void AddAssetSelection(int asset_index);
 extern int FindAssetByName(const Name* name);
-extern EditableAsset* Clone(Allocator* allocator, const EditableAsset& ea);
-extern void Copy(EditableAsset& dst, const EditableAsset& src);
+extern EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea);
+extern void Copy(EditorAsset& dst, const EditorAsset& src);
+extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em);
 
 // @notifications
 extern void InitNotifications();
@@ -143,12 +144,12 @@ extern void UpdateNotifications();
 extern void AddNotification(const char* format, ...);
 
 // @mesh_editor
-extern void UpdateMeshEditor(EditableAsset& ea);
-extern void InitMeshEditor(EditableAsset& ea);
-extern void DrawMeshEditor(EditableAsset& ea);
-extern void HandleMeshEditorBoxSelect(EditableAsset& ea, const Bounds2& bounds);
+extern void UpdateMeshEditor(EditorAsset& ea);
+extern void InitMeshEditor(EditorAsset& ea);
+extern void DrawMeshEditor(EditorAsset& ea);
+extern void HandleMeshEditorBoxSelect(EditorAsset& ea, const Bounds2& bounds);
 
 // @draw
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v, f32 size);
-extern void DrawOrigin(const EditableAsset& ea);
+extern void DrawOrigin(const EditorAsset& ea);
