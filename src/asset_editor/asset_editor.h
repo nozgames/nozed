@@ -133,6 +133,9 @@ extern void InitMeshEditor(EditorAsset& ea);
 extern void DrawMeshEditor(EditorAsset& ea);
 extern void HandleBoxSelect(const Bounds2& bounds);
 
+// @skeleton_editor
+extern void InitSkeletonEditor(EditorAsset& ea);
+
 // @draw
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v, f32 size);

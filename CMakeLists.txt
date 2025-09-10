@@ -12,6 +12,7 @@ add_subdirectory(noz noz)
 set(SOURCE_FILES
     src/asset_editor/asset_editor.cpp
     src/asset_editor/mesh_editor.cpp
+    src/asset_editor/skeleton_editor.cpp
     src/asset_editor/grid.cpp
     src/asset_editor/notifications.cpp
 

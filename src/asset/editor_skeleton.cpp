@@ -8,10 +8,11 @@
 
 extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type);
 
-void DrawEditorSkeleton(EditorSkeleton& skeleton, const Vec2& pos)
+void DrawEditorSkeleton(EditorAsset& ea)
 {
-    DrawOrigin(pos);
-    BindColor(COLOR_WHITE);
+    EditorSkeleton& skeleton = *ea.skeleton;
+    DrawOrigin(ea.position);
+    BindColor(ea.editing ? COLOR_SELECTED : COLOR_BLACK);
     for (int i=0; i<skeleton.bone_count; i++)
     {
         const EditorBone& bone = skeleton.bones[i];
@@ -23,7 +24,7 @@ void DrawEditorSkeleton(EditorSkeleton& skeleton, const Vec2& pos)
         Vec2 parent_position = ebone_parent.transform * VEC2_ZERO;
         float len = Length(bone_position - parent_position);
         Vec2 dir = Normalize(bone_position - parent_position);
-        BindTransform(TRS(pos + parent_position, dir, VEC2_ONE * len));
+        BindTransform(TRS(ea.position + parent_position, dir, VEC2_ONE * len));
         DrawMesh(g_asset_editor.bone_mesh);
     }
 }

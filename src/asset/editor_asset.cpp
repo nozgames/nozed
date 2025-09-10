@@ -193,7 +193,7 @@ void DrawAsset(EditorAsset& ea)
         break;
 
     case EDITABLE_ASSET_TYPE_SKELETON:
-        DrawEditorSkeleton(*ea.skeleton, ea.position);
+        DrawEditorSkeleton(ea);
         break;
 
     default:

@@ -255,6 +255,7 @@ static void UpdateDefaultState()
     {
         g_asset_editor.edit_asset_index = GetFirstSelectedAsset();
         assert(g_asset_editor.edit_asset_index != -1);
+        g_asset_editor.assets[g_asset_editor.edit_asset_index]->editing = true;
 
         EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
@@ -262,6 +263,11 @@ static void UpdateDefaultState()
         case EDITABLE_ASSET_TYPE_MESH:
             PushState(ASSET_EDITOR_STATE_EDIT);
             InitMeshEditor(ea);
+            break;
+
+        case EDITABLE_ASSET_TYPE_SKELETON:
+            PushState(ASSET_EDITOR_STATE_EDIT);
+            InitSkeletonEditor(ea);
             break;
 
         default:
@@ -315,6 +321,7 @@ static void PopState()
     switch (state)
     {
     case ASSET_EDITOR_STATE_EDIT:
+        g_asset_editor.assets[g_asset_editor.edit_asset_index]->editing = false;
         g_asset_editor.edit_asset_index = -1;
         break;
 

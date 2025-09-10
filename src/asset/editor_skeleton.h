@@ -25,6 +25,6 @@ struct EditorSkeleton
 };
 
 extern EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::path& path);
-extern void DrawEditorSkeleton(EditorSkeleton& skeleton, const Vec2& pos);
+extern void DrawEditorSkeleton(EditorAsset& ea);
 extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
 extern EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path);

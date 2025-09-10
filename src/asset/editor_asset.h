@@ -33,6 +33,7 @@ struct EditorAsset
     char path[1024];
     bool selected;
     VfxHandle vfx_handle;
+    bool editing;
 };
 
 
