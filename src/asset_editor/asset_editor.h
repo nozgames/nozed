@@ -10,28 +10,8 @@ constexpr int MAX_ASSETS = 1024;
 constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
 
-struct View;
-
-#include "../asset/editor_mesh.h"
-
-enum EditableAssetType
-{
-    EDITABLE_ASSET_TYPE_UNKNOWN = -1,
-    EDITABLE_ASSET_TYPE_MESH,
-    EDITABLE_ASSET_TYPE_COUNT,
-};
-
-struct EditorAsset
-{
-    const Name* name;
-    EditableAssetType type;
-    EditorMesh* mesh;
-    Vec2 position;
-    Vec2 saved_position;
-    bool dirty;
-    char path[1024];
-    bool selected;
-};
+#include "../asset/editor_asset.h"
+#include "../editor_assets.h"
 
 enum AssetEditorState
 {
@@ -83,9 +63,6 @@ struct AssetEditor
     Vec3 light_dir;
 };
 
-#include "editor_assets.h"
-
-
 extern AssetEditor g_asset_editor;
 
 constexpr Color COLOR_SELECTED = { 1,1,1,1 };
@@ -122,15 +99,16 @@ extern void Redo();
 extern void CancelUndo();
 
 // @editable_asset
-extern EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path);
-extern void LoadEditableAssets();
+extern EditorAsset* CreateEditorMeshAsset(const std::filesystem::path& path);
+extern EditorAsset* CreateEditorVfxAsset(const std::filesystem::path& path);
+extern void LoadEditorAssets();
 extern void SaveEditableAssets();
 extern bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos);
 extern bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds);
 extern int HitTestAssets(const Vec2& hit_pos);
 extern int HitTestAssets(const Bounds2& bit_bounds);
 extern void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color);
-extern void DrawAsset(const EditorAsset& ea);
+extern void DrawAsset(EditorAsset& ea);
 extern Bounds2 GetBounds(const EditorAsset& ea);
 extern int GetFirstSelectedAsset();
 extern Bounds2 GetSelectedBounds(const EditorAsset& ea);

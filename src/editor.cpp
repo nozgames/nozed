@@ -131,6 +131,12 @@ void ShutdownEditor()
     ShutdownImporter();
 }
 
+void EditorHotLoad(const Name* name)
+{
+    HotloadAsset(name);
+    HotloadEditorAsset(name);
+}
+
 int main(int argc, const char* argv[])
 {
     g_editor.exe = argv[0];
@@ -145,7 +151,7 @@ int main(int argc, const char* argv[])
     traits.console = true;
     traits.load_assets = LoadAssets;
     traits.unload_assets = UnloadAssets;
-    traits.hotload_asset = HotloadAsset;
+    traits.hotload_asset = EditorHotLoad;
 
     InitApplication(&traits, argc, argv);
     InitEditor();

@@ -571,6 +571,7 @@ void UpdateAssetEditor()
 
     BeginRenderFrame(VIEW_COLOR);
     RenderView();
+    DrawVfx();
     DrawUI();
     EndRenderFrame();
 }
@@ -682,7 +683,7 @@ void InitAssetEditor()
 
     InitGrid(ALLOCATOR_DEFAULT);
     InitNotifications();
-    LoadEditableAssets();
+    LoadEditorAssets();
     g_asset_editor.state_stack[0] = ASSET_EDITOR_STATE_DEFAULT;
     g_asset_editor.state_stack_count = 1;
 }

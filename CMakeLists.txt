@@ -18,6 +18,7 @@ set(SOURCE_FILES
     src/asset/editor_asset.cpp
     src/asset/editor_skeleton.cpp
     src/asset/editor_mesh.cpp
+    src/asset/editor_vfx.cpp
 
     src/utils/file_watcher.cpp
     src/utils/rect_packer.cpp

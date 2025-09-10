@@ -32,6 +32,8 @@
 #include <queue>
 #include <stack>
 #include <cctype>
+#include <cstdio>
+#include <cstdarg>
 
 // Define Windows header control macros before any Windows includes
 #ifndef NOMINMAX

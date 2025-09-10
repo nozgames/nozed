@@ -2,10 +2,12 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
+constexpr Bounds2 VFX_BOUNDS = Bounds2{{-1.0f, -1.0f}, {1.0f, 1.0f}};
+
 #include "../asset_editor/asset_editor.h"
 #include "../utils/file_helpers.h"
 
-static EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
+EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
 {
     std::error_code ec;
     std::filesystem::path relative_path = std::filesystem::relative(path, "assets", ec);
@@ -27,18 +29,14 @@ EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* 
     return ea;
 }
 
-EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path)
+EditorAsset* CreateEditorMeshAsset(const std::filesystem::path& path)
 {
-    EditorAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
-    ea->mesh = LoadEditorMesh(ALLOCATOR_DEFAULT, path);
-    if (!ea->mesh)
-    {
-        Free(ea);
-        ea = nullptr;
-    }
-    // else
-    //     FixNormals(*ea->mesh);
+    EditorMesh* em = LoadEditorMesh(ALLOCATOR_DEFAULT, path);
+    if (!em)
+        return nullptr;
 
+    EditorAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
+    ea->mesh = em;
     return ea;
 }
 
@@ -49,24 +47,6 @@ static void ReadMetaData(EditorAsset& asset, const std::filesystem::path& path)
         return;
 
     asset.position = props->GetVec2("editor", "position", VEC2_ZERO);
-}
-
-void LoadEditableAssets()
-{
-    for (auto& asset_path : GetFilesInDirectory("assets"))
-    {
-        std::filesystem::path ext = asset_path.extension();
-        EditorAsset* ea = nullptr;
-
-        if (ext == ".mesh")
-            ea = CreateEditableMeshAsset(asset_path);
-
-        if (ea)
-        {
-            ReadMetaData(*ea, asset_path);
-            g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
-        }
-    }
 }
 
 static void SaveAssetMetaData(const EditorAsset& asset)
@@ -148,6 +128,9 @@ bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos)
     case EDITABLE_ASSET_TYPE_MESH:
         return -1 != HitTestTriangle(*ea.mesh, ea.position, hit_pos);
 
+    case EDITABLE_ASSET_TYPE_VFX:
+        return Contains(VFX_BOUNDS + ea.position, hit_pos);
+
     default:
         return false;
     }
@@ -169,6 +152,9 @@ bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds)
     case EDITABLE_ASSET_TYPE_MESH:
         return HitTest(*ea.mesh, ea.position, hit_bounds);
 
+    case EDITABLE_ASSET_TYPE_VFX:
+        return Intersects(VFX_BOUNDS + ea.position, hit_bounds);
+
     default:
         return false;
     }
@@ -183,13 +169,20 @@ int HitTestAssets(const Bounds2& hit_bounds)
     return -1;
 }
 
-void DrawAsset(const EditorAsset& ea)
+void DrawAsset(EditorAsset& ea)
 {
     switch (ea.type)
     {
     case EDITABLE_ASSET_TYPE_MESH:
         BindTransform(TRS(ea.position, 0, VEC2_ONE));
         DrawMesh(ToMesh(*ea.mesh));
+        break;
+
+    case EDITABLE_ASSET_TYPE_VFX:
+        if (!IsPlaying(ea.vfx_handle) && ea.vfx->vfx)
+            ea.vfx_handle = Play(ea.vfx->vfx, ea.position);
+
+        DrawOrigin(ea);
         break;
 
     default:
@@ -204,6 +197,9 @@ Bounds2 GetBounds(const EditorAsset& ea)
     case EDITABLE_ASSET_TYPE_MESH:
         return ea.mesh->bounds;
 
+    case EDITABLE_ASSET_TYPE_VFX:
+        return VFX_BOUNDS;
+
     default:
         break;
     }
@@ -217,6 +213,9 @@ Bounds2 GetSelectedBounds(const EditorAsset& ea)
     {
     case EDITABLE_ASSET_TYPE_MESH:
         return GetSelectedBounds(*ea.mesh);
+
+    case EDITABLE_ASSET_TYPE_VFX:
+        return VFX_BOUNDS;
 
     default:
         break;
@@ -273,8 +272,17 @@ EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea)
 {
     EditorAsset* clone = CreateEditableAsset(ea.path, ea.type);
     *clone = ea;
-    if (clone->mesh)
+    switch (clone->type)
+    {
+    case EDITABLE_ASSET_TYPE_MESH:
         clone->mesh = Clone(allocator, *clone->mesh);
+        break;
+    case EDITABLE_ASSET_TYPE_VFX:
+        clone->vfx = Clone(allocator, *clone->vfx);
+        break;
+    default:
+        break;
+    }
 
     return clone;
 }
@@ -285,4 +293,47 @@ void Copy(EditorAsset& dst, const EditorAsset& src)
 
     if (dst.mesh)
         Copy(*dst.mesh, *src.mesh);
+}
+
+void LoadEditorAssets()
+{
+    for (auto& asset_path : GetFilesInDirectory("assets"))
+    {
+        std::filesystem::path ext = asset_path.extension();
+        EditorAsset* ea = nullptr;
+
+        if (ext == ".mesh")
+            ea = CreateEditorMeshAsset(asset_path);
+        else if (ext == ".vfx")
+            ea = CreateEditorVfxAsset(asset_path);
+
+        if (ea)
+        {
+            ReadMetaData(*ea, asset_path);
+            g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
+        }
+    }
+}
+
+void HotloadEditorAsset(const Name* name)
+{
+    for (int i=0; i<g_asset_editor.asset_count; i++)
+    {
+        EditorAsset& ea = *g_asset_editor.assets[i];
+        if (ea.name != name)
+            continue;
+
+        switch (ea.type)
+        {
+        case EDITABLE_ASSET_TYPE_VFX:
+            Stop(ea.vfx_handle);
+            Free(ea.vfx);
+            ea.vfx = LoadEditorVfx(ALLOCATOR_DEFAULT, ea.path);
+            ea.vfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *ea.vfx, ea.name);
+            break;
+
+        default:
+            break;
+        }
+    }
 }

@@ -1092,7 +1092,6 @@ EditorMesh* Clone(Allocator* allocator, const EditorMesh& em)
     return clone;
 }
 
-
 void Copy(EditorMesh& dst, const EditorMesh& src)
 {
     if (dst.mesh)
