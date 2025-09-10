@@ -52,6 +52,30 @@ static Vec3 TriangleNormal(const Vec3& p0, const Vec3& p1, const Vec3& p2)
     return Normalize(n);
 }
 
+static int TriangleWinding(const Vec2& p0, const Vec2& p1, const Vec2& p2)
+{
+    float area = (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y);
+    if (area > 0)
+        return 1; // Counter-clockwise
+
+    if (area < 0)
+        return -1; // Clockwise
+
+    return 0; // Degenerate
+}
+
+static bool FixWinding(const EditorMesh& em, EditorFace& ef)
+{
+    if (TriangleWinding(em.vertices[ef.v0].position, em.vertices[ef.v1].position, em.vertices[ef.v2].position) >= 0)
+        return false;
+
+    // Swap v1 and v2 to fix winding
+    int temp = ef.v1;
+    ef.v1 = ef.v2;
+    ef.v2 = temp;
+    return true;
+}
+
 static void UpdateNormals(EditorMesh& em)
 {
     for (int i=0; i<em.face_count; i++)
@@ -513,6 +537,14 @@ static int GetTriangleEdgeIndex(const EditorFace& et, const EditorEdge& ee)
     return -1;
 }
 
+static float CalculateTriangleArea(const Vec2& v0, const Vec2& v1, const Vec2& v2)
+{
+    // Calculate signed area using cross product
+    return (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
+}
+
+
+
 int RotateEdge(EditorMesh& em, int edge_index)
 {
     assert(edge_index >= 0 && edge_index < em.edge_count);
@@ -540,83 +572,54 @@ int RotateEdge(EditorMesh& em, int edge_index)
     if (triangle_count != 2)
         return -1;
 
-    EditorFace& tri1 = em.faces[triangle_indices[0]];
-    EditorFace& tri2 = em.faces[triangle_indices[1]];
+    EditorFace& f1 = em.faces[triangle_indices[0]];
+    EditorFace& f2 = em.faces[triangle_indices[1]];
 
-    // Find the vertices that are NOT part of the shared edge
     int opposite1 = -1;
     int opposite2 = -1;
 
     // Find opposite vertex in first triangle
-    if (tri1.v0 != edge.v0 && tri1.v0 != edge.v1)
-        opposite1 = tri1.v0;
-    else if (tri1.v1 != edge.v0 && tri1.v1 != edge.v1)
-        opposite1 = tri1.v1;
-    else if (tri1.v2 != edge.v0 && tri1.v2 != edge.v1)
-        opposite1 = tri1.v2;
+    if (f1.v0 != edge.v0 && f1.v0 != edge.v1)
+        opposite1 = f1.v0;
+    else if (f1.v1 != edge.v0 && f1.v1 != edge.v1)
+        opposite1 = f1.v1;
+    else if (f1.v2 != edge.v0 && f1.v2 != edge.v1)
+        opposite1 = f1.v2;
 
     // Find opposite vertex in second triangle
-    if (tri2.v0 != edge.v0 && tri2.v0 != edge.v1)
-        opposite2 = tri2.v0;
-    else if (tri2.v1 != edge.v0 && tri2.v1 != edge.v1)
-        opposite2 = tri2.v1;
-    else if (tri2.v2 != edge.v0 && tri2.v2 != edge.v1)
-        opposite2 = tri2.v2;
+    if (f2.v0 != edge.v0 && f2.v0 != edge.v1)
+        opposite2 = f2.v0;
+    else if (f2.v1 != edge.v0 && f2.v1 != edge.v1)
+        opposite2 = f2.v1;
+    else if (f2.v2 != edge.v0 && f2.v2 != edge.v1)
+        opposite2 = f2.v2;
 
     if (opposite1 == -1 || opposite2 == -1)
         return - 1;
 
-    // Create new triangles with the rotated edge, maintaining proper winding order
-    // The new edge connects opposite1 and opposite2
+    EditorFace f1n { opposite1, opposite2, edge.v0 };
+    EditorFace f2n { opposite1, edge.v1, opposite2 };
+    bool f1w = FixWinding(em, f1n);
+    bool f2w = FixWinding(em, f2n);
+    if (f1w != f2w)
+        return -1;
 
-    // We need to determine the correct winding order by checking the original triangles
-    // Get positions to calculate winding
-    Vec2 pos_opposite1 = em.vertices[opposite1].position;
-    Vec2 pos_opposite2 = em.vertices[opposite2].position;
-    Vec2 pos_v0 = em.vertices[edge.v0].position;
-    Vec2 pos_v1 = em.vertices[edge.v1].position;
+    float f1a = fabsf(CalculateTriangleArea(em.vertices[f1n.v0].position, em.vertices[f1n.v1].position, em.vertices[f1n.v2].position));
+    float f2a = fabsf(CalculateTriangleArea(em.vertices[f2n.v0].position, em.vertices[f2n.v1].position, em.vertices[f2n.v2].position));
+    float a = f1a + f2a;
+    if (a <= 1e-6f)
+        return -1;
 
-    // Calculate cross product to determine winding for first triangle
-    // We want: opposite1 -> edge.v0 -> opposite2 to maintain CCW winding
-    Vec2 edge1 = {pos_v0.x - pos_opposite1.x, pos_v0.y - pos_opposite1.y};
-    Vec2 edge2 = {pos_opposite2.x - pos_opposite1.x, pos_opposite2.y - pos_opposite1.y};
-    float cross1 = edge1.x * edge2.y - edge1.y * edge2.x;
+    constexpr float MIN_AREA_RATIO = 0.05f;
+    if (Min(f1a,f2a) / a < MIN_AREA_RATIO)
+        return -1;
 
-    if (cross1 > 0)
-    {
-        // CCW winding
-        tri1.v0 = opposite1;
-        tri1.v1 = edge.v0;
-        tri1.v2 = opposite2;
-    }
-    else
-    {
-        // CW winding - reverse order
-        tri1.v0 = opposite1;
-        tri1.v1 = opposite2;
-        tri1.v2 = edge.v0;
-    }
-
-    // Calculate winding for second triangle
-    // We want: opposite1 -> opposite2 -> edge.v1 or opposite1 -> edge.v1 -> opposite2
-    Vec2 edge3 = {pos_opposite2.x - pos_opposite1.x, pos_opposite2.y - pos_opposite1.y};
-    Vec2 edge4 = {pos_v1.x - pos_opposite1.x, pos_v1.y - pos_opposite1.y};
-    float cross2 = edge3.x * edge4.y - edge3.y * edge4.x;
-
-    if (cross2 > 0)
-    {
-        // CCW winding
-        tri2.v0 = opposite1;
-        tri2.v1 = opposite2;
-        tri2.v2 = edge.v1;
-    }
-    else
-    {
-        // CW winding - reverse order
-        tri2.v0 = opposite1;
-        tri2.v1 = edge.v1;
-        tri2.v2 = opposite2;
-    }
+    f1.v0 = f1n.v0;
+    f1.v1 = f1n.v1;
+    f1.v2 = f1n.v2;
+    f2.v0 = f2n.v0;
+    f2.v1 = f2n.v1;
+    f2.v2 = f2n.v2;
 
     MarkModified(em);
     MarkDirty(em);
