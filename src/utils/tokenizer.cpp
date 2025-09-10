@@ -3,7 +3,6 @@
 //
 
 #include "tokenizer.h"
-#include <string>
 
 static void ClearToken(Token* token);
 static bool IsOperator(char c);

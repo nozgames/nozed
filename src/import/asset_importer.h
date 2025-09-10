@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include "../utils/props.h"
 #include <filesystem>
-#include "props.h"
 
 struct AssetImporterTraits
 {

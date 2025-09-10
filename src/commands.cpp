@@ -15,10 +15,7 @@ struct CommandDef
 // @quit
 static void HandleQuit(Tokenizer& tk)
 {
-    if (g_editor.view_stack_count > 0)
-        PopView();
-    else
-        g_editor.is_running = false;
+    g_editor.is_running = false;
 }
 
 // @save

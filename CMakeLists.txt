@@ -13,48 +13,47 @@ set(SOURCE_FILES
     src/asset_editor/asset_editor.cpp
     src/asset_editor/mesh_editor.cpp
     src/asset_editor/grid.cpp
-    src/asset_editor/gltf_load.cpp
-    src/asset_editor/gltf_save.cpp
-        src/asset_editor/editor_asset.cpp
     src/asset_editor/notifications.cpp
-    src/asset_editor/undo.cpp
-    src/asset_editor/draw_utils.cpp
-        src/asset_editor/shortcut.cpp
-    src/asset_manifest.cpp
-    src/editor_server.cpp
-    src/editor.cpp
-    src/file_watcher.cpp
-    src/gltf.cpp
-    src/commands.cpp
-        src/import/importer.cpp
-        src/import/mesh_importer.cpp
-        src/import/font_importer.cpp
-        src/import/shader_importer.cpp
-        src/import/animation_importer.cpp
-        src/import/skeleton_importer.cpp
-        src/import/style_sheet_importer.cpp
-        src/import/vfx_importer.cpp
-        src/import/texture_importer.cpp
-        src/import/sound_importer.cpp
+
+    src/asset/editor_asset.cpp
+    src/asset/editor_skeleton.cpp
+    src/asset/editor_mesh.cpp
+
+    src/utils/file_watcher.cpp
+    src/utils/rect_packer.cpp
+    src/utils/props.cpp
+    src/utils/tokenizer.cpp
+    src/utils/file_helpers.cpp
+    src/utils/draw_utils.cpp
+
+    src/import/importer.cpp
+    src/import/mesh_importer.cpp
+    src/import/font_importer.cpp
+    src/import/shader_importer.cpp
+    src/import/animation_importer.cpp
+    src/import/skeleton_importer.cpp
+    src/import/style_sheet_importer.cpp
+    src/import/vfx_importer.cpp
+    src/import/texture_importer.cpp
+    src/import/sound_importer.cpp
+    src/import/asset_manifest.cpp
+
     src/msdf/Contour.cpp
     src/msdf/Edge.cpp
     src/msdf/Shape.cpp
     src/msdf/Math.cpp
     src/msdf/msdf.cpp
     src/msdf/SignedDistance.cpp
-    src/rect_packer.cpp
-    src/props.cpp
-    src/editor_mesh.cpp
-    src/tokenizer.cpp
+
     src/ttf/TrueTypeFont.cpp
     src/ttf/TrueTypeFontReader.cpp
-    src/tui/screen.cpp
-    src/tui/text_input.cpp
-    src/tui/tstring.cpp
-    src/tui/windows_terminal.cpp
-    src/views/log_view.cpp
-        src/editor_assets.cpp
-    src/file_helpers.cpp
+
+    src/shortcut.cpp
+    src/undo.cpp
+    src/editor_assets.cpp
+    src/editor_server.cpp
+    src/editor.cpp
+    src/commands.cpp
 )
 
 

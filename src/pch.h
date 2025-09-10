@@ -45,10 +45,9 @@
 
 #include <noz/noz.h>
 
-#include "tokenizer.h"
-#include "asset_importer.h"
-#include "tui/tstring.h"
-#include "props.h"
+#include "import/asset_importer.h"
+#include "utils/props.h"
+#include "utils/tokenizer.h"
 
 static constexpr int TERM_COLOR_STATUS_BAR = 1;
 static constexpr int TERM_COLOR_COMMAND_LINE = 2;

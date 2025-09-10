@@ -6,10 +6,10 @@
 
 #pragma once
 
-#include <noz/noz.h>
-#include <filesystem>
-#include <vector>
 #include "asset_importer.h"
+#include <filesystem>
+#include <noz/noz.h>
+#include <vector>
 
 // Asset manifest generator function
 // Scans the given output directory for asset files and generates a C manifest file

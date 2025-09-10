@@ -5,10 +5,6 @@
 // @STL
 
 #include "asset_manifest.h"
-#include <vector>
-#include <map>
-#include <fstream>
-#include <set>
 
 namespace fs = std::filesystem;
 

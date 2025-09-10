@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "asset_editor.h"
+#include "../asset_editor/asset_editor.h"
 
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;

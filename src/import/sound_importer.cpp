@@ -2,10 +2,10 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "asset_importer.h"
 #include <fstream>
 #include <iostream>
 #include <vector>
-#include "../asset_importer.h"
 
 namespace fs = std::filesystem;
 

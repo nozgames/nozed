@@ -3,7 +3,7 @@
 //
 
 #include "asset_editor.h"
-#include "file_helpers.h"
+#include "../utils/file_helpers.h"
 
 constexpr int MAX_COMMAND_LENGTH = 1024;
 constexpr float SELECT_SIZE = 20.0f;

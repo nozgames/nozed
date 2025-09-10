@@ -2,9 +2,9 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../asset_manifest.h"
-#include "../file_watcher.h"
 #include "../server.h"
+#include "../utils/file_watcher.h"
+#include "asset_manifest.h"
 
 namespace fs = std::filesystem;
 

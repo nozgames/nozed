@@ -3,9 +3,8 @@
 //
 // @STL
 
-#include "../gltf.h"
-#include "../editor_mesh.h"
 #include "../../../src/internal.h"
+#include "../asset/editor_mesh.h"
 
 namespace fs = std::filesystem;
 using namespace noz;

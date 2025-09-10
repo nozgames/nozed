@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "asset_editor.h"
+#include "asset_editor/asset_editor.h"
 #include "noz/input_code.h"
 
 void EnableShortcuts(const Shortcut* shortcuts)

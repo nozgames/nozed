@@ -2,8 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../gltf.h"
-
 namespace fs = std::filesystem;
 
 static float QuaternionToRotation(const Vec4& q)
@@ -13,6 +11,7 @@ static float QuaternionToRotation(const Vec4& q)
 
 void ImportSkeleton(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+#if 0
     const fs::path& src_path = source_path;
 
     GLTFLoader gltf;
@@ -46,6 +45,7 @@ void ImportSkeleton(const fs::path& source_path, Stream* output_stream, Props* c
         WriteFloat(output_stream, bone.length);
         WriteVec2(output_stream, Vec2{bone.direction.x, bone.direction.y});
     }
+#endif
 }
 
 bool CanImportSkeleton(const fs::path& source_path)
@@ -67,7 +67,7 @@ bool CanImportSkeleton(const fs::path& source_path)
 }
 
 static const char* g_skeleton_extensions[] = {
-    ".glb",
+    ".skel",
     nullptr
 };
 

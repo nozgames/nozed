@@ -2,11 +2,11 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <filesystem>
-#include "../rect_packer.h"
-#include "../ttf/TrueTypeFont.h"
 #include "../msdf/msdf.h"
 #include "../msdf/shape.h"
+#include "../ttf/TrueTypeFont.h"
+#include "../utils/rect_packer.h"
+#include <filesystem>
 
 namespace fs = std::filesystem;
 

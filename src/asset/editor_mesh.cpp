@@ -4,8 +4,8 @@
 
 #include "editor_mesh.h"
 
-#include "asset_editor/asset_editor.h"
-#include "file_helpers.h"
+#include "../asset_editor/asset_editor.h"
+#include "../utils/file_helpers.h"
 
 static int GetOrAddEdge(EditorMesh& em, int v0, int v1)
 {

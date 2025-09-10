@@ -3,11 +3,11 @@
 //
 
 #include "file_watcher.h"
-#include <thread>
-#include <mutex>
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <mutex>
+#include <thread>
 
 #ifndef nullptr
 #define nullptr NULL

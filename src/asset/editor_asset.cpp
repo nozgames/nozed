@@ -2,8 +2,8 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "asset_editor.h"
-#include "file_helpers.h"
+#include "../asset_editor/asset_editor.h"
+#include "../utils/file_helpers.h"
 
 static EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
 {

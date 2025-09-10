@@ -2,9 +2,9 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <glslang_c_interface.h>
 #include "../../../src/internal.h"
-#include "../props.h"
+#include "../utils/props.h"
+#include <glslang_c_interface.h>
 
 namespace fs = std::filesystem;
 

@@ -4,10 +4,9 @@
 
 // @STL - This file uses STL since it's tools-only
 
-#include <cstdio>
-#include <iostream>
 #include "props.h"
 #include "tokenizer.h"
+#include <cstdio>
 
 void Props::Clear()
 {

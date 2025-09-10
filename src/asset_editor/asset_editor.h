@@ -12,7 +12,7 @@ constexpr int UI_REF_HEIGHT = 1080;
 
 struct View;
 
-#include "../editor_mesh.h"
+#include "../asset/editor_mesh.h"
 
 enum EditableAssetType
 {

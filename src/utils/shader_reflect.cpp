@@ -2,7 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "shader_reflect.h"
+#if 0
+#include "../shader_reflect.h"
 #include "../../src/internal.h"
 #include <noz/noz.h>
 // TODO: Implement proper reflection using glslang or SPIRV-Cross
@@ -127,3 +128,4 @@ cleanup:
     spvc_context_destroy(context);
     return result;
 }
+#endif

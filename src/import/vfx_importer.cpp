@@ -2,9 +2,9 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../props.h"
 #include "../../../src/vfx/vfx_internal.h"
-#include "../tokenizer.h"
+#include "../utils/props.h"
+#include "../utils/tokenizer.h"
 
 namespace fs = std::filesystem;
 
