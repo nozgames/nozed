@@ -89,7 +89,6 @@ static void HandleLog(LogType type, const char* message)
     if (std::this_thread::get_id() == g_main_thread_id)
     {
         AddMessage(g_editor.log_view, formatted_message.c_str());
-        RequestRender();
     }
     else
     {
@@ -102,18 +101,13 @@ static void HandleLog(LogType type, const char* message)
 static void ProcessQueuedLogMessages()
 {
     LogQueue& log_queue = GetLogQueue();
-    std::lock_guard<std::mutex> lock(log_queue.mutex);
-    bool render = false;
+    std::lock_guard lock(log_queue.mutex);
     while (!log_queue.queue.empty())
     {
         std::string message = log_queue.queue.front();
         log_queue.queue.pop();
         AddMessage(g_editor.log_view, message.c_str());
-        render = true;
     }
-
-    if (render)
-        RequestRender();
 }
 
 static void DrawStatusBar(const RectInt& rect)
@@ -278,7 +272,6 @@ static void UpdateEditor()
             g_editor.command_mode = true;
             SetActive(g_editor.command_input, true);
             Clear(g_editor.command_input);
-            SetCursorVisible(true);
 
             // Hide cursor in current view when entering command mode
 //                current_view->SetCursorVisible(false);
@@ -428,7 +421,7 @@ int main(int argc, const char* argv[])
         if (IsWindowCreated())
             UpdateAssetEditor();
         else
-            thread_sleep_ms(1);
+            ThreadSleep(1);
     }
 
     if (IsWindowCreated())

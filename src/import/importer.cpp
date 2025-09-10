@@ -137,7 +137,7 @@ static bool ProcessImportQueue()
     bool any_imports_processed = false;
 
     // Keep processing until no more progress is made
-    while (made_progress && !g_importer.queue.empty())
+    while (g_importer.running && made_progress && !g_importer.queue.empty())
     {
         made_progress = false;
         remaining_jobs.clear();
@@ -401,9 +401,9 @@ static int RunImporter()
 
     while (g_importer.running)
     {
-        thread_sleep_ms(100);
+        ThreadYield();
 
-        while (GetFileChangeEvent(&event))
+        while (g_importer.running && GetFileChangeEvent(&event))
             HandleFileChange(event.path, event.type);
 
         if (!ProcessImportQueue())

@@ -15,7 +15,7 @@
 
 #define MAX_WATCHED_DIRS 32
 #define MAX_EVENTS_QUEUE 4096
-#define MAX_TRACKED_FILES 16384
+#define MAX_TRACKED_FILES 2048
 
 struct FileInfo
 {
@@ -62,19 +62,12 @@ void InitFileWatcher(int poll_interval_ms)
         return;
 
     g_watcher.poll_interval_ms = poll_interval_ms > 0 ? poll_interval_ms : 1000;
-    
-    // Initialize STL containers (they're automatically initialized)
     g_watcher.watched_dirs.clear();
     g_watcher.file_map.clear();
-    
-    // Initialize queue
     g_watcher.queue.head = 0;
     g_watcher.queue.tail = 0;
     g_watcher.queue.count = 0;
-    
-    // Initialize synchronization
     g_watcher.should_stop = false;
-    
     g_watcher.initialized = true;
     g_watcher.running = false;
 }
@@ -84,70 +77,41 @@ void ShutdownFileWatcher()
     if (!g_watcher.initialized)
         return;
 
-    // Signal thread to stop
     g_watcher.should_stop = true;
 
-    // Wait for thread to finish
     if (g_watcher.thread.joinable())
-    {
         g_watcher.thread.join();
-    }
-    
-    // Clean up STL containers (they clean themselves up automatically)
+
     g_watcher.watched_dirs.clear();
     g_watcher.file_map.clear();
-    
-    // STL mutexes clean themselves up automatically
-    
     g_watcher.initialized = false;
 }
 
-// Add a directory to watch
 bool WatchDirectory(const std::filesystem::path& directory)
 {
     if (!g_watcher.initialized || directory.empty())
-    {
         return false;
-    }
-    
+
     std::string dir_str = directory.string();
-    const char* dir_cstr = dir_str.c_str();
+
+    std::lock_guard lock(g_watcher.dirs_mutex);
     
-    std::lock_guard<std::mutex> lock(g_watcher.dirs_mutex);
-    
-    // Check if already watching this directory
     auto it = std::find(g_watcher.watched_dirs.begin(), g_watcher.watched_dirs.end(), directory);
     if (it != g_watcher.watched_dirs.end())
-    {
-        return true;  // Already watching
-    }
-    
-    // Add new directory
+        return true;
+
     if (g_watcher.watched_dirs.size() >= MAX_WATCHED_DIRS)
-    {
-        return false;  // Too many directories
-    }
-    
+        return false;
+
     g_watcher.watched_dirs.push_back(directory);
     
-    // Auto-start the watcher when the first directory is added
-    bool should_start = !g_watcher.running && g_watcher.watched_dirs.size() == 1;
-    
-    
-    if (should_start)
-    {
-        // Start the file watcher automatically
+    if (!g_watcher.running && g_watcher.watched_dirs.size() == 1)
         StartFileWatcher();
-    }
     else if (g_watcher.running)
-    {
-        // If already running, do an initial scan of the new directory
         scan_directory_recursive(dir_str.c_str());
-    }
-    
+
     return true;
 }
-
 
 static bool StartFileWatcher()
 {
@@ -178,24 +142,16 @@ static bool StartFileWatcher()
     return true;
 }
 
-
-
-// Poll for file changes
 bool GetFileChangeEvent(FileChangeEvent* event)
 {
     if (!g_watcher.initialized || !event)
-    {
         return false;
-    }
-    
-    std::lock_guard<std::mutex> lock(g_watcher.queue.mutex);
+
+    std::lock_guard lock(g_watcher.queue.mutex);
     
     if (g_watcher.queue.count == 0)
-    {
         return false;
-    }
-    
-    // Dequeue event
+
     *event = g_watcher.queue.events[g_watcher.queue.head];
     g_watcher.queue.head = (g_watcher.queue.head + 1) % MAX_EVENTS_QUEUE;
     g_watcher.queue.count--;
@@ -205,23 +161,24 @@ bool GetFileChangeEvent(FileChangeEvent* event)
 
 static void FileWatcherThread()
 {
-    
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     while (!g_watcher.should_stop)
     {
+        if (begin < end)
+        {
+            ThreadYield();
+            continue;
+        }
+
         // Mark all existing files as "not seen"
         for (auto& pair : g_watcher.file_map)
-        {
-            pair.second.size = 0;  // Mark as not seen
-        }
-        
-        // Scan all watched directories (temporarily without locking to debug)
+            pair.second.size = 0;
+
         std::vector<std::filesystem::path> dirs_copy = g_watcher.watched_dirs;
-        
         for (const auto& dir : dirs_copy)
-        {
             scan_directory_recursive(dir.string().c_str());
-        }
-        
+
         // Check for deleted files (files that weren't seen in this pass)
         auto it = g_watcher.file_map.begin();
         while (it != g_watcher.file_map.end())
@@ -237,13 +194,13 @@ static void FileWatcherThread()
                 ++it;
             }
         }
-        
-        // Sleep for poll interval
-        std::this_thread::sleep_for(std::chrono::milliseconds(g_watcher.poll_interval_ms));
+
+        begin = std::chrono::steady_clock::now();
+        end = begin + std::chrono::milliseconds(g_watcher.poll_interval_ms);
+        ThreadYield();
     }
 }
 
-// Callback function for STL filesystem directory scanning
 static void scan_directory_files(const std::filesystem::path& dir_path)
 {
     std::error_code ec;

@@ -272,17 +272,6 @@ ScreenOutputBuffer RenderScreen()
 
 void InitScreen(i32 width, i32 height)
 {
-    // Initialize color table
-    // g_colors[TCOLOR_BLACK] = { 0, 0, 0 };
-    // g_colors[TCOLOR_RED] = { 255, 0, 0 };
-    // g_colors[TCOLOR_GREEN] = { 0, 255, 0 };
-    // g_colors[TCOLOR_YELLOW] = { 255, 255, 0 };
-    // g_colors[TCOLOR_BLUE] = { 0, 0, 255 };
-    // g_colors[TCOLOR_MAGENTA] = { 255, 0, 255 };
-    // g_colors[TCOLOR_CYAN] = { 0, 255, 255 };
-    // g_colors[TCOLOR_WHITE] = { 255, 255, 255 };
-    // g_colors[TCOLOR_GRAY] = { 128, 128, 128 };
-    // g_colors[TCOLOR_LIGHT_GRAY] = { 192, 192, 192 };
 
     UpdateScreenSize(width, height);
     ClearScreen(TCHAR_NONE);

@@ -183,23 +183,7 @@ static void UpdateView()
 {
     ZoomView();
 
-    // Frame
-    if (WasButtonPressed(g_asset_editor.input, KEY_F) && g_asset_editor.selected_asset_count > 0)
-        FrameView();
 
-    // UI Scale controls
-    if (IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
-    {
-        // Handle both = and + (shift + =) for increasing UI scale
-        if (WasButtonPressed(g_asset_editor.input, KEY_EQUALS))
-        {
-            g_asset_editor.ui_scale = Min(g_asset_editor.ui_scale + 0.1f, 3.0f);
-        }
-        if (WasButtonPressed(g_asset_editor.input, KEY_MINUS))
-        {
-            g_asset_editor.ui_scale = Max(g_asset_editor.ui_scale - 0.1f, 0.3f);
-        }
-    }
 }
 
 static void UpdateMoveState()
@@ -590,8 +574,29 @@ static void HandlePan()
     PushState(ASSET_EDITOR_STATE_PAN);
 }
 
+static void HandleFrame()
+{
+    if (g_asset_editor.selected_asset_count <= 0)
+        return;
+
+    FrameView();
+}
+
+static void HandleUIZoomIn()
+{
+    g_asset_editor.ui_scale = Min(g_asset_editor.ui_scale + 0.1f, 3.0f);
+}
+
+static void HandleUIZoomOut()
+{
+    g_asset_editor.ui_scale = Max(g_asset_editor.ui_scale - 0.1f, 0.3f);
+}
+
 static Shortcut g_common_shortcuts[] = {
     { KEY_SPACE, false, false, false, HandlePan },
+    { KEY_F, false, false, false, HandleFrame },
+    { KEY_EQUALS, false, true, false, HandleUIZoomIn },
+    { KEY_MINUS, false, true, false, HandleUIZoomOut },
     { INPUT_CODE_NONE }
 };
 
