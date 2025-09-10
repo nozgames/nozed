@@ -4,14 +4,16 @@
 
 #pragma once
 
-#include "../asset/editor_mesh.h"
-#include "../asset/editor_vfx.h"
+#include "editor_mesh.h"
+#include "editor_vfx.h"
+#include "editor_skeleton.h"
 
 enum EditableAssetType
 {
     EDITABLE_ASSET_TYPE_UNKNOWN = -1,
     EDITABLE_ASSET_TYPE_MESH,
     EDITABLE_ASSET_TYPE_VFX,
+    EDITABLE_ASSET_TYPE_SKELETON,
     EDITABLE_ASSET_TYPE_COUNT,
 };
 
@@ -23,6 +25,7 @@ struct EditorAsset
     {
         EditorMesh* mesh;
         EditorVfx* vfx;
+        EditorSkeleton* skeleton;
     };
     Vec2 position;
     Vec2 saved_position;

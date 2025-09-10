@@ -1313,7 +1313,7 @@ void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path)
     Free(stream);
 }
 
-EditorAsset* CreateNewEditorMesh(const std::filesystem::path& path)
+EditorAsset* NewEditorMesh(const std::filesystem::path& path)
 {
     const char* default_mesh = "v -1 -1 e 1 h 0\n"
                                "v 1 -1 e 1 h 0\n"

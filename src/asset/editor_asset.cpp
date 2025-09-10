@@ -3,6 +3,7 @@
 //
 
 constexpr Bounds2 VFX_BOUNDS = Bounds2{{-1.0f, -1.0f}, {1.0f, 1.0f}};
+constexpr Bounds2 SKELETON_BOUNDS = Bounds2{{-1.0f, -1.0f}, {1.0f, 1.0f}};
 
 #include "../asset_editor/asset_editor.h"
 #include "../utils/file_helpers.h"
@@ -131,6 +132,9 @@ bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos)
     case EDITABLE_ASSET_TYPE_VFX:
         return Contains(VFX_BOUNDS + ea.position, hit_pos);
 
+    case EDITABLE_ASSET_TYPE_SKELETON:
+        return Contains(SKELETON_BOUNDS + ea.position, hit_pos);
+
     default:
         return false;
     }
@@ -154,6 +158,9 @@ bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds)
 
     case EDITABLE_ASSET_TYPE_VFX:
         return Intersects(VFX_BOUNDS + ea.position, hit_bounds);
+
+    case EDITABLE_ASSET_TYPE_SKELETON:
+        return Intersects(SKELETON_BOUNDS + ea.position, hit_bounds);
 
     default:
         return false;
@@ -185,6 +192,10 @@ void DrawAsset(EditorAsset& ea)
         DrawOrigin(ea);
         break;
 
+    case EDITABLE_ASSET_TYPE_SKELETON:
+        DrawEditorSkeleton(*ea.skeleton, ea.position);
+        break;
+
     default:
         break;
     }
@@ -199,6 +210,9 @@ Bounds2 GetBounds(const EditorAsset& ea)
 
     case EDITABLE_ASSET_TYPE_VFX:
         return VFX_BOUNDS;
+
+    case EDITABLE_ASSET_TYPE_SKELETON:
+        return SKELETON_BOUNDS;
 
     default:
         break;
@@ -216,6 +230,9 @@ Bounds2 GetSelectedBounds(const EditorAsset& ea)
 
     case EDITABLE_ASSET_TYPE_VFX:
         return VFX_BOUNDS;
+
+    case EDITABLE_ASSET_TYPE_SKELETON:
+        return SKELETON_BOUNDS;
 
     default:
         break;
@@ -306,6 +323,8 @@ void LoadEditorAssets()
             ea = CreateEditorMeshAsset(asset_path);
         else if (ext == ".vfx")
             ea = CreateEditorVfxAsset(asset_path);
+        else if (ext == ".skel")
+            ea = CreateEditorSkeletonAsset(asset_path);
 
         if (ea)
         {

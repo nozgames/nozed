@@ -31,6 +31,7 @@ struct AssetEditor
     Material* vertex_material;
     Mesh* vertex_mesh;
     Mesh* edge_mesh;
+    Mesh* bone_mesh;
     float zoom;
     float zoom_ref_scale;
     float select_size;
@@ -136,6 +137,7 @@ extern void HandleBoxSelect(const Bounds2& bounds);
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v, f32 size);
 extern void DrawOrigin(const EditorAsset& ea);
+extern void DrawOrigin(const Vec2& position);
 
 // @shortcut
 struct Shortcut

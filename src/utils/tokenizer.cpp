@@ -92,6 +92,7 @@ void EndToken(Tokenizer& tok, Token* result, TokenType type)
 
 bool ExpectQuotedString(Tokenizer& tok, Token* result)
 {
+    SkipWhitespace(tok);
     ClearToken(result);
 
     char quote_char = PeekChar(tok);
@@ -685,7 +686,7 @@ char* ToString(const Token& token, char* dst, u32 dst_size)
     while (end > start && IsWhitespace(*end))
         end--;
 
-    Copy(dst, dst_size, start);
+    Copy(dst, end - start + 2, start);
     return dst;
 }
 

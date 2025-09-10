@@ -79,7 +79,10 @@ static void HandleNew(Tokenizer& tk)
     if (name == NAME_NONE)
         return;
 
-    CreateNewEditorMesh(name->value);
+    if (type_name == "mesh")
+        NewEditorMesh(name->value);
+    else if (type_name == "skeleton")
+        NewEditorSkeleton(name->value);
 }
 
 static CommandDef g_commands[] = {

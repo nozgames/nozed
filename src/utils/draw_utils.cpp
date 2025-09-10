@@ -22,11 +22,16 @@ void DrawVertex(const Vec2& v, f32 size)
     DrawMesh(g_asset_editor.vertex_mesh);
 }
 
-void DrawOrigin(const EditorAsset& ea)
+void DrawOrigin(const Vec2& position)
 {
     BindMaterial(g_asset_editor.vertex_material);
     BindColor(COLOR_ORIGIN_BORDER);
-    DrawVertex(ea.position, ORIGIN_BORDER_SIZE);
+    DrawVertex(position, ORIGIN_BORDER_SIZE);
     BindColor(COLOR_ORIGIN);
-    DrawVertex(ea.position, ORIGIN_SIZE);
+    DrawVertex(position, ORIGIN_SIZE);
+}
+
+void DrawOrigin(const EditorAsset& ea)
+{
+    DrawOrigin(ea.position);
 }

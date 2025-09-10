@@ -43,7 +43,7 @@ static void UpdateCamera()
     f32 world_height = screen_size.y / ((f32)screen_size.y * DPI / (f32)screen_size.y);
     f32 half_width = world_width * 0.5f;
     f32 half_height = world_height * 0.5f;
-    SetExtents(g_asset_editor.camera, -half_width, half_width, -half_height, half_height, false);
+    SetExtents(g_asset_editor.camera, -half_width, half_width, half_height, -half_height, false);
 
     g_asset_editor.zoom_ref_scale = 1.0f / g_asset_editor.zoom;
     g_asset_editor.select_size = (ScreenToWorld(g_asset_editor.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_asset_editor.camera, VEC2_ZERO)).y;
@@ -353,8 +353,8 @@ static void UpdateCommon()
 
     if (IsButtonDown(g_asset_editor.input, MOUSE_RIGHT))
     {
-        Vec2 dir = Normalize(g_asset_editor.mouse_position - GetScreenCenter());
-        g_asset_editor.light_dir = Vec3{dir.x, dir.y, 1.0f};
+        Vec2 dir = Normalize(GetScreenCenter() - g_asset_editor.mouse_position);
+        g_asset_editor.light_dir = Vec3{-dir.x, dir.y, 1.0f};
     }
 
     if (WasButtonPressed(g_asset_editor.input, KEY_Z) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
@@ -678,6 +678,15 @@ void InitAssetEditor()
     AddTriangle(builder, 0, 1, 2);
     AddTriangle(builder, 2, 3, 0);
     g_asset_editor.edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+
+    Clear(builder);
+    AddVertex(builder, {0, 0});
+    AddVertex(builder, {1, 0});
+    AddVertex(builder, { 0.10f, -0.10f});
+    AddVertex(builder, { 0.10f,  0.10f});
+    AddTriangle(builder, 0, 1, 3);
+    AddTriangle(builder, 0, 2, 1);
+    g_asset_editor.bone_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     Free(builder);
 
