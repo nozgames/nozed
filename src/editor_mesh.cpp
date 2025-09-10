@@ -635,7 +635,31 @@ int RotateEdge(EditorMesh& em, int edge_index)
     return -1;
 }
 
-int SplitEdge(EditorMesh& em, int edge_index, float edge_pos)
+static int GetEdgeFaces(EditorMesh& em, int edge_index, int& face0, int& face1)
+{
+    EditorEdge& ee = em.edges[edge_index];
+    int face_count = em.face_count;
+    int found = 0;
+    for (int i = 0; found < 2 && i < face_count; i++)
+    {
+        EditorFace& et = em.faces[i];
+        int edge_match = (et.v0 == ee.v0 || et.v0 == ee.v1) && (et.v1 == ee.v0 || et.v1 == ee.v1);
+        edge_match += (et.v1 == ee.v0 || et.v1 == ee.v1) && (et.v2 == ee.v0 || et.v2 == ee.v1);
+        edge_match += (et.v2 == ee.v0 || et.v2 == ee.v1) && (et.v0 == ee.v0 || et.v0 == ee.v1);
+
+        if (edge_match < 2)
+            continue;
+
+        if (found++ == 0)
+            face0 = i;
+        else
+            face1 = i;
+    }
+
+    return found;
+}
+
+static int SplitEdge(EditorMesh& em, int edge_index, float edge_pos)
 {
     assert(edge_index >= 0 && edge_index < em.edge_count);
 
@@ -686,6 +710,8 @@ int SplitEdge(EditorMesh& em, int edge_index, float edge_pos)
             split_tri.v2 = new_vertex_index;
             et.v0 = new_vertex_index;
         }
+
+        FixWinding(em, split_tri);
     }
 
     return new_vertex_index;
@@ -719,11 +745,6 @@ int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& position)
     tri1.color = et.color;
     tri2.color = et.color;
 
-    // Split original triangle into three triangles:
-    // Original: (v0, v1, new_vertex)
-    // tri1: (v1, v2, new_vertex)
-    // tri2: (v2, v0, new_vertex)
-
     // Modify original triangle
     int original_v2 = et.v2;
     et.v2 = new_vertex_index;
@@ -737,6 +758,9 @@ int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& position)
     tri2.v0 = original_v2;
     tri2.v1 = et.v0;
     tri2.v2 = new_vertex_index;
+
+    FixWinding(em, tri1);
+    FixWinding(em, tri2);
 
     return new_vertex_index;
 }
@@ -965,7 +989,6 @@ int AddVertex(EditorMesh& em, const Vec2& position)
     // If outside all triangles, find the closest edge and create a triangle with it
     int closest_edge = -1;
     float closest_dist = FLT_MAX;
-    Vec2 closest_point;
 
     for (int i = 0; i < em.edge_count; i++)
     {
@@ -987,7 +1010,6 @@ int AddVertex(EditorMesh& em, const Vec2& position)
         {
             closest_dist = dist;
             closest_edge = i;
-            closest_point = point_on_edge;
         }
     }
 
@@ -1032,6 +1054,7 @@ int AddVertex(EditorMesh& em, const Vec2& position)
     new_triangle.v1 = ee.v1;
     new_triangle.v2 = new_vertex_index;
     new_triangle.color = {0, 0}; // Default color
+    FixWinding(em, new_triangle);
 
     MarkDirty(em);
     MarkModified(em);
@@ -1254,6 +1277,12 @@ EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& pa
     {
         bounds.min = Min(bounds.min, em->vertices[i].position);
         bounds.max = Max(bounds.max, em->vertices[i].position);
+    }
+
+    for (int i = 0; i<em->face_count; i++)
+    {
+        EditorFace& ef = em->faces[i];
+        FixWinding(*em, ef);
     }
 
     em->bounds = bounds;

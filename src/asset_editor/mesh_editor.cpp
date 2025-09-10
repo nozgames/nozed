@@ -6,8 +6,8 @@
 
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
-constexpr float HEIGHT_MIN = -5.0f;
-constexpr float HEIGHT_MAX = 5.0f;
+constexpr float HEIGHT_MIN = -1.0f;
+constexpr float HEIGHT_MAX = 1.0f;
 constexpr float HEIGHT_SLIDER_SIZE = 2.0f;
 constexpr float VERTEX_SIZE = 0.08f;
 constexpr float VERTEX_HIT_SIZE = 20.0f;
