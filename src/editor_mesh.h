@@ -78,7 +78,7 @@ extern void RemoveSelection(EditorMesh& em, int vertex_index);
 extern void ToggleSelection(EditorMesh& em, int vertex_index);
 extern void ClearSelection(EditorMesh& em);
 extern void SelectAll(EditorMesh& em);
-extern void RotateEdge(EditorMesh& em, int edge_index);
+extern int RotateEdge(EditorMesh& em, int edge_index);
 extern EditorMesh* Clone(Allocator* allocator, const EditorMesh& em);
 extern void Copy(EditorMesh& dst, const EditorMesh& src);
 extern EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path);

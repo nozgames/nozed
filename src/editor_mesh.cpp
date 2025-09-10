@@ -513,7 +513,7 @@ static int GetTriangleEdgeIndex(const EditorFace& et, const EditorEdge& ee)
     return -1;
 }
 
-void RotateEdge(EditorMesh& em, int edge_index)
+int RotateEdge(EditorMesh& em, int edge_index)
 {
     assert(edge_index >= 0 && edge_index < em.edge_count);
 
@@ -538,13 +538,14 @@ void RotateEdge(EditorMesh& em, int edge_index)
 
     // Edge rotation only works if exactly 2 triangles share the edge
     if (triangle_count != 2)
-        return;
+        return -1;
 
     EditorFace& tri1 = em.faces[triangle_indices[0]];
     EditorFace& tri2 = em.faces[triangle_indices[1]];
 
     // Find the vertices that are NOT part of the shared edge
-    int opposite1 = -1, opposite2 = -1;
+    int opposite1 = -1;
+    int opposite2 = -1;
 
     // Find opposite vertex in first triangle
     if (tri1.v0 != edge.v0 && tri1.v0 != edge.v1)
@@ -563,7 +564,7 @@ void RotateEdge(EditorMesh& em, int edge_index)
         opposite2 = tri2.v2;
 
     if (opposite1 == -1 || opposite2 == -1)
-        return;
+        return - 1;
 
     // Create new triangles with the rotated edge, maintaining proper winding order
     // The new edge connects opposite1 and opposite2
@@ -619,6 +620,16 @@ void RotateEdge(EditorMesh& em, int edge_index)
 
     MarkModified(em);
     MarkDirty(em);
+
+    // find the new edge index
+    for (int i=0; i<em.edge_count; i++)
+    {
+        const EditorEdge& ee = em.edges[i];
+        if ((ee.v0 == opposite1 && ee.v1 == opposite2) || (ee.v0 == opposite2 && ee.v1 == opposite1))
+            return i;
+    }
+
+    return -1;
 }
 
 int SplitEdge(EditorMesh& em, int edge_index, float edge_pos)
@@ -748,7 +759,7 @@ int HitTestVertex(const EditorMesh& em, const Vec2& world_pos)
 
 int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float* where)
 {
-    const float size = g_asset_editor.select_size * 0.5f;
+    const float size = g_asset_editor.select_size * 0.75f;
     for (int i = 0; i < em.edge_count; i++)
     {
         const EditorEdge& ee = em.edges[i];

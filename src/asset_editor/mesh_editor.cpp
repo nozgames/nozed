@@ -376,21 +376,28 @@ static void RotateEdges()
 {
     EditorAsset& ea = *g_mesh_editor.asset;
     EditorMesh& em = *ea.mesh;
-    int count = 0;
+    int edge_index = -1;
     for (int i=0; i<em.edge_count; i++)
     {
         EditorEdge& ee = em.edges[i];
-        if (!em.vertices[ee.v0].selected || !em.vertices[ee.v1].selected)
-            continue;
-
-        RotateEdge(em, i);
-        count++;
+        if (em.vertices[ee.v0].selected && em.vertices[ee.v1].selected)
+        {
+            edge_index = i;
+            break;
+        }
     }
 
-    if (count == 0)
+    if (edge_index == -1)
+        return;
+
+    edge_index = RotateEdge(em, edge_index);
+    if (edge_index == -1)
         return;
 
     MarkDirty(em);
+    ClearSelection(em);
+    AddSelection(em, em.edges[edge_index].v0);
+    AddSelection(em, em.edges[edge_index].v1);
     MarkModified(em);
     UpdateSelection(ea);
 }
@@ -615,12 +622,6 @@ static void HandleScaleCommand()
     SetState(*g_mesh_editor.asset, MESH_EDITOR_STATE_SCALE);
 }
 
-static void HandleRotateCommand()
-{
-    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
-        return;
-}
-
 static void HandleHeightCommand()
 {
     if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
@@ -640,7 +641,6 @@ static void HandleSelectAllCommand()
 static Shortcut g_mesh_editor_shortcuts[] = {
     { KEY_G, false, false, false, HandleMoveCommand },
     { KEY_S, false, false, false, HandleScaleCommand },
-    { KEY_R, false, false, false, HandleRotateCommand },
     { KEY_Q, false, false, false, HandleHeightCommand },
     { KEY_A, false, false, false, HandleSelectAllCommand },
     { KEY_X, false, false, false, DissolveSelected },
