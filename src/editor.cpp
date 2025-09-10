@@ -88,7 +88,8 @@ static void HandleLog(LogType type, const char* message)
 
     if (std::this_thread::get_id() == g_main_thread_id)
     {
-        AddMessage(g_editor.log_view, formatted_message.c_str());
+        printf("%s\n", formatted_message.c_str());
+        //AddMessage(g_editor.log_view, formatted_message.c_str());
     }
     else
     {
@@ -106,7 +107,8 @@ static void ProcessQueuedLogMessages()
     {
         std::string message = log_queue.queue.front();
         log_queue.queue.pop();
-        AddMessage(g_editor.log_view, message.c_str());
+        printf("%s\n", message.c_str());
+        //AddMessage(g_editor.log_view, message.c_str());
     }
 }
 
@@ -356,9 +358,10 @@ static void InitConfig()
 
 void InitEditor()
 {
-    g_scratch_allocator = CreateArenaAllocator(32 * noz::MB, "scratch");
     g_main_thread_id = std::this_thread::get_id();
 
+#if 0
+    g_scratch_allocator = CreateArenaAllocator(32 * noz::MB, "scratch");
     ApplicationTraits traits = {};
     Init(traits);
 
@@ -377,15 +380,22 @@ void InitEditor()
 
     Listen(EDITOR_EVENT_STATS, HandleStatsEvents);
     Listen(EDITOR_EVENT_IMPORTED, HandleImported);
+#else
+    InitLog(HandleLog);
+    InitImporter();
+    InitEditorServer(g_config);
+    Listen(EDITOR_EVENT_STATS, HandleStatsEvents);
+    Listen(EDITOR_EVENT_IMPORTED, HandleImported);
+#endif
 }
 
 void ShutdownEditor()
 {
     ShutdownEditorServer();
-    Destroy(g_editor.command_input);
-    Destroy(g_editor.search_input);
+    // Destroy(g_editor.command_input);
+    // Destroy(g_editor.search_input);
     ShutdownImporter();
-    ShutdownTerminal();
+    //ShutdownTerminal();
 }
 
 int main(int argc, const char* argv[])
@@ -395,7 +405,6 @@ int main(int argc, const char* argv[])
     g_main_thread_id = std::this_thread::get_id();
 
     InitConfig();
-    InitImporter();
 
     ApplicationTraits traits = {};
     Init(traits);
