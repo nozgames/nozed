@@ -30,6 +30,8 @@ extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 static AssetEditorState GetState() { return g_asset_editor.state_stack[g_asset_editor.state_stack_count-1]; }
 static EditorAsset& GetEditingAsset() { return *g_asset_editor.assets[g_asset_editor.edit_asset_index]; }
 
+extern Shortcut g_common_shortcuts[];
+
 AssetEditor g_asset_editor = {};
 
 static void UpdateCamera()
@@ -138,6 +140,12 @@ static void UpdatePanState()
     {
         PopState();
         return;
+    }
+
+    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    {
+        g_asset_editor.move_world_position = g_asset_editor.mouse_world_position;
+        g_asset_editor.pan_start = GetPosition(g_asset_editor.camera);
     }
 
     if (g_asset_editor.drag)
@@ -257,12 +265,6 @@ static void UpdateDefaultState()
         return;
     }
 
-    if (WasButtonPressed(g_asset_editor.input, KEY_SPACE))
-    {
-        PushState(ASSET_EDITOR_STATE_PAN);
-        return;
-    }
-
     // Enter edit mode
     if (WasButtonPressed(g_asset_editor.input, KEY_TAB) &&
         !IsButtonDown(g_asset_editor.input, KEY_LEFT_ALT) &&
@@ -316,11 +318,6 @@ void PushState(AssetEditorState state)
         EndUndoGroup();
         break;
 
-    case ASSET_EDITOR_STATE_PAN:
-        g_asset_editor.move_world_position = g_asset_editor.mouse_world_position;
-        g_asset_editor.pan_start = GetPosition(g_asset_editor.camera);
-        break;
-
     default:
         break;
     }
@@ -369,6 +366,8 @@ static void UpdateMouse()
 
 static void UpdateCommon()
 {
+    CheckShortcuts(g_common_shortcuts);
+
     if (WasButtonPressed(g_asset_editor.input, KEY_Z) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
     {
         Undo();
@@ -586,6 +585,15 @@ void UpdateAssetEditor()
     EndRenderFrame();
 }
 
+static void HandlePan()
+{
+    PushState(ASSET_EDITOR_STATE_PAN);
+}
+
+static Shortcut g_common_shortcuts[] = {
+    { KEY_SPACE, false, false, false, HandlePan },
+    { INPUT_CODE_NONE }
+};
 
 void InitAssetEditor()
 {
@@ -604,6 +612,14 @@ void InitAssetEditor()
     SetTexture(g_asset_editor.material, g_assets.textures.palette, 0);
 
     g_asset_editor.input = CreateInputSet(ALLOCATOR_DEFAULT);
+    EnableShortcuts(g_common_shortcuts);
+    EnableButton(g_asset_editor.input, KEY_LEFT_CTRL);
+    EnableButton(g_asset_editor.input, KEY_LEFT_SHIFT);
+    EnableButton(g_asset_editor.input, KEY_LEFT_ALT);
+    EnableButton(g_asset_editor.input, KEY_RIGHT_CTRL);
+    EnableButton(g_asset_editor.input, KEY_RIGHT_SHIFT);
+    EnableButton(g_asset_editor.input, KEY_RIGHT_ALT);
+
     EnableButton(g_asset_editor.input, MOUSE_LEFT);
     EnableButton(g_asset_editor.input, MOUSE_RIGHT);
     EnableButton(g_asset_editor.input, MOUSE_MIDDLE);
@@ -621,11 +637,7 @@ void InitAssetEditor()
     EnableButton(g_asset_editor.input, KEY_ENTER);
     EnableButton(g_asset_editor.input, KEY_SPACE);
     EnableButton(g_asset_editor.input, KEY_SEMICOLON);
-    EnableButton(g_asset_editor.input, KEY_LEFT_CTRL);
-    EnableButton(g_asset_editor.input, KEY_LEFT_SHIFT);
-    EnableButton(g_asset_editor.input, KEY_RIGHT_SHIFT);
     EnableButton(g_asset_editor.input, KEY_TAB);
-    EnableButton(g_asset_editor.input, KEY_LEFT_ALT);
     EnableButton(g_asset_editor.input, KEY_S);
     EnableButton(g_asset_editor.input, KEY_Z);
     EnableButton(g_asset_editor.input, KEY_Y);

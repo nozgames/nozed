@@ -32,3 +32,5 @@ extern Editor g_editor;
 extern View* GetView();
 extern void PushView(View* view);
 extern void PopView();
+
+// @shortcut

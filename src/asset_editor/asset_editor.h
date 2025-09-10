@@ -153,3 +153,16 @@ extern void HandleMeshEditorBoxSelect(EditorAsset& ea, const Bounds2& bounds);
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v, f32 size);
 extern void DrawOrigin(const EditorAsset& ea);
+
+// @shortcut
+struct Shortcut
+{
+    InputCode button;
+    bool alt;
+    bool ctrl;
+    bool shift;
+    void (*action)();
+};
+
+extern void EnableShortcuts(const Shortcut* shortcuts);
+extern void CheckShortcuts(const Shortcut* shortcuts);

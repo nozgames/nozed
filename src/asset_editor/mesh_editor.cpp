@@ -38,8 +38,11 @@ struct MeshEditor
     bool use_fixed_value;
     bool use_negative_fixed_value;
     float fixed_value;
+    EditorAsset* asset;
+    EditorMesh* mesh;
 };
 
+extern Shortcut g_mesh_editor_shortcuts[];
 static MeshEditor g_mesh_editor = {};
 
 static void DrawVertices(const EditorAsset& ea, bool selected)
@@ -430,33 +433,6 @@ static void UpdateDefaultState(EditorAsset& ea)
         if (RotateEdges(ea))
             return;
     }
-
-    // Enter move state?
-    if (g_mesh_editor.state == MESH_EDITOR_STATE_DEFAULT &&
-        WasButtonPressed(g_asset_editor.input, KEY_G) &&
-        em.selected_vertex_count > 0)
-    {
-        SetState(ea, MESH_EDITOR_STATE_MOVE);
-        return;
-    }
-
-    // Enter scale state?
-    if (g_mesh_editor.state == MESH_EDITOR_STATE_DEFAULT &&
-        !IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL) &&
-        WasButtonPressed(g_asset_editor.input, KEY_S) &&
-        em.selected_vertex_count > 0)
-    {
-        SetState(ea, MESH_EDITOR_STATE_SCALE);
-        return;
-    }
-
-    if (g_mesh_editor.state == MESH_EDITOR_STATE_DEFAULT &&
-        IsButtonDown(g_asset_editor.input, KEY_Q) &&
-        em.selected_vertex_count > 0)
-    {
-        SetState(ea, MESH_EDITOR_STATE_HEIGHT);
-        return;
-    }
 }
 
 bool HandleColorPickerInput(const ElementInput& input)
@@ -476,11 +452,16 @@ bool HandleColorPickerInput(const ElementInput& input)
 
 void UpdateMeshEditor(EditorAsset& ea)
 {
+    g_mesh_editor.asset = &ea;
+    g_mesh_editor.mesh = ea.mesh;
+
     BeginCanvas();
     SetStyleSheet(g_assets.ui.mesh_editor);
     Image(g_mesh_editor.color_material, g_names.color_picker_image);
     SetInputHandler(HandleColorPickerInput, &ea);
     EndCanvas();
+
+    CheckShortcuts(g_mesh_editor_shortcuts);
 
     switch (g_mesh_editor.state)
     {
@@ -603,9 +584,58 @@ void HandleMeshEditorBoxSelect(EditorAsset& ea, const Bounds2& bounds)
     UpdateSelection(ea);
 }
 
+static void HandleMoveCommand()
+{
+    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
+        return;
+
+    if (g_mesh_editor.mesh->selected_vertex_count == 0)
+        return;
+
+    SetState(*g_mesh_editor.asset, MESH_EDITOR_STATE_MOVE);
+}
+
+static void HandleScaleCommand()
+{
+    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
+        return;
+
+    if (g_mesh_editor.mesh->selected_vertex_count == 0)
+        return;
+
+    SetState(*g_mesh_editor.asset, MESH_EDITOR_STATE_SCALE);
+}
+
+static void HandleRotateCommand()
+{
+    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
+        return;
+}
+
+static void HandleHeightCommand()
+{
+    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
+        return;
+
+    if (g_mesh_editor.mesh->selected_vertex_count == 0)
+        return;
+
+    SetState(*g_mesh_editor.asset, MESH_EDITOR_STATE_HEIGHT);
+}
+
+static Shortcut g_mesh_editor_shortcuts[] = {
+    { KEY_G, false, false, false, HandleMoveCommand },
+    { KEY_S, false, false, false, HandleScaleCommand },
+    { KEY_R, false, false, false, HandleRotateCommand },
+    { KEY_Q, false, false, false, HandleHeightCommand },
+    { INPUT_CODE_NONE }
+};
+
 void InitMeshEditor(EditorAsset& ea)
 {
     g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
+
+    EnableShortcuts(g_mesh_editor_shortcuts);
 
     for (int i=0; i<ea.mesh->vertex_count; i++)
         ea.mesh->vertices[i].selected = false;
