@@ -14,7 +14,8 @@ enum SkeletonEditorState
     SKELETON_EDITOR_STATE_DEFAULT,
     SKELETON_EDITOR_STATE_MOVE,
     SKELETON_EDITOR_STATE_ROTATE,
-    SKELETON_EDITOR_STATE_SCALE
+    SKELETON_EDITOR_STATE_SCALE,
+    SKELETON_EDITOR_STATE_PARENT
 };
 
 struct SavedBone
@@ -78,8 +79,16 @@ static void SetState(SkeletonEditorState state)
     g_skeleton_editor.state = state;
     g_skeleton_editor.command_world_position = g_asset_editor.mouse_world_position;
 
+    SetCursor(SYSTEM_CURSOR_DEFAULT);
+
     switch (state)
     {
+    case SKELETON_EDITOR_STATE_PARENT:
+    {
+        SetCursor(SYSTEM_CURSOR_SELECT);
+        break;
+    }
+
     case SKELETON_EDITOR_STATE_MOVE:
     {
         RecordUndo(*g_skeleton_editor.asset);
@@ -200,9 +209,11 @@ static void UpdateMoveState()
     }
 
     UpdateTransforms(es);
+}
 
-    // MarkDirty(em);
-    // MarkModified(em);
+static void UpdateParentState()
+{
+    SetCursor(SYSTEM_CURSOR_SELECT);
 }
 
 void UpdateSkeletonEditor()
@@ -223,6 +234,10 @@ void UpdateSkeletonEditor()
         UpdateRotateState();
         break;
 
+    case SKELETON_EDITOR_STATE_PARENT:
+        UpdateParentState();
+        break;
+
     default:
         break;
     }
@@ -230,6 +245,7 @@ void UpdateSkeletonEditor()
     // Commit the tool
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
     {
+        g_skeleton_editor.asset->modified = true;
         SetState(SKELETON_EDITOR_STATE_DEFAULT);
     }
     // Cancel the tool
@@ -309,9 +325,15 @@ static void HandleRotateCommand()
     SetState(SKELETON_EDITOR_STATE_ROTATE);
 }
 
+static void HandleParentCommand()
+{
+    SetState(SKELETON_EDITOR_STATE_PARENT);
+}
+
 static Shortcut g_skeleton_editor_shortcuts[] = {
     { KEY_G, false, false, false, HandleMoveCommand },
     { KEY_R, false, false, false, HandleRotateCommand },
+    { KEY_P, false, false, false, HandleParentCommand },
     { INPUT_CODE_NONE }
 };
 

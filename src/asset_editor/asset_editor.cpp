@@ -134,23 +134,17 @@ static void UpdateBoxSelect()
 
 static void UpdatePanState()
 {
-    if (WasButtonReleased(g_asset_editor.input, KEY_SPACE))
+    if (WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
     {
-        PopState();
-        return;
+        g_asset_editor.pan_position = g_asset_editor.mouse_position;
+        g_asset_editor.pan_position_camera = GetPosition(g_asset_editor.camera);
     }
 
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    if (IsButtonDown(g_asset_editor.input, MOUSE_RIGHT))
     {
-        g_asset_editor.move_world_position = g_asset_editor.mouse_world_position;
-        g_asset_editor.pan_start = GetPosition(g_asset_editor.camera);
-    }
-
-    if (g_asset_editor.drag)
-    {
-        Vec2 delta = g_asset_editor.mouse_position - g_asset_editor.drag_position;
+        Vec2 delta = g_asset_editor.mouse_position - g_asset_editor.pan_position;
         Vec2 world_delta = ScreenToWorld(g_asset_editor.camera, delta) - ScreenToWorld(g_asset_editor.camera, VEC2_ZERO);
-        SetPosition(g_asset_editor.camera, g_asset_editor.pan_start - world_delta);
+        SetPosition(g_asset_editor.camera, g_asset_editor.pan_position_camera - world_delta);
     }
 }
 
@@ -357,10 +351,12 @@ static void UpdateCommon()
 {
     CheckShortcuts(g_common_shortcuts);
 
+    UpdatePanState();
+
     if (IsButtonDown(g_asset_editor.input, MOUSE_RIGHT))
     {
-        Vec2 dir = Normalize(GetScreenCenter() - g_asset_editor.mouse_position);
-        g_asset_editor.light_dir = Vec3{-dir.x, dir.y, 1.0f};
+        // Vec2 dir = Normalize(GetScreenCenter() - g_asset_editor.mouse_position);
+        // g_asset_editor.light_dir = Vec3{-dir.x, dir.y, 1.0f};
     }
 
     if (WasButtonPressed(g_asset_editor.input, KEY_Z) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
@@ -388,6 +384,7 @@ static void UpdateAssetEditorInternal()
     {
         if (WasButtonPressed(g_asset_editor.input, KEY_TAB) && !IsAltDown(g_asset_editor.input))
         {
+            SetCursor(SYSTEM_CURSOR_DEFAULT);
             PopState();
             return;
         }
@@ -420,7 +417,6 @@ static void UpdateAssetEditorInternal()
         break;
 
     case ASSET_EDITOR_STATE_PAN:
-        UpdatePanState();
         break;
 
     default:

@@ -31,3 +31,4 @@ extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
 extern EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path);
 extern int HitTestBone(const EditorSkeleton& es, const Vec2& world_pos);
 extern void UpdateTransforms(EditorSkeleton& es);
+extern void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& path);

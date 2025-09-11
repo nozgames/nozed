@@ -87,7 +87,7 @@ static void RevertPositions(EditorAsset& ea)
     }
 
     MarkDirty(em);
-    MarkModified(em);
+    MarkModified(ea);
     UpdateSelection(ea);
 }
 
@@ -107,7 +107,7 @@ static void UpdateHeightState(EditorAsset& ea)
 
         CancelUndo();
         MarkDirty(em);
-        MarkModified(em);
+        MarkModified(ea);
         return;
     }
     if (WasButtonPressed(g_asset_editor.input, KEY_0))
@@ -141,7 +141,7 @@ static void UpdateHeightState(EditorAsset& ea)
     }
 
     MarkDirty(em);
-    MarkModified(em);
+    MarkModified(ea);
 
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
     {
@@ -172,7 +172,7 @@ static void UpdateScaleState(EditorAsset& ea)
     }
 
     MarkDirty(em);
-    MarkModified(em);
+    MarkModified(ea);
 
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
@@ -202,7 +202,7 @@ static void UpdateMoveState(EditorAsset& ea)
     }
 
     MarkDirty(em);
-    MarkModified(em);
+    MarkModified(ea);
 }
 
 static void SetState(EditorAsset& ea, MeshEditorState state)
@@ -358,16 +358,17 @@ static void MergeVertices()
 
     MergeSelectedVerticies(em);
     MarkDirty(em);
-    MarkModified(em);
+    MarkModified(ea);
     UpdateSelection(ea);
 }
 
 static void DissolveSelected()
 {
-    EditorMesh& em = *g_mesh_editor.asset->mesh;
+    EditorAsset& ea = *g_mesh_editor.asset;
+    EditorMesh& em = *ea.mesh;
     DissolveSelectedVertices(em);
     MarkDirty(em);
-    MarkModified(em);
+    MarkModified(ea);
     UpdateSelection(*g_mesh_editor.asset);
 }
 
@@ -397,7 +398,7 @@ static void RotateEdges()
     ClearSelection(em);
     AddSelection(em, em.edges[edge_index].v0);
     AddSelection(em, em.edges[edge_index].v1);
-    MarkModified(em);
+    MarkModified(ea);
     UpdateSelection(ea);
 }
 
@@ -448,6 +449,7 @@ bool HandleColorPickerInput(const ElementInput& input)
 
     EditorAsset& ea = *(EditorAsset*)input.user_data;
     SetSelectedTrianglesColor(*ea.mesh, { col, row });
+    MarkModified(ea);
     return true;
 }
 

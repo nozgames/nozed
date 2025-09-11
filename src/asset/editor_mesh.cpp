@@ -128,11 +128,6 @@ static void UpdateEdges(EditorMesh& em)
     }
 }
 
-void MarkModified(EditorMesh& em)
-{
-    em.modified = true;
-}
-
 void MarkDirty(EditorMesh& em)
 {
     em.dirty = true;
@@ -188,16 +183,6 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
     return em.mesh;
 }
 
-void SetTriangleColor(EditorMesh* em, int index, const Vec2Int& color)
-{
-    if (index < 0 || index >= em->face_count)
-        return;
-
-    em->faces[index].color = color;
-    MarkModified(*em);
-    MarkDirty(*em);
-}
-
 void SetSelectedTrianglesColor(EditorMesh& em, const Vec2Int& color)
 {
     int count = 0;
@@ -214,25 +199,6 @@ void SetSelectedTrianglesColor(EditorMesh& em, const Vec2Int& color)
     if (!count)
         return;
 
-    MarkModified(em);
-    MarkDirty(em);
-}
-
-void SetPosition(EditorMesh* em, int index, const Vec2& position)
-{
-    if (index < 0 || index >= em->vertex_count)
-        return;
-
-    em->vertices[index].position = position;
-    MarkModified(*em);
-    MarkDirty(*em);
-}
-
-void SetHeight(EditorMesh& em, int index, float height)
-{
-    assert(index >=0 && index < em.vertex_count);
-    em.vertices[index].height = height;
-    MarkModified(em);
     MarkDirty(em);
 }
 
@@ -402,7 +368,6 @@ static void DissolveVertex(EditorMesh& em, int vertex_index)
             et.v2--;
     }
 
-    MarkModified(em);
     MarkDirty(em);
 }
 
@@ -433,7 +398,6 @@ void MergeSelectedVerticies(EditorMesh& em)
     for (int i = selected_count - 1; i > 0; i--)
         DissolveVertex(em, selected_indices[i]);
 
-    MarkModified(em);
     MarkDirty(em);
 }
 
@@ -518,7 +482,6 @@ void DeleteVertex(EditorMesh* em, int vertex_index)
         }
     }
 
-    MarkModified(*em);
     MarkDirty(*em);
 }
 
@@ -621,7 +584,6 @@ int RotateEdge(EditorMesh& em, int edge_index)
     f2.v1 = f2n.v1;
     f2.v2 = f2n.v2;
 
-    MarkModified(em);
     MarkDirty(em);
 
     // find the new edge index
@@ -967,7 +929,6 @@ int AddVertex(EditorMesh& em, const Vec2& position)
         if (new_vertex != -1)
         {
             MarkDirty(em);
-            MarkModified(em);
         }
         return new_vertex;
     }
@@ -981,7 +942,6 @@ int AddVertex(EditorMesh& em, const Vec2& position)
         if (new_vertex != -1)
         {
             MarkDirty(em);
-            MarkModified(em);
         }
         return new_vertex;
     }
@@ -1028,7 +988,6 @@ int AddVertex(EditorMesh& em, const Vec2& position)
         new_vertex.selected = false;
 
         MarkDirty(em);
-        MarkModified(em);
         return new_vertex_index;
     }
 
@@ -1057,7 +1016,6 @@ int AddVertex(EditorMesh& em, const Vec2& position)
     FixWinding(em, new_triangle);
 
     MarkDirty(em);
-    MarkModified(em);
     return new_vertex_index;
 }
 
@@ -1100,7 +1058,6 @@ void Copy(EditorMesh& dst, const EditorMesh& src)
     dst = src;
     dst.mesh = nullptr;
     dst.dirty = true;
-    dst.modified = true;
 }
 
 static void Optimize(EditorMesh& em)

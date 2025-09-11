@@ -103,15 +103,26 @@ void SaveEditableAssets()
     u32 count = 0;
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
     {
-        EditorAsset& asset = *g_asset_editor.assets[i];
-        if (asset.type != EDITABLE_ASSET_TYPE_MESH)
+        EditorAsset& ea = *g_asset_editor.assets[i];
+        if (!ea.modified)
             continue;
 
-        if (!asset.mesh->modified)
-            continue;
+        ea.modified = false;
 
-        SaveEditorMesh(*asset.mesh, asset.path);
-        asset.mesh->modified = false;
+        switch (ea.type)
+        {
+        case EDITABLE_ASSET_TYPE_MESH:
+            SaveEditorMesh(*ea.mesh, ea.path);
+            break;
+
+        case EDITABLE_ASSET_TYPE_SKELETON:
+            SaveEditorSkeleton(*ea.skeleton, ea.path);
+            break;
+
+        default:
+            continue;
+        }
+
         count++;
     }
 
@@ -352,4 +363,9 @@ void HotloadEditorAsset(const Name* name)
             break;
         }
     }
+}
+
+void MarkModified(EditorAsset& ea)
+{
+    ea.modified = true;
 }

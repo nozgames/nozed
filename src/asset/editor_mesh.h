@@ -50,7 +50,6 @@ struct EditorMesh
     int face_count;
     bool dirty;
     Bounds2 bounds;
-    bool modified;
     int selected_vertex_count;
 };
 
@@ -64,7 +63,6 @@ extern int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float* where=n
 extern Mesh* ToMesh(EditorMesh& em, bool upload=true);
 extern Bounds2 GetSelectedBounds(const EditorMesh& emesh);
 extern void MarkDirty(EditorMesh& emesh);
-extern void MarkModified(EditorMesh& emesh);
 extern void SetSelectedTrianglesColor(EditorMesh& em, const Vec2Int& color);
 extern void MergeSelectedVerticies(EditorMesh& em);
 extern void DissolveSelectedVertices(EditorMesh& em);

@@ -42,7 +42,8 @@ struct AssetEditor
     int selected_vertex;
     int edit_asset_index;
     bool clear_selection_on_release;
-    Vec2 pan_start;
+    Vec2 pan_position_camera;
+    Vec2 pan_position;
     bool command_palette;
 
     EditorAsset* assets[MAX_ASSETS];

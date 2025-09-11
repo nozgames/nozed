@@ -19,8 +19,9 @@ enum EditableAssetType
 
 struct EditorAsset
 {
-    const Name* name;
     EditableAssetType type;
+    const Name* name;
+    char path[1024];
     union
     {
         EditorMesh* mesh;
@@ -30,11 +31,11 @@ struct EditorAsset
     Vec2 position;
     Vec2 saved_position;
     bool dirty;
-    char path[1024];
     bool selected;
     VfxHandle vfx_handle;
     bool editing;
+    bool modified;
 };
 
-
 extern void HotloadEditorAsset(const Name* name);
+extern void MarkModified(EditorAsset& ea);

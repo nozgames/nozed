@@ -13,7 +13,7 @@ void DrawEditorSkeleton(EditorAsset& ea)
     EditorSkeleton& skeleton = *ea.skeleton;
 
     BindMaterial(g_asset_editor.vertex_material);
-    BindColor((ea.selected && !ea.editing) ? COLOR_SELECTED : COLOR_BLACK);
+    BindColor(ea.selected && !ea.editing ? COLOR_SELECTED : COLOR_BLACK);
     for (int i=1; i<skeleton.bone_count; i++)
     {
         const EditorBone& bone = skeleton.bones[i];
@@ -134,6 +134,20 @@ EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::
     UpdateTransforms(*eskel);
 
     return eskel;
+}
+
+void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& path)
+{
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+
+    for (int i=0; i<es.bone_count; i++)
+    {
+        const EditorBone& ev = es.bones[i];
+        WriteCSTR(stream, "b \"%s\" \"%s\" p %g %g\n", ev.name->value, ev.parent_name->value, ev.position.x, ev.position.y);
+    }
+
+    SaveStream(stream, path);
+    Free(stream);
 }
 
 EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path)
