@@ -5,7 +5,7 @@
 #include "../asset_editor/asset_editor.h"
 #include "../utils/file_helpers.h"
 
-EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type)
+EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type)
 {
     std::error_code ec;
     std::filesystem::path relative_path = std::filesystem::relative(path, "assets", ec);
@@ -22,7 +22,7 @@ EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAsse
 
 EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em)
 {
-    EditorAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
+    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_MESH);
     ea->mesh = em;
     return ea;
 }
@@ -33,31 +33,50 @@ EditorAsset* CreateEditorMeshAsset(const std::filesystem::path& path)
     if (!em)
         return nullptr;
 
-    EditorAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_MESH);
+    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_MESH);
     ea->mesh = em;
     return ea;
 }
 
-static void ReadMetaData(EditorAsset& asset, const std::filesystem::path& path)
+static void LoadAssetMetadata(EditorAsset& ea, const std::filesystem::path& path)
 {
     Props* props = LoadProps(std::filesystem::path(path.string() + ".meta"));
     if (!props)
         return;
 
-    asset.position = props->GetVec2("editor", "position", VEC2_ZERO);
+    ea.position = props->GetVec2("editor", "position", VEC2_ZERO);
+
+    switch (ea.type)
+    {
+    case EDITOR_ASSET_TYPE_SKELETON:
+        LoadAssetMetadata(*ea.skeleton, props);
+        break;
+
+    default:
+        break;
+    }
 }
 
-static void SaveAssetMetaData(const EditorAsset& asset)
+static void SaveAssetMetadata(const EditorAsset& asset)
 {
     std::filesystem::path meta_path = std::filesystem::path(std::string(asset.path) + ".meta");
     Props* props = LoadProps(meta_path);
     if (!props)
         props = new Props{};
     props->SetVec2("editor", "position", asset.position);
+
+
+    switch (asset.type)
+    {
+    case EDITOR_ASSET_TYPE_SKELETON:
+        SaveAssetMetadata(*asset.skeleton, props);
+        break;
+    }
+
     SaveProps(props, meta_path);
 }
 
-static void SaveAssetMetaData()
+static void SaveAssetMetadata()
 {
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
     {
@@ -65,7 +84,7 @@ static void SaveAssetMetaData()
         if (!asset.dirty)
             continue;
 
-        SaveAssetMetaData(asset);
+        SaveAssetMetadata(asset);
     }
 }
 
@@ -77,7 +96,7 @@ void MoveTo(EditorAsset& asset, const Vec2& position)
 
 void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color)
 {
-    if (ea.type != EDITABLE_ASSET_TYPE_MESH)
+    if (ea.type != EDITOR_ASSET_TYPE_MESH)
         return;
 
     BindColor(color);
@@ -98,7 +117,7 @@ void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color)
 
 void SaveEditableAssets()
 {
-    SaveAssetMetaData();
+    SaveAssetMetadata();
 
     u32 count = 0;
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
@@ -111,11 +130,11 @@ void SaveEditableAssets()
 
         switch (ea.type)
         {
-        case EDITABLE_ASSET_TYPE_MESH:
+        case EDITOR_ASSET_TYPE_MESH:
             SaveEditorMesh(*ea.mesh, ea.path);
             break;
 
-        case EDITABLE_ASSET_TYPE_SKELETON:
+        case EDITOR_ASSET_TYPE_SKELETON:
             SaveEditorSkeleton(*ea.skeleton, ea.path);
             break;
 
@@ -132,16 +151,21 @@ void SaveEditableAssets()
 
 bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos)
 {
+    return HitTestAsset(ea, ea.position, hit_pos);
+}
+
+bool HitTestAsset(const EditorAsset& ea, const Vec2& position, const Vec2& hit_pos)
+{
     switch (ea.type)
     {
-    case EDITABLE_ASSET_TYPE_MESH:
-        return -1 != HitTestTriangle(*ea.mesh, ea.position, hit_pos);
+    case EDITOR_ASSET_TYPE_MESH:
+        return -1 != HitTestTriangle(*ea.mesh, position, hit_pos);
 
-    case EDITABLE_ASSET_TYPE_VFX:
-        return Contains(GetBounds(ea.vfx->vfx) + ea.position, hit_pos);
+    case EDITOR_ASSET_TYPE_VFX:
+        return Contains(GetBounds(ea.vfx->vfx) + position, hit_pos);
 
-    case EDITABLE_ASSET_TYPE_SKELETON:
-        return Contains(ea.skeleton->bounds + ea.position, hit_pos);
+    case EDITOR_ASSET_TYPE_SKELETON:
+        return Contains(ea.skeleton->bounds + position, hit_pos);
 
     default:
         return false;
@@ -161,13 +185,13 @@ bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds)
 {
     switch (ea.type)
     {
-    case EDITABLE_ASSET_TYPE_MESH:
+    case EDITOR_ASSET_TYPE_MESH:
         return HitTest(*ea.mesh, ea.position, hit_bounds);
 
-    case EDITABLE_ASSET_TYPE_VFX:
+    case EDITOR_ASSET_TYPE_VFX:
         return Intersects(GetBounds(ea.vfx->vfx) + ea.position, hit_bounds);
 
-    case EDITABLE_ASSET_TYPE_SKELETON:
+    case EDITOR_ASSET_TYPE_SKELETON:
         return Intersects(ea.skeleton->bounds + ea.position, hit_bounds);
 
     default:
@@ -188,19 +212,19 @@ void DrawAsset(EditorAsset& ea)
 {
     switch (ea.type)
     {
-    case EDITABLE_ASSET_TYPE_MESH:
+    case EDITOR_ASSET_TYPE_MESH:
         BindTransform(TRS(ea.position, 0, VEC2_ONE));
         DrawMesh(ToMesh(*ea.mesh));
         break;
 
-    case EDITABLE_ASSET_TYPE_VFX:
+    case EDITOR_ASSET_TYPE_VFX:
         if (!IsPlaying(ea.vfx_handle) && ea.vfx->vfx)
             ea.vfx_handle = Play(ea.vfx->vfx, ea.position);
 
         DrawOrigin(ea);
         break;
 
-    case EDITABLE_ASSET_TYPE_SKELETON:
+    case EDITOR_ASSET_TYPE_SKELETON:
         DrawEditorSkeleton(ea);
         break;
 
@@ -213,13 +237,13 @@ Bounds2 GetBounds(const EditorAsset& ea)
 {
     switch (ea.type)
     {
-    case EDITABLE_ASSET_TYPE_MESH:
+    case EDITOR_ASSET_TYPE_MESH:
         return ea.mesh->bounds;
 
-    case EDITABLE_ASSET_TYPE_VFX:
+    case EDITOR_ASSET_TYPE_VFX:
         return GetBounds(ea.vfx->vfx);
 
-    case EDITABLE_ASSET_TYPE_SKELETON:
+    case EDITOR_ASSET_TYPE_SKELETON:
         return ea.skeleton->bounds;
 
     default:
@@ -233,13 +257,13 @@ Bounds2 GetSelectedBounds(const EditorAsset& ea)
 {
     switch (ea.type)
     {
-    case EDITABLE_ASSET_TYPE_MESH:
+    case EDITOR_ASSET_TYPE_MESH:
         return GetSelectedBounds(*ea.mesh);
 
-    case EDITABLE_ASSET_TYPE_VFX:
+    case EDITOR_ASSET_TYPE_VFX:
         return GetBounds(ea.vfx->vfx);
 
-    case EDITABLE_ASSET_TYPE_SKELETON:
+    case EDITOR_ASSET_TYPE_SKELETON:
         return ea.skeleton->bounds;
 
     default:
@@ -299,10 +323,10 @@ EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea)
     *clone = ea;
     switch (clone->type)
     {
-    case EDITABLE_ASSET_TYPE_MESH:
+    case EDITOR_ASSET_TYPE_MESH:
         clone->mesh = Clone(allocator, *clone->mesh);
         break;
-    case EDITABLE_ASSET_TYPE_VFX:
+    case EDITOR_ASSET_TYPE_VFX:
         clone->vfx = Clone(allocator, *clone->vfx);
         break;
     default:
@@ -336,8 +360,19 @@ void LoadEditorAssets()
 
         if (ea)
         {
-            ReadMetaData(*ea, asset_path);
+            LoadAssetMetadata(*ea, asset_path);
             g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
+        }
+    }
+
+    for (int i=0; i<g_asset_editor.asset_count; i++)
+    {
+        EditorAsset& ea = *g_asset_editor.assets[i];
+        switch (ea.type)
+        {
+            case EDITOR_ASSET_TYPE_SKELETON:
+                PostLoadEditorAssets(*ea.skeleton);
+                break;
         }
     }
 }
@@ -352,7 +387,7 @@ void HotloadEditorAsset(const Name* name)
 
         switch (ea.type)
         {
-        case EDITABLE_ASSET_TYPE_VFX:
+        case EDITOR_ASSET_TYPE_VFX:
             Stop(ea.vfx_handle);
             Free(ea.vfx);
             ea.vfx = LoadEditorVfx(ALLOCATOR_DEFAULT, ea.path);

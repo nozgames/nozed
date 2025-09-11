@@ -18,8 +18,7 @@ enum AssetEditorState
     ASSET_EDITOR_STATE_DEFAULT,
     ASSET_EDITOR_STATE_MOVE,
     ASSET_EDITOR_STATE_EDIT,
-    ASSET_EDITOR_STATE_BOX_SELECT,
-    ASSET_EDITOR_STATE_PAN,
+    ASSET_EDITOR_STATE_BOX_SELECT
 };
 
 struct AssetEditor
@@ -105,6 +104,7 @@ extern EditorAsset* CreateEditorVfxAsset(const std::filesystem::path& path);
 extern void LoadEditorAssets();
 extern void SaveEditableAssets();
 extern bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos);
+extern bool HitTestAsset(const EditorAsset& ea, const Vec2& position, const Vec2& hit_pos);
 extern bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds);
 extern int HitTestAssets(const Vec2& hit_pos);
 extern int HitTestAssets(const Bounds2& bit_bounds);

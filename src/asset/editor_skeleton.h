@@ -17,12 +17,10 @@ struct EditorSkinnedMesh
 struct EditorBone
 {
     const Name* name;
-    const Name* parent_name;
-    Vec2 position;
     int parent_index;
+    Vec2 position;
     Mat3 local_to_world;
     Mat3 world_to_local;
-    bool leaf;
     bool selected;
 };
 
@@ -42,3 +40,6 @@ extern EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path)
 extern int HitTestBone(const EditorSkeleton& es, const Vec2& world_pos);
 extern void UpdateTransforms(EditorSkeleton& es);
 extern void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& path);
+extern void SaveAssetMetadata(const EditorSkeleton& es, Props* meta);
+extern void LoadAssetMetadata(EditorSkeleton& es, Props* meta);
+extern void PostLoadEditorAssets(EditorSkeleton& es);

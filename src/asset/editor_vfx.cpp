@@ -7,7 +7,7 @@
 #include "../utils/file_helpers.h"
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
-extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type);
+extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
 
 static bool ParseCurveType(Tokenizer& tk, VfxCurveType* curve_type)
 {
@@ -433,7 +433,7 @@ EditorAsset* CreateEditorVfxAsset(const std::filesystem::path& path)
     if (!evfx)
         return nullptr;
 
-    EditorAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_VFX);
+    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_VFX);
     ea->vfx = evfx;
     ea->vfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *evfx, ea->name);
     ea->vfx_handle = INVALID_VFX_HANDLE;

@@ -6,7 +6,7 @@
 #include "editor_asset.h"
 #include "utils/file_helpers.h"
 
-extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditableAssetType type);
+extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
 
 void DrawEditorSkeleton(EditorAsset& ea)
 {
@@ -17,14 +17,14 @@ void DrawEditorSkeleton(EditorAsset& ea)
     {
         const EditorBone& bone = es.bones[es.skinned_meshes[i].bone_index];
         const EditorAsset& skinned_mesh_asset = *g_asset_editor.assets[es.skinned_meshes[i].asset_index];
-        if (skinned_mesh_asset.type != EDITABLE_ASSET_TYPE_MESH)
+        if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
-        Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
-        Vec2 parent_position = es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
-        Vec2 dir = Normalize(bone_position - parent_position);
+        // Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
+        // Vec2 parent_position = es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
+        // Vec2 dir = Normalize(bone_position - parent_position);
 
-        BindTransform(TRS(bone.local_to_world * VEC2_ZERO + ea.position, dir, VEC2_ONE));
+        BindTransform(TRS(bone.local_to_world * VEC2_ZERO + ea.position, 0, VEC2_ONE));
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
@@ -89,15 +89,15 @@ EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::
 
             const Name* bone_name = ToName(token);
 
-            if (!ExpectQuotedString(tk, &token))
+            int parent_index = -1;
+            if (!ExpectInt(tk, &token, &parent_index))
                 continue;
 
             const Name* parent_name = ToName(token);
 
             EditorBone& bone = eskel->bones[eskel->bone_count++];
             bone.name = bone_name;
-            bone.parent_name = parent_name;
-            bone.leaf = true;
+            bone.parent_index = parent_index;
 
             SkipWhitespace(tk);
 
@@ -131,22 +131,6 @@ EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::
         }
     }
 
-    for (int i=eskel->bone_count-1; i>=0; i--)
-    {
-        EditorBone& ebone1 = eskel->bones[i];
-        ebone1.parent_index = -1;
-        for (int j=i-1; j>=0; j--)
-        {
-            EditorBone& ebone2 = eskel->bones[j];
-            if (ebone1.parent_name == ebone2.name)
-            {
-                ebone1.parent_index = j;
-                ebone2.leaf = false;
-                break;
-            }
-        }
-    }
-
     UpdateTransforms(*eskel);
 
     return eskel;
@@ -159,7 +143,7 @@ void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& p
     for (int i=0; i<es.bone_count; i++)
     {
         const EditorBone& ev = es.bones[i];
-        WriteCSTR(stream, "b \"%s\" \"%s\" p %g %g\n", ev.name->value, ev.parent_name->value, ev.position.x, ev.position.y);
+        WriteCSTR(stream, "b \"%s\" %d p %g %g\n", ev.name->value, ev.parent_index, ev.position.x, ev.position.y);
     }
 
     SaveStream(stream, path);
@@ -172,7 +156,7 @@ EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path)
     if (!skeleton)
         return nullptr;
 
-    EditorAsset* ea = CreateEditableAsset(path, EDITABLE_ASSET_TYPE_SKELETON);
+    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_SKELETON);
     ea->skeleton = skeleton;
     return ea;
 }
@@ -222,4 +206,40 @@ void UpdateTransforms(EditorSkeleton& es)
     }
 
     es.bounds = Expand(bounds, 0.5f);
+}
+
+void SaveAssetMetadata(const EditorSkeleton& es, Props* meta)
+{
+    for (int i=0; i<es.skinned_mesh_count; i++)
+    {
+        const EditorBone& bone = es.bones[i];
+        meta->SetInt("skinned_meshes", es.skinned_meshes[i].asset_name->value, es.skinned_meshes[i].bone_index);
+    }
+}
+
+void LoadAssetMetadata(EditorSkeleton& es, Props* meta)
+{
+    for (auto& key : meta->GetKeys("skinned_meshes"))
+    {
+        int bone_index = meta->GetInt("skinned_meshes", key.c_str(), -1);
+        if (bone_index < 0 || bone_index >= es.bone_count)
+            continue;
+
+        es.skinned_meshes[es.skinned_mesh_count++] = {
+            GetName(key.c_str()),
+            -1,
+            bone_index
+        };
+    }
+}
+
+void PostLoadEditorAssets(EditorSkeleton& es)
+{
+    for (int i=0; i<es.skinned_mesh_count; i++)
+    {
+        EditorSkinnedMesh& esm = es.skinned_meshes[i];
+        esm.asset_index = FindAssetByName(esm.asset_name);
+        if (esm.asset_index < 0 || g_asset_editor.assets[esm.asset_index]->type != EDITOR_ASSET_TYPE_MESH)
+            esm.asset_index = -1;
+    }
 }

@@ -8,18 +8,18 @@
 #include "editor_vfx.h"
 #include "editor_skeleton.h"
 
-enum EditableAssetType
+enum EditorAssetType
 {
-    EDITABLE_ASSET_TYPE_UNKNOWN = -1,
-    EDITABLE_ASSET_TYPE_MESH,
-    EDITABLE_ASSET_TYPE_VFX,
-    EDITABLE_ASSET_TYPE_SKELETON,
-    EDITABLE_ASSET_TYPE_COUNT,
+    EDITOR_ASSET_TYPE_UNKNOWN = -1,
+    EDITOR_ASSET_TYPE_MESH,
+    EDITOR_ASSET_TYPE_VFX,
+    EDITOR_ASSET_TYPE_SKELETON,
+    EDITOR_ASSET_TYPE_COUNT,
 };
 
 struct EditorAsset
 {
-    EditableAssetType type;
+    EditorAssetType type;
     const Name* name;
     char path[1024];
     union

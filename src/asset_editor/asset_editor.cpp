@@ -253,12 +253,12 @@ static void UpdateDefaultState()
         EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
         {
-        case EDITABLE_ASSET_TYPE_MESH:
+        case EDITOR_ASSET_TYPE_MESH:
             PushState(ASSET_EDITOR_STATE_EDIT);
             InitMeshEditor(ea);
             break;
 
-        case EDITABLE_ASSET_TYPE_SKELETON:
+        case EDITOR_ASSET_TYPE_SKELETON:
             PushState(ASSET_EDITOR_STATE_EDIT);
             InitSkeletonEditor(ea);
             break;
@@ -353,10 +353,10 @@ static void UpdateCommon()
 
     UpdatePanState();
 
-    if (IsButtonDown(g_asset_editor.input, MOUSE_RIGHT))
+    if (IsButtonDown(g_asset_editor.input, MOUSE_MIDDLE))
     {
-        // Vec2 dir = Normalize(GetScreenCenter() - g_asset_editor.mouse_position);
-        // g_asset_editor.light_dir = Vec3{-dir.x, dir.y, 1.0f};
+        Vec2 dir = Normalize(GetScreenCenter() - g_asset_editor.mouse_position);
+        g_asset_editor.light_dir = Vec3{-dir.x, dir.y, 1.0f};
     }
 
     if (WasButtonPressed(g_asset_editor.input, KEY_Z) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
@@ -392,11 +392,11 @@ static void UpdateAssetEditorInternal()
         EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
         {
-        case EDITABLE_ASSET_TYPE_MESH:
+        case EDITOR_ASSET_TYPE_MESH:
             UpdateMeshEditor(ea);
             break;
 
-        case EDITABLE_ASSET_TYPE_SKELETON:
+        case EDITOR_ASSET_TYPE_SKELETON:
             UpdateSkeletonEditor();
             break;
 
@@ -414,9 +414,6 @@ static void UpdateAssetEditorInternal()
 
     case ASSET_EDITOR_STATE_BOX_SELECT:
         UpdateBoxSelect();
-        break;
-
-    case ASSET_EDITOR_STATE_PAN:
         break;
 
     default:
@@ -479,11 +476,11 @@ void RenderView()
         EditorAsset& ea = *g_asset_editor.assets[g_asset_editor.edit_asset_index];
         switch (ea.type)
         {
-        case EDITABLE_ASSET_TYPE_MESH:
+        case EDITOR_ASSET_TYPE_MESH:
             DrawMeshEditor(ea);
             break;
 
-        case EDITABLE_ASSET_TYPE_SKELETON:
+        case EDITOR_ASSET_TYPE_SKELETON:
             DrawSkeletonEditor();
             break;
 
@@ -590,10 +587,6 @@ void UpdateAssetEditor()
     EndRenderFrame();
 }
 
-static void HandlePan()
-{
-    PushState(ASSET_EDITOR_STATE_PAN);
-}
 
 static void HandleFrame()
 {
@@ -614,7 +607,6 @@ static void HandleUIZoomOut()
 }
 
 static Shortcut g_common_shortcuts[] = {
-    { KEY_SPACE, false, false, false, HandlePan },
     { KEY_F, false, false, false, HandleFrame },
     { KEY_EQUALS, false, true, false, HandleUIZoomIn },
     { KEY_MINUS, false, true, false, HandleUIZoomOut },
