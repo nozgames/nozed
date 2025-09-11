@@ -10,15 +10,31 @@ extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, Edita
 
 void DrawEditorSkeleton(EditorAsset& ea)
 {
-    EditorSkeleton& skeleton = *ea.skeleton;
+    EditorSkeleton& es = *ea.skeleton;
+
+    BindMaterial(g_asset_editor.material);
+    for (int i=0; i<es.skinned_mesh_count; i++)
+    {
+        const EditorBone& bone = es.bones[es.skinned_meshes[i].bone_index];
+        const EditorAsset& skinned_mesh_asset = *g_asset_editor.assets[es.skinned_meshes[i].asset_index];
+        if (skinned_mesh_asset.type != EDITABLE_ASSET_TYPE_MESH)
+            continue;
+
+        Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
+        Vec2 parent_position = es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
+        Vec2 dir = Normalize(bone_position - parent_position);
+
+        BindTransform(TRS(bone.local_to_world * VEC2_ZERO + ea.position, dir, VEC2_ONE));
+        DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
+    }
 
     BindMaterial(g_asset_editor.vertex_material);
     BindColor(ea.selected && !ea.editing ? COLOR_SELECTED : COLOR_BLACK);
-    for (int i=1; i<skeleton.bone_count; i++)
+    for (int i=1; i<es.bone_count; i++)
     {
-        const EditorBone& bone = skeleton.bones[i];
+        const EditorBone& bone = es.bones[i];
         Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
-        Vec2 parent_position = skeleton.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
+        Vec2 parent_position = es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
         Vec2 dir = Normalize(bone_position - parent_position);
         float len = Length(bone_position - parent_position);
         BindTransform(TRS(parent_position, dir, VEC2_ONE * len));

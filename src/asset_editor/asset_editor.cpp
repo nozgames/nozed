@@ -693,15 +693,6 @@ void InitAssetEditor()
     AddTriangle(builder, 2, 3, 0);
     g_asset_editor.edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
-    Clear(builder);
-    AddVertex(builder, {0, 0});
-    AddVertex(builder, {1, 0});
-    AddVertex(builder, { 0.10f, -0.10f});
-    AddVertex(builder, { 0.10f,  0.10f});
-    AddTriangle(builder, 0, 1, 3);
-    AddTriangle(builder, 0, 2, 1);
-    g_asset_editor.bone_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
-
     Free(builder);
 
     InitGrid(ALLOCATOR_DEFAULT);

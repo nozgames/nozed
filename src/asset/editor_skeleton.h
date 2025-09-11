@@ -5,6 +5,14 @@
 #pragma  once
 
 constexpr int MAX_BONES = 64;
+constexpr int MAX_SKINNED_MESHES = 64;
+
+struct EditorSkinnedMesh
+{
+    const Name* asset_name;
+    int asset_index;
+    int bone_index;
+};
 
 struct EditorBone
 {
@@ -23,6 +31,8 @@ struct EditorSkeleton
     int bone_count;
     EditorBone bones[MAX_BONES];
     Bounds2 bounds;
+    EditorSkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
+    int skinned_mesh_count;
 };
 
 extern EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::path& path);

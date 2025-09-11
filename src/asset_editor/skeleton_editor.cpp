@@ -41,6 +41,15 @@ struct SkeletonEditor
 static SkeletonEditor g_skeleton_editor = {};
 extern Shortcut g_skeleton_editor_shortcuts[];
 
+static int GetFirstSelectedBoneIndex()
+{
+    EditorSkeleton& es = *g_skeleton_editor.skeleton;
+    for (int i=0; i<es.bone_count; i++)
+        if (es.bones[i].selected)
+            return i;
+    return -1;
+}
+
 static void UpdateSelectionCenter()
 {
     Vec2 center = VEC2_ZERO;
@@ -213,7 +222,20 @@ static void UpdateMoveState()
 
 static void UpdateParentState()
 {
-    SetCursor(SYSTEM_CURSOR_SELECT);
+    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    {
+        int asset_index = HitTestAssets(g_asset_editor.mouse_world_position);
+        if (asset_index == -1)
+            return;
+
+        EditorAsset& hit_asset = *g_asset_editor.assets[asset_index];
+        EditorSkeleton& es = *g_skeleton_editor.skeleton;
+        es.skinned_meshes[es.skinned_mesh_count++] = {
+            hit_asset.name,
+            asset_index,
+            GetFirstSelectedBoneIndex()
+        };
+    }
 }
 
 void UpdateSkeletonEditor()

@@ -31,7 +31,6 @@ struct AssetEditor
     Material* vertex_material;
     Mesh* vertex_mesh;
     Mesh* edge_mesh;
-    Mesh* bone_mesh;
     float zoom;
     float zoom_ref_scale;
     float select_size;

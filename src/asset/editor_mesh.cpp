@@ -180,6 +180,8 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
     em.mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
     Free(builder);
 
+    em.dirty = false;
+
     return em.mesh;
 }
 
