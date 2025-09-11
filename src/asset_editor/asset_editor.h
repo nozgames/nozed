@@ -135,12 +135,18 @@ extern void HandleBoxSelect(const Bounds2& bounds);
 
 // @skeleton_editor
 extern void InitSkeletonEditor(EditorAsset& ea);
+extern void UpdateSkeletonEditor();
+extern void DrawSkeletonEditor();
 
 // @draw
+extern void DrawLine(const Vec2& v0, const Vec2& v1);
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
+extern void DrawVertex(const Vec2& v);
 extern void DrawVertex(const Vec2& v, f32 size);
 extern void DrawOrigin(const EditorAsset& ea);
 extern void DrawOrigin(const Vec2& position);
+extern void DrawBounds(const EditorAsset& ea, float expand=0);
+extern void DrawBone(const Vec2& a, const Vec2& b);
 
 // @shortcut
 struct Shortcut

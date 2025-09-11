@@ -11,22 +11,35 @@ extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, Edita
 void DrawEditorSkeleton(EditorAsset& ea)
 {
     EditorSkeleton& skeleton = *ea.skeleton;
-    DrawOrigin(ea.position);
-    BindColor(ea.editing ? COLOR_SELECTED : COLOR_BLACK);
-    for (int i=0; i<skeleton.bone_count; i++)
+
+    BindMaterial(g_asset_editor.vertex_material);
+    BindColor((ea.selected && !ea.editing) ? COLOR_SELECTED : COLOR_BLACK);
+    for (int i=1; i<skeleton.bone_count; i++)
     {
         const EditorBone& bone = skeleton.bones[i];
-        Vec2 bone_position = bone.transform * VEC2_ZERO;
-        if (bone.parent_index < 0)
-            continue;
-
-        const EditorBone& ebone_parent = skeleton.bones[bone.parent_index];
-        Vec2 parent_position = ebone_parent.transform * VEC2_ZERO;
-        float len = Length(bone_position - parent_position);
+        Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
+        Vec2 parent_position = skeleton.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
         Vec2 dir = Normalize(bone_position - parent_position);
-        BindTransform(TRS(ea.position + parent_position, dir, VEC2_ONE * len));
-        DrawMesh(g_asset_editor.bone_mesh);
+        float len = Length(bone_position - parent_position);
+        BindTransform(TRS(parent_position, dir, VEC2_ONE * len));
+        DrawBone(parent_position + ea.position, bone_position + ea.position);
     }
+
+    DrawOrigin(ea.position);
+}
+
+int HitTestBone(const EditorSkeleton& em, const Vec2& world_pos)
+{
+    const float size = g_asset_editor.select_size;
+    for (int i=0; i<em.bone_count; i++)
+    {
+        const EditorBone& bone = em.bones[i];
+        Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
+        if (Length(bone_position - world_pos) < size)
+            return i;
+    }
+
+    return -1;
 }
 
 EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::path& path)
@@ -95,17 +108,6 @@ EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::
                     break;
                 }
 
-                case 'r':
-                {
-                    float r;
-                    if (!ExpectFloat(tk, &token, &r))
-                        break;
-
-                    bone.rotation = r;
-                    SkipWhitespace(tk);
-                    break;
-                }
-
                 default:
                     break;
                 }
@@ -129,19 +131,7 @@ EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::
         }
     }
 
-    for (int i=0; i<eskel->bone_count; i++)
-    {
-        EditorBone& ebone = eskel->bones[i];
-        ebone.transform = TRS(ebone.position, ebone.rotation, VEC2_ONE);
-        if (ebone.parent_index >= 0)
-        {
-            EditorBone& ebone_parent = eskel->bones[ebone.parent_index];
-            ebone.transform = ebone.transform * ebone_parent.transform;
-            ebone.length = Length(ebone.transform * VEC2_ZERO - ebone_parent.transform * VEC2_ZERO);
-        }
-        else
-            ebone.length = 0.5f;
-    }
+    UpdateTransforms(*eskel);
 
     return eskel;
 }
@@ -175,4 +165,31 @@ EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
 
     g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
     return ea;
+}
+
+void UpdateTransforms(EditorSkeleton& es)
+{
+    if (es.bone_count <= 0)
+        return;
+
+    EditorBone& root = es.bones[0];
+    root.local_to_world = TRS(root.position, 0, VEC2_ONE);
+    root.world_to_local = Inverse(root.local_to_world);
+
+    for (int i=1; i<es.bone_count; i++)
+    {
+        EditorBone& bone = es.bones[i];
+        bone.local_to_world = TRS(bone.position, 0, VEC2_ONE) * es.bones[bone.parent_index].local_to_world;
+        bone.world_to_local = Inverse(bone.local_to_world);
+    }
+
+    Vec2 root_position = es.bones[0].local_to_world * VEC2_ZERO;
+    Bounds2 bounds = Bounds2 { root_position, root_position };
+    for (int i=1; i<es.bone_count; i++)
+    {
+        Vec2 bone_position = es.bones[i].local_to_world * VEC2_ZERO;
+        bounds = Union(bounds, bone_position);
+    }
+
+    es.bounds = Expand(bounds, 0.5f);
 }

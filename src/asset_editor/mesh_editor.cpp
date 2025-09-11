@@ -14,7 +14,7 @@ constexpr float VERTEX_HIT_SIZE = 20.0f;
 constexpr float CENTER_SIZE = 0.2f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
-constexpr float SCALE_TOOL_WIDTH = 0.02f;
+constexpr float ROTATE_TOOL_WIDTH = 0.02f;
 
 enum MeshEditorState
 {
@@ -52,8 +52,7 @@ static void DrawVertices(const EditorAsset& ea, bool selected)
         const EditorVertex& ev = em.vertices[i];
         if (ev.selected != selected)
             continue;
-        BindTransform(TRS(ev.position + ea.position, 0, VEC2_ONE * g_asset_editor.zoom_ref_scale * VERTEX_SIZE));
-        DrawMesh(g_asset_editor.vertex_mesh);
+        DrawVertex(ev.position + ea.position);
     }
 }
 
@@ -507,7 +506,7 @@ static void DrawScaleState()
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
     DrawVertex(g_mesh_editor.selection_drag_start, CENTER_SIZE * 0.75f);
     BindColor(COLOR_CENTER);
-    DrawLine(g_asset_editor.mouse_world_position, g_mesh_editor.selection_drag_start, SCALE_TOOL_WIDTH);
+    DrawLine(g_asset_editor.mouse_world_position, g_mesh_editor.selection_drag_start, ROTATE_TOOL_WIDTH);
     BindColor(COLOR_ORIGIN);
     DrawVertex(g_asset_editor.mouse_world_position, CENTER_SIZE);
 }
@@ -537,7 +536,7 @@ static void DrawHeightState()
     BindColor(SetAlpha(COLOR_CENTER, 0.5f));
     DrawVertex(g_mesh_editor.world_drag_start, CENTER_SIZE * 0.75f);
     BindColor(COLOR_CENTER);
-    DrawLine(g_mesh_editor.world_drag_start + h1, g_mesh_editor.world_drag_start - h1, SCALE_TOOL_WIDTH);
+    DrawLine(g_mesh_editor.world_drag_start + h1, g_mesh_editor.world_drag_start - h1, ROTATE_TOOL_WIDTH);
     BindColor(COLOR_ORIGIN);
     DrawVertex(g_mesh_editor.world_drag_start + Mix(h1, -h1, height_ratio), CENTER_SIZE);
 }

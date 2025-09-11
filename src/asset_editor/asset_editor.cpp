@@ -46,8 +46,7 @@ static void UpdateCamera()
     SetExtents(g_asset_editor.camera, -half_width, half_width, half_height, -half_height, false);
 
     g_asset_editor.zoom_ref_scale = 1.0f / g_asset_editor.zoom;
-    g_asset_editor.select_size = (ScreenToWorld(g_asset_editor.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_asset_editor.camera, VEC2_ZERO)).y;
-
+    g_asset_editor.select_size = Abs((ScreenToWorld(g_asset_editor.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_asset_editor.camera, VEC2_ZERO)).y);
 }
 
 static void FrameView()
@@ -88,7 +87,7 @@ static void FrameView()
     
     Vec2Int screen_size = GetScreenSize();
     f32 target_world_height = max_dimension * FRAME_VIEW_PERCENTAGE;
-    g_asset_editor.zoom = (f32)screen_size.y / (g_asset_editor.dpi * g_asset_editor.ui_scale * target_world_height);
+    g_asset_editor.zoom = Clamp((f32)screen_size.y / (g_asset_editor.dpi * g_asset_editor.ui_scale * target_world_height), ZOOM_MIN, ZOOM_MAX);
     
     SetPosition(g_asset_editor.camera, center);
     UpdateCamera();
@@ -400,6 +399,10 @@ static void UpdateAssetEditorInternal()
             UpdateMeshEditor(ea);
             break;
 
+        case EDITABLE_ASSET_TYPE_SKELETON:
+            UpdateSkeletonEditor();
+            break;
+
         default:
             break;
         }
@@ -484,6 +487,10 @@ void RenderView()
             DrawMeshEditor(ea);
             break;
 
+        case EDITABLE_ASSET_TYPE_SKELETON:
+            DrawSkeletonEditor();
+            break;
+
         default:
             break;
         }
@@ -500,10 +507,14 @@ void RenderView()
         }
     }
 
-    // Draw origins
+    // Draw origins and bounds
     for (int i=0; i<g_asset_editor.asset_count; i++)
         if (g_asset_editor.assets[i]->selected)
-            DrawOrigin(*g_asset_editor.assets[i]);
+        {
+            EditorAsset& ea = *g_asset_editor.assets[i];
+            DrawOrigin(ea);
+            DrawBounds(ea, 0.05f);
+        }
 
     DrawBoxSelect();
 }

@@ -2,6 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+constexpr float OUTLINE_WIDTH = 0.05f;
+
 #include "editor_mesh.h"
 
 #include "../asset_editor/asset_editor.h"
@@ -109,7 +111,7 @@ static void UpdateEdges(EditorMesh& em)
         ev.edge_normal = VEC2_ZERO;
     }
 
-    em.bounds = {min, max};
+    em.bounds = Expand({min, max}, OUTLINE_WIDTH * 2);
 
     for (int i = 0; i < em.face_count; i++)
     {
@@ -159,12 +161,10 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
         AddTriangle(builder, i * 3, i * 3 + 1, i * 3 + 2);
     }
 
-    // Generate edges
+    // Generate outline
     Vec2 edge_uv = ColorUV(0,0);
     for (int i=0; i < em.edge_count; i++)
     {
-        constexpr float edge_width = 0.01f;
-
         const EditorEdge& ee = em.edges[i];
         if (ee.triangle_count > 1)
             continue;
@@ -175,8 +175,8 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
         Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
         int base = GetVertexCount(builder);
         AddVertex(builder, ToVec2(p0), VEC3_FORWARD, edge_uv, 0);
-        AddVertex(builder, ToVec2(p0) + v0.edge_normal * edge_width, VEC3_FORWARD, edge_uv, 0);
-        AddVertex(builder, ToVec2(p1) + v1.edge_normal * edge_width, VEC3_FORWARD, edge_uv, 0);
+        AddVertex(builder, ToVec2(p0) + v0.edge_normal * OUTLINE_WIDTH, VEC3_FORWARD, edge_uv, 0);
+        AddVertex(builder, ToVec2(p1) + v1.edge_normal * OUTLINE_WIDTH, VEC3_FORWARD, edge_uv, 0);
         AddVertex(builder, ToVec2(p1), VEC3_FORWARD, edge_uv, 0);
         AddTriangle(builder, base+0, base+1, base+3);
         AddTriangle(builder, base+1, base+2, base+3);
@@ -864,7 +864,7 @@ bool HitTest(const EditorMesh& mesh, const Vec2& position, const Bounds2& hit_bo
 
 Bounds2 GetSelectedBounds(const EditorMesh& emesh)
 {
-    Bounds2 bounds;
+    Bounds2 bounds = BOUNDS2_ZERO;
     bool first = true;
     for (int i = 0; i < emesh.vertex_count; i++)
     {

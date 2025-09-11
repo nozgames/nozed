@@ -2,9 +2,6 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-constexpr Bounds2 VFX_BOUNDS = Bounds2{{-1.0f, -1.0f}, {1.0f, 1.0f}};
-constexpr Bounds2 SKELETON_BOUNDS = Bounds2{{-1.0f, -1.0f}, {1.0f, 1.0f}};
-
 #include "../asset_editor/asset_editor.h"
 #include "../utils/file_helpers.h"
 
@@ -130,10 +127,10 @@ bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos)
         return -1 != HitTestTriangle(*ea.mesh, ea.position, hit_pos);
 
     case EDITABLE_ASSET_TYPE_VFX:
-        return Contains(VFX_BOUNDS + ea.position, hit_pos);
+        return Contains(GetBounds(ea.vfx->vfx) + ea.position, hit_pos);
 
     case EDITABLE_ASSET_TYPE_SKELETON:
-        return Contains(SKELETON_BOUNDS + ea.position, hit_pos);
+        return Contains(ea.skeleton->bounds + ea.position, hit_pos);
 
     default:
         return false;
@@ -157,10 +154,10 @@ bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds)
         return HitTest(*ea.mesh, ea.position, hit_bounds);
 
     case EDITABLE_ASSET_TYPE_VFX:
-        return Intersects(VFX_BOUNDS + ea.position, hit_bounds);
+        return Intersects(GetBounds(ea.vfx->vfx) + ea.position, hit_bounds);
 
     case EDITABLE_ASSET_TYPE_SKELETON:
-        return Intersects(SKELETON_BOUNDS + ea.position, hit_bounds);
+        return Intersects(ea.skeleton->bounds + ea.position, hit_bounds);
 
     default:
         return false;
@@ -209,10 +206,10 @@ Bounds2 GetBounds(const EditorAsset& ea)
         return ea.mesh->bounds;
 
     case EDITABLE_ASSET_TYPE_VFX:
-        return VFX_BOUNDS;
+        return GetBounds(ea.vfx->vfx);
 
     case EDITABLE_ASSET_TYPE_SKELETON:
-        return SKELETON_BOUNDS;
+        return ea.skeleton->bounds;
 
     default:
         break;
@@ -229,10 +226,10 @@ Bounds2 GetSelectedBounds(const EditorAsset& ea)
         return GetSelectedBounds(*ea.mesh);
 
     case EDITABLE_ASSET_TYPE_VFX:
-        return VFX_BOUNDS;
+        return GetBounds(ea.vfx->vfx);
 
     case EDITABLE_ASSET_TYPE_SKELETON:
-        return SKELETON_BOUNDS;
+        return ea.skeleton->bounds;
 
     default:
         break;

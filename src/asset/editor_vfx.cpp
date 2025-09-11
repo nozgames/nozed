@@ -300,6 +300,32 @@ static VfxColorCurve ParseColorCurve(const std::string& str, const VfxColorCurve
     return value;
 }
 
+static Bounds2 CalculateBounds(const EditorVfx& evfx)
+{
+    Bounds2 bounds;
+    for (int i=0, c=evfx.emitter_count; i<c; i++)
+    {
+        const VfxEmitterDef& e = evfx.emitters[i].def;
+        const VfxParticleDef& p = e.particle_def;
+        Bounds2 eb = { e.spawn.min, e.spawn.max };
+        float ssmax = Max(p.size.start.min,p.size.start.max);
+        float semax = Max(p.size.end.min,p.size.end.max);
+        float smax = Max(ssmax, semax);
+        eb = Expand(eb, smax);
+
+        float speed_max = Max(p.speed.start.max, p.speed.end.max);
+        float duration_max = p.duration.max;
+        eb = Expand(eb, speed_max * duration_max);
+
+        if (i == 0)
+            bounds = eb;
+        else
+            bounds = Union(bounds, eb);
+    }
+
+    return bounds;
+}
+
 void Serialize(const EditorVfx& evfx, Stream* stream)
 {
     AssetHeader header = {};
@@ -307,6 +333,8 @@ void Serialize(const EditorVfx& evfx, Stream* stream)
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);
+
+    WriteStruct<Bounds2>(stream, CalculateBounds(evfx));
 
     WriteStruct(stream, evfx.duration);
     WriteBool(stream, evfx.loop);
@@ -319,7 +347,7 @@ void Serialize(const EditorVfx& evfx, Stream* stream)
         WriteStruct(stream, emitter.def.burst);
         WriteStruct(stream, emitter.def.duration);
         WriteStruct(stream, emitter.def.angle);
-        WriteStruct(stream, emitter.def.radius);
+        //WriteStruct(stream, emitter.def.radius);
         WriteStruct(stream, emitter.def.spawn);
 
         const VfxParticleDef& particle = emitter.def.particle_def;
@@ -382,7 +410,7 @@ EditorVfx* LoadEditorVfx(Allocator* allocator, const std::filesystem::path& sour
         emitter.def.burst = ParseInt(source->GetString(emitter_name.c_str(), "burst", "0"), VFX_INT_ZERO);
         emitter.def.duration = ParseFloat(source->GetString(emitter_name.c_str(), "duration", "1.0"), VFX_FLOAT_ONE);
         emitter.def.angle = ParseFloat(source->GetString(emitter_name.c_str(), "angle", "0..360"), {0.0f, 360.0f});
-        emitter.def.radius = ParseFloat(source->GetString(emitter_name.c_str(), "radius", "0"), VFX_FLOAT_ZERO);
+        //emitter.def.radius = ParseFloat(source->GetString(emitter_name.c_str(), "radius", "0"), VFX_FLOAT_ZERO);
         emitter.def.spawn = ParseVec2(source->GetString(emitter_name.c_str(), "spawn", "(0, 0, 0)"), VFX_VEC2_ZERO);
 
         // Particle
