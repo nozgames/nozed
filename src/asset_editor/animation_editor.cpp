@@ -9,17 +9,26 @@ constexpr float FRAME_LINE_OFFSET = -0.1f;
 constexpr float FRAME_SIZE = 0.16f;
 constexpr float FRAME_SELECTED_SIZE = 0.32f;
 
+constexpr float CENTER_SIZE = 0.2f;
+constexpr float ORIGIN_SIZE = 0.1f;
+constexpr float ORIGIN_BORDER_SIZE = 0.12f;
+constexpr float ROTATE_TOOL_WIDTH = 0.02f;
+
+constexpr float BONE_ORIGIN_SIZE = 0.16f;
+
 enum AnimationEditorState
 {
     ANIMATION_EDITOR_STATE_DEFAULT,
-    ANIMATION_EDITOR_STATE_MOVE
+    ANIMATION_EDITOR_STATE_MOVE,
+    ANIMATION_EDITOR_STATE_ROTATE,
+    ANIMATION_EDITOR_STATE_PLAY,
 };
 
 struct SavedBone
 {
     Mat3 world_to_local;
     Vec2 world_position;
-    float rotation;
+    BoneTransform transform;
 };
 
 struct AnimationEditor
@@ -29,7 +38,6 @@ struct AnimationEditor
     EditorAnimation* animation;
     int selected_bone_count;
     bool clear_selection_on_up;
-    int selected_frame;
     void (*state_update)();
     void (*state_draw)();
     Vec2 command_world_position;
@@ -56,7 +64,7 @@ static void UpdateSelectionCenter()
         EditorBone& eb = es.bones[i];
         if (!eb.selected)
             continue;
-        center += eb.local_to_world * VEC2_ZERO;
+        center += en.bone_transforms[i] * VEC2_ZERO;
         center_count += 1.0f;
     }
 
@@ -81,6 +89,7 @@ static void SaveState()
         SavedBone& sb = g_animation_editor.saved_bones[i];
         sb.world_to_local = es.bones[eb.parent_index].world_to_local;
         sb.world_position = eb.local_to_world * VEC2_ZERO;
+        sb.transform = en.bones[i].frames[en.current_frame];
     }
 
     UpdateSelectionCenter();
@@ -90,6 +99,7 @@ static void SetState(AnimationEditorState state, void (*state_update)(), void (*
 {
     g_animation_editor.state = state;
     g_animation_editor.state_update = state_update;
+    g_animation_editor.state_draw = state_draw;
     g_animation_editor.command_world_position = g_asset_editor.mouse_world_position;
 
     SetCursor(SYSTEM_CURSOR_DEFAULT);
@@ -106,6 +116,19 @@ static void ClearSelection()
         es.bones[i].selected = false;
 
     g_animation_editor.selected_bone_count = 0;
+}
+
+static int HitTestBone(const EditorAnimation& en, const Vec2& world_pos)
+{
+    const float size = g_asset_editor.select_size;
+    for (int i=0; i<en.bone_count; i++)
+    {
+        Vec2 bone_position = en.bone_transforms[i] * VEC2_ZERO;
+        if (Length(bone_position - world_pos) < size)
+            return i;
+    }
+
+    return -1;
 }
 
 static void SelectBone(int bone_index)
@@ -128,10 +151,8 @@ static bool SelectBone()
     if (!en.skeleton_asset)
         return false;
 
-    EditorSkeleton& es = *en.skeleton_asset->skeleton;
-
     int bone_index = HitTestBone(
-        es,
+        en,
         ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - g_animation_editor.asset->position);
 
     if (bone_index == -1)
@@ -141,28 +162,60 @@ static bool SelectBone()
     return true;
 }
 
-static void UpdateMoveState()
+static void UpdateRotateState()
 {
     EditorAnimation& en = *g_animation_editor.animation;
     if (!en.skeleton_asset)
         return;
 
-    EditorSkeleton& es = *en.skeleton_asset->skeleton;
+    Vec2 dir_start = Normalize(g_animation_editor.command_world_position - g_animation_editor.selection_center_world);
+    Vec2 dir_current = Normalize(g_asset_editor.mouse_world_position - g_animation_editor.selection_center_world);
+    float angle = SignedAngleDelta(dir_start, dir_current);
+    if (fabsf(angle) < F32_EPSILON)
+        return;
 
-    Vec2 world_delta = g_asset_editor.mouse_world_position - g_animation_editor.command_world_position;
-
-    for (int i=0; i<es.bone_count; i++)
+    for (int i=0; i<en.bone_count; i++)
     {
-        EditorBone& eb = es.bones[i];
+        EditorBone& eb = en.skeleton_asset->skeleton->bones[i];
         if (!eb.selected)
             continue;
 
         SavedBone& sb = g_animation_editor.saved_bones[i];
-        Vec2 bone_position = sb.world_to_local * (sb.world_position + world_delta);
-        eb.position = bone_position;
+        en.bones[i].frames[en.current_frame].rotation = sb.transform.rotation - angle;
     }
 
-    UpdateTransforms(es);
+    UpdateTransforms(en, en.current_frame);
+}
+
+static void UpdateMoveState()
+{
+    Vec2 world_delta = g_asset_editor.mouse_world_position - g_animation_editor.command_world_position;
+
+    EditorAnimation& en = *g_animation_editor.asset->anim;
+    for (int i=0; i<en.bone_count; i++)
+    {
+        EditorAnimationBone& eab = en.bones[i];
+        EditorBone& eb = en.skeleton_asset->skeleton->bones[i];
+        if (!eb.selected)
+            continue;
+
+        SavedBone& sb = g_animation_editor.saved_bones[i];
+        eab.frames[en.current_frame].position = sb.transform.position + world_delta;
+    }
+
+    UpdateTransforms(en, en.current_frame);
+}
+
+static void UpdatePlayState()
+{
+    Animation* animation = g_animation_editor.animation->animation;
+    if (!animation)
+        animation = g_animation_editor.animation->animation = ToAnimation(ALLOCATOR_DEFAULT, *g_animation_editor.animation, g_animation_editor.asset->name);
+
+    if (!animation)
+        return;
+
+    // todo: how do we animate?
 }
 
 static void UpdateDefaultState()
@@ -194,7 +247,6 @@ static void UpdateDefaultState()
     if (WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) && g_animation_editor.clear_selection_on_up)
     {
         ClearSelection();
-        // UpdateSelection(ea);
     }
 }
 
@@ -232,19 +284,30 @@ static void DrawSkeleton()
 
     EditorSkeleton& es = *en.skeleton_asset->skeleton;
 
-    // Draw bone joints
     for (int i=0; i<es.bone_count; i++)
     {
         const EditorBone& bone = es.bones[i];
-        Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
         BindColor(bone.selected ? COLOR_SELECTED : COLOR_BLACK);
-        DrawVertex(bone_position + ea.position);
+        DrawVertex(en.bone_transforms[i] * VEC2_ZERO + ea.position, BONE_ORIGIN_SIZE);
     }
+}
+
+static void DrawRotateState()
+{
+    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
+    DrawVertex(g_animation_editor.selection_center_world, CENTER_SIZE * 0.75f);
+    BindColor(COLOR_CENTER);
+    DrawLine(g_asset_editor.mouse_world_position, g_animation_editor.selection_center_world);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(g_asset_editor.mouse_world_position, CENTER_SIZE);
 }
 
 void DrawAnimationEditor()
 {
     DrawSkeleton();
+
+    if (g_animation_editor.state_draw)
+        g_animation_editor.state_draw();
 
     EditorAsset& ea = *g_animation_editor.asset;
     EditorAnimation& en = *g_animation_editor.animation;
@@ -265,17 +328,19 @@ void DrawAnimationEditor()
     }
 
     BindColor(COLOR_ORIGIN);
-    DrawVertex({pos.x - left.x + h1.x * g_animation_editor.selected_frame, pos.y}, FRAME_SELECTED_SIZE);
+    DrawVertex({pos.x - left.x + h1.x * en.current_frame, pos.y}, FRAME_SELECTED_SIZE);
 }
 
 static void HandlePrevFrameCommand()
 {
-    g_animation_editor.selected_frame = Max(0, g_animation_editor.selected_frame - 1);
+    EditorAnimation& en = *g_animation_editor.animation;
+    en.current_frame = Max(0, en.current_frame - 1);
 }
 
 static void HandleNextFrameCommand()
 {
-    g_animation_editor.selected_frame = Min(g_animation_editor.animation->frame_count - 1, g_animation_editor.selected_frame + 1);
+    EditorAnimation& en = *g_animation_editor.animation;
+    en.current_frame = Min(g_animation_editor.animation->frame_count - 1, en.current_frame + 1);
 }
 
 static void HandleMoveCommand()
@@ -292,12 +357,34 @@ static void HandleMoveCommand()
     SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
+static void HandleRotateCommand()
+{
+    if (g_animation_editor.state != ANIMATION_EDITOR_STATE_DEFAULT)
+        return;
+
+    if (g_animation_editor.selected_bone_count <= 0)
+        return;
+
+    RecordUndo(*g_animation_editor.asset);
+    SaveState();
+    SetState(ANIMATION_EDITOR_STATE_ROTATE, UpdateRotateState, DrawRotateState);
+    //SetCursor(SYSTEM_CURSOR_MOVE);
+}
+
+static void HandlePlayCommand()
+{
+    if (g_animation_editor.state != ANIMATION_EDITOR_STATE_DEFAULT)
+        return;
+
+    SetState(ANIMATION_EDITOR_STATE_PLAY, UpdatePlayState, nullptr);
+}
+
 static Shortcut g_animation_editor_shortcuts[] = {
     { KEY_G, false, false, false, HandleMoveCommand },
-    // { KEY_P, false, false, false, HandleParentCommand },
-    // { KEY_P, false, true, false, HandleUnparentCommand },
+    { KEY_R, false, false, false, HandleRotateCommand },
     { KEY_A, false, false, false, HandlePrevFrameCommand },
     { KEY_D, false, false, false, HandleNextFrameCommand },
+    { KEY_SPACE, false, false, false, HandlePlayCommand },
     { INPUT_CODE_NONE }
 };
 
@@ -306,7 +393,6 @@ void InitAnimationEditor(EditorAsset& ea)
     g_animation_editor.state = ANIMATION_EDITOR_STATE_DEFAULT;
     g_animation_editor.asset = &ea;
     g_animation_editor.animation = ea.anim;
-    g_animation_editor.selected_frame = 0;
 
     EnableShortcuts(g_animation_editor_shortcuts);
 }

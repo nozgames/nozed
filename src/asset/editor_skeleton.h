@@ -20,6 +20,7 @@ struct EditorBone
     Vec2 position;
     Mat3 local_to_world;
     Mat3 world_to_local;
+    float length;
     bool selected;
 };
 

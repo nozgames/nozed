@@ -264,12 +264,6 @@ void UpdateSkeletonEditor()
 
 static void DrawRotateState()
 {
-    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
-    DrawVertex(g_skeleton_editor.selection_center_world, CENTER_SIZE * 0.75f);
-    BindColor(COLOR_CENTER);
-    DrawLine(g_asset_editor.mouse_world_position, g_skeleton_editor.selection_center_world);
-    BindColor(COLOR_ORIGIN);
-    DrawVertex(g_asset_editor.mouse_world_position, CENTER_SIZE);
 }
 
 static void DrawSkeleton()

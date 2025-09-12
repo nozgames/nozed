@@ -7,6 +7,9 @@
 #include <asset_editor/asset_editor.h>
 #include "editor_asset.h"
 
+extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
+extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
+
 void DrawEditorAnimation(EditorAsset& ea)
 {
     EditorAnimation& en = *ea.anim;
@@ -14,11 +17,23 @@ void DrawEditorAnimation(EditorAsset& ea)
     if (en.skeleton_asset == nullptr)
     {
         en.skeleton_asset = GetEditorAsset(FindEditorAssetByName(en.skeleton_name));
+        UpdateTransforms(en, en.current_frame);
         UpdateBounds(en);
     }
 
-    if (en.skeleton_asset)
-        DrawEditorSkeleton(*en.skeleton_asset, ea.position, ea.selected && !ea.editing);
+    UpdateTransforms(en, en.current_frame);
+
+    BindMaterial(g_asset_editor.vertex_material);
+    BindColor(COLOR_BLACK);
+
+    EditorSkeleton& es = *en.skeleton_asset->skeleton;
+
+    for (int i=1; i<en.bone_count; i++)
+    {
+        Vec3 b0 = en.bone_transforms[i] * Vec3 { 0, 0, 1 };
+        Vec3 b1 = en.bone_transforms[es.bones[i].parent_index] * Vec3 { 0, 0, 1 };
+        DrawBone(Vec2{b1.x, b1.y} + ea.position, Vec2{b0.x, b0.y} + ea.position);
+    }
 }
 
 static void ParseSkeletonBone(EditorAnimation& en, Tokenizer& tk, const EditorSkeleton& es, int bone_index, int* bone_map)
@@ -39,14 +54,21 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     std::filesystem::path skeleton_path = GetEditorAssetPath(en.skeleton_name, ".skel");
     EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, skeleton_path);
 
-    // Populate the bone list with the skeleton bones
+    // Populate the bone list with the skeleton bones and default all frames to
+    // to the bind pose
     en.bone_count = es->bone_count;
     for (int i=0; i<es->bone_count; i++)
     {
         EditorAnimationBone& enb = en.bones[i];
-        enb.name = es->bones[i].name;
+        EditorBone& eb = es->bones[i];
+        enb.name = eb.name;
         enb.index = i;
     }
+
+    // Make sure all scales are defaulted to 1
+    for (int i=0; i<en.bone_count; i++)
+        for (int f=0; f<MAX_ANIMATION_FRAMES; f++)
+            en.bones[i].frames[f].scale = 1.0f;
 
     int bone_index = 0;
     while (!IsEOF(tk))
@@ -76,11 +98,34 @@ static void ParseFramePosition(EditorAnimation& ea, Tokenizer& tk, int bone_inde
     if (!ExpectFloat(tk, &y))
         ThrowError("expected position 'y' value");
 
-    // Ignore the data since the bone is gone from the skeleton
     if (bone_index == -1)
         return;
 
-    ea.bones[bone_index].position[frame_index] = {x,y};
+    ea.bones[bone_index].frames[frame_index].position = {x,y};
+}
+
+static void ParseFrameRotation(EditorAnimation& ea, Tokenizer& tk, int bone_index, int frame_index)
+{
+    float r;
+    if (!ExpectFloat(tk, &r))
+        ThrowError("expected rotation value");
+
+    if (bone_index == -1)
+        return;
+
+    ea.bones[bone_index].frames[frame_index].rotation = r;
+}
+
+static void ParseFrameScale(EditorAnimation& ea, Tokenizer& tk, int bone_index, int frame_index)
+{
+    float s;
+    if (!ExpectFloat(tk, &s))
+        ThrowError("expected scale value");
+
+    if (bone_index == -1)
+        return;
+
+    ea.bones[bone_index].frames[frame_index].scale = s;
 }
 
 static void ParseFrame(EditorAnimation& ea, Tokenizer& tk, int frame_index, int* bone_map)
@@ -90,6 +135,10 @@ static void ParseFrame(EditorAnimation& ea, Tokenizer& tk, int frame_index, int*
     {
         if (ExpectIdentifier(tk, "b"))
             bone_index = ParseFrameBone(ea, tk, bone_map);
+        else if (ExpectIdentifier(tk, "r"))
+            ParseFrameRotation(ea, tk, bone_index, frame_index);
+        else if (ExpectIdentifier(tk, "s"))
+            ParseFrameScale(ea, tk, bone_index, frame_index);
         else if (ExpectIdentifier(tk, "p"))
             ParseFramePosition(ea, tk, bone_index, frame_index);
         else
@@ -130,6 +179,10 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
 
     en->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
     en->frame_count = frame_index;
+
+    for (int i=0; i<en->frame_count; i++)
+        UpdateTransforms(*en, i);
+
     return en;
 }
 
@@ -150,4 +203,61 @@ void UpdateBounds(EditorAnimation& en)
         return;
 
     en.bounds = en.skeleton_asset->skeleton->bounds;
+}
+
+void UpdateTransforms(EditorAnimation& en, int frame_index)
+{
+    if (!en.skeleton_asset)
+        return;
+
+    EditorSkeleton& es = *en.skeleton_asset->skeleton;
+
+    en.bone_transforms[0] = MAT3_IDENTITY;
+
+    for (int i=1; i<en.bone_count; i++)
+    {
+        EditorAnimationBone& eab = en.bones[i];
+
+        en.bone_transforms[i] =
+            en.bone_transforms[es.bones[i].parent_index] *
+            TRS(es.bones[i].position + eab.frames[frame_index].position, eab.frames[frame_index].rotation, VEC2_ONE * eab.frames[frame_index].scale);
+    }
+}
+
+void Serialize(const EditorAnimation& en, Stream* output_stream)
+{
+    AssetHeader header = {};
+    header.signature = ASSET_SIGNATURE_ANIMATION;
+    header.version = 1;
+    WriteAssetHeader(output_stream, &header);
+
+    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, std::string(en.skeleton_name->value) + ".skel");
+    if (!es)
+        throw std::runtime_error("invalid skeleton");
+
+    WriteU8(output_stream, (u8)en.bone_count);
+    WriteU8(output_stream, (u8)en.frame_count);
+
+    // todo: we could remove bones that have no actual data?
+    for (int i=0; i<en.bone_count; i++)
+        WriteU8(output_stream, (u8)en.bones[i].index);
+
+    // Write all bone transforms
+    for (int f=0; f<en.frame_count; f++)
+        for (int i=0; i<en.bone_count; i++)
+            WriteStruct(output_stream, en.bones[i].frames[f]);
+}
+
+Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* name)
+{
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
+    if (!stream)
+        return nullptr;
+    Serialize(en, stream);
+    SeekBegin(stream, 0);
+
+    Animation* animation = (Animation*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_ANIMATION, LoadAnimation, stream);
+    Free(stream);
+
+    return animation;
 }
