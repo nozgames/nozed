@@ -46,4 +46,5 @@ extern void SaveAssetMetadata(const EditorSkeleton& es, Props* meta);
 extern void LoadAssetMetadata(EditorSkeleton& es, Props* meta);
 extern void PostLoadEditorAssets(EditorSkeleton& es);
 extern int FindBoneIndex(const EditorSkeleton& es, const Name* name);
+extern void Serialize(EditorSkeleton& es, Stream* stream);
 extern Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton& es, const Name* name);
