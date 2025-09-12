@@ -7,6 +7,7 @@
 #include "editor_mesh.h"
 #include "editor_vfx.h"
 #include "editor_skeleton.h"
+#include "editor_animation.h"
 
 enum EditorAssetType
 {
@@ -14,6 +15,7 @@ enum EditorAssetType
     EDITOR_ASSET_TYPE_MESH,
     EDITOR_ASSET_TYPE_VFX,
     EDITOR_ASSET_TYPE_SKELETON,
+    EDITOR_ASSET_TYPE_ANIMATION,
     EDITOR_ASSET_TYPE_COUNT,
 };
 
@@ -27,6 +29,7 @@ struct EditorAsset
         EditorMesh* mesh;
         EditorVfx* vfx;
         EditorSkeleton* skeleton;
+        EditorAnimation* anim;
     };
     Vec2 position;
     Vec2 saved_position;
@@ -39,3 +42,5 @@ struct EditorAsset
 
 extern void HotloadEditorAsset(const Name* name);
 extern void MarkModified(EditorAsset& ea);
+extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
+extern std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext);

@@ -1114,6 +1114,93 @@ static void Optimize(EditorMesh& em)
     em.vertex_count = vertex_count;
 }
 
+static void ParseVertexHeght(EditorVertex& ev, Tokenizer& tk)
+{
+    if (!ExpectFloat(tk, &ev.height))
+        ThrowError("missing vertex height value");
+}
+
+static void ParseVertexEdge(EditorVertex& ev, Tokenizer& tk)
+{
+    if (!ExpectFloat(tk, &ev.edge_size))
+        ThrowError("missing vertex edge value");
+}
+
+static void ParseVertex(EditorMesh& em, Tokenizer& tk)
+{
+    if (em.vertex_count >= MAX_VERTICES)
+        ThrowError("too many vertices");
+
+    f32 x;
+    if (!ExpectFloat(tk, &x))
+        ThrowError("missing vertex x coordinate");
+
+    f32 y;
+    if (!ExpectFloat(tk, &y))
+        ThrowError("missing vertex y coordinate");
+
+    EditorVertex& ev = em.vertices[em.vertex_count++];
+    ev.position = {x,y};
+
+    while (!IsEOF(tk))
+    {
+        if (ExpectIdentifier(tk, "e"))
+            ParseVertexEdge(ev, tk);
+        else if (ExpectIdentifier(tk, "h"))
+            ParseVertexHeght(ev, tk);
+        else
+            break;
+    }
+}
+
+static void ParseFaceColor(EditorFace& ef, Tokenizer& tk)
+{
+    int cx;
+    if (!ExpectInt(tk, &cx))
+        ThrowError("missing face color x value");
+
+    int cy;
+    if (!ExpectInt(tk, &cy))
+        ThrowError("missing face color y value");
+
+    ef.color = {(u8)cx, (u8)cy};
+}
+
+static void ParseFace(EditorMesh& em, Tokenizer& tk)
+{
+    if (em.face_count >= MAX_TRIANGLES)
+        ThrowError("too many faces");
+
+    int v0;
+    if (!ExpectInt(tk, &v0))
+        ThrowError("missing face v0 index");
+
+    int v1;
+    if (!ExpectInt(tk, &v1))
+        ThrowError("missing face v1 index");
+
+    int v2;
+    if (!ExpectInt(tk, &v2))
+        ThrowError("missing face v2 index");
+
+    if (v0 < 0 || v0 >= em.vertex_count || v1 < 0 || v1 >= em.vertex_count || v2 < 0 || v2 >= em.vertex_count)
+        ThrowError("face vertex index out of range");
+
+    EditorFace& ef = em.faces[em.face_count++];
+    ef.v0 = v0;
+    ef.v1 = v1;
+    ef.v2 = v2;
+    ef.color = {0, 0};
+
+    while (!IsEOF(tk))
+    {
+        if (ExpectIdentifier(tk, "c"))
+            ParseFaceColor(ef, tk);
+        else
+            break;
+    }
+}
+
 EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path)
 {
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
@@ -1123,111 +1210,22 @@ EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& pa
 
     EditorMesh* em = CreateEditableMesh(allocator);
 
-    while (HasTokens(tk))
+    try
     {
-        if (PeekChar(tk) == '\n')
+        while (!IsEOF(tk))
         {
-            NextChar(tk);
-            SkipWhitespace(tk);
-            continue;
+            if (ExpectIdentifier(tk, "v"))
+                ParseVertex(*em, tk);
+            else if (ExpectIdentifier(tk, "f"))
+                ParseFace(*em, tk);
+            else
+                ThrowError("invalid token '%s' in mesh", GetString(tk));
         }
-
-        if (!ExpectIdentifier(tk, &token))
-            break;
-
-        if (token.length != 1)
-            break;
-
-        if (token.value[0] == 'v')
-        {
-            f32 x;
-            f32 y;
-            if (!ExpectFloat(tk, &token, &x) || !ExpectFloat(tk, &token, &y))
-                break;
-
-            EditorVertex& ev = em->vertices[em->vertex_count++];
-            ev.position = {x, y};
-            ev.edge_size = 1.0f;
-
-            SkipWhitespace(tk);
-
-            while (PeekChar(tk) == 'e' || PeekChar(tk) == 'h')
-            {
-                char c = NextChar(tk);
-                SkipWhitespace(tk);
-                switch (c)
-                {
-                case 'e':
-                {
-                    float e;
-                    if (!ExpectFloat(tk, &token, &e))
-                        break;
-
-                    ev.edge_size = e;
-
-                    SkipWhitespace(tk);
-
-                    break;
-                }
-
-                case 'h':
-                {
-                    float h;
-                    if (!ExpectFloat(tk, &token, &h))
-                        break;
-
-                    ev.height = h;
-
-                    SkipWhitespace(tk);
-
-                    break;
-                }
-
-                default:
-                    break;
-                }
-            }
-        }
-        else if (token.value[0] == 'f')
-        {
-            int v0;
-            int v1;
-            int v2;
-            if (!ExpectInt(tk, &token, &v0) || !ExpectInt(tk, &token, &v1) || !ExpectInt(tk, &token, &v2))
-                break;
-
-            EditorFace& ef = em->faces[em->face_count++];
-            ef.v0 = v0;
-            ef.v1 = v1;
-            ef.v2 = v2;
-
-            SkipWhitespace(tk);
-
-            while (PeekChar(tk) == 'c')
-            {
-                char c = NextChar(tk);
-                SkipWhitespace(tk);
-                switch (c)
-                {
-                case 'c':
-                {
-                    int cx;
-                    int cy;
-                    if (!ExpectInt(tk, &token, &cx) || !ExpectInt(tk, &token, &cy))
-                        break;
-
-                    ef.color = { (u8)cx, (u8)cy };
-
-                    SkipWhitespace(tk);
-
-                    break;
-                }
-
-                default:
-                    break;
-                }
-            }
-        }
+    }
+    catch (std::exception& e)
+    {
+        LogFileError(path.string().c_str(), e.what());
+        return nullptr;
     }
 
     Bounds2 bounds = { em->vertices[0].position, em->vertices[0].position };

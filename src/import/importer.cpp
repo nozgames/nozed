@@ -2,6 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "../editor.h"
 #include "../server.h"
 #include "../utils/file_watcher.h"
 #include "asset_manifest.h"
@@ -16,6 +17,7 @@ extern AssetImporterTraits* GetStyleSheetImporterTraits();
 extern AssetImporterTraits* GetVfxImporterTraits();
 extern AssetImporterTraits* GetSoundImporterTraits();
 extern AssetImporterTraits* GetSkeletonImporterTraits();
+extern AssetImporterTraits* GetAnimationImporterTraits();
 
 struct ImportJob
 {
@@ -29,7 +31,6 @@ struct ImportJob
 struct Importer
 {
     std::vector<ImportJob> queue;
-    Props* config;
     std::atomic<bool> running;
     std::unique_ptr<std::thread> thread;
     std::atomic<bool> thread_running;
@@ -39,22 +40,6 @@ struct Importer
 static Importer g_importer = {};
 
 static bool ProcessImportQueue();
-
-static bool LoadConfig()
-{
-    std::filesystem::path config_path = "./editor.cfg";
-    if (Stream* config_stream = LoadStream(nullptr, config_path))
-    {
-        g_importer.config = Props::Load(config_stream);
-        Free(config_stream);
-
-        if (g_importer.config != nullptr)
-            return true;
-    }
-
-    LogError("missing configuration '%s'", config_path.string().c_str());
-    return false;
-}
 
 const AssetImporterTraits* FindImporter(const fs::path& path)
 {
@@ -124,7 +109,7 @@ static bool ProcessImportQueue()
         return false;
 
     // Get output directory from config
-    auto output_dir = g_importer.config->GetString("output", "directory", "assets");
+    auto output_dir = g_config->GetString("output", "directory", "assets");
 
     // Convert to filesystem::path
     fs::path output_path = fs::absolute(fs::path(output_dir));
@@ -191,7 +176,7 @@ static bool ProcessImportQueue()
                             meta = new Props();
 
                         // Call the importer
-                        job.importer->import_func(job.source_path, output_stream, g_importer.config, meta);
+                        job.importer->import_func(job.source_path, output_stream, g_config, meta);
 
                         delete meta;
 
@@ -200,10 +185,9 @@ static bool ProcessImportQueue()
                         bool found_relative = false;
 
                         // Get source directories from config and find the relative path
-                        auto source_list = g_importer.config->GetKeys("source");
-                        for (auto& source_dir_str : source_list)
+                        for (int p=0; p<g_editor.asset_path_count; p++)
                         {
-                            fs::path source_dir(source_dir_str);
+                            fs::path source_dir(g_editor.asset_paths[p]);
                             std::error_code ec;
                             relative_path = fs::relative(job.source_path, source_dir, ec);
                             if (!ec && !relative_path.empty() && relative_path.string().find("..") == std::string::npos)
@@ -280,10 +264,9 @@ static void CleanupOrphanedAssets(const fs::path& output_dir)
     std::set<fs::path> valid_asset_files;
     
     // Get source directories from config
-    auto source_list = g_importer.config->GetKeys("source");
-    for (const auto& source_dir_str : source_list)
+    for (int p=0; p<g_editor.asset_path_count; p++)
     {
-        fs::path source_dir(source_dir_str);
+        fs::path source_dir(g_editor.asset_paths[p]);
         if (!fs::exists(source_dir) || !fs::is_directory(source_dir))
             continue;
 
@@ -322,7 +305,6 @@ static void CleanupOrphanedAssets(const fs::path& output_dir)
         }
         catch (const std::exception& e)
         {
-            LogWarning("Failed to scan source directory '%s': %s", source_dir_str.c_str(), e.what());
             continue;
         }
     }
@@ -379,26 +361,17 @@ static void CleanupOrphanedAssets(const fs::path& output_dir)
     }
 }
 
-static int RunImporter()
+static void RunImporter()
 {
-    if (!LoadConfig())
-        return 1;
+    if (g_editor.asset_path_count == 0)
+        return;
 
     InitFileWatcher(500);
 
-    // Get source directories from config
-    if (!g_importer.config->HasGroup("source"))
-    {
-        LogError("No [source] section found in config");
-        ShutdownFileWatcher();
-        return 1;
-    }
-
     // Add directories to watch (file watcher will auto-start when first directory is added)
-    auto source = g_importer.config->GetKeys("source");
-    for (const auto& source_dir_str : source)
-        if (!WatchDirectory(fs::path(source_dir_str)))
-            LogWarning("Failed to add directory '%s'", source_dir_str.c_str());
+    for (int p=0; p<g_editor.asset_path_count; p++)
+        if (!WatchDirectory(fs::path(g_editor.asset_paths[p])))
+            LogWarning("Failed to add directory '%s'", g_editor.asset_paths[p]);
 
     FileChangeEvent event;
 
@@ -413,17 +386,16 @@ static int RunImporter()
             continue;
 
         // Clean up orphaned asset files before generating manifest
-        auto output_dir = g_importer.config->GetString("output", "directory", "assets");
+        auto output_dir = g_config->GetString("output", "directory", "assets");
         CleanupOrphanedAssets(fs::path(output_dir));
 
         // Generate a new asset manifest
-        auto manifest_path = g_importer.config->GetString("manifest", "output_file", "src/assets.cpp");
-        GenerateAssetManifest(fs::path(output_dir), fs::path(manifest_path), g_importer.importers, g_importer.config);
+        auto manifest_path = g_config->GetString("manifest", "output_file", "src/assets.cpp");
+        GenerateAssetManifest(fs::path(output_dir), fs::path(manifest_path), g_importer.importers, g_config);
     }
 
     ShutdownFileWatcher();
     g_importer.queue.clear();
-    return 0;
 }
 
 void InitImporter()
@@ -440,7 +412,8 @@ void InitImporter()
         GetStyleSheetImporterTraits(),
         GetVfxImporterTraits(),
         GetSoundImporterTraits(),
-        GetSkeletonImporterTraits()
+        GetSkeletonImporterTraits(),
+        GetAnimationImporterTraits()
     };
 
     g_importer.thread = std::make_unique<std::thread>([]

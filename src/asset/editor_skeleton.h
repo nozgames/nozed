@@ -4,7 +4,6 @@
 
 #pragma  once
 
-constexpr int MAX_BONES = 64;
 constexpr int MAX_SKINNED_MESHES = 64;
 
 struct EditorSkinnedMesh
@@ -36,10 +35,11 @@ struct EditorSkeleton
 extern EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::path& path);
 extern void DrawEditorSkeleton(EditorAsset& ea);
 extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
-extern EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path);
+extern EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path);
 extern int HitTestBone(const EditorSkeleton& es, const Vec2& world_pos);
 extern void UpdateTransforms(EditorSkeleton& es);
 extern void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& path);
 extern void SaveAssetMetadata(const EditorSkeleton& es, Props* meta);
 extern void LoadAssetMetadata(EditorSkeleton& es, Props* meta);
 extern void PostLoadEditorAssets(EditorSkeleton& es);
+extern int FindBoneIndex(const EditorSkeleton& es);

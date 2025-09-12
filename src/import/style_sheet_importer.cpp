@@ -38,10 +38,9 @@ static PseudoState ParsePseudoState(const string& str)
 static StyleColor ParseStyleColor(const string& value)
 {
     Tokenizer tk = {};
-    Token token = {};
     Color color = COLOR_TRANSPARENT;
     Init(tk, value.c_str());
-    ExpectColor(tk, &token, &color);
+    ExpectColor(tk, &color);
     return StyleColor{ {STYLE_KEYWORD_OVERWRITE}, color };
 }
 

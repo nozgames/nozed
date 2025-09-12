@@ -5,30 +5,41 @@
 #pragma once
 
 #include <noz/color.h>
-#include <noz/text.h>
 
 // @TokenType
 enum TokenType
 {
     TOKEN_TYPE_NONE,
-    TOKEN_TYPE_NUMBER,
+    TOKEN_TYPE_INT,
+    TOKEN_TYPE_FLOAT,
     TOKEN_TYPE_STRING,
+    TOKEN_TYPE_IDENTIFIER,
     TOKEN_TYPE_VEC2,
     TOKEN_TYPE_VEC3,
     TOKEN_TYPE_VEC4,
-    TOKEN_TYPE_OPERATOR,       // Operators (+, -, *, /, =, etc.)
-    TOKEN_TYPE_DELIMITER,      // Delimiters (, ), {, }, [, ], ;, :, etc.
+    TOKEN_TYPE_DELIMITER,
     TOKEN_TYPE_COLOR,
+    TOKEN_TYPE_BOOL,
     TOKEN_TYPE_EOF
 };
 
 struct Token
 {
-    const char* value;
+    const char* raw;
     size_t length;
     size_t line;
     size_t column;
     TokenType type;
+    union
+    {
+        float f;
+        int i;
+        bool b;
+        Color c;
+        Vec2 v2;
+        Vec3 v3;
+        Vec4 v4;
+    } value;
 };
 
 struct Tokenizer
@@ -38,37 +49,29 @@ struct Tokenizer
     size_t length;
     size_t line;
     size_t column;
+    Token next_token;
+    Token current_token;
 };
 
 // @tokenizer
-void Init(Tokenizer& tok, const char* input);
-bool HasTokens(Tokenizer& tok);
-bool ExpectToken(Tokenizer& tok, TokenType type, Token* token);
-bool ExpectQuotedString(Tokenizer& tok, Token* token);
-bool ExpectIdentifier(Tokenizer& tok, Token* result);
-bool ExpectNumber(Tokenizer& tok, Token* result);
-bool ExpectFloat(Tokenizer& tok, Token* token, float* result);
-bool ExpectInt(Tokenizer& tok, Token* token, int* result);
-bool ExpectVec2(Tokenizer& tok, Token* token, Vec2* result);
-bool ExpectVec3(Tokenizer& tok, Token* token, Vec3* result);
-bool ExpectVec4(Tokenizer& tok, Token* token, Vec4* result);
-bool ExpectColor(Tokenizer& tok, Token* token, Color* result);
-bool ReadUntil(Tokenizer& tok, Token* token, char c, bool multiline);
-bool ReadLine(Tokenizer& tok, Token* token);
-bool NextToken(Tokenizer& tok, Token* token);
-void SkipWhitespace(Tokenizer& tok);
-void SkipLine(Tokenizer* tok);
-char PeekChar(Tokenizer& tok);
-char NextChar(Tokenizer& tok);
-bool ExpectChar(Tokenizer& tok, char expected);
+extern void Init(Tokenizer& tk, const char* input);
+extern const Name* GetName(const Tokenizer& tk);
+extern char* GetString(const Tokenizer& tk, char* dst, u32 dst_size);
+extern char* GetString(const Tokenizer& tk);
+extern bool Equals(Tokenizer& tk, const char* value, bool ignore_case=false);
+extern bool Equals(Tokenizer& tk, TokenType type);
+extern bool ExpectLine(Tokenizer& tk);
+extern bool IsEOF(Tokenizer& tk);
 
-// @token
-extern void InitToken(Token* token);
-extern void ClearToken(Token* token);
-extern bool IsTokenType(Token* token, TokenType type);
-extern bool IsValue(const Token& token, const char* value, bool ignore_case=false);
-extern char* ToString(const Token& token, char* dst, u32 dst_size);
-extern const Name* ToName(const Token& token);
+extern bool ExpectQuotedString(Tokenizer &tk);
+extern bool ExpectInt(Tokenizer& tk, int* out_value);
+extern bool ExpectFloat(Tokenizer& tk, float* out_value);
+extern bool ExpectIdentifier(Tokenizer& tk, const char* value = nullptr);
+extern bool ExpectVec2(Tokenizer& tk, Vec2* out_value=nullptr);
+extern bool ExpectVec3(Tokenizer& tk, Vec3* out_value=nullptr);
+extern bool ExpectVec4(Tokenizer& tk, Vec4* out_value=nullptr);
+extern bool ExpectColor(Tokenizer& tk, Color* out_value=nullptr);
+extern bool ExpectDelimiter(Tokenizer& tk, char c);
 
 #if defined(_STRING_)
 std::string ToString(const Token& token);

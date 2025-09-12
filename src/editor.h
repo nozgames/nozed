@@ -5,6 +5,7 @@
 #pragma once
 
 constexpr int MAX_VIEWS = 16;
+constexpr int MAX_ASSET_PATHS = 8;
 
 struct LogView;
 struct View;
@@ -24,6 +25,8 @@ struct Editor
     int fps;
     bool stats_requested;
     const char* exe;
+    char asset_paths[MAX_ASSET_PATHS][4096];
+    int asset_path_count;
 };
 
 extern Editor g_editor;

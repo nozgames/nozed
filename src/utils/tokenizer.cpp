@@ -4,36 +4,46 @@
 
 #include "tokenizer.h"
 
-static void ClearToken(Token* token);
-static bool IsOperator(char c);
 static bool IsDelimiter(char c);
 static bool IsIdentifier(char c, bool first_char);
 static bool IsNumber(char c);
 static bool IsWhitespace(char c);
 
-void Init(Tokenizer& tok, const char* input)
-{
-    tok.input = input;
-    tok.position = 0;
-    tok.length = input ? strlen(input) : 0;
-    tok.line = 1;
-    tok.column = 1;
-}
-
-bool HasTokens(Tokenizer& tok)
+static bool HasTokens(Tokenizer& tok)
 {
     return tok.position < tok.length;
 }
 
-char PeekChar(Tokenizer& tok)
+bool IsEOF(Tokenizer& tk)
 {
-    if (!HasTokens(tok))
-        return '\0';
-
-    return tok.input[tok.position];
+    return tk.next_token.type == TOKEN_TYPE_EOF;
 }
 
-char NextChar(Tokenizer& tok)
+static void BeginToken(Tokenizer& tk)
+{
+    Token& token = tk.next_token;
+    token.line = tk.line;
+    token.column = tk.column;
+    token.raw = tk.input + tk.position;
+    token.length = 0;
+}
+
+static void EndToken(Tokenizer& tk, TokenType type)
+{
+    Token& token = tk.next_token;
+    token.length = tk.position - (token.raw - tk.input);
+    token.type = type;
+}
+
+static char PeekChar(Tokenizer& tk)
+{
+    if (!HasTokens(tk))
+        return '\0';
+
+    return tk.input[tk.position];
+}
+
+static char NextChar(Tokenizer& tok)
 {
     if (!HasTokens(tok))
         return '\0';
@@ -52,342 +62,28 @@ char NextChar(Tokenizer& tok)
     return c;
 }
 
-bool ExpectChar(Tokenizer& tok, char expected)
+static void SkipWhitespace(Tokenizer& tk)
 {
-    SkipWhitespace(tok);
-    if (PeekChar(tok) != expected)
-        return false;
-    NextChar(tok);
-    return true;
-}
-
-void SkipWhitespace(Tokenizer& tok)
-{
-    while (HasTokens(tok) && isspace(PeekChar(tok)) && PeekChar(tok) != '\n')
-        NextChar(tok);
-}
-
-void SkipLine(Tokenizer& tok)
-{
-    while (HasTokens(tok) && PeekChar(tok) != '\n')
-        NextChar(tok);
-
-    if (PeekChar(tok) == '\n')
-        NextChar(tok);
-}
-
-void BeginToken(Tokenizer& tok, Token* result)
-{
-    result->line = tok.line;
-    result->column = tok.column;
-    result->value = tok.input + tok.position;
-    result->length = 0;
-}
-
-void EndToken(Tokenizer& tok, Token* result, TokenType type)
-{
-    result->length = tok.position - (result->value - tok.input);
-    result->type = type;
-}
-
-bool ExpectQuotedString(Tokenizer& tok, Token* result)
-{
-    SkipWhitespace(tok);
-    ClearToken(result);
-
-    char quote_char = PeekChar(tok);
-    if (quote_char != '"' && quote_char != '\'')
-        return false;
-
-    // Skip opening quote
-    NextChar(tok);
-
-    BeginToken(tok, result);
-
-    while (HasTokens(tok))
+    while (HasTokens(tk))
     {
-        char c = NextChar(tok);
+        char c = PeekChar(tk);
+        if (!isspace(c) && c != '\n' && c != '\r')
+            return;
 
-        if (c == quote_char)
-        {
-            EndToken(tok, result, TOKEN_TYPE_STRING);
-            result->length--;
-            return true;
-        }
-
-        if (c == '\\' && HasTokens(tok))
-        {
-            // Escape sequence
-            char escaped = NextChar(tok);
-            switch (escaped)
-            {
-                case 'n':  c = '\n'; break;
-                case 't':  c = '\t'; break;
-                case 'r':  c = '\r'; break;
-                case '\\': c = '\\'; break;
-                case '"':  c = '"';  break;
-                case '\'': c = '\''; break;
-                default:   c = escaped; break;
-            }
-        }
+        NextChar(tk);
     }
-
-    return false;
-}
-
-bool ExpectIdentifier(Tokenizer& tok, Token* result)
-{
-    ClearToken(result);
-
-    SkipWhitespace(tok);
-
-    if (!IsIdentifier(PeekChar(tok), true))
-        return false;
-
-    BeginToken(tok, result);
-
-    while (IsIdentifier(PeekChar(tok), false))
-        NextChar(tok);
-
-    EndToken(tok, result, TOKEN_TYPE_STRING);
-
-    return result->length > 0;
-}
-
-bool ExpectNumber(Tokenizer& tok, Token* result)
-{
-    ClearToken(result);
-    SkipWhitespace(tok);
-
-    BeginToken(tok, result);
-
-    bool has_digits = false;
-    bool has_decimal = false;
-
-    while (IsNumber(PeekChar(tok)))
-    {
-        char c = NextChar(tok);
-
-        auto is_digit = (isdigit(c) != 0);
-        has_digits |= is_digit;
-
-        if (has_decimal && c == '.')
-            return false;
-
-        has_decimal |= c == '.';
-    }
-
-    EndToken(tok, result, TOKEN_TYPE_NUMBER);
-
-    if (!has_digits || result->length < 1)
-    {
-        ClearToken(result);
-        return false;
-    }
-
-    return true;
-}
-
-bool ExpectFloat(Tokenizer& tok, Token* token, float* result)
-{
-    assert(token);
-    assert(result);
-
-    if (!ExpectNumber(tok, token))
-        return false;
-
-    try
-    {
-        if (token->length > 64)
-            return false;
-
-        char number_str[65];
-        strncpy(number_str, token->value, token->length);
-        number_str[token->length] = '\0';
-
-        *result = (float)atof(number_str);
-        return true;
-    }
-    catch (...)
-    {
-    }
-
-    return false;
-}
-
-bool ExpectInt(Tokenizer& tok, Token* token, int* result)
-{
-    assert(token);
-    assert(result);
-
-    if (!ExpectNumber(tok, token))
-        return false;
-
-    try
-    {
-        if (token->length > 64)
-            return false;
-
-        char number_str[65];
-        strncpy(number_str, token->value, token->length);
-        number_str[token->length] = '\0';
-
-        *result = (float)atoi(number_str);
-        return true;
-    }
-    catch (...)
-    {
-    }
-
-    return false;
-}
-
-bool ExpectVec2(Tokenizer& tok, Token* token, Vec2* result)
-{
-    assert(token);
-    assert(result);
-
-    SkipWhitespace(tok);
-
-    BeginToken(tok, token);
-
-    // Single value (no parens)
-    if (ExpectFloat(tok, token, &result->x))
-    {
-        EndToken(tok, token, TOKEN_TYPE_VEC2);
-        result->y = result->x;
-        return true;
-    }
-
-    if (!ExpectChar(tok, '('))
-        return false;
-
-    Token temp = {};
-    if (!ExpectFloat(tok, &temp, &result->x))
-        return false;
-
-    if (!ExpectChar(tok, ','))
-        return false;
-
-    if (!ExpectFloat(tok, &temp, &result->y))
-        return false;
-
-    if (!ExpectChar(tok, ')'))
-        return false;
-
-    EndToken(tok, token, TOKEN_TYPE_VEC2);
-
-    return true;
-}
-
-
-bool ExpectVec3(Tokenizer& tok, Token* token, Vec3* result)
-{
-    assert(token);
-    assert(result);
-
-    SkipWhitespace(tok);
-
-    BeginToken(tok, token);
-
-    if (!ExpectChar(tok, '('))
-        return false;
-
-    Token temp = {};
-    if (!ExpectFloat(tok, &temp, &result->x))
-        return false;
-
-    if (!ExpectChar(tok, ','))
-        return false;
-
-    if (!ExpectFloat(tok, &temp, &result->y))
-        return false;
-
-    if (!ExpectChar(tok, ','))
-        return false;
-
-    if (!ExpectFloat(tok, &temp, &result->z))
-        return false;
-
-    if (!ExpectChar(tok, ')'))
-        return false;
-
-    EndToken(tok, token, TOKEN_TYPE_VEC3);
-
-    return true;
-}
-
-bool ExpectVec4(Tokenizer& tok, Token* token, Vec4* result)
-{
-    assert(token);
-    assert(result);
-
-    SkipWhitespace(tok);
-
-    BeginToken(tok, token);
-
-    if (!ExpectChar(tok, '('))
-        return false;
-
-    Token temp = {};
-    if (!ExpectFloat(tok, &temp, &result->x))
-        return false;
-
-    if (!ExpectChar(tok, ','))
-        return false;
-
-    if (!ExpectFloat(tok, &temp, &result->y))
-        return false;
-
-    if (!ExpectChar(tok, ','))
-        return false;
-
-    if (!ExpectFloat(tok, &temp, &result->z))
-        return false;
-
-    if (!ExpectChar(tok, ','))
-        return false;
-
-    if (!ExpectFloat(tok, &temp, &result->w))
-        return false;
-
-    if (!ExpectChar(tok, ')'))
-        return false;
-
-    EndToken(tok, token, TOKEN_TYPE_VEC4);
-
-    return true;
-}
-
-static void ClearToken(Token* token)
-{
-    assert(token);
-
-    token->type = TOKEN_TYPE_NONE;
-    token->value = "";
-    token->line = 0;
-    token->column = 0;
-}
-
-static bool IsOperator(char c)
-{
-    return c == '+' || c == '-' || c == '*' || c == '/' || c == '=' ||
-           c == '<' || c == '>' || c == '!' || c == '&' || c == '|' ||
-           c == '^' || c == '%' || c == '~';
 }
 
 static bool IsDelimiter(char c)
 {
-    return c == '(' || c == ')' || c == '{' || c == '}' ||
-           c == '[' || c == ']' || c == ';' || c == ':' ||
-           c == ',' || c == '.' || c == '#';
+    return c == '[' || c == ']' || c == '=' || c == ',' || c == '<' || c == '>' || c == ':';
 }
 
 static bool IsIdentifier(char c, bool first_char)
 {
     if (first_char)
         return isalpha(c) || c == '_';
-    return isalnum(c) || c == '_' || c == ':';
+    return isalnum(c) || c == '_' || c == ':' || c == '/';
 }
 
 static bool IsNumber(char c)
@@ -400,218 +96,329 @@ static bool IsWhitespace(char c)
     return isspace(c) || c == '\n' || c == '\r';
 }
 
-bool ReadLine(Tokenizer& tok, Token* token)
+const Name* GetName(const Tokenizer& tk)
 {
-    while (HasTokens(tok))
-    {
-        SkipWhitespace(tok);
-        BeginToken(tok, token);
-        while (HasTokens(tok) && PeekChar(tok) != '\n')
-            NextChar(tok);
-
-        // Skip EOL
-        EndToken(tok, token, TOKEN_TYPE_NONE);
-        NextChar(tok);
-
-        // Trim the end
-        while (token->length > 0 && IsWhitespace(token->value[token->length - 1]))
-            token->length--;
-
-        if (token->length > 0)
-            return true;
-    }
-
-    return false;
+    char name[MAX_NAME_LENGTH];
+    GetString(tk, name, MAX_NAME_LENGTH);
+    return GetName(name);
 }
 
-bool ReadUntil(Tokenizer& tok, Token* token, char c, bool multiline)
+char* GetString(const Tokenizer& tk, char* dst, u32 dst_size)
 {
-    SkipWhitespace(tok);
-    BeginToken(tok, token);
-    while (HasTokens(tok))
-    {
-        auto peek =  PeekChar(tok);
-        if (peek == c)
-        {
-            EndToken(tok, token, TOKEN_TYPE_NONE);
-            return true;
-        }
+    assert(dst);
+    assert(dst_size > 0);
 
-        if (!multiline && peek == '\n')
-        {
-            EndToken(tok, token, TOKEN_TYPE_NONE);
-            return false;
-        }
-
-        NextChar(tok);
-    }
-
-    EndToken(tok, token, TOKEN_TYPE_NONE);
-
-    return false;
+    Copy(dst, dst_size, tk.current_token.raw, tk.current_token.length);
+    return dst;
 }
 
-bool NextToken(Tokenizer& tok, Token* token)
+char* GetString(const Tokenizer& tk)
 {
-    assert(token);
+    static char buffer[1024];
+    return GetString(tk, buffer, sizeof(buffer));
+}
 
-    ClearToken(token);
-    SkipWhitespace(tok);
+static bool Equals(const Token& token, const char* value, bool ignore_case=false)
+{
+    return Equals(token.raw, value, token.length, ignore_case);
+}
 
-    if (!HasTokens(tok))
-    {
-        BeginToken(tok, token);
-        EndToken(tok, token, TOKEN_TYPE_EOF);
+static bool Equals(const Token& token, TokenType type)
+{
+    return token.type == type;
+}
+
+bool Equals(Tokenizer& tk, const char* value, bool ignore_case)
+{
+    return Equals(tk.current_token, value, ignore_case);
+}
+
+bool Equals(Tokenizer& tk, TokenType type)
+{
+    return Equals(tk.current_token, type);
+}
+
+static bool ReadQuotedString(Tokenizer& tk)
+{
+    char quote_char = PeekChar(tk);
+    if (quote_char != '"' && quote_char != '\'')
         return false;
-    }
 
-    BeginToken(tok, token);
+    // Skip opening quote
+    NextChar(tk);
+    BeginToken(tk);
 
-    char c = PeekChar(tok);
-
-    if (c == '"' || c == '\'')
-        return ExpectQuotedString(tok, token);
-
-    if (IsNumber(c))
-        return ExpectNumber(tok, token);
-
-    if (IsIdentifier(c, true))
-        return ExpectIdentifier(tok, token);
-
-    // Operators
-    if (IsOperator(c))
+    while (HasTokens(tk))
     {
-        BeginToken(tok, token);
-        NextChar(tok);
-        EndToken(tok, token, TOKEN_TYPE_OPERATOR);
-        return true;
+        char c = NextChar(tk);
+
+        if (c == quote_char)
+        {
+            EndToken(tk, TOKEN_TYPE_STRING);
+            tk.next_token.length--;
+            return true;
+        }
+
+        // Escape sequence?
+        if (c == '\\' && HasTokens(tk))
+        {
+            char escaped = NextChar(tk);
+            switch (escaped)
+            {
+            case 'n':  c = '\n'; break;
+            case 't':  c = '\t'; break;
+            case 'r':  c = '\r'; break;
+            case '\\': c = '\\'; break;
+            case '"':  c = '"';  break;
+            case '\'': c = '\''; break;
+            default:   c = escaped; break;
+            }
+        }
     }
 
-    // Delimiters
-    if (IsDelimiter(c))
-    {
-        BeginToken(tok, token);
-        NextChar(tok);
-        EndToken(tok, token, TOKEN_TYPE_OPERATOR);
-        return true;
-    }
+    EndToken(tk, TOKEN_TYPE_STRING);
 
-    // Color?
-    if (c == '#')
-    {
-        Color col = {};
-        return ExpectColor(tok, token, &col);
-    }
-
-    BeginToken(tok, token);
-    NextChar(tok);
-    EndToken(tok, token, TOKEN_TYPE_NONE);
     return true;
 }
 
-bool IsTokenType(Token* token, TokenType type)
+static bool ReadBool(Tokenizer& tk)
 {
-    return token && token->type == type;
+    if (Equals(tk.input + tk.position, "true", 4, true))
+    {
+        BeginToken(tk);
+        for (int i = 0; i < 4; i++)
+            NextChar(tk);
+        EndToken(tk, TOKEN_TYPE_BOOL);
+        tk.next_token.value.b = true;
+        return true;
+    }
+
+    if (Equals(tk.input + tk.position, "false", 4, true))
+    {
+        BeginToken(tk);
+        for (int i = 0; i < 4; i++)
+            NextChar(tk);
+        EndToken(tk, TOKEN_TYPE_BOOL);
+        tk.next_token.value.b = true;
+        return true;
+    }
+
+    return false;
 }
 
-bool IsTokenValue(const Token& token, const char* value)
+bool ReadNumber(Tokenizer& tk)
 {
-    return value && strcmp(token.value, value) == 0;
+    char c = PeekChar(tk);
+    if (!IsNumber(c))
+        return false;
+
+    BeginToken(tk);
+
+    bool has_digits = false;
+    bool has_decimal = false;
+
+    while (HasTokens(tk))
+    {
+        c = PeekChar(tk);
+        if (!IsNumber(c))
+            break;
+
+        auto is_digit = isdigit(c) != 0;
+        has_digits |= is_digit;
+
+        if (has_decimal && c == '.')
+            break;
+
+        NextChar(tk);
+
+        has_decimal |= c == '.';
+    }
+
+    EndToken(tk, has_decimal ? TOKEN_TYPE_FLOAT : TOKEN_TYPE_INT);
+
+    char temp[128];
+    Copy(temp, sizeof(temp), tk.next_token.raw, tk.next_token.length);
+    if (has_decimal)
+        tk.next_token.value.f = atof(temp);
+    else
+        tk.next_token.value.i = atoi(temp);
+
+    return true;
 }
 
-bool ExpectColor(Tokenizer& tok, Token* token, Color* result)
+bool ReadIdentifier(Tokenizer& tk)
 {
-    assert(result);
+    if (!IsIdentifier(PeekChar(tk), true))
+        return false;
 
-    SkipWhitespace(tok);
+    BeginToken(tk);
 
-    BeginToken(tok, token);
+    while (IsIdentifier(PeekChar(tk), false))
+        NextChar(tk);
 
-    char c = PeekChar(tok);
+    EndToken(tk, TOKEN_TYPE_IDENTIFIER);
+
+    return true;
+}
+
+static bool ReadVec(Tokenizer& tk)
+{
+    char c = PeekChar(tk);
+    if (c != '(')
+        return false;
+
+    BeginToken(tk);
+    Token saved_token = tk.next_token;
+
+    SkipWhitespace(tk);
+    NextChar(tk);
+
+    int component_index = 0;
+    Vec4 result = {};
+    while (HasTokens(tk))
+    {
+        if (PeekChar(tk) == ')')
+        {
+            NextChar(tk);
+            break;
+        }
+
+        ReadNumber(tk);
+
+        if (component_index == 0)
+            result.x = tk.next_token.value.f;
+        else if (component_index == 1)
+            result.y = tk.next_token.value.f;
+        else if (component_index == 2)
+            result.z = tk.next_token.value.f;
+        else if (component_index == 3)
+            result.w = tk.next_token.value.f;
+
+        SkipWhitespace(tk);
+
+        if (PeekChar(tk) == ',')
+        {
+            NextChar(tk);
+            SkipWhitespace(tk);
+            component_index++;
+            continue;
+        }
+    }
+
+    tk.next_token = saved_token;
+    tk.next_token.value.v4 = result;
+
+    if (component_index == 0)
+        EndToken(tk, TOKEN_TYPE_FLOAT);
+    else if (component_index == 1)
+        EndToken(tk, TOKEN_TYPE_VEC2);
+    else if (component_index == 2)
+        EndToken(tk, TOKEN_TYPE_VEC3);
+    else if (component_index == 3)
+        EndToken(tk, TOKEN_TYPE_VEC4);
+    else
+        return false;
+
+    return true;
+}
+
+bool ReadColor(Tokenizer& tk)
+{
+    BeginToken(tk);
+
+    char c = PeekChar(tk);
 
     // Handle hex colors: #RRGGBB or #RRGGBBAA
-    if (PeekChar(tok) == '#')
+    if (c == '#')
     {
-        NextChar(tok);
-        while (isxdigit(PeekChar(tok)))
-            NextChar(tok); // Skip #
+        // skip #
+        NextChar(tk);
 
-        EndToken(tok, token, TOKEN_TYPE_COLOR);
+        while (isxdigit(PeekChar(tk)))
+            NextChar(tk);
 
-        if (token->length > 9)
-            return false;
+        EndToken(tk, TOKEN_TYPE_COLOR);
 
         // Extract hex to cstr
         char hex_str[16];
-        strncpy(hex_str, token->value + 1, token->length - 1);
-        hex_str[token->length - 1] = '\0';
+        Copy(hex_str, 16, tk.next_token.raw + 1, tk.next_token.length - 1);
 
-        if (token->length == 7) // #RRGGBB
+        if (tk.next_token.length == 7) // #RRGGBB
         {
-            auto hex = (unsigned int)strtoul(hex_str, nullptr, 16);
-            result->r = ((hex >> 16) & 0xFF) / 255.0f;
-            result->g = ((hex >> 8) & 0xFF) / 255.0f;
-            result->b = (hex & 0xFF) / 255.0f;
-            result->a = 1.0f;
+            u32 hex = (u32)strtoul(hex_str, nullptr, 16);
+            tk.next_token.value.c.r = ((hex >> 16) & 0xFF) / 255.0f;
+            tk.next_token.value.c.g = ((hex >> 8) & 0xFF) / 255.0f;
+            tk.next_token.value.c.b = (hex & 0xFF) / 255.0f;
+            tk.next_token.value.c.a = 1.0f;
             return true;
         }
 
-        if (token->length == 9) // #RRGGBBAA
-        {
-            unsigned int hex = (unsigned int)strtoul(hex_str, nullptr, 16);
-            result->r = ((hex >> 24) & 0xFF) / 255.0f;
-            result->g = ((hex >> 16) & 0xFF) / 255.0f;
-            result->b = ((hex >> 8) & 0xFF) / 255.0f;
-            result->a = (hex & 0xFF) / 255.0f;
-            return true;
-        }
-
-        if (token->length == 4) // #RGB shorthand
+        if (tk.next_token.length == 9) // #RRGGBBAA
         {
             unsigned int hex = (unsigned int)strtoul(hex_str, nullptr, 16);
-            result->r = ((hex >> 8) & 0xF) / 15.0f;
-            result->g = ((hex >> 4) & 0xF) / 15.0f;
-            result->b = (hex & 0xF) / 15.0f;
-            result->a = 1.0f;
+            tk.next_token.value.c.r = ((hex >> 24) & 0xFF) / 255.0f;
+            tk.next_token.value.c.g = ((hex >> 16) & 0xFF) / 255.0f;
+            tk.next_token.value.c.b = ((hex >> 8) & 0xFF) / 255.0f;
+            tk.next_token.value.c.a = (hex & 0xFF) / 255.0f;
             return true;
         }
 
-        return false;
-    }
+        if (tk.next_token.length == 4) // #RGB shorthand
+        {
+            unsigned int hex = (unsigned int)strtoul(hex_str, nullptr, 16);
+            tk.next_token.value.c.r = ((hex >> 8) & 0xF) / 15.0f;
+            tk.next_token.value.c.g = ((hex >> 4) & 0xF) / 15.0f;
+            tk.next_token.value.c.b = (hex & 0xF) / 15.0f;
+            tk.next_token.value.c.a = 1.0f;
+            return true;
+        }
 
-    Token temp = {};
-    if (!ExpectIdentifier(tok, &temp))
-        return false;
-
-    if (IsValue(temp, "rgba"))
-    {
-        Vec4 color = {};
-        if (!ExpectVec4(tok, &temp, &color))
-            return false;
-
-        EndToken(tok, &temp, TOKEN_TYPE_COLOR);
-
-        result->r = color.x / 255.0f;
-        result->g = color.y / 255.0f;
-        result->b = color.z / 255.0f;
-        result->a = color.w;
+        tk.next_token.value.c = COLOR_WHITE;
         return true;
     }
 
-    if (IsValue(temp, "rgb"))
+    if (Equals(tk.input + tk.position, "rgba", 4, true))
     {
-        Vec3 color = {};
-        if (!ExpectVec3(tok, &temp, &color))
-            return false;
+        NextChar(tk);
+        NextChar(tk);
+        NextChar(tk);
+        NextChar(tk);
+        SkipWhitespace(tk);
+        ReadVec(tk);
 
-        EndToken(tok, &temp, TOKEN_TYPE_COLOR);
-        result->r = color.x / 255.0f;
-        result->g = color.y / 255.0f;
-        result->b = color.z / 255.0f;
-        result->a = 1.0f;
+        if (tk.next_token.type == TOKEN_TYPE_VEC4)
+        {
+            tk.next_token.value.c.r /= 255.0f;
+            tk.next_token.value.c.g /= 255.0f;
+            tk.next_token.value.c.b /= 255.0f;
+        }
+        else
+            tk.next_token.value.c = COLOR_WHITE;
+
         return true;
     }
 
+    if (Equals(tk.input + tk.position, "rgb", 3, true))
+    {
+        NextChar(tk);
+        NextChar(tk);
+        NextChar(tk);
+        SkipWhitespace(tk);
+        ReadVec(tk);
+
+        if (tk.next_token.type == TOKEN_TYPE_VEC3)
+        {
+            tk.next_token.value.c.r /= 255.0f;
+            tk.next_token.value.c.g /= 255.0f;
+            tk.next_token.value.c.b /= 255.0f;
+        }
+        else
+            tk.next_token.value.c = COLOR_WHITE;
+
+        return true;
+    }
+
+    // Check for predefined color names
     struct ColorName { const char* name; Color color; };
     static const ColorName predefined_colors[] = {
         {"black", {0.0f, 0.0f, 0.0f, 1.0f}},
@@ -633,72 +440,236 @@ bool ExpectColor(Tokenizer& tok, Token* token, Color* result)
     };
 
     for (const ColorName* color = predefined_colors; color->name != nullptr; color++)
-        if (IsValue(temp, color->name))
+        if (Equals(tk.input + tk.position, color->name, strlen(color->name), true))
         {
-            *result = color->color;
+            for (size_t i = 0; i < strlen(color->name); i++)
+                NextChar(tk);
+            EndToken(tk, TOKEN_TYPE_COLOR);
+            tk.next_token.value.c = color->color;
             return true;
         }
 
     return false;
 }
 
-std::string ToString(const Token& token)
+bool ReadToken(Tokenizer& tk)
 {
-    if (token.length == 0)
-        return "";
+    // Save the value for reading since we are reading the next token
+    tk.current_token = tk.next_token;
 
-    auto start = token.value;
-    auto end = token.value + token.length - 1;
+    SkipWhitespace(tk);
 
-    while (start < end && IsWhitespace(*start))
-        start++;
-
-    while (end > start && IsWhitespace(*end))
-        end--;
-
-    return std::string(start, end-start+1);
-}
-
-const Name* ToName(const Token& token)
-{
-    char name[MAX_NAME_LENGTH];
-    ToString(token, name, MAX_NAME_LENGTH);
-    return GetName(name);
-}
-
-char* ToString(const Token& token, char* dst, u32 dst_size)
-{
-    assert(dst);
-    assert(dst_size > 0);
-
-    if (token.length == 0)
+    if (!HasTokens(tk))
     {
-        *dst = '\0';
-        return dst;
+        BeginToken(tk);
+        EndToken(tk, TOKEN_TYPE_EOF);
+        return false;
     }
 
-    const char* start = token.value;
-    const char* end = token.value + token.length - 1;
+    char c = PeekChar(tk);
 
-    while (start < end && IsWhitespace(*start))
-        start++;
+    // Delimiter?
+    if (IsDelimiter(c))
+    {
+        BeginToken(tk);
+        NextChar(tk);
+        EndToken(tk, TOKEN_TYPE_DELIMITER);
+        return true;
+    }
 
-    while (end > start && IsWhitespace(*end))
-        end--;
+    // Quoted string.
+    if (ReadQuotedString(tk))
+        return true;
 
-    Copy(dst, end - start + 2, start);
-    return dst;
+    // Read boolean
+    if (ReadBool(tk))
+        return true;
+
+    // Read Vector
+    if (ReadVec(tk))
+        return true;
+
+    // Number?
+    if (ReadNumber(tk))
+        return true;
+
+    // Color?
+    if (ReadColor(tk))
+        return true;
+
+    // Identifier?
+    if (ReadIdentifier(tk))
+        return true;
+
+    NextChar(tk);
+    EndToken(tk, TOKEN_TYPE_NONE);
+    return true;
 }
 
-bool ExpectToken(Tokenizer& tok, TokenType type, Token* token)
+bool ExpectLine(Tokenizer& tk)
 {
-    return NextToken(tok, token) && token->type == type;
+    // Rewind to before the next token
+    tk.position = tk.next_token.raw - tk.input;
+
+    do
+    {
+        if (!HasTokens(tk))
+            return false;
+
+        while (HasTokens(tk) && tk.input[tk.position] != '\n')
+            NextChar(tk);
+
+        // Skip eol
+        NextChar(tk);
+        EndToken(tk, TOKEN_TYPE_STRING);
+
+        while (tk.next_token.length > 0 && IsWhitespace(tk.next_token.raw[0]))
+        {
+            tk.next_token.length--;
+            tk.next_token.raw++;
+        }
+
+        while (tk.next_token.length > 0 && IsWhitespace(tk.next_token.raw[tk.next_token.length - 1]))
+            tk.next_token.length--;
+
+    } while (tk.next_token.length == 0);
+
+    ReadToken(tk);
+
+    return tk.current_token.length > 0;
 }
 
-bool IsValue(const Token& token, const char* value, bool ignore_case)
+bool ExpectQuotedString(Tokenizer &tk)
 {
-    if (ignore_case)
-        return _strnicmp(token.value, value, token.length) == 0;
+    if (!Equals(tk.next_token, TOKEN_TYPE_STRING))
+        return false;
 
-    return strncmp(token.value, value, token.length) == 0;
+    ReadToken(tk);
+
+    return true;
+}
+
+bool ExpectInt(Tokenizer& tk, int* out_value)
+{
+    if (!Equals(tk.next_token, TOKEN_TYPE_INT))
+        return false;
+
+    if (out_value)
+        *out_value = tk.next_token.value.i;
+
+    ReadToken(tk);
+
+    return true;
+}
+
+bool ExpectFloat(Tokenizer& tk, float* out_value)
+{
+    if (Equals(tk.next_token, TOKEN_TYPE_INT))
+    {
+        if (out_value)
+            *out_value = (float)tk.next_token.value.i;
+
+        ReadToken(tk);
+        return true;
+    }
+
+    if (!Equals(tk.next_token, TOKEN_TYPE_FLOAT))
+        return false;
+
+    if (out_value)
+        *out_value = tk.next_token.value.f;
+
+    ReadToken(tk);
+
+    return true;
+}
+
+bool ExpectIdentifier(Tokenizer& tk, const char* value)
+{
+    if (!Equals(tk.next_token, TOKEN_TYPE_IDENTIFIER))
+        return false;
+
+    bool result = !value || Equals(tk.next_token, value);
+
+    if (result)
+        ReadToken(tk);
+
+    return result;
+}
+
+bool ExpectVec2(Tokenizer& tk, Vec2* out_value)
+{
+    if (!Equals(tk.next_token, TOKEN_TYPE_VEC2))
+        return false;
+
+    if (out_value)
+        *out_value = tk.next_token.value.v2;
+
+    ReadToken(tk);
+
+    return true;
+}
+
+bool ExpectVec3(Tokenizer& tk, Vec3* out_value)
+{
+    if (!Equals(tk.next_token, TOKEN_TYPE_VEC3))
+        return false;
+
+    if (out_value)
+        *out_value = tk.next_token.value.v3;
+
+    ReadToken(tk);
+
+    return true;
+}
+
+bool ExpectVec4(Tokenizer& tk, Vec4* out_value)
+{
+    if (!Equals(tk.next_token, TOKEN_TYPE_VEC4))
+        return false;
+
+    if (out_value)
+        *out_value = tk.next_token.value.v4;
+
+    ReadToken(tk);
+
+    return true;
+}
+
+bool ExpectColor(Tokenizer& tk, Color* out_value)
+{
+    if (!Equals(tk.next_token, TOKEN_TYPE_COLOR))
+        return false;
+
+    if (out_value)
+        *out_value = tk.next_token.value.c;
+
+    ReadToken(tk);
+
+    return true;
+}
+
+bool ExpectDelimiter(Tokenizer& tk, char c)
+{
+    if (!Equals(tk.next_token, TOKEN_TYPE_DELIMITER))
+        return false;
+
+    bool result = c == *tk.next_token.raw && tk.next_token.length == 1;
+
+    ReadToken(tk);
+
+    return result;
+}
+
+void Init(Tokenizer& tk, const char* input)
+{
+    tk.input = input;
+    tk.position = 0;
+    tk.length = input ? strlen(input) : 0;
+    tk.line = 1;
+    tk.column = 1;
+
+    ReadToken(tk);
+
+    tk.current_token = tk.next_token;
 }

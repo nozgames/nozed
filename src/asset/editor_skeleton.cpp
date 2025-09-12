@@ -6,8 +6,6 @@
 #include "editor_asset.h"
 #include "utils/file_helpers.h"
 
-extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
-
 void DrawEditorSkeleton(EditorAsset& ea)
 {
     EditorSkeleton& es = *ea.skeleton;
@@ -58,82 +56,62 @@ int HitTestBone(const EditorSkeleton& em, const Vec2& world_pos)
     return -1;
 }
 
+static void ParseBonePosition(EditorBone& eb, Tokenizer& tk)
+{
+    float x;
+    if (!ExpectFloat(tk, &x))
+        ThrowError("misssing 'x' in bone position");
+    float y;
+    if (!ExpectFloat(tk, &y))
+        ThrowError("misssing 'y' in bone position");
+
+    eb.position.x = x;
+    eb.position.y = y;
+}
+
+static void ParseBone(EditorSkeleton& es, Tokenizer& tk)
+{
+    if (!ExpectQuotedString(tk))
+        ThrowError("expected bone name as quoted string");
+
+    const Name* bone_name = GetName(tk);
+
+    int parent_index = -1;
+    if (!ExpectInt(tk, &parent_index))
+        ThrowError("expected parent index");
+
+    EditorBone& bone = es.bones[es.bone_count++];
+    bone.name = bone_name;
+    bone.parent_index = parent_index;
+
+    while (!IsEOF(tk))
+    {
+        if (ExpectIdentifier(tk, "p"))
+            ParseBonePosition(bone, tk);
+        else
+            break;
+    }
+}
+
 EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::path& path)
 {
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
-    Token token={};
 
-    EditorSkeleton* eskel = (EditorSkeleton*)Alloc(allocator, sizeof(EditorSkeleton));
+    EditorSkeleton* es = (EditorSkeleton*)Alloc(allocator, sizeof(EditorSkeleton));
 
-    while (HasTokens(tk))
+    while (!IsEOF(tk))
     {
-        if (PeekChar(tk) == '\n')
-        {
-            NextChar(tk);
-            SkipWhitespace(tk);
-            continue;
-        }
-
-        if (!ExpectIdentifier(tk, &token))
-            break;
-
-        if (token.length != 1)
-            break;
-
-        if (token.value[0] == 'b')
-        {
-            if (!ExpectQuotedString(tk, &token))
-                continue;
-
-            const Name* bone_name = ToName(token);
-
-            int parent_index = -1;
-            if (!ExpectInt(tk, &token, &parent_index))
-                continue;
-
-            const Name* parent_name = ToName(token);
-
-            EditorBone& bone = eskel->bones[eskel->bone_count++];
-            bone.name = bone_name;
-            bone.parent_index = parent_index;
-
-            SkipWhitespace(tk);
-
-            while (PeekChar(tk) == 'p' || PeekChar(tk) == 'r')
-            {
-                char c = NextChar(tk);
-                SkipWhitespace(tk);
-                switch (c)
-                {
-                case 'p':
-                {
-                    float x;
-                    if (!ExpectFloat(tk, &token, &x))
-                        break;
-                    float y;
-                    if (!ExpectFloat(tk, &token, &y))
-                        break;
-
-                    bone.position.x = x;
-                    bone.position.y = y;
-
-                    SkipWhitespace(tk);
-
-                    break;
-                }
-
-                default:
-                    break;
-                }
-            }
-        }
+        if (ExpectIdentifier(tk, "b"))
+            ParseBone(*es, tk);
+        else
+            ThrowError("unknown identifier '%s' in skeleton", GetString(tk));
     }
 
-    UpdateTransforms(*eskel);
+    UpdateTransforms(*es);
 
-    return eskel;
+    return es;
 }
 
 void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& path)
@@ -150,7 +128,7 @@ void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& p
     Free(stream);
 }
 
-EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path)
+EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
 {
     EditorSkeleton* skeleton = LoadEditorSkeleton(ALLOCATOR_DEFAULT, path);
     if (!skeleton)
@@ -173,7 +151,7 @@ EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
     SaveStream(stream, full_path);
     Free(stream);
 
-    EditorAsset* ea = CreateEditorSkeletonAsset(full_path);
+    EditorAsset* ea = LoadEditorSkeletonAsset(full_path);
     if (!ea)
         return nullptr;
 
@@ -242,4 +220,13 @@ void PostLoadEditorAssets(EditorSkeleton& es)
         if (esm.asset_index < 0 || g_asset_editor.assets[esm.asset_index]->type != EDITOR_ASSET_TYPE_MESH)
             esm.asset_index = -1;
     }
+}
+
+int FindBoneIndex(const EditorSkeleton& es, const Name* name)
+{
+    for (int i=0; i<es.bone_count; i++)
+        if (es.bones[i].name == name)
+            return i;
+
+    return -1;
 }

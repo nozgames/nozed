@@ -4,6 +4,7 @@
 
 #include "../asset_editor/asset_editor.h"
 #include "../utils/file_helpers.h"
+#include "editor.h"
 
 EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type)
 {
@@ -27,7 +28,7 @@ EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* 
     return ea;
 }
 
-EditorAsset* CreateEditorMeshAsset(const std::filesystem::path& path)
+EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path)
 {
     EditorMesh* em = LoadEditorMesh(ALLOCATOR_DEFAULT, path);
     if (!em)
@@ -352,11 +353,13 @@ void LoadEditorAssets()
         EditorAsset* ea = nullptr;
 
         if (ext == ".mesh")
-            ea = CreateEditorMeshAsset(asset_path);
+            ea = LoadEditorMeshAsset(asset_path);
         else if (ext == ".vfx")
-            ea = CreateEditorVfxAsset(asset_path);
+            ea = LoadEditorVfxAsset(asset_path);
         else if (ext == ".skel")
-            ea = CreateEditorSkeletonAsset(asset_path);
+            ea = LoadEditorSkeletonAsset(asset_path);
+        else if (ext == ".anim")
+            ea = LoadEditorAnimationAsset(asset_path);
 
         if (ea)
         {
@@ -403,4 +406,21 @@ void HotloadEditorAsset(const Name* name)
 void MarkModified(EditorAsset& ea)
 {
     ea.modified = true;
+}
+
+std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
+{
+    if (g_editor.asset_path_count == 0)
+        return "";
+
+    std::filesystem::path path;
+    for (int p = 0; p<g_editor.asset_path_count; p++)
+    {
+        path = std::filesystem::current_path() / g_editor.asset_paths[p] / name->value;
+        path += ext;
+        if (std::filesystem::exists(path))
+            break;
+    }
+
+    return path;
 }

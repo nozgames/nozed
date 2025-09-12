@@ -13,6 +13,7 @@ set(SOURCE_FILES
     src/asset_editor/asset_editor.cpp
     src/asset_editor/mesh_editor.cpp
     src/asset_editor/skeleton_editor.cpp
+    src/asset_editor/animation_editor.cpp
     src/asset_editor/grid.cpp
     src/asset_editor/notifications.cpp
 
@@ -20,6 +21,7 @@ set(SOURCE_FILES
     src/asset/editor_skeleton.cpp
     src/asset/editor_mesh.cpp
     src/asset/editor_vfx.cpp
+    src/asset/editor_animation.cpp
 
     src/utils/file_watcher.cpp
     src/utils/rect_packer.cpp
@@ -77,7 +79,7 @@ target_link_libraries(nozed PRIVATE
 )
 
 
-#set_target_properties(nozed PROPERTIES WIN32_EXECUTABLE TRUE)
+set_target_properties(nozed PROPERTIES WIN32_EXECUTABLE TRUE)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT nozed)
 target_precompile_headers(nozed PUBLIC src/pch.h)
 target_include_directories(nozed PRIVATE

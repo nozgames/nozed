@@ -104,14 +104,18 @@ static void InitConfig()
     {
         g_config = Props::Load(config_stream);
         Free(config_stream);
+}
 
-        if (g_config != nullptr)
-            return;
+    if (g_config == nullptr)
+    {
+        LogError("missing configuration '%s'", config_path.string().c_str());
+        g_config = new Props();
     }
 
-    g_config = new Props();
+    // Read in the source paths
+    for (auto& path : g_config->GetKeys("source"))
+        Copy(g_editor.asset_paths[g_editor.asset_path_count++], 4096, path.c_str());
 
-    LogError("missing configuration '%s'", config_path.string().c_str());
 }
 
 void InitEditor()

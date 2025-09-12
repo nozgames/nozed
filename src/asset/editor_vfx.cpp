@@ -11,25 +11,24 @@ extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, Edito
 
 static bool ParseCurveType(Tokenizer& tk, VfxCurveType* curve_type)
 {
-    Token token;
-    if (!ExpectIdentifier(tk, &token))
+    if (!ExpectIdentifier(tk))
         return false;
 
     *curve_type = VFX_CURVE_TYPE_UNKNOWN;
 
-    if (IsValue(token, "linear", true))
+    if (Equals(tk, "linear", true))
         *curve_type = VFX_CURVE_TYPE_LINEAR;
-    else if (IsValue(token, "easein", true))
+    else if (Equals(tk, "easein", true))
         *curve_type = VFX_CURVE_TYPE_EASE_IN;
-    else if (IsValue(token, "easeout"))
+    else if (Equals(tk, "easeout"))
         *curve_type = VFX_CURVE_TYPE_EASE_OUT;
-    else if (IsValue(token, "easeinout"))
+    else if (Equals(tk, "easeinout"))
         *curve_type = VFX_CURVE_TYPE_EASE_IN_OUT;
-    else if (IsValue(token, "quadratic"))
+    else if (Equals(tk, "quadratic"))
         *curve_type = VFX_CURVE_TYPE_QUADRATIC;
-    else if (IsValue(token, "cubic"))
+    else if (Equals(tk, "cubic"))
         *curve_type = VFX_CURVE_TYPE_CUBIC;
-    else if (IsValue(token, "sine"))
+    else if (Equals(tk, "sine"))
         *curve_type = VFX_CURVE_TYPE_SINE;
 
     return *curve_type != VFX_CURVE_TYPE_UNKNOWN;
@@ -37,35 +36,30 @@ static bool ParseCurveType(Tokenizer& tk, VfxCurveType* curve_type)
 
 static bool ParseVec2(Tokenizer& tk, VfxVec2* value)
 {
-    Token token;
-
-    SkipWhitespace(tk);
-
-    if (!ExpectChar(tk,'['))
+    // Non range
+    if (!ExpectDelimiter(tk, '['))
     {
-        Vec2 s = {};
-        if (!ExpectVec2(tk, &token, &s))
+        Vec2 v;
+        if (!ExpectVec2(tk, &v))
             return false;
 
-        *value = {s, s};
+        *value = {v, v};
         return true;
     }
 
     // Range
     Vec2 min = {0,0};
-    if (!ExpectVec2(tk, &token, &min))
+    if (!ExpectVec2(tk, &min))
         return false;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, ','))
+    if (!ExpectDelimiter(tk, ','))
         return false;
 
     Vec2 max = {0,0};
-    if (!ExpectVec2(tk, &token, &max))
+    if (!ExpectVec2(tk, &max))
         return false;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, ']'))
+    if (!ExpectDelimiter(tk, ']'))
         return false;
 
     *value = { Min(min,max), Max(min,max) };
@@ -87,39 +81,33 @@ static VfxVec2 ParseVec2(const std::string& str, const VfxVec2& default_value)
 
 static bool ParseFloat(Tokenizer& tk, VfxFloat* value)
 {
-    Token token;
-
-    SkipWhitespace(tk);
-
-    // Single float?
-    if (!ExpectChar(tk,'['))
+    // Non range
+    if (!ExpectDelimiter(tk, '['))
     {
-        f32 fvalue = 0.0f;
-        if (!ExpectFloat(tk, &token, &fvalue))
+        float v;
+        if (!ExpectFloat(tk, &v))
             return false;
 
-        *value = {fvalue, fvalue};
+        *value = {v, v};
         return true;
     }
 
     // Range
     float min = 0.0f;
-    if (!ExpectFloat(tk, &token, &min))
+    if (!ExpectFloat(tk, &min))
         return false;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, ','))
+    if (!ExpectDelimiter(tk, ','))
         return false;
 
     float max = 0.0f;
-    if (!ExpectFloat(tk, &token, &max))
+    if (!ExpectFloat(tk, &max))
         return false;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, ']'))
+    if (!ExpectDelimiter(tk, ']'))
         return false;
 
-    *value = { Min(min, max), Max(min, max) };
+    *value = { Min(min,max), Max(min,max) };
     return true;
 }
 
@@ -143,24 +131,19 @@ static VfxFloatCurve ParseFloatCurve(const std::string& str, VfxFloatCurve defau
     if (!ParseFloat(tk, &value.start))
         return default_value;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, '-'))
+    if (!ExpectDelimiter(tk, '='))
     {
         value.end = value.start;
         return value;
     }
 
-    if (!ExpectChar(tk, '>'))
+    if (!ExpectDelimiter(tk, '>'))
         return default_value;
-
-    SkipWhitespace(tk);
 
     if (!ParseFloat(tk, &value.end))
         return default_value;
 
-    SkipWhitespace(tk);
-
-    if (!ExpectChar(tk, ':'))
+    if (!ExpectDelimiter(tk, ':'))
         return value;
 
     VfxCurveType curve_type = VFX_CURVE_TYPE_UNKNOWN;
@@ -178,15 +161,12 @@ static VfxInt ParseInt(const std::string& value, VfxInt default_value)
 
     Tokenizer tk;
     Init(tk, value.c_str());
-    Token token;
-
-    SkipWhitespace(tk);
 
     // Single int?
-    if (!ExpectChar(tk,'['))
+    if (!ExpectDelimiter(tk,'['))
     {
         i32 ivalue = 0;
-        if (!ExpectInt(tk, &token, &ivalue))
+        if (!ExpectInt(tk, &ivalue))
             return default_value;
 
         return { ivalue, ivalue };
@@ -194,19 +174,17 @@ static VfxInt ParseInt(const std::string& value, VfxInt default_value)
 
     // Range
     i32 min = 0;
-    if (!ExpectInt(tk, &token, &min))
+    if (!ExpectInt(tk, &min))
         return default_value;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, ','))
+    if (!ExpectDelimiter(tk, ','))
         return default_value;
 
     i32 max = 0;
-    if (!ExpectInt(tk, &token, &max))
+    if (!ExpectInt(tk, &max))
         return default_value;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, ']'))
+    if (!ExpectDelimiter(tk, ']'))
         return default_value;
 
     return { Min(min,max), Max(min,max) };
@@ -214,15 +192,10 @@ static VfxInt ParseInt(const std::string& value, VfxInt default_value)
 
 static bool ParseColor(Tokenizer& tk, VfxColor* value)
 {
-    Token token;
-
-    SkipWhitespace(tk);
-
-    // Single float?
-    if (!ExpectChar(tk,'['))
+    if (!ExpectDelimiter(tk, '['))
     {
         Color cvalue = {1.0f, 1.0f, 1.0f, 1.0f};
-        if (!ExpectColor(tk, &token, &cvalue))
+        if (!ExpectColor(tk, &cvalue))
             return false;
 
         *value = {cvalue, cvalue};
@@ -231,19 +204,17 @@ static bool ParseColor(Tokenizer& tk, VfxColor* value)
 
     // Range
     Color min = {0,0,0,0};
-    if (!ExpectColor(tk, &token, &min))
+    if (!ExpectColor(tk, &min))
         return false;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, ','))
+    if (!ExpectDelimiter(tk, ','))
         return false;
 
     Color max = {0,0,0,0};
-    if (!ExpectColor(tk, &token, &max))
+    if (!ExpectColor(tk, &max))
         return false;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, ']'))
+    if (!ExpectDelimiter(tk, ']'))
         return false;
 
     *value = { min, max };
@@ -272,24 +243,19 @@ static VfxColorCurve ParseColorCurve(const std::string& str, const VfxColorCurve
     if (!ParseColor(tk, &value.start))
         return default_value;
 
-    SkipWhitespace(tk);
-    if (!ExpectChar(tk, '-'))
+    if (!ExpectDelimiter(tk, '='))
     {
         value.end = value.start;
         return value;
     }
 
-    if (!ExpectChar(tk, '>'))
+    if (!ExpectDelimiter(tk, '>'))
         return default_value;
-
-    SkipWhitespace(tk);
 
     if (!ParseColor(tk, &value.end))
         return default_value;
 
-    SkipWhitespace(tk);
-
-    if (!ExpectChar(tk, ':'))
+    if (!ExpectDelimiter(tk, ':'))
         return value;
 
     VfxCurveType curve_type = VFX_CURVE_TYPE_UNKNOWN;
@@ -427,7 +393,7 @@ EditorVfx* LoadEditorVfx(Allocator* allocator, const std::filesystem::path& sour
     return ex;
 }
 
-EditorAsset* CreateEditorVfxAsset(const std::filesystem::path& path)
+EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path)
 {
     EditorVfx* evfx = LoadEditorVfx(ALLOCATOR_DEFAULT, path);
     if (!evfx)

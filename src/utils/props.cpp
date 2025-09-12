@@ -88,9 +88,8 @@ int Props::GetInt(const char* group, const char* key, int default_value) const
     Tokenizer tok = {};
     Init(tok, value.c_str());
 
-    Token token = {};
     int result = default_value;
-    if (!ExpectInt(tok, &token, &result))
+    if (!ExpectInt(tok, &result))
         return default_value;
 
     return result;
@@ -105,9 +104,8 @@ float Props::GetFloat(const char* group, const char* key, float default_value) c
     Tokenizer tok = {};
     Init(tok, value.c_str());
 
-    Token token = {};
     float result = default_value;
-    if (!ExpectFloat(tok, &token, &result))
+    if (!ExpectFloat(tok, &result))
         return default_value;
 
     return result;
@@ -134,9 +132,8 @@ Vec3 Props::GetVec3(const char* group, const char* key, Vec3 default_value) cons
     Tokenizer tok = {};
     Init(tok, value.c_str());
 
-    Token token = {};
     Vec3 result = default_value;
-    if (!ExpectVec3(tok, &token, &result))
+    if (!ExpectVec3(tok, &result))
         return default_value;
 
     return result;
@@ -151,9 +148,8 @@ Vec2 Props::GetVec2(const char* group, const char* key, const Vec2& default_valu
     Tokenizer tok = {};
     Init(tok, value.c_str());
 
-    Token token = {};
     Vec2 result = default_value;
-    if (!ExpectVec2(tok, &token, &result))
+    if (!ExpectVec2(tok, &result))
         return default_value;
 
     return result;
@@ -169,9 +165,8 @@ Color Props::GetColor(const char* group, const char* key, Color default_value) c
     Tokenizer tok = {};
     Init(tok, value.c_str());
 
-    Token token = {};
     Color result = default_value;
-    if (!ExpectColor(tok, &token, &result))
+    if (!ExpectColor(tok, &result))
         return default_value;
 
     return result;
@@ -193,48 +188,46 @@ Props* Props::Load(const char* content, size_t content_length)
     if (!content) return nullptr;
 
     auto props = new Props();
-    Tokenizer tok = {};
-    Init(tok, content);
+    Tokenizer tk = {};
+    Init(tk, content);
     
     std::string group_name;
     
-    while (HasTokens(tok))
+    while (!IsEOF(tk))
     {
-        Token line = {};
-        if (!ReadLine(tok, &line))
+        if (!ExpectLine(tk))
             break;
 
-        if (line.length == 0)
+        std::string line_str = ::GetString(tk);
+
+        if (line_str.size() == 0)
             continue;
 
-        auto line_str = ToString(line);
         if (line_str[0] == '[' && line_str[line_str.length() - 1] == ']')
         {
             group_name = line_str.substr(1, line_str.size() - 2);
             continue;
         }
 
-        std::string key;
-        std::string value;
+        Tokenizer tk_line;
+        Init(tk_line, line_str.c_str());
 
-        Tokenizer line_tok = {};
-        Init(line_tok, line_str.c_str());
-
-        Token key_token = {};
-        ReadUntil(line_tok, &key_token, '=', false);
-        key = ToString(key_token);
-        if (key.empty())
+        if (!ExpectIdentifier(tk_line))
             continue;
 
-        SkipWhitespace(line_tok);
-        Token temp_token = {};
-        if (ExpectToken(line_tok, TOKEN_TYPE_OPERATOR, &temp_token))
-        {
-            SkipWhitespace(line_tok);
+        std::string key = ::GetString(tk_line);
+        if (key.size() == 0)
+            continue;
 
-            Token val_token = {};
-            ReadLine(line_tok, &val_token);
-            value = ToString(val_token);
+        if (key == "position")
+            key = "position";
+
+        // value
+        std::string value;
+        if (ExpectDelimiter(tk_line, '='))
+        {
+            ExpectLine(tk_line);
+            value = ::GetString(tk_line);
         }
 
         props->SetString(group_name.c_str(), key.c_str(), value.c_str());

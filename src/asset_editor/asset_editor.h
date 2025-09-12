@@ -99,8 +99,8 @@ extern void Redo();
 extern void CancelUndo();
 
 // @editable_asset
-extern EditorAsset* CreateEditorMeshAsset(const std::filesystem::path& path);
-extern EditorAsset* CreateEditorVfxAsset(const std::filesystem::path& path);
+extern EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path);
+extern EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path);
 extern void LoadEditorAssets();
 extern void SaveEditableAssets();
 extern bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos);

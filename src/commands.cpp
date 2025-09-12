@@ -32,11 +32,10 @@ static void HandleEdit(Tokenizer& tk)
     else
         InitAssetEditor();
 
-    Token token;
-    if (!ReadLine(tk, &token))
+    if (!ExpectIdentifier(tk))
         return;
 
-    const Name* name = ToName(token);
+    const Name* name = GetName(tk);
     if (name == NAME_NONE)
         return;
 
@@ -53,29 +52,26 @@ static void HandleEdit(Tokenizer& tk)
 // @new
 static void HandleNew(Tokenizer& tk)
 {
-    Token token;
-    SkipWhitespace(tk);
-
-    if (!ExpectIdentifier(tk, &token))
+    if (!ExpectIdentifier(tk))
     {
         LogError("missing asset type (mesh, etc)");
         return;
     }
 
-    std::string type_name = ToString(token);
+    std::string type_name = GetString(tk);
     if (type_name != "mesh")
     {
         LogError("invalid asset type: %s", type_name.c_str());
         return;
     }
 
-    if (!ReadLine(tk, &token))
+    if (!ExpectLine(tk))
     {
         LogError("missing asset name");
         return;
     }
 
-    const Name* name = ToName(token);
+    const Name* name = GetName(tk);
     if (name == NAME_NONE)
         return;
 
@@ -95,23 +91,22 @@ static CommandDef g_commands[] = {
 
 void HandleCommand(const std::string& str)
 {
-    Tokenizer tokenizer;
-    Token token;
-    Init(tokenizer, str.c_str());
+    Tokenizer tk;
+    Init(tk, str.c_str());
 
-    if (!ExpectIdentifier(tokenizer, &token))
+    if (!ExpectIdentifier(tk))
     {
         LogError("Unknown command");
         return;
     }
 
-    std::string command = ToString(token);
+    std::string command = GetString(tk);
 
     for (CommandDef* cmd = g_commands; cmd->name; cmd++)
     {
         if (Equals(command.c_str(), cmd->name, true) || Equals(command.c_str(), cmd->short_name))
         {
-            cmd->handler(tokenizer);
+            cmd->handler(tk);
             return;
         }
     }

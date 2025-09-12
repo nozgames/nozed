@@ -4,11 +4,6 @@
 
 namespace fs = std::filesystem;
 
-static float QuaternionToRotation(const Vec4& q)
-{
-    return atan2f(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
-}
-
 void ImportSkeleton(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
 #if 0
@@ -48,24 +43,6 @@ void ImportSkeleton(const fs::path& source_path, Stream* output_stream, Props* c
 #endif
 }
 
-bool CanImportSkeleton(const fs::path& source_path)
-{
-    Stream* stream = LoadStream(ALLOCATOR_DEFAULT, fs::path(source_path.string() + ".meta"));
-    if (!stream)
-        return false;
-    Props* props = Props::Load(stream);
-    if (!props)
-    {
-        Free(stream);
-        return false;
-    }
-
-    bool can_import = !props->GetBool("mesh", "skip_skeleton", true);
-    Free(stream);
-    delete props;
-    return can_import;
-}
-
 static const char* g_skeleton_extensions[] = {
     ".skel",
     nullptr
@@ -75,8 +52,7 @@ static AssetImporterTraits g_skeleton_importer_traits = {
     .type_name = "Skeleton",
     .signature = ASSET_SIGNATURE_SKELETON,
     .file_extensions = g_skeleton_extensions,
-    .import_func = ImportSkeleton,
-    .can_import = CanImportSkeleton
+    .import_func = ImportSkeleton
 };
 
 AssetImporterTraits* GetSkeletonImporterTraits()

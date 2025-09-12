@@ -1,3 +1,91 @@
+//
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
+//
+
+#include "../asset/editor_asset.h"
+
+namespace fs = std::filesystem;
+
+static void ImportAnimation(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+{
+    AssetHeader header = {};
+    header.signature = ASSET_SIGNATURE_ANIMATION;
+    header.version = 1;
+    WriteAssetHeader(output_stream, &header);
+
+    EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, source_path);
+    if (!en)
+        throw std::runtime_error("invalid animation");
+
+    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, std::string(en->skeleton_name->value) + ".skel");
+    if (!es)
+        throw std::runtime_error("invalid skeleton");
+}
+
+static bool DoesAnimationDependOn(const std::filesystem::path& path, const std::filesystem::path& dependency_path)
+{
+    if (dependency_path.extension() != ".skel")
+        return false;
+
+    EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, path);
+    if (!en)
+        return false;
+
+    // does the path end with en->skeleton_name + ".skel"?
+    std::string expected_path = en->skeleton_name->value;
+    std::string path_str = dependency_path.string();
+    expected_path += ".skel";
+
+    CleanPath(expected_path.data());
+    CleanPath(path_str.data());
+
+    bool result = path_str.ends_with(expected_path);
+
+    Free(en);
+
+    return result;
+}
+
+static const char* g_animation_extensions[] = {
+    ".anim",
+    nullptr
+};
+
+static AssetImporterTraits g_animation_importer_traits = {
+    .type_name = "Animation",
+    .signature = ASSET_SIGNATURE_ANIMATION,
+    .file_extensions = g_animation_extensions,
+    .import_func = ImportAnimation,
+    .does_depend_on = DoesAnimationDependOn,
+};
+
+AssetImporterTraits* GetAnimationImporterTraits()
+{
+    return &g_animation_importer_traits;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #if 0
 /*
 
