@@ -5,9 +5,10 @@
 #include "asset_editor.h"
 
 constexpr float FRAME_LINE_SIZE = 0.5f;
-constexpr float FRAME_LINE_OFFSET = -0.1f;
+constexpr float FRAME_LINE_OFFSET = -0.2f;
 constexpr float FRAME_SIZE = 0.16f;
 constexpr float FRAME_SELECTED_SIZE = 0.32f;
+constexpr float FRAME_TIME_SIZE = 0.32f;
 
 constexpr float CENTER_SIZE = 0.2f;
 constexpr float ORIGIN_SIZE = 0.1f;
@@ -45,6 +46,7 @@ struct AnimationEditor
     Vec2 selection_center;
     Vec2 selection_center_world;
     SavedBone saved_bones[MAX_BONES];
+    Animator animator;
 };
 
 static AnimationEditor g_animation_editor = {};
@@ -117,6 +119,22 @@ static void ClearSelection()
         es.bones[i].selected = false;
 
     g_animation_editor.selected_bone_count = 0;
+}
+
+static void AddSelection(int bone_index)
+{
+    EditorAnimation& en = *g_animation_editor.animation;
+    if (!en.skeleton_asset)
+        return;
+
+    EditorSkeleton& es = *en.skeleton_asset->skeleton;
+    EditorBone& eb = es.bones[bone_index];
+    if (eb.selected)
+        return;
+
+    eb.selected = true;
+    g_animation_editor.selected_bone_count++;
+
 }
 
 static int HitTestBone(const EditorAnimation& en, const Vec2& world_pos)
@@ -301,6 +319,20 @@ static void DrawSkeleton()
         BindColor(bone.selected ? COLOR_SELECTED : COLOR_BLACK);
         DrawVertex(en.bone_transforms[i] * VEC2_ZERO + ea.position, BONE_ORIGIN_SIZE);
     }
+
+    if (IsPlaying(g_animation_editor.animator))
+    {
+        Update(g_animation_editor.animator);
+
+        BindMaterial(g_asset_editor.vertex_material);
+        BindColor(COLOR_RED);
+        for (int i=1; i<en.bone_count; i++)
+        {
+            Vec2 b1 = g_animation_editor.animator.bones[es.bones[i].parent_index] * VEC2_ZERO;
+            Vec2 b2 = g_animation_editor.animator.bones[i] * VEC2_ZERO;
+            DrawBone(b2 + ea.position, b1 + ea.position);
+        }
+    }
 }
 
 static void DrawRotateState()
@@ -308,18 +340,13 @@ static void DrawRotateState()
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
     DrawVertex(g_animation_editor.selection_center_world, CENTER_SIZE * 0.75f);
     BindColor(COLOR_CENTER);
-    DrawLine(g_asset_editor.mouse_world_position, g_animation_editor.selection_center_world);
+    DrawDashedLine(g_asset_editor.mouse_world_position, g_animation_editor.selection_center_world);
     BindColor(COLOR_ORIGIN);
     DrawVertex(g_asset_editor.mouse_world_position, CENTER_SIZE);
 }
 
-void DrawAnimationEditor()
+static void DrawTimeline()
 {
-    DrawSkeleton();
-
-    if (g_animation_editor.state_draw)
-        g_animation_editor.state_draw();
-
     EditorAsset& ea = *g_animation_editor.asset;
     EditorAnimation& en = *g_animation_editor.animation;
 
@@ -329,29 +356,59 @@ void DrawAnimationEditor()
 
     Vec2 pos = ea.position + Vec2 { 0, en.bounds.min.y + FRAME_LINE_OFFSET };
     Vec2 left = Vec2{h1.x * (en.frame_count - 1) * 0.5f, 0};
+    Vec2 right = -left;
 
     BindColor(COLOR_BLACK);
     DrawLine(pos - left, pos + left);
 
     for (int i=0; i<en.frame_count; i++)
-    {
         DrawVertex({pos.x - left.x + h1.x * i, pos.y}, FRAME_SIZE);
+
+    int current_frame = en.current_frame;
+    if (IsPlaying(g_animation_editor.animator))
+    {
+        current_frame = GetFrame(g_animation_editor.animator);
+        BindColor({0.02f, 0.02f, 0.02f, 1.0f});
+        DrawLine(pos + left, pos + left + h1);
+        DrawVertex(pos + left + h1, FRAME_SIZE * 0.9f);
     }
 
     BindColor(COLOR_ORIGIN);
-    DrawVertex({pos.x - left.x + h1.x * en.current_frame, pos.y}, FRAME_SELECTED_SIZE);
+    DrawVertex({pos.x - left.x + h1.x * current_frame, pos.y}, FRAME_SELECTED_SIZE);
+
+    if (IsPlaying(g_animation_editor.animator))
+    {
+        Vec2 s2 =
+                ScreenToWorld(g_asset_editor.camera, {0, g_asset_editor.dpi * FRAME_TIME_SIZE}) -
+                ScreenToWorld(g_asset_editor.camera, VEC2_ZERO);
+
+
+        BindColor(COLOR_WHITE);
+        float time = GetNormalizedTime(g_animation_editor.animator);
+        Vec2 tpos = pos + Mix(right, left, time);
+        DrawLine(tpos - s2, tpos + s2);
+    }
+}
+
+void DrawAnimationEditor()
+{
+    DrawSkeleton();
+    DrawTimeline();
+
+    if (g_animation_editor.state_draw)
+        g_animation_editor.state_draw();
 }
 
 static void HandlePrevFrameCommand()
 {
     EditorAnimation& en = *g_animation_editor.animation;
-    en.current_frame = Max(0, en.current_frame - 1);
+    en.current_frame = (en.current_frame - 1 + g_animation_editor.animation->frame_count) % g_animation_editor.animation->frame_count;
 }
 
 static void HandleNextFrameCommand()
 {
     EditorAnimation& en = *g_animation_editor.animation;
-    en.current_frame = Min(g_animation_editor.animation->frame_count - 1, en.current_frame + 1);
+    en.current_frame = (en.current_frame + 1) % g_animation_editor.animation->frame_count;
 }
 
 static void HandleMoveCommand()
@@ -368,7 +425,7 @@ static void HandleMoveCommand()
     SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
-static void HandleRotateCommand()
+static void HandleRotate()
 {
     if (g_animation_editor.state != ANIMATION_EDITOR_STATE_DEFAULT)
         return;
@@ -382,11 +439,48 @@ static void HandleRotateCommand()
     //SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
-static void HandlePlayCommand()
+static void HandleResetRotate()
 {
     if (g_animation_editor.state != ANIMATION_EDITOR_STATE_DEFAULT)
         return;
 
+    RecordUndo(*g_animation_editor.asset);
+    EditorAnimation& en = *g_animation_editor.animation;
+    for (int i=0; i<en.bone_count; i++)
+    {
+        EditorBone& eb = en.skeleton_asset->skeleton->bones[i];
+        if (!eb.selected)
+            continue;
+
+        en.bones[i].frames[en.current_frame].rotation = 0;
+    }
+
+    UpdateTransforms(en, en.current_frame);
+}
+
+static void HandlePlayCommand()
+{
+    if (g_animation_editor.state == ANIMATION_EDITOR_STATE_PLAY)
+    {
+        Stop(g_animation_editor.animator);
+        SetState(ANIMATION_EDITOR_STATE_DEFAULT, nullptr, nullptr);
+        return;
+    }
+
+    if (g_animation_editor.state != ANIMATION_EDITOR_STATE_DEFAULT)
+        return;
+
+    EditorAsset& ea = *g_animation_editor.asset;
+    EditorAnimation& en = *g_animation_editor.animation;
+    if (!en.skeleton_asset)
+        return;
+
+    EditorSkeleton& es = *en.skeleton_asset->skeleton;
+
+    Init(
+        g_animation_editor.animator,
+        ToSkeleton(ALLOCATOR_DEFAULT, es, en.skeleton_asset->name));
+    Play(g_animation_editor.animator, ToAnimation(ALLOCATOR_DEFAULT, en, ea.name), 0.1f, true);
     SetState(ANIMATION_EDITOR_STATE_PLAY, UpdatePlayState, nullptr);
 }
 
@@ -409,12 +503,24 @@ static void HandleResetMoveCommand()
     UpdateTransforms(en, en.current_frame);
 }
 
+static void HandleSelectAll()
+{
+    if (g_animation_editor.state != ANIMATION_EDITOR_STATE_DEFAULT)
+        return;
+
+    EditorAnimation& en = *g_animation_editor.animation;
+    for (int i=0; i<en.bone_count; i++)
+        AddSelection(i);
+}
+
 static Shortcut g_animation_editor_shortcuts[] = {
     { KEY_G, false, false, false, HandleMoveCommand },
     { KEY_G, true, false, false, HandleResetMoveCommand },
-    { KEY_R, false, false, false, HandleRotateCommand },
-    { KEY_A, false, false, false, HandlePrevFrameCommand },
-    { KEY_D, false, false, false, HandleNextFrameCommand },
+    { KEY_R, false, false, false, HandleRotate },
+    { KEY_R, true, false, false, HandleResetRotate },
+    { KEY_A, false, false, false, HandleSelectAll },
+    { KEY_Q, false, false, false, HandlePrevFrameCommand },
+    { KEY_E, false, false, false, HandleNextFrameCommand },
     { KEY_SPACE, false, false, false, HandlePlayCommand },
     { INPUT_CODE_NONE }
 };

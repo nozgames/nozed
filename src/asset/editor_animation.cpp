@@ -233,7 +233,7 @@ void UpdateTransforms(EditorAnimation& en, int frame_index)
 
         en.bone_transforms[i] =
             en.bone_transforms[es.bones[i].parent_index] *
-            TRS(es.bones[i].position, eab.frames[frame_index].rotation, VEC2_ONE * eab.frames[frame_index].scale);
+            TRS(es.bones[i].position + eab.frames[frame_index].position, eab.frames[frame_index].rotation, VEC2_ONE * eab.frames[frame_index].scale);
     }
 }
 

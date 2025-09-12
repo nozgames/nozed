@@ -212,6 +212,8 @@ static void UpdateParentState()
             asset_index,
             GetFirstSelectedBoneIndex()
         };
+
+        MarkModified(*g_skeleton_editor.asset);
     }
 }
 
@@ -220,7 +222,6 @@ static void UpdateUnparentState()
     EditorSkeleton& es = *g_skeleton_editor.skeleton;
     if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
     {
-        int selected_bone_index = GetFirstSelectedBoneIndex();
         for (int i=0; i<g_skeleton_editor.skeleton->skinned_mesh_count; i++)
         {
             EditorSkinnedMesh& esm = g_skeleton_editor.skeleton->skinned_meshes[i];
@@ -235,6 +236,8 @@ static void UpdateUnparentState()
             es.skinned_mesh_count--;
             return;
         }
+
+        MarkModified(*g_skeleton_editor.asset);
     }
 }
 
@@ -303,7 +306,7 @@ static void HandleMoveCommand()
     SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
-static void HandleRotateCommand()
+static void HandleRotate()
 {
     if (g_skeleton_editor.state != SKELETON_EDITOR_STATE_DEFAULT)
         return;

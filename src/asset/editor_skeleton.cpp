@@ -6,6 +6,8 @@
 #include "editor_asset.h"
 #include "utils/file_helpers.h"
 
+extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
+
 void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
 {
     EditorSkeleton& es = *ea.skeleton;
@@ -237,4 +239,44 @@ int FindBoneIndex(const EditorSkeleton& es, const Name* name)
             return i;
 
     return -1;
+}
+
+void Serialize(EditorSkeleton& es, Stream* output_stream)
+{
+    AssetHeader header = {};
+    header.signature = ASSET_SIGNATURE_SKELETON;
+    header.version = 1;
+    header.flags = 0;
+    WriteAssetHeader(output_stream, &header);
+
+    WriteU8(output_stream, (u8)es.bone_count);
+
+    for (int i=0; i<es.bone_count; i++)
+    {
+        EditorBone& eb = es.bones[i];
+        WriteString(output_stream, eb.name->value);
+        WriteI8(output_stream, (char)eb.parent_index);
+        WriteStruct(output_stream, eb.local_to_world);
+        WriteStruct(output_stream, eb.world_to_local);
+        WriteStruct(output_stream, eb.position);
+    }
+}
+
+Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton& es, const Name* name)
+{
+    if (es.skeleton)
+        return es.skeleton;
+
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
+    if (!stream)
+        return nullptr;
+    Serialize(es, stream);
+    SeekBegin(stream, 0);
+
+    Skeleton* skeleton = (Skeleton*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_SKELETON, LoadSkeleton, stream);
+    Free(stream);
+
+    es.skeleton = skeleton;
+
+    return skeleton;
 }

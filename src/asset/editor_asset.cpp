@@ -82,7 +82,7 @@ static void SaveAssetMetadata()
     for (i32 i=0; i<g_asset_editor.asset_count; i++)
     {
         EditorAsset& asset = *g_asset_editor.assets[i];
-        if (!asset.dirty)
+        if (!asset.modified)
             continue;
 
         SaveAssetMetadata(asset);
