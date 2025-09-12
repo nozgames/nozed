@@ -82,3 +82,4 @@ extern void Copy(EditorMesh& dst, const EditorMesh& src);
 extern EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path);
 extern void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path);
 extern EditorAsset* NewEditorMesh(const std::filesystem::path& path);
+extern void DrawEditorMesh(EditorAsset& ea);

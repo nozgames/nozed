@@ -20,6 +20,17 @@ static void ImportAnimation(const fs::path& source_path, Stream* output_stream, 
     EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, std::string(en->skeleton_name->value) + ".skel");
     if (!es)
         throw std::runtime_error("invalid skeleton");
+
+    WriteU8(output_stream, (u8)en->bone_count);
+    WriteU8(output_stream, (u8)en->frame_count);
+
+    // todo: we could remove bones that have no actual data?
+    for (int i=0; i<en->bone_count; i++)
+        WriteU8(output_stream, (u8)en->bones[i].index);
+
+    for (int f=0; f<en->frame_count; f++)
+        for (int i=0; i<en->bone_count; i++)
+            WriteStruct(output_stream, MAT3_IDENTITY);
 }
 
 static bool DoesAnimationDependOn(const std::filesystem::path& path, const std::filesystem::path& dependency_path)

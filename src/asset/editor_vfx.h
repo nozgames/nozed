@@ -28,3 +28,4 @@ extern EditorVfx* LoadEditorVfx(Allocator* allocator, const std::filesystem::pat
 extern Vfx* ToVfx(Allocator* allocator, const EditorVfx& evfx, const Name* name);
 extern void Serialize(const EditorVfx& evfx, Stream* stream);
 extern EditorVfx* Clone(Allocator* allocator, const EditorVfx& evfx);
+extern void DrawEditorVfx(EditorAsset& ea);

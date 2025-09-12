@@ -2,30 +2,32 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "../asset_editor/asset_editor.h"
 #include "editor_asset.h"
 #include "../utils/file_helpers.h"
 #include "../utils/tokenizer.h"
 
-static void ParseSkeletonBone(EditorAnimation& en, Tokenizer& tk, const EditorSkeleton& es)
+void DrawEditorAnimation(EditorAsset& ea)
 {
-    if (!ExpectIdentifier(tk, "b"))
-        throw std::exception("missing 'b'");
+    EditorAnimation& en = *ea.anim;
 
+    if (en.skeleton_asset == nullptr)
+        en.skeleton_asset = GetEditorAsset(FindEditorAssetByName(en.skeleton_name));
+
+    if (en.skeleton_asset)
+        DrawEditorSkeleton(*en.skeleton_asset, ea.position);
+}
+
+static void ParseSkeletonBone(EditorAnimation& en, Tokenizer& tk, const EditorSkeleton& es, int bone_index, int* bone_map)
+{
     if (!ExpectQuotedString(tk))
         throw std::exception("missing quoted bone name");
 
-    EditorAnimationBone& bone = en.bones[en.bone_count++];
-    bone.name = GetName(tk);
-    //bone.index = GetBoneIndex(es, bone.name);
-    if (bone.index < 0)
-        en.bone_count--;
+    bone_map[bone_index] = FindBoneIndex(es, GetName(tk));
 }
 
-static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk)
+static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
 {
-    if (!ExpectIdentifier(tk, "s"))
-        throw std::exception("missing 's'");
-
     if (!ExpectQuotedString(tk))
         throw std::exception("missing quoted skeleton name");
 
@@ -34,15 +36,61 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk)
     std::filesystem::path skeleton_path = GetEditorAssetPath(en.skeleton_name, ".skel");
     EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, skeleton_path);
 
+    // Populate the bone list with the skeleton bones
+    en.bone_count = es->bone_count;
+    for (int i=0; i<es->bone_count; i++)
+    {
+        EditorAnimationBone& enb = en.bones[i];
+        enb.name = es->bones[i].name;
+        enb.index = i;
+    }
+
+    int bone_index = 0;
     while (!IsEOF(tk))
     {
-        if (!ExpectIdentifier(tk))
-            ThrowError("expected identifier");
-
-        if (Equals(tk, "b"))
-            ParseSkeletonBone(en, tk, *es);
+        if (ExpectIdentifier(tk, "b"))
+            ParseSkeletonBone(en, tk, *es, bone_index++, bone_map);
         else
-            ThrowError("invalid token '%s' in skeleton", GetString(tk));
+            break;
+    }
+}
+
+static int ParseFrameBone(EditorAnimation& ea, Tokenizer& tk, int frame_index, int* bone_map)
+{
+    int bone_index;
+    if (!ExpectInt(tk, &bone_index))
+        ThrowError("expected bone index");
+
+    return bone_map[bone_index];
+}
+
+static void ParseFramePosition(EditorAnimation& ea, Tokenizer& tk, int bone_index, int frame_index)
+{
+    float x;
+    if (!ExpectFloat(tk, &x))
+        ThrowError("expected position 'x' value");
+    float y;
+    if (!ExpectFloat(tk, &y))
+        ThrowError("expected position 'y' value");
+
+    // Ignore the data since the bone is gone from the skeleton
+    if (bone_index == -1)
+        return;
+
+    ea.bones[bone_index].position[frame_index] = {x,y};
+}
+
+static void ParseFrame(EditorAnimation& ea, Tokenizer& tk, int frame_index, int* bone_map)
+{
+    int bone_index = -1;
+    while (!IsEOF(tk))
+    {
+        if (ExpectIdentifier(tk, "b"))
+            bone_index = ParseFrameBone(ea, tk, frame_index, bone_map);
+        else if (ExpectIdentifier(tk, "p"))
+            ParseFramePosition(ea, tk, bone_index, frame_index);
+        else
+            break;
     }
 }
 
@@ -51,9 +99,11 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
-    Token token={};
 
     EditorAnimation* en = (EditorAnimation*)Alloc(allocator, sizeof(EditorAnimation));
+    int bone_map[MAX_BONES];
+    for (int i=0; i<MAX_BONES; i++)
+        bone_map[i] = -1;
 
     int frame_index = 0;
 
@@ -61,11 +111,10 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     {
         while (!IsEOF(tk))
         {
-            if (!ExpectIdentifier(tk))
-                ThrowError("expected identifier");
-
-            if (Equals(tk, "s"))
-                ParseSkeleton(*en, tk);
+            if (ExpectIdentifier(tk, "s"))
+                ParseSkeleton(*en, tk, bone_map);
+            if (ExpectIdentifier(tk, "f"))
+                ParseFrame(*en, tk, frame_index++, bone_map);
             else
                 ThrowError("invalid token '%s' in animation", GetString(tk));
         }
@@ -76,6 +125,7 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
         return nullptr;
     }
 
+    en->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
     return en;
 }
 

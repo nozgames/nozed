@@ -39,7 +39,7 @@ static void HandleEdit(Tokenizer& tk)
     if (name == NAME_NONE)
         return;
 
-    int asset_index = FindAssetByName(name);
+    int asset_index = FindEditorAssetByName(name);
     if (asset_index == -1)
     {
         LogError("unknown asset: %s", name->value);

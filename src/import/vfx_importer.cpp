@@ -2,8 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../utils/props.h"
-#include "asset/editor_vfx.h"
+#include <utils/props.h>
+#include <asset/editor_asset.h>
 
 namespace fs = std::filesystem;
 

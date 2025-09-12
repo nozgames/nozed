@@ -168,6 +168,9 @@ bool HitTestAsset(const EditorAsset& ea, const Vec2& position, const Vec2& hit_p
     case EDITOR_ASSET_TYPE_SKELETON:
         return Contains(ea.skeleton->bounds + position, hit_pos);
 
+    case EDITOR_ASSET_TYPE_ANIMATION:
+        return Contains(ea.anim->bounds + position, hit_pos);
+
     default:
         return false;
     }
@@ -195,6 +198,9 @@ bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds)
     case EDITOR_ASSET_TYPE_SKELETON:
         return Intersects(ea.skeleton->bounds + ea.position, hit_bounds);
 
+    case EDITOR_ASSET_TYPE_ANIMATION:
+        return Intersects(ea.anim->bounds + ea.position, hit_bounds);
+
     default:
         return false;
     }
@@ -214,19 +220,19 @@ void DrawAsset(EditorAsset& ea)
     switch (ea.type)
     {
     case EDITOR_ASSET_TYPE_MESH:
-        BindTransform(TRS(ea.position, 0, VEC2_ONE));
-        DrawMesh(ToMesh(*ea.mesh));
+        DrawEditorMesh(ea);
         break;
 
     case EDITOR_ASSET_TYPE_VFX:
-        if (!IsPlaying(ea.vfx_handle) && ea.vfx->vfx)
-            ea.vfx_handle = Play(ea.vfx->vfx, ea.position);
-
-        DrawOrigin(ea);
+        DrawEditorVfx(ea);
         break;
 
     case EDITOR_ASSET_TYPE_SKELETON:
         DrawEditorSkeleton(ea);
+        break;
+
+    case EDITOR_ASSET_TYPE_ANIMATION:
+        DrawEditorAnimation(ea);
         break;
 
     default:
@@ -247,6 +253,9 @@ Bounds2 GetBounds(const EditorAsset& ea)
     case EDITOR_ASSET_TYPE_SKELETON:
         return ea.skeleton->bounds;
 
+    case EDITOR_ASSET_TYPE_ANIMATION:
+        return ea.anim->bounds;
+
     default:
         break;
     }
@@ -266,6 +275,9 @@ Bounds2 GetSelectedBounds(const EditorAsset& ea)
 
     case EDITOR_ASSET_TYPE_SKELETON:
         return ea.skeleton->bounds;
+
+    case EDITOR_ASSET_TYPE_ANIMATION:
+        return ea.anim->bounds;
 
     default:
         break;
@@ -309,7 +321,7 @@ void AddAssetSelection(int asset_index)
     g_asset_editor.selected_asset_count++;
 }
 
-int FindAssetByName(const Name* name)
+int FindEditorAssetByName(const Name* name)
 {
     for (int i=0; i<g_asset_editor.asset_count; i++)
         if (g_asset_editor.assets[i]->name == name)
@@ -423,4 +435,11 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
     }
 
     return path;
+}
+
+EditorAsset* GetEditorAsset(int index)
+{
+    if (index < 0 || index >= g_asset_editor.asset_count)
+        return nullptr;
+    return g_asset_editor.assets[index];
 }

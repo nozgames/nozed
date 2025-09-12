@@ -117,10 +117,11 @@ extern void MoveTo(EditorAsset& asset, const Vec2& position);
 extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
 extern void AddAssetSelection(int asset_index);
-extern int FindAssetByName(const Name* name);
+extern int FindEditorAssetByName(const Name* name);
 extern EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea);
 extern void Copy(EditorAsset& dst, const EditorAsset& src);
 extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em);
+extern EditorAsset* GetEditorAsset(int index);
 
 // @notifications
 extern void InitNotifications();

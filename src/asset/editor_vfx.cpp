@@ -3,11 +3,20 @@
 //
 
 #include "editor_asset.h"
+#include <asset_editor/asset_editor.h>
+#include <utils/file_helpers.h>
 #include "../../../src/vfx/vfx_internal.h"
-#include "../utils/file_helpers.h"
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
+
+void DrawEditorVfx(EditorAsset& ea)
+{
+    if (!IsPlaying(ea.vfx_handle) && ea.vfx->vfx)
+        ea.vfx_handle = Play(ea.vfx->vfx, ea.position);
+
+    DrawOrigin(ea);
+}
 
 static bool ParseCurveType(Tokenizer& tk, VfxCurveType* curve_type)
 {

@@ -6,10 +6,11 @@
 #include "editor_asset.h"
 #include "utils/file_helpers.h"
 
-void DrawEditorSkeleton(EditorAsset& ea)
+void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position)
 {
     EditorSkeleton& es = *ea.skeleton;
 
+    BindColor(COLOR_WHITE);
     BindMaterial(g_asset_editor.material);
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
@@ -22,7 +23,7 @@ void DrawEditorSkeleton(EditorAsset& ea)
         // Vec2 parent_position = es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
         // Vec2 dir = Normalize(bone_position - parent_position);
 
-        BindTransform(TRS(bone.local_to_world * VEC2_ZERO + ea.position, 0, VEC2_ONE));
+        BindTransform(TRS(bone.local_to_world * VEC2_ZERO + position, 0, VEC2_ONE));
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
@@ -36,10 +37,15 @@ void DrawEditorSkeleton(EditorAsset& ea)
         Vec2 dir = Normalize(bone_position - parent_position);
         float len = Length(bone_position - parent_position);
         BindTransform(TRS(parent_position, dir, VEC2_ONE * len));
-        DrawBone(parent_position + ea.position, bone_position + ea.position);
+        DrawBone(parent_position + position, bone_position + position);
     }
 
-    DrawOrigin(ea.position);
+    DrawOrigin(position);
+}
+
+void DrawEditorSkeleton(EditorAsset& ea)
+{
+    DrawEditorSkeleton(ea, ea.position);
 }
 
 int HitTestBone(const EditorSkeleton& em, const Vec2& world_pos)
@@ -216,7 +222,7 @@ void PostLoadEditorAssets(EditorSkeleton& es)
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
         EditorSkinnedMesh& esm = es.skinned_meshes[i];
-        esm.asset_index = FindAssetByName(esm.asset_name);
+        esm.asset_index = FindEditorAssetByName(esm.asset_name);
         if (esm.asset_index < 0 || g_asset_editor.assets[esm.asset_index]->type != EDITOR_ASSET_TYPE_MESH)
             esm.asset_index = -1;
     }

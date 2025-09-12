@@ -9,6 +9,14 @@ constexpr float OUTLINE_WIDTH = 0.05f;
 #include "../asset_editor/asset_editor.h"
 #include "../utils/file_helpers.h"
 
+void DrawEditorMesh(EditorAsset& ea)
+{
+    BindColor(COLOR_WHITE);
+    BindMaterial(g_asset_editor.material);
+    BindTransform(TRS(ea.position, 0, VEC2_ONE));
+    DrawMesh(ToMesh(*ea.mesh));
+}
+
 static int GetOrAddEdge(EditorMesh& em, int v0, int v1)
 {
     int fv0 = Min(v0, v1);
