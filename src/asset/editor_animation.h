@@ -24,4 +24,4 @@ struct EditorAnimation
 extern EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path);
 extern EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path);
 extern void DrawEditorAnimation(EditorAsset& ea);
-
+extern void UpdateBounds(EditorAnimation& en);

@@ -228,7 +228,7 @@ void DrawAsset(EditorAsset& ea)
         break;
 
     case EDITOR_ASSET_TYPE_SKELETON:
-        DrawEditorSkeleton(ea);
+        DrawEditorSkeleton(ea, ea.selected && !ea.editing);
         break;
 
     case EDITOR_ASSET_TYPE_ANIMATION:

@@ -263,6 +263,11 @@ static void UpdateDefaultState()
             InitSkeletonEditor(ea);
             break;
 
+        case EDITOR_ASSET_TYPE_ANIMATION:
+            PushState(ASSET_EDITOR_STATE_EDIT);
+            InitAnimationEditor(ea);
+            break;
+
         default:
             break;
         }
@@ -400,6 +405,10 @@ static void UpdateAssetEditorInternal()
             UpdateSkeletonEditor();
             break;
 
+        case EDITOR_ASSET_TYPE_ANIMATION:
+            UpdateAnimationEditor();
+            break;
+
         default:
             break;
         }
@@ -482,6 +491,10 @@ void RenderView()
 
         case EDITOR_ASSET_TYPE_SKELETON:
             DrawSkeletonEditor();
+            break;
+
+        case EDITOR_ASSET_TYPE_ANIMATION:
+            DrawAnimationEditor();
             break;
 
         default:

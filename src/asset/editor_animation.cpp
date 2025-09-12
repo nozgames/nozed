@@ -2,20 +2,23 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../asset_editor/asset_editor.h"
+#include <utils/file_helpers.h>
+#include <utils/tokenizer.h>
+#include <asset_editor/asset_editor.h>
 #include "editor_asset.h"
-#include "../utils/file_helpers.h"
-#include "../utils/tokenizer.h"
 
 void DrawEditorAnimation(EditorAsset& ea)
 {
     EditorAnimation& en = *ea.anim;
 
     if (en.skeleton_asset == nullptr)
+    {
         en.skeleton_asset = GetEditorAsset(FindEditorAssetByName(en.skeleton_name));
+        UpdateBounds(en);
+    }
 
     if (en.skeleton_asset)
-        DrawEditorSkeleton(*en.skeleton_asset, ea.position);
+        DrawEditorSkeleton(*en.skeleton_asset, ea.position, ea.selected && !ea.editing);
 }
 
 static void ParseSkeletonBone(EditorAnimation& en, Tokenizer& tk, const EditorSkeleton& es, int bone_index, int* bone_map)
@@ -55,7 +58,7 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     }
 }
 
-static int ParseFrameBone(EditorAnimation& ea, Tokenizer& tk, int frame_index, int* bone_map)
+static int ParseFrameBone(EditorAnimation& ea, Tokenizer& tk, int* bone_map)
 {
     int bone_index;
     if (!ExpectInt(tk, &bone_index))
@@ -86,7 +89,7 @@ static void ParseFrame(EditorAnimation& ea, Tokenizer& tk, int frame_index, int*
     while (!IsEOF(tk))
     {
         if (ExpectIdentifier(tk, "b"))
-            bone_index = ParseFrameBone(ea, tk, frame_index, bone_map);
+            bone_index = ParseFrameBone(ea, tk, bone_map);
         else if (ExpectIdentifier(tk, "p"))
             ParseFramePosition(ea, tk, bone_index, frame_index);
         else
@@ -126,6 +129,7 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     }
 
     en->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
+    en->frame_count = frame_index;
     return en;
 }
 
@@ -138,4 +142,12 @@ EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
     EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_ANIMATION);
     ea->anim = en;
     return ea;
+}
+
+void UpdateBounds(EditorAnimation& en)
+{
+    if (!en.skeleton_asset)
+        return;
+
+    en.bounds = en.skeleton_asset->skeleton->bounds;
 }

@@ -6,7 +6,7 @@
 #include "editor_asset.h"
 #include "utils/file_helpers.h"
 
-void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position)
+void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
 {
     EditorSkeleton& es = *ea.skeleton;
 
@@ -28,7 +28,7 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position)
     }
 
     BindMaterial(g_asset_editor.vertex_material);
-    BindColor(ea.selected && !ea.editing ? COLOR_SELECTED : COLOR_BLACK);
+    BindColor(selected ? COLOR_SELECTED : COLOR_BLACK);
     for (int i=1; i<es.bone_count; i++)
     {
         const EditorBone& bone = es.bones[i];
@@ -43,9 +43,9 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position)
     DrawOrigin(position);
 }
 
-void DrawEditorSkeleton(EditorAsset& ea)
+void DrawEditorSkeleton(EditorAsset& ea, bool selected)
 {
-    DrawEditorSkeleton(ea, ea.position);
+    DrawEditorSkeleton(ea, ea.position, selected);
 }
 
 int HitTestBone(const EditorSkeleton& em, const Vec2& world_pos)

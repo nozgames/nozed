@@ -139,6 +139,11 @@ extern void InitSkeletonEditor(EditorAsset& ea);
 extern void UpdateSkeletonEditor();
 extern void DrawSkeletonEditor();
 
+// @animation_editor
+extern void InitAnimationEditor(EditorAsset& ea);
+extern void DrawAnimationEditor();
+extern void UpdateAnimationEditor();
+
 // @draw
 extern void DrawLine(const Vec2& v0, const Vec2& v1);
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
