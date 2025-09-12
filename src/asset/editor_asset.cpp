@@ -116,7 +116,7 @@ void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color)
     }
 }
 
-void SaveEditableAssets()
+void SaveEditorAssets()
 {
     SaveAssetMetadata();
 
@@ -137,6 +137,10 @@ void SaveEditableAssets()
 
         case EDITOR_ASSET_TYPE_SKELETON:
             SaveEditorSkeleton(*ea.skeleton, ea.path);
+            break;
+
+        case EDITOR_ASSET_TYPE_ANIMATION:
+            SaveEditorAnimation(*ea.anim, ea.path);
             break;
 
         default:

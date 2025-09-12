@@ -6,6 +6,7 @@
 
 constexpr float DEFAULT_LINE_WIDTH = 0.01f;
 constexpr float DEFAULT_VERTEX_SIZE = 0.08f;
+constexpr float DEFAULT_DASH_LENGTH = 0.05f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 constexpr float BONE_WIDTH = 0.10f;
@@ -24,6 +25,23 @@ void DrawLine(const Vec2& v0, const Vec2& v1, f32 width)
     DrawMesh(g_asset_editor.edge_mesh);
 }
 
+void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length)
+{
+    Vec2 line_dir = Normalize(v1 - v0);
+    float line_len = Length(v1 - v0);
+    float scale = length * 0.5f;
+
+    for (float pos = length/2; pos < line_len; pos += length * 2)
+    {
+        BindTransform(TRS(v0 + line_dir * pos, line_dir, Vec2{width * g_asset_editor.zoom_ref_scale, scale}));
+        DrawMesh(g_asset_editor.edge_mesh);
+    }
+}
+
+void DrawDashedLine(const Vec2& v0, const Vec2& v1)
+{
+    DrawDashedLine(v0, v1, DEFAULT_LINE_WIDTH, DEFAULT_DASH_LENGTH);
+}
 void DrawVertex(const Vec2& v)
 {
     DrawVertex(v, DEFAULT_VERTEX_SIZE);

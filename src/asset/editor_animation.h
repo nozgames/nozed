@@ -31,3 +31,4 @@ extern void UpdateBounds(EditorAnimation& en);
 extern void UpdateTransforms(EditorAnimation& en, int frame_index);
 extern void Serialize(const EditorAnimation& en, Stream* output_stream);
 extern Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* name);
+extern void SaveEditorAnimation(const EditorAnimation& en, const std::filesystem::path& path);

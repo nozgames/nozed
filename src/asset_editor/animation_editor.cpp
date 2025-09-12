@@ -38,6 +38,7 @@ struct AnimationEditor
     EditorAnimation* animation;
     int selected_bone_count;
     bool clear_selection_on_up;
+    bool ignore_up;
     void (*state_update)();
     void (*state_draw)();
     Vec2 command_world_position;
@@ -234,7 +235,7 @@ static void UpdateDefaultState()
     }
 
     // Select
-    if (!g_asset_editor.drag && WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
+    if (!g_animation_editor.ignore_up && !g_asset_editor.drag && WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
     {
         g_animation_editor.clear_selection_on_up = false;
 
@@ -243,6 +244,8 @@ static void UpdateDefaultState()
 
         g_animation_editor.clear_selection_on_up = true;
     }
+
+    g_animation_editor.ignore_up &= !WasButtonReleased(g_asset_editor.input, MOUSE_LEFT);
 
     if (WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) && g_animation_editor.clear_selection_on_up)
     {
@@ -255,24 +258,32 @@ void UpdateAnimationEditor()
     CheckShortcuts(g_animation_editor_shortcuts);
     UpdateBounds(*g_animation_editor.animation);
 
+    // Commit the tool
+    if (g_animation_editor.state == ANIMATION_EDITOR_STATE_MOVE ||
+        g_animation_editor.state == ANIMATION_EDITOR_STATE_ROTATE)
+    {
+        if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
+        {
+            MarkModified(*g_animation_editor.asset);
+            g_animation_editor.ignore_up = true;
+            SetState(ANIMATION_EDITOR_STATE_DEFAULT, nullptr, nullptr);
+            return;
+        }
+
+        // Cancel the tool
+        if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE) || WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
+        {
+            CancelUndo();
+            SetState(ANIMATION_EDITOR_STATE_DEFAULT, nullptr, nullptr);
+            return;
+        }
+    }
+
     if (g_animation_editor.state_update)
         g_animation_editor.state_update();
 
     if (g_animation_editor.state == ANIMATION_EDITOR_STATE_DEFAULT)
         UpdateDefaultState();
-
-    // Commit the tool
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
-    {
-        g_animation_editor.asset->modified = true;
-        SetState(ANIMATION_EDITOR_STATE_DEFAULT, nullptr, nullptr);
-    }
-    // Cancel the tool
-    else if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE) || WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
-    {
-        CancelUndo();
-        SetState(ANIMATION_EDITOR_STATE_DEFAULT, nullptr, nullptr);
-    }
 }
 
 static void DrawSkeleton()
@@ -379,8 +390,28 @@ static void HandlePlayCommand()
     SetState(ANIMATION_EDITOR_STATE_PLAY, UpdatePlayState, nullptr);
 }
 
+static void HandleResetMoveCommand()
+{
+    if (g_animation_editor.state != ANIMATION_EDITOR_STATE_DEFAULT)
+        return;
+
+    RecordUndo(*g_animation_editor.asset);
+    EditorAnimation& en = *g_animation_editor.animation;
+    for (int i=0; i<en.bone_count; i++)
+    {
+        EditorBone& eb = en.skeleton_asset->skeleton->bones[i];
+        if (!eb.selected)
+            continue;
+
+        en.bones[i].frames[en.current_frame].position = VEC2_ZERO;
+    }
+
+    UpdateTransforms(en, en.current_frame);
+}
+
 static Shortcut g_animation_editor_shortcuts[] = {
     { KEY_G, false, false, false, HandleMoveCommand },
+    { KEY_G, true, false, false, HandleResetMoveCommand },
     { KEY_R, false, false, false, HandleRotateCommand },
     { KEY_A, false, false, false, HandlePrevFrameCommand },
     { KEY_D, false, false, false, HandleNextFrameCommand },

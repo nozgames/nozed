@@ -432,7 +432,7 @@ static void UpdateAssetEditorInternal()
 
     // Save
     if (WasButtonPressed(g_asset_editor.input, KEY_S) && IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
-        SaveEditableAssets();
+        SaveEditorAssets();
 
     UpdateView();
     UpdateNotifications();

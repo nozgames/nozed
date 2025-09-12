@@ -177,9 +177,10 @@ void UpdateTransforms(EditorSkeleton& es)
     for (int i=1; i<es.bone_count; i++)
     {
         EditorBone& bone = es.bones[i];
-        bone.local_to_world = es.bones[bone.parent_index].local_to_world * TRS(bone.position, 0, VEC2_ONE);
+        EditorBone& parent = es.bones[bone.parent_index];
+        bone.local_to_world = parent.local_to_world * TRS(bone.position, 0, VEC2_ONE);
         bone.world_to_local = Inverse(bone.local_to_world);
-        bone.length = Length((bone.local_to_world * VEC2_ZERO) - (es.bones[bone.parent_index].local_to_world * VEC2_ZERO));
+        bone.length = Length(bone.position);
     }
 
     Vec2 root_position = es.bones[0].local_to_world * VEC2_ZERO;

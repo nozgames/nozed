@@ -28,11 +28,24 @@ void DrawEditorAnimation(EditorAsset& ea)
 
     EditorSkeleton& es = *en.skeleton_asset->skeleton;
 
+    BindColor(COLOR_WHITE);
+    BindMaterial(g_asset_editor.material);
+    for (int i=0; i<es.skinned_mesh_count; i++)
+    {
+        const EditorAsset& skinned_mesh_asset = *g_asset_editor.assets[es.skinned_meshes[i].asset_index];
+        if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
+            continue;
+
+        BindTransform(TRS(ea.position, 0, VEC2_ONE) * en.bone_transforms[es.skinned_meshes[i].bone_index]);
+        //BindTransform(TRS(en.bone_transforms[i] * VEC2_ZERO + ea.position, 0, VEC2_ONE));
+        DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
+    }
+
     for (int i=1; i<en.bone_count; i++)
     {
-        Vec3 b0 = en.bone_transforms[i] * Vec3 { 0, 0, 1 };
-        Vec3 b1 = en.bone_transforms[es.bones[i].parent_index] * Vec3 { 0, 0, 1 };
-        DrawBone(Vec2{b1.x, b1.y} + ea.position, Vec2{b0.x, b0.y} + ea.position);
+        Vec2 b1 = en.bone_transforms[es.bones[i].parent_index] * VEC2_ZERO;
+        Vec2 b2 = en.bone_transforms[i] * VEC2_ZERO;
+        DrawBone(b2 + ea.position, b1 + ea.position);
     }
 }
 
@@ -220,7 +233,7 @@ void UpdateTransforms(EditorAnimation& en, int frame_index)
 
         en.bone_transforms[i] =
             en.bone_transforms[es.bones[i].parent_index] *
-            TRS(es.bones[i].position + eab.frames[frame_index].position, eab.frames[frame_index].rotation, VEC2_ONE * eab.frames[frame_index].scale);
+            TRS(es.bones[i].position, eab.frames[frame_index].rotation, VEC2_ONE * eab.frames[frame_index].scale);
     }
 }
 
@@ -260,4 +273,50 @@ Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* na
     Free(stream);
 
     return animation;
+}
+
+void SaveEditorAnimation(const EditorAnimation& en, const std::filesystem::path& path)
+{
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+
+    WriteCSTR(stream, "s \"%s\"\n", en.skeleton_name->value);
+
+    for (int i=0; i<en.bone_count; i++)
+    {
+        const EditorAnimationBone& eab = en.bones[i];
+        WriteCSTR(stream, "b \"%s\"\n", eab.name->value);
+    }
+
+    for (int frame_index=0; frame_index<en.frame_count; frame_index++)
+    {
+        WriteCSTR(stream, "f\n");
+        for (int bone_index=0; bone_index<en.bone_count; bone_index++)
+        {
+            const EditorAnimationBone& eab = en.bones[bone_index];
+            const BoneTransform& bt = eab.frames[frame_index];
+
+            bool has_pos = bt.position != VEC2_ZERO;
+            bool has_rot = bt.rotation != 0.0f;
+            bool has_scale = bt.scale != 1.0f;
+
+            if (!has_pos && !has_rot && !has_scale)
+                continue;
+
+            WriteCSTR(stream, "b %d", bone_index);
+
+            if (has_pos)
+                WriteCSTR(stream, " p %g %g", bt.position.x, bt.position.y);
+
+            if (has_rot)
+                WriteCSTR(stream, " r %g", bt.rotation);
+
+            if (has_scale)
+                WriteCSTR(stream, " s %g", bt.scale);
+
+            WriteCSTR(stream, "\n");
+        }
+    }
+
+    SaveStream(stream, path);
+    Free(stream);
 }

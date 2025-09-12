@@ -102,7 +102,7 @@ extern void CancelUndo();
 extern EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path);
 extern EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path);
 extern void LoadEditorAssets();
-extern void SaveEditableAssets();
+extern void SaveEditorAssets();
 extern bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos);
 extern bool HitTestAsset(const EditorAsset& ea, const Vec2& position, const Vec2& hit_pos);
 extern bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds);
@@ -153,6 +153,8 @@ extern void DrawOrigin(const EditorAsset& ea);
 extern void DrawOrigin(const Vec2& position);
 extern void DrawBounds(const EditorAsset& ea, float expand=0);
 extern void DrawBone(const Vec2& a, const Vec2& b);
+extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);
+extern void DrawDashedLine(const Vec2& v0, const Vec2& v1);
 
 // @shortcut
 struct Shortcut

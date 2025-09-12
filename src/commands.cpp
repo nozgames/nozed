@@ -21,7 +21,7 @@ static void HandleQuit(Tokenizer& tk)
 // @save
 static void HandleSave(Tokenizer& tk)
 {
-    SaveEditableAssets();
+    SaveEditorAssets();
 }
 
 // @edit
