@@ -185,6 +185,8 @@ Props* Props::Load(Stream* stream)
 
 Props* Props::Load(const char* content, size_t content_length)
 {
+    (void)content_length;
+
     if (!content) return nullptr;
 
     auto props = new Props();

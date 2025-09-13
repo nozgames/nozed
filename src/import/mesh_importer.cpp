@@ -20,6 +20,9 @@ struct OutlineConfig
 
 void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+    (void)config;
+    (void)meta;
+
     EditorMesh* em = LoadEditorMesh(ALLOCATOR_DEFAULT, source_path);
     if (!em)
         throw std::runtime_error("invalid mesh");

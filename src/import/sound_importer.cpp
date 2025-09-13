@@ -73,6 +73,9 @@ bool ValidateWavDataChunk(const WavDataChunk* data)
 
 void ImportSound(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+    (void)config;
+    (void)meta;
+
     std::ifstream input_file(source_path, std::ios::binary);
     if (!input_file.is_open())
     {
@@ -104,7 +107,7 @@ void ImportSound(const fs::path& source_path, Stream* output_stream, Props* conf
     }
     
     // Find the data chunk by scanning through any other chunks (like bext)
-    WavDataChunk data_chunk;
+    WavDataChunk data_chunk = {};
     bool found_data_chunk = false;
     
     while (!found_data_chunk && input_file.good())

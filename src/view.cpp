@@ -2,10 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-//
-//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
-//
-
 #include "view.h"
 
 constexpr int MAX_COMMAND_LENGTH = 1024;
@@ -34,9 +30,18 @@ extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 static ViewState GetState() { return g_view.state_stack[g_view.state_stack_count-1]; }
 static EditorAsset& GetEditingAsset() { return *g_view.assets[g_view.edit_asset_index]; }
 
-extern Shortcut g_common_shortcuts[];
-
 View g_view = {};
+
+static void HandleFrame();
+static void HandleUIZoomIn();
+static void HandleUIZoomOut();
+
+static Shortcut g_common_shortcuts[] = {
+    { KEY_F, false, false, false, HandleFrame },
+    { KEY_EQUALS, false, true, false, HandleUIZoomIn },
+    { KEY_MINUS, false, true, false, HandleUIZoomOut },
+    { INPUT_CODE_NONE }
+};
 
 static void UpdateCamera()
 {
@@ -66,7 +71,7 @@ static void FrameView()
 
     if (first)
     {
-        for (int i=0; i<g_view.asset_count; i++)
+        for (u32 i=0; i<g_view.asset_count; i++)
         {
             const EditorAsset& ea = *g_view.assets[i];
             if (!ea.selected)
@@ -114,7 +119,7 @@ static void HandleBoxSelect()
 
     ClearAssetSelection();
 
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
         if (HitTestAsset(ea, g_view.box_selection))
@@ -151,7 +156,7 @@ static void UpdatePanState()
     }
 }
 
-static void ZoomView()
+static void UpdateZoom()
 {
     float zoom_axis = GetAxis(g_view.input, MOUSE_SCROLL_Y);
     if (zoom_axis > -0.5f && zoom_axis < 0.5f)
@@ -174,18 +179,12 @@ static void ZoomView()
     SetPosition(g_view.camera, current_center + world_offset);
 }
 
-static void UpdateView()
-{
-    ZoomView();
-
-
-}
 
 static void UpdateMoveState()
 {
     // Move all selected assets
     Vec2 drag = g_view.mouse_world_position - g_view.move_world_position;
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
         if (!ea.selected)
@@ -197,7 +196,7 @@ static void UpdateMoveState()
     // Cancel move?
     if (WasButtonPressed(g_view.input, KEY_ESCAPE))
     {
-        for (int i=0; i<g_view.asset_count; i++)
+        for (u32 i=0; i<g_view.asset_count; i++)
         {
             EditorAsset& ea = *g_view.assets[i];
             ea.position = ea.saved_position;
@@ -299,7 +298,7 @@ void PushState(ViewState state)
     case ASSET_EDITOR_STATE_MOVE:
         g_view.move_world_position = g_view.mouse_world_position;
         BeginUndoGroup();
-        for (int i=0; i<g_view.asset_count; i++)
+        for (u32 i=0; i<g_view.asset_count; i++)
         {
             EditorAsset& ea = *g_view.assets[i];
             RecordUndo(ea);
@@ -313,7 +312,7 @@ void PushState(ViewState state)
     }
 }
 
-static void PopState()
+void PopState()
 {
     assert(g_view.state_stack_count > 1);
     ViewState state = GetState();
@@ -380,7 +379,7 @@ static void UpdateCommon()
     }
 }
 
-static void UpdateAssetEditorInternal()
+static void UpdateViewInternal()
 {
     UpdateCamera();
     UpdateMouse();
@@ -437,7 +436,7 @@ static void UpdateAssetEditorInternal()
     if (WasButtonPressed(g_view.input, KEY_S) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
         SaveEditorAssets();
 
-    UpdateView();
+    UpdateZoom();
     UpdateNotifications();
 }
 
@@ -479,7 +478,7 @@ void RenderView()
     // Draw assets
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
         DrawAsset(*g_view.assets[i]);
 
     // Draw edges
@@ -506,7 +505,7 @@ void RenderView()
     }
     else
     {
-        for (int i=0; i<g_view.asset_count; i++)
+        for (u32 i=0; i<g_view.asset_count; i++)
         {
             const EditorAsset& ea = *g_view.assets[i];
             if (!ea.selected)
@@ -517,7 +516,7 @@ void RenderView()
     }
 
     // Draw origins and bounds
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
         if (g_view.assets[i]->selected)
         {
             EditorAsset& ea = *g_view.assets[i];
@@ -589,10 +588,10 @@ void UpdateCommandPalette()
     EndCanvas();
 }
 
-void UpdateAssetEditor()
+void UpdateView()
 {
     BeginUI(UI_REF_WIDTH, UI_REF_HEIGHT);
-    UpdateAssetEditorInternal();
+    UpdateViewInternal();
     UpdateCommandPalette();
     EndUI();
 
@@ -622,14 +621,7 @@ static void HandleUIZoomOut()
     g_view.ui_scale = Max(g_view.ui_scale - 0.1f, 0.3f);
 }
 
-static Shortcut g_common_shortcuts[] = {
-    { KEY_F, false, false, false, HandleFrame },
-    { KEY_EQUALS, false, true, false, HandleUIZoomIn },
-    { KEY_MINUS, false, true, false, HandleUIZoomOut },
-    { INPUT_CODE_NONE }
-};
-
-void InitAssetEditor()
+void InitView()
 {
     InitUndo();
     InitWindow();
@@ -684,10 +676,10 @@ void InitAssetEditor()
     EnableButton(g_view.command_input, KEY_ENTER);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);
-    AddVertex(builder, {   0, -0.5f}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, { 0.5f, 0.0f}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, {   0,  0.5f}, {0,0,1}, VEC2_ZERO, 0);
-    AddVertex(builder, {-0.5f, 0.0f}, {0,0,1}, VEC2_ZERO, 0);
+    AddVertex(builder, {   0, -0.5f}, {0,0,1}, VEC2_ZERO);
+    AddVertex(builder, { 0.5f, 0.0f}, {0,0,1}, VEC2_ZERO);
+    AddVertex(builder, {   0,  0.5f}, {0,0,1}, VEC2_ZERO);
+    AddVertex(builder, {-0.5f, 0.0f}, {0,0,1}, VEC2_ZERO);
     AddTriangle(builder, 0, 1, 2);
     AddTriangle(builder, 2, 3, 0);
     g_view.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
@@ -710,7 +702,7 @@ void InitAssetEditor()
     g_view.state_stack_count = 1;
 }
 
-void ShutdownAssetEditor()
+void ShutdownView()
 {
     g_view = {};
 

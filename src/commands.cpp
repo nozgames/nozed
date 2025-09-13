@@ -15,12 +15,14 @@ struct CommandDef
 // @quit
 static void HandleQuit(Tokenizer& tk)
 {
+    (void)tk;
     g_editor.is_running = false;
 }
 
 // @save
 static void HandleSave(Tokenizer& tk)
 {
+    (void)tk;
     SaveEditorAssets();
 }
 
@@ -30,7 +32,7 @@ static void HandleEdit(Tokenizer& tk)
     if (IsWindowCreated())
         FocusWindow();
     else
-        InitAssetEditor();
+        InitView();
 
     if (!ExpectIdentifier(tk))
         return;

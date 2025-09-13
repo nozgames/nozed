@@ -41,8 +41,28 @@ struct MeshEditor
     EditorMesh* mesh;
 };
 
-extern Shortcut g_mesh_editor_shortcuts[];
 static MeshEditor g_mesh_editor = {};
+
+static void HandleMoveCommand();
+static void HandleScaleCommand();
+static void HandleHeightCommand();
+static void HandleSelectAllCommand();
+static void DissolveSelected();
+static void AddVertexAtMouse();
+static void MergeVertices();
+static void RotateEdges();
+
+static Shortcut g_mesh_editor_shortcuts[] = {
+    { KEY_G, false, false, false, HandleMoveCommand },
+    { KEY_S, false, false, false, HandleScaleCommand },
+    { KEY_Q, false, false, false, HandleHeightCommand },
+    { KEY_A, false, false, false, HandleSelectAllCommand },
+    { KEY_X, false, false, false, DissolveSelected },
+    { KEY_V, false, false, false, AddVertexAtMouse },
+    { KEY_M, false, false, false, MergeVertices },
+    { KEY_R, false, false, false, RotateEdges },
+    { INPUT_CODE_NONE }
+};
 
 static void DrawVertices(const EditorAsset& ea, bool selected)
 {
@@ -572,7 +592,7 @@ void DrawMeshEditor(EditorAsset& ea)
     }
 }
 
-static void HandleBoxSelect(const Bounds2& bounds)
+void HandleBoxSelect(const Bounds2& bounds)
 {
     EditorAsset& ea = *g_mesh_editor.asset;
     EditorMesh& em = *ea.mesh;
@@ -638,18 +658,6 @@ static void HandleSelectAllCommand()
 {
     SelectAll(*g_mesh_editor.mesh);
 }
-
-static Shortcut g_mesh_editor_shortcuts[] = {
-    { KEY_G, false, false, false, HandleMoveCommand },
-    { KEY_S, false, false, false, HandleScaleCommand },
-    { KEY_Q, false, false, false, HandleHeightCommand },
-    { KEY_A, false, false, false, HandleSelectAllCommand },
-    { KEY_X, false, false, false, DissolveSelected },
-    { KEY_V, false, false, false, AddVertexAtMouse },
-    { KEY_M, false, false, false, MergeVertices },
-    { KEY_R, false, false, false, RotateEdges },
-    { INPUT_CODE_NONE }
-};
 
 void InitMeshEditor(EditorAsset& ea)
 {

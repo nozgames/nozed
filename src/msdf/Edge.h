@@ -20,6 +20,8 @@ namespace noz::msdf
     {
         Edge(EdgeColor color);
 
+        virtual ~Edge() = default;
+
         virtual Vec2Double point(double mix) const = 0;
         virtual void splitInThirds(std::vector<Edge*>& result) const = 0;
         virtual void bounds(double& l, double& b, double& r, double& t) const = 0;

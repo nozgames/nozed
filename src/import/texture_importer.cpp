@@ -67,12 +67,14 @@ static void WriteTextureData(
     WriteU32(stream, height);
 
     // Write pixel data
-    size_t data_size = width * height * channels;
-    WriteBytes(stream, (void*)data, data_size);
+    u32 data_size = width * height * channels;
+    WriteBytes(stream, data, data_size);
 }
 
 void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+    (void)config;
+
     fs::path src_path = source_path;
     
     // Load image using stb_image

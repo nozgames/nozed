@@ -42,7 +42,19 @@ struct SkeletonEditor
 };
 
 static SkeletonEditor g_skeleton_editor = {};
-extern Shortcut g_skeleton_editor_shortcuts[];
+
+static void HandleMoveCommand();
+static void HandleParentCommand();
+static void HandleUnparentCommand();
+static void HandleExtrudeCommand();
+
+static Shortcut g_skeleton_editor_shortcuts[] = {
+    { KEY_G, false, false, false, HandleMoveCommand },
+    { KEY_P, false, false, false, HandleParentCommand },
+    { KEY_P, false, true, false, HandleUnparentCommand },
+    { KEY_E, false, false, false, HandleExtrudeCommand },
+    { INPUT_CODE_NONE }
+};
 
 static int GetFirstSelectedBoneIndex()
 {
@@ -90,6 +102,7 @@ static void SetState(SkeletonEditorState state, void (*state_update)(), void (*s
 {
     g_skeleton_editor.state = state;
     g_skeleton_editor.state_update = state_update;
+    g_skeleton_editor.state_draw = state_draw;
     g_skeleton_editor.command_world_position = g_view.mouse_world_position;
 
     SetCursor(SYSTEM_CURSOR_DEFAULT);
@@ -129,8 +142,6 @@ static bool SelectBone()
 
 static void UpdateDefaultState()
 {
-    EditorSkeleton& es = *g_skeleton_editor.skeleton;
-
     // If a drag has started then switch to box select
     if (g_view.drag)
     {
@@ -156,6 +167,7 @@ static void UpdateDefaultState()
     }
 }
 
+#if 0
 static void UpdateRotateState()
 {
     Vec2 dir_start = Normalize(g_skeleton_editor.command_world_position - g_skeleton_editor.selection_center_world);
@@ -170,13 +182,12 @@ static void UpdateRotateState()
         EditorBone& eb = es.bones[i];
         if (!eb.selected)
             continue;
-
-        SavedBone& sb = g_skeleton_editor.saved_bones[i];
     }
 
     UpdateTransforms(es);
     UpdateSelectionCenter();
 }
+#endif
 
 static void UpdateMoveState()
 {
@@ -265,9 +276,11 @@ void UpdateSkeletonEditor()
     }
 }
 
+#if 0
 static void DrawRotateState()
 {
 }
+#endif
 
 static void DrawSkeleton()
 {
@@ -306,6 +319,7 @@ static void HandleMoveCommand()
     SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
+#if 0
 static void HandleRotate()
 {
     if (g_skeleton_editor.state != SKELETON_EDITOR_STATE_DEFAULT)
@@ -318,6 +332,7 @@ static void HandleRotate()
     SaveState();
     SetState(SKELETON_EDITOR_STATE_ROTATE, UpdateRotateState, DrawRotateState);
 }
+#endif
 
 static void HandleParentCommand()
 {
@@ -357,14 +372,6 @@ static void HandleExtrudeCommand()
     SelectBone(es.bone_count-1);
     HandleMoveCommand();
 }
-
-static Shortcut g_skeleton_editor_shortcuts[] = {
-    { KEY_G, false, false, false, HandleMoveCommand },
-    { KEY_P, false, false, false, HandleParentCommand },
-    { KEY_P, false, true, false, HandleUnparentCommand },
-    { KEY_E, false, false, false, HandleExtrudeCommand },
-    { INPUT_CODE_NONE }
-};
 
 void InitSkeletonEditor(EditorAsset& ea)
 {

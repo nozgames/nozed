@@ -53,7 +53,7 @@ static void HandleStatsAck(Stream* stream)
     Send(EDITOR_EVENT_STATS, &stats);
 }
 
-static void HandleClientMessage(void* data, size_t data_size)
+static void HandleClientMessage(void* data, u32 data_size)
 {
     auto stream = LoadStream(ALLOCATOR_DEFAULT, (u8*)data, data_size);
     switch (ReadEditorMessage(stream))
@@ -111,7 +111,7 @@ void UpdateEditorServer()
             }
             
             case ENET_EVENT_TYPE_RECEIVE:
-                HandleClientMessage(event.packet->data, event.packet->dataLength);
+                HandleClientMessage(event.packet->data, (u32)event.packet->dataLength);
                 enet_packet_destroy(event.packet);
                 break;
         }

@@ -16,7 +16,7 @@ std::vector<std::filesystem::path> GetFilesInDirectory(const std::filesystem::pa
             if (entry.is_regular_file())
                 results.push_back(entry.path().string());
     }
-    catch (const std::filesystem::filesystem_error& ex)
+    catch (const std::filesystem::filesystem_error&)
     {
     }
 
@@ -58,7 +58,7 @@ std::string ReadAllText(Allocator* allocator, const std::filesystem::path& path)
     Stream* stream = LoadStream(allocator, path);
     if (stream)
     {
-        size_t size = GetSize(stream);
+        u32 size = GetSize(stream);
         if (size > 0)
         {
             result.resize(size + 1);

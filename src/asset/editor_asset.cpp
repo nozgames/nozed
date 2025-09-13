@@ -79,7 +79,7 @@ static void SaveAssetMetadata(const EditorAsset& asset)
 
 static void SaveAssetMetadata()
 {
-    for (i32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& asset = *g_view.assets[i];
         if (!asset.modified)
@@ -121,7 +121,7 @@ void SaveEditorAssets()
     SaveAssetMetadata();
 
     u32 count = 0;
-    for (i32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
         if (!ea.modified)
@@ -292,7 +292,7 @@ Bounds2 GetSelectedBounds(const EditorAsset& ea)
 
 int GetFirstSelectedAsset()
 {
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
         if (g_view.assets[i]->selected)
             return i;
 
@@ -301,7 +301,7 @@ int GetFirstSelectedAsset()
 
 void ClearAssetSelection()
 {
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
         g_view.assets[i]->selected = false;
 
     g_view.selected_asset_count = 0;
@@ -327,7 +327,7 @@ void AddAssetSelection(int asset_index)
 
 int FindEditorAssetByName(const Name* name)
 {
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
         if (g_view.assets[i]->name == name)
             return i;
 
@@ -384,21 +384,24 @@ void LoadEditorAssets()
         }
     }
 
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
         switch (ea.type)
         {
-            case EDITOR_ASSET_TYPE_SKELETON:
-                PostLoadEditorAssets(*ea.skeleton);
-                break;
+        case EDITOR_ASSET_TYPE_SKELETON:
+            PostLoadEditorAssets(*ea.skeleton);
+            break;
+
+        default:
+            break;
         }
     }
 }
 
 void HotloadEditorAsset(const Name* name)
 {
-    for (int i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
         if (ea.name != name)
@@ -441,9 +444,10 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
     return path;
 }
 
-EditorAsset* GetEditorAsset(int index)
+EditorAsset* GetEditorAsset(u32 index)
 {
     if (index < 0 || index >= g_view.asset_count)
         return nullptr;
+
     return g_view.assets[index];
 }

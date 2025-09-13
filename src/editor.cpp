@@ -84,8 +84,9 @@ static void UpdateEditor()
     UpdateEditorServer();
 }
 
-void HandleStatsEvents(EventId event, const void* event_data)
+void HandleStatsEvents(EventId event_id, const void* event_data)
 {
+    (void)event_id;
     EditorEventStats* stats = (EditorEventStats*)event_data;
     g_editor.fps = stats->fps;
     g_editor.stats_requested = false;
@@ -93,6 +94,7 @@ void HandleStatsEvents(EventId event, const void* event_data)
 
 void HandleImported(EventId event_id, const void* event_data)
 {
+    (void)event_id;
     HotloadEvent event = { (const char*)event_data };
     Send(EVENT_HOTLOAD, &event);
 }
@@ -181,13 +183,13 @@ int main(int argc, const char* argv[])
         UpdateEditor();
 
         if (IsWindowCreated())
-            UpdateAssetEditor();
+            UpdateView();
         else
             ThreadSleep(1);
     }
 
     if (IsWindowCreated())
-        ShutdownAssetEditor();
+        ShutdownView();
 
     ShutdownEditor();
     ShutdownApplication();

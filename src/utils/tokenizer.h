@@ -26,9 +26,9 @@ enum TokenType
 struct Token
 {
     const char* raw;
-    size_t length;
-    size_t line;
-    size_t column;
+    u32 length;
+    u32 line;
+    u32 column;
     TokenType type;
     union
     {
@@ -45,10 +45,10 @@ struct Token
 struct Tokenizer
 {
     const char* input;
-    size_t position;
-    size_t length;
-    size_t line;
-    size_t column;
+    u32 position;
+    u32 length;
+    u32 line;
+    u32 column;
     Token next_token;
     Token current_token;
 };

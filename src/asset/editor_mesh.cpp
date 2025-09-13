@@ -128,12 +128,6 @@ static void UpdateEdges(EditorMesh& em)
         GetOrAddEdge(em, et.v1, et.v2);
         GetOrAddEdge(em, et.v2, et.v0);
     }
-
-    for (int i = 1; i < em.vertex_count; i++)
-    {
-        EditorVertex& ev = em.vertices[i];
-        //ev.edge_normal = Normalize(ev.edge_normal);
-    }
 }
 
 void MarkDirty(EditorMesh& em)
@@ -158,10 +152,10 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
     {
         const EditorFace& tri = em.faces[i];
         Vec2 uv_color = ColorUV(tri.color.x, tri.color.y);
-        AddVertex(builder, em.vertices[tri.v0].position, tri.normal, uv_color, 0);
-        AddVertex(builder, em.vertices[tri.v1].position, tri.normal, uv_color, 0);
-        AddVertex(builder, em.vertices[tri.v2].position, tri.normal, uv_color, 0);
-        AddTriangle(builder, i * 3, i * 3 + 1, i * 3 + 2);
+        AddVertex(builder, em.vertices[tri.v0].position, tri.normal, uv_color);
+        AddVertex(builder, em.vertices[tri.v1].position, tri.normal, uv_color);
+        AddVertex(builder, em.vertices[tri.v2].position, tri.normal, uv_color);
+        AddTriangle(builder, (u16)(i * 3), (u16)(i * 3 + 1), (u16)(i * 3 + 2));
     }
 
     // Generate outline
@@ -176,11 +170,11 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
         const EditorVertex& v1 = em.vertices[ee.v1];
         Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
         Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
-        int base = GetVertexCount(builder);
-        AddVertex(builder, ToVec2(p0), VEC3_FORWARD, edge_uv, 0);
-        AddVertex(builder, ToVec2(p0) + v0.edge_normal * OUTLINE_WIDTH, VEC3_FORWARD, edge_uv, 0);
-        AddVertex(builder, ToVec2(p1) + v1.edge_normal * OUTLINE_WIDTH, VEC3_FORWARD, edge_uv, 0);
-        AddVertex(builder, ToVec2(p1), VEC3_FORWARD, edge_uv, 0);
+        u16 base = (u16)GetVertexCount(builder);
+        AddVertex(builder, ToVec2(p0), VEC3_FORWARD, edge_uv);
+        AddVertex(builder, ToVec2(p0) + v0.edge_normal * OUTLINE_WIDTH, VEC3_FORWARD, edge_uv);
+        AddVertex(builder, ToVec2(p1) + v1.edge_normal * OUTLINE_WIDTH, VEC3_FORWARD, edge_uv);
+        AddVertex(builder, ToVec2(p1), VEC3_FORWARD, edge_uv);
         AddTriangle(builder, base+0, base+1, base+3);
         AddTriangle(builder, base+1, base+2, base+3);
     }
@@ -607,31 +601,7 @@ int RotateEdge(EditorMesh& em, int edge_index)
     return -1;
 }
 
-static int GetEdgeFaces(EditorMesh& em, int edge_index, int& face0, int& face1)
-{
-    EditorEdge& ee = em.edges[edge_index];
-    int face_count = em.face_count;
-    int found = 0;
-    for (int i = 0; found < 2 && i < face_count; i++)
-    {
-        EditorFace& et = em.faces[i];
-        int edge_match = (et.v0 == ee.v0 || et.v0 == ee.v1) && (et.v1 == ee.v0 || et.v1 == ee.v1);
-        edge_match += (et.v1 == ee.v0 || et.v1 == ee.v1) && (et.v2 == ee.v0 || et.v2 == ee.v1);
-        edge_match += (et.v2 == ee.v0 || et.v2 == ee.v1) && (et.v0 == ee.v0 || et.v0 == ee.v1);
-
-        if (edge_match < 2)
-            continue;
-
-        if (found++ == 0)
-            face0 = i;
-        else
-            face1 = i;
-    }
-
-    return found;
-}
-
-static int SplitEdge(EditorMesh& em, int edge_index, float edge_pos)
+int SplitEdge(EditorMesh& em, int edge_index, float edge_pos)
 {
     assert(edge_index >= 0 && edge_index < em.edge_count);
 
@@ -1068,58 +1038,6 @@ void Copy(EditorMesh& dst, const EditorMesh& src)
     dst = src;
     dst.mesh = nullptr;
     dst.dirty = true;
-}
-
-static void Optimize(EditorMesh& em)
-{
-    int* vertex_map0 = (int*)Alloc(ALLOCATOR_DEFAULT, sizeof(int) * em.vertex_count);
-    int* vertex_map1 = (int*)Alloc(ALLOCATOR_DEFAULT, sizeof(int) * em.vertex_count);
-
-    for (int i=0; i<em.vertex_count; i++)
-    {
-        if (vertex_map0[i] != 0)
-            continue;
-
-        EditorVertex& evi = em.vertices[i];
-        vertex_map0[i] = i + 1;
-
-        for (int j=em.vertex_count-1; j>i; j--)
-        {
-            EditorVertex& evj = em.vertices[j];
-            if (vertex_map0[j] != 0)
-                continue;
-
-            if (ApproxEqual(evi.position, evj.position))
-                vertex_map0[j] = i + 1;
-        }
-    }
-
-    // Build the final vertex list from the vertex map0
-    int vertex_count = 0;
-    for (int i=0; i<em.vertex_count; i++)
-    {
-        if (vertex_map0[i] != i + 1)
-        {
-            vertex_map1[i] = vertex_map1[vertex_map0[i]-1];
-            continue;
-        }
-
-        em.vertices[vertex_count++] = em.vertices[i];
-        vertex_map1[i] = vertex_count;
-    }
-
-    for (int i=0; i<em.face_count; i++)
-    {
-        EditorFace& ef = em.faces[i];
-        if (vertex_map1[ef.v0] != 0)
-            ef.v0 = vertex_map1[ef.v0] - 1;
-        if (vertex_map1[ef.v1] != 0)
-            ef.v1 = vertex_map1[ef.v1] - 1;
-        if (vertex_map1[ef.v2] != 0)
-            ef.v2 = vertex_map1[ef.v2] - 1;
-    }
-
-    em.vertex_count = vertex_count;
 }
 
 static void ParseVertexHeght(EditorVertex& ev, Tokenizer& tk)

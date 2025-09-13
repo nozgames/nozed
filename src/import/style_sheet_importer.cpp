@@ -76,7 +76,7 @@ static void WriteStyleSheetData(Stream* stream, const StyleDictionary& styles)
     for (const auto& [style_key, style] : styles)
         name_set.insert(GetName(style_key.first.c_str()));
 
-    const Name** name_table = (const Name**)Alloc(ALLOCATOR_DEFAULT, sizeof(const Name*) * name_set.size());
+    const Name** name_table = (const Name**)Alloc(ALLOCATOR_DEFAULT, (u32)sizeof(const Name*) * (u32)name_set.size());
     u32 name_index = 0;
     for (const auto& name : name_set)
         name_table[name_index++] = name;
@@ -169,6 +169,8 @@ static StyleKey ParseStyleKey(const string& value)
 
 static void ParseStyles(Props* source, Props* meta, StyleDictionary& styles)
 {
+    (void)meta;
+
     for (const auto& inherit : source->GetKeys("inherit"))
     {
         (void)inherit;
@@ -214,6 +216,8 @@ static StyleDictionary ParseStyles(Props* source, Props* meta)
 
 void ImportStyleSheet(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+    (void)config;
+
     // Read source file
     std::ifstream file(source_path, std::ios::binary);
     if (!file.is_open())
@@ -235,13 +239,6 @@ void ImportStyleSheet(const fs::path& source_path, Stream* output_stream, Props*
     WriteStyleSheetData(output_stream, styles);
 }
 
-bool DoesStyleSheetDependOn(const fs::path& source_path, const fs::path& dependency_path)
-{
-    // TODO: Add support for stylesheet inheritance dependency checking
-    // Need to load meta_props to check inherited files
-    return false;
-}
-
 static const char* g_stylesheet_extensions[] = {
     ".styles",
     nullptr
@@ -251,8 +248,7 @@ static AssetImporterTraits g_stylesheet_importer_traits = {
     .type_name = "StyleSheet",
     .signature = ASSET_SIGNATURE_STYLE_SHEET,
     .file_extensions = g_stylesheet_extensions,
-    .import_func = ImportStyleSheet,
-    .does_depend_on = DoesStyleSheetDependOn
+    .import_func = ImportStyleSheet
 };
 
 AssetImporterTraits* GetStyleSheetImporterTraits()

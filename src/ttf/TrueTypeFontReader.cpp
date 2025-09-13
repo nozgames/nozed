@@ -3,6 +3,7 @@
 //
 
 #include "TrueTypeFontReader.h"
+#include <ranges>
 
 using namespace std;
 
@@ -94,8 +95,8 @@ namespace noz::ttf
 
     int64_t TrueTypeFontReader::seek(int64_t offset)
     {
-        int64_t old = (int64_t)GetPosition(_reader);
-        SetPosition(_reader, (size_t)offset);
+        int64_t old = GetPosition(_reader);
+        SetPosition(_reader, (u32)offset);
         return old;
     }
 
@@ -147,17 +148,17 @@ namespace noz::ttf
         seek(TableName::CMAP, offset);
 
         auto format = readUInt16();
-        auto length = readUInt16();
-        auto language = readUInt16();
+        /* auto length = */ readUInt16();
+        /* auto language = */ readUInt16();
 
         switch (format)
         {
             case 4:
             {
                 auto segcount = readUInt16() / 2;
-                auto searchRange = readUInt16();
-                auto entitySelector = readUInt16();
-                auto rangeShift = readUInt16();
+                /* auto searchRange = */ readUInt16();
+                /* auto entitySelector = */ readUInt16();
+                /* auto rangeShift = */ readUInt16();
                 auto endCode = readUInt16Array(segcount);
                 readUInt16();
                 auto startCode = readUInt16Array(segcount);
@@ -423,7 +424,7 @@ namespace noz::ttf
             seek(TableName::HMTX, glyph->id * 4);
 
             glyph->advance = readUFUnit();
-            double leftBearing = readFUnit();
+            /* double leftBearing = */ readFUnit();
         }
     }
 
@@ -452,9 +453,9 @@ namespace noz::ttf
                 case 0:
                 {
                     int pairCount = readUInt16();
-                    int searchRange = readUInt16();
-                    int entrySelector = readUInt16();
-                    int rangeShift = readUInt16();
+                    /* int searchRange = */ readUInt16();
+                    /* int entrySelector = */ readUInt16();
+                    /* int rangeShift = */ readUInt16();
 
                     for (int pair = 0; pair < pairCount; ++pair)
                     {
@@ -506,7 +507,7 @@ namespace noz::ttf
             auto offset = readUInt32();
             auto length = readUInt32();
 
-            std::transform(tag.begin(), tag.end(), tag.begin(), ::tolower);
+            std::ranges::transform(tag, tag.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
             auto name = TableName::None;
 

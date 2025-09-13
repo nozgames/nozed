@@ -40,7 +40,6 @@ static void DrawZeroGrid(Camera* camera)
     float line_thickness = 1.0f / pixels_per_world_unit;
 
     // Draw vertical lines
-    float start_x = 0;
     Vec2 line_center = { 0, (top + bottom) * 0.5f };
     Vec2 line_scale = { line_thickness, (top - bottom) * 0.5f };
     BindTransform(TRS(line_center, 0, line_scale));

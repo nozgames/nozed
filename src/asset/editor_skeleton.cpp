@@ -199,10 +199,7 @@ void UpdateTransforms(EditorSkeleton& es)
 void SaveAssetMetadata(const EditorSkeleton& es, Props* meta)
 {
     for (int i=0; i<es.skinned_mesh_count; i++)
-    {
-        const EditorBone& bone = es.bones[i];
         meta->SetInt("skinned_meshes", es.skinned_meshes[i].asset_name->value, es.skinned_meshes[i].bone_index);
-    }
 }
 
 void LoadAssetMetadata(EditorSkeleton& es, Props* meta)

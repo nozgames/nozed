@@ -34,6 +34,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdarg>
+#include <ranges>
 
 // Define Windows header control macros before any Windows includes
 #ifndef NOMINMAX

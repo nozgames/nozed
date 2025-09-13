@@ -2,9 +2,9 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../editor.h"
-#include "../server.h"
-#include "../utils/file_watcher.h"
+#include <editor.h>
+#include <server.h>
+#include <utils/file_watcher.h>
 #include "asset_manifest.h"
 
 namespace fs = std::filesystem;
@@ -44,7 +44,7 @@ static bool ProcessImportQueue();
 const AssetImporterTraits* FindImporter(const fs::path& path)
 {
     std::string file_ext = path.extension().string();
-    std::transform(file_ext.begin(), file_ext.end(), file_ext.begin(), ::tolower);
+    std::ranges::transform(file_ext, file_ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
     for (auto* importer : g_importer.importers)
         if (importer && importer->file_extensions)
@@ -71,7 +71,7 @@ void HandleFileChange(const fs::path& file_path, FileChangeType change_type)
 
     // Check if this is a .meta file
     std::string ext = file_path.extension().string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    std::ranges::transform(ext, ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
     if (ext == ".meta")
     {
@@ -303,7 +303,7 @@ static void CleanupOrphanedAssets(const fs::path& output_dir)
                 valid_asset_files.insert(expected_output);
             }
         }
-        catch (const std::exception& e)
+        catch (const std::exception&)
         {
             continue;
         }

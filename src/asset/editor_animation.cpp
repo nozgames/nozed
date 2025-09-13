@@ -49,7 +49,7 @@ void DrawEditorAnimation(EditorAsset& ea)
     }
 }
 
-static void ParseSkeletonBone(EditorAnimation& en, Tokenizer& tk, const EditorSkeleton& es, int bone_index, int* bone_map)
+static void ParseSkeletonBone(Tokenizer& tk, const EditorSkeleton& es, int bone_index, int* bone_map)
 {
     if (!ExpectQuotedString(tk))
         throw std::exception("missing quoted bone name");
@@ -87,7 +87,7 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     while (!IsEOF(tk))
     {
         if (ExpectIdentifier(tk, "b"))
-            ParseSkeletonBone(en, tk, *es, bone_index++, bone_map);
+            ParseSkeletonBone(tk, *es, bone_index++, bone_map);
         else
             break;
     }
@@ -95,6 +95,7 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
 
 static int ParseFrameBone(EditorAnimation& ea, Tokenizer& tk, int* bone_map)
 {
+    (void)ea;
     int bone_index;
     if (!ExpectInt(tk, &bone_index))
         ThrowError("expected bone index");
@@ -184,7 +185,7 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
                 ThrowError("invalid token '%s' in animation", GetString(tk));
         }
     }
-    catch (std::exception& e)
+    catch (std::exception&)
     {
         Free(en);
         return nullptr;

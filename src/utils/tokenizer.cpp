@@ -31,7 +31,7 @@ static void BeginToken(Tokenizer& tk)
 static void EndToken(Tokenizer& tk, TokenType type)
 {
     Token& token = tk.next_token;
-    token.length = tk.position - (token.raw - tk.input);
+    token.length = tk.position - (u32)(token.raw - tk.input);
     token.type = type;
 }
 
@@ -239,7 +239,7 @@ bool ReadNumber(Tokenizer& tk)
     char temp[128];
     Copy(temp, sizeof(temp), tk.next_token.raw, tk.next_token.length);
     if (has_decimal)
-        tk.next_token.value.f = atof(temp);
+        tk.next_token.value.f = (f32)atof(temp);
     else
         tk.next_token.value.i = atoi(temp);
 
@@ -419,9 +419,9 @@ bool ReadColor(Tokenizer& tk)
     }
 
     // Check for predefined color names
-    struct ColorName { const char* name; Color color; };
-    static const ColorName predefined_colors[] = {
-        {"black", {0.0f, 0.0f, 0.0f, 1.0f}},
+    struct ColorName { const char* name; Color color; int name_len;};
+    static ColorName predefined_colors[] = {
+        {"black", {0.0f, 0.0f, 0.0f, 1.0f},},
         {"white", {1.0f, 1.0f, 1.0f, 1.0f}},
         {"red", {1.0f, 0.0f, 0.0f, 1.0f}},
         {"green", {0.0f, 0.5f, 0.0f, 1.0f}},
@@ -439,15 +439,20 @@ bool ReadColor(Tokenizer& tk)
         {nullptr, {0.0f, 0.0f, 0.0f, 0.0f}}
     };
 
-    for (const ColorName* color = predefined_colors; color->name != nullptr; color++)
-        if (Equals(tk.input + tk.position, color->name, strlen(color->name), true))
+    for (ColorName* color = predefined_colors; color->name != nullptr; color++)
+    {
+        if (color->name_len == 0)
+            color->name_len = (int)Length(color->name);
+
+        if (Equals(tk.input + tk.position, color->name, (u32)color->name_len, true))
         {
-            for (size_t i = 0; i < strlen(color->name); i++)
+            for (size_t i = 0; i < (u32)color->name_len; i++)
                 NextChar(tk);
             EndToken(tk, TOKEN_TYPE_COLOR);
             tk.next_token.value.c = color->color;
             return true;
         }
+    }
 
     return false;
 }
@@ -509,7 +514,7 @@ bool ReadToken(Tokenizer& tk)
 bool ExpectLine(Tokenizer& tk)
 {
     // Rewind to before the next token
-    tk.position = tk.next_token.raw - tk.input;
+    tk.position = (u32)(tk.next_token.raw - tk.input);
 
     do
     {
@@ -665,7 +670,7 @@ void Init(Tokenizer& tk, const char* input)
 {
     tk.input = input;
     tk.position = 0;
-    tk.length = input ? strlen(input) : 0;
+    tk.length = (u32)(input ? Length(input) : 0);
     tk.line = 1;
     tk.column = 1;
 

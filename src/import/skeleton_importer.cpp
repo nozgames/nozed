@@ -8,6 +8,9 @@ namespace fs = std::filesystem;
 
 void ImportSkeleton(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+    (void)config;
+    (void)meta;
+
     EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, source_path);
     if (!es)
         ThrowError("failed to load skeleton");

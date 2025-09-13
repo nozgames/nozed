@@ -88,11 +88,13 @@ static void WriteFontData(
         WriteFloat(stream, k.value);
     }
 
-    WriteBytes(stream, atlas_data.data(), atlas_data.size());
+    WriteBytes(stream, atlas_data.data(), (u32)atlas_data.size());
 }
 
 void ImportFont(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+    (void)config;
+
     // Parse font properties from meta props (with defaults)
     int font_size = meta->GetInt("font", "size", 48);
     std::string characters = meta->GetString("font", "characters", " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~");
@@ -115,7 +117,7 @@ void ImportFont(const fs::path& source_path, Stream* output_stream, Props* confi
     file.close();
 
     // Create stream for font loading
-    Stream* stream = LoadStream(nullptr, fontData.data(), fontData.size());
+    Stream* stream = LoadStream(nullptr, fontData.data(), (u32)fontData.size());
     auto ttf = std::shared_ptr<ttf::TrueTypeFont>(ttf::TrueTypeFont::load(stream, font_size, characters));
 
     // Build the imported glyph list

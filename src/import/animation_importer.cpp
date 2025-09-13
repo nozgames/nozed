@@ -8,6 +8,9 @@ namespace fs = std::filesystem;
 
 static void ImportAnimation(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+    (void)config;
+    (void)meta;
+
     EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, source_path);
     if (!en)
         ThrowError("failed to load animation");

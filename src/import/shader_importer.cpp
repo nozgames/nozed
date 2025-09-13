@@ -65,7 +65,6 @@ static void WriteCompiledShader(
     const std::string& vertex_shader,
     const std::string& geometry_shader,
     const std::string& fragment_shader,
-    const std::string& original_source,
     const Props& meta,
     Stream* output_stream,
     const fs::path& include_dir,
@@ -109,15 +108,15 @@ static void WriteCompiledShader(
 
     // Write bytecode sizes and data
     WriteU32(output_stream, (u32)(vertex_spirv.size() * sizeof(u32)));
-    WriteBytes(output_stream, vertex_spirv.data(), vertex_spirv.size() * sizeof(u32));
+    WriteBytes(output_stream, vertex_spirv.data(), (u32)(vertex_spirv.size() * sizeof(u32)));
     
     // Write geometry shader bytecode (0 size if no geometry shader)
     WriteU32(output_stream, (u32)(geometry_spirv.size() * sizeof(u32)));
     if (!geometry_spirv.empty())
-        WriteBytes(output_stream, geometry_spirv.data(), geometry_spirv.size() * sizeof(u32));
+        WriteBytes(output_stream, geometry_spirv.data(), (u32)(geometry_spirv.size() * sizeof(u32)));
     
     WriteU32(output_stream, (u32)(fragment_spirv.size() * sizeof(u32)));
-    WriteBytes(output_stream, fragment_spirv.data(), fragment_spirv.size() * sizeof(u32));
+    WriteBytes(output_stream, fragment_spirv.data(), (u32)(fragment_spirv.size() * sizeof(u32)));
 
     // Parse shader flags from meta file
     ShaderFlags flags = SHADER_FLAGS_NONE;
@@ -129,6 +128,8 @@ static void WriteCompiledShader(
 
 void ImportShader(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
+    (void)config;
+
     // Read source file
     std::ifstream file(source_path, std::ios::binary);
     if (!file.is_open())
@@ -145,7 +146,7 @@ void ImportShader(const fs::path& source_path, Stream* output_stream, Props* con
     std::string fragment_shader = ExtractStage(source, "FRAGMENT_SHADER");
     fs::path include_dir = source_path.parent_path();
 
-    WriteCompiledShader(vertex_shader, geometry_shader, fragment_shader, source, *meta, output_stream, include_dir, source_path.string());
+    WriteCompiledShader(vertex_shader, geometry_shader, fragment_shader, *meta, output_stream, include_dir, source_path.string());
 }
 
 bool DoesShaderDependOn(const fs::path& source_path, const fs::path& dependency_path)

@@ -222,7 +222,9 @@ static void GenerateAssetsHeader(ManifestGenerator* generator, const fs::path& h
 
             // Add to the appropriate type group
             std::string type_key = std::string(type_name) + "s";
-            std::transform(type_key.begin(), type_key.end(), type_key.begin(), ::tolower);
+            std::ranges::transform(type_key, type_key.begin(),
+                                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
             assets_by_type[type_key].push_back(access_path);
         }
         
@@ -486,7 +488,7 @@ static std::string PathToVarName(const std::string& path_str)
     for (char c : full_path)
     {
         if (std::isalnum(c))
-            result += std::tolower(c);
+            result += (char)std::tolower(c);
         else
             result += '_';
     }
@@ -584,7 +586,7 @@ static const char* ToMacroFromSignature(AssetSignature signature, const std::vec
             for (char c : type_name)
             {
                 if (std::islower(c))
-                    macro_name += std::toupper(c);
+                    macro_name += (char)std::toupper(c);
                 else if (std::isupper(c))
                 {
                     // Insert underscore before uppercase letters (except first)
@@ -624,7 +626,7 @@ static const char* ToReloadMacroFromSignature(AssetSignature signature, const st
             for (char c : type_name)
             {
                 if (std::islower(c))
-                    macro_name += std::toupper(c);
+                    macro_name += (char)std::toupper(c);
                 else if (std::isupper(c))
                 {
                     // Insert underscore before uppercase letters (except first)
@@ -655,6 +657,8 @@ static const char* ToStringFromSignature(AssetSignature signature, const std::ve
 
 static void GenerateCoreAssetAssignments(ManifestGenerator* generator, Stream* stream, Props* config)
 {
+    (void)config;
+
     WriteCSTR(stream, "\n    // Assign core engine assets\n");
     
     for (const auto& [core_path, asset_path] : core_assets)
@@ -683,7 +687,7 @@ static std::string NameToVar(const std::string& path)
         if (c == '\\')
             result += '/';
         else if (std::isalnum(c))
-            result += std::tolower(c);
+            result += (char)std::tolower(c);
         else
             result += '_';
     }
@@ -693,6 +697,8 @@ static std::string NameToVar(const std::string& path)
 
 static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream, Props* config)
 {
+    (void)config;
+
     WriteCSTR(stream, "#ifdef NOZ_EDITOR\n\n");
     WriteCSTR(stream, "void HotloadAsset(const Name* incoming_name)\n");
     WriteCSTR(stream, "{\n");
@@ -707,7 +713,8 @@ static void GenerateHotloadFunction(ManifestGenerator* generator, Stream* stream
             continue;
 
         std::string type_key = std::string(type_name) + "s";
-        std::transform(type_key.begin(), type_key.end(), type_key.begin(), ::tolower);
+        std::ranges::transform(type_key, type_key.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         assets_by_type[type_key].push_back(entry);
     }
     

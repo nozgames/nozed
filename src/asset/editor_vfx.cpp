@@ -230,19 +230,6 @@ static bool ParseColor(Tokenizer& tk, VfxColor* value)
     return true;
 }
 
-static VfxColor ParseColor(const std::string& str, const VfxColor& default_value)
-{
-    if (str.empty())
-        return default_value;
-
-    Tokenizer tk;
-    Init(tk, str.c_str());
-    VfxColor value = {};
-    if (!ParseColor(tk, &value))
-        return default_value;
-    return value;
-}
-
 static VfxColorCurve ParseColorCurve(const std::string& str, const VfxColorCurve& default_value)
 {
     Tokenizer tk;
@@ -417,7 +404,7 @@ EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path)
 
 EditorVfx* Clone(Allocator* allocator, const EditorVfx& ev)
 {
-    EditorVfx* clone = (EditorVfx*)Alloc(ALLOCATOR_DEFAULT, sizeof(EditorVfx));
+    EditorVfx* clone = (EditorVfx*)Alloc(allocator, sizeof(EditorVfx));
     *clone = ev;
     clone->vfx = nullptr;
     return clone;

@@ -49,8 +49,28 @@ struct AnimationView
     Animator animator;
 };
 
+static void HandleMoveCommand();
+static void HandleResetMoveCommand();
+static void HandleRotate();
+static void HandleResetRotate();
+static void HandleSelectAll();
+static void HandlePrevFrameCommand();
+static void HandleNextFrameCommand();
+static void HandlePlayCommand();
+
 static AnimationView g_animation_editor = {};
-extern Shortcut g_animation_editor_shortcuts[];
+
+static Shortcut g_animation_editor_shortcuts[] = {
+    { KEY_G, false, false, false, HandleMoveCommand },
+    { KEY_G, true, false, false, HandleResetMoveCommand },
+    { KEY_R, false, false, false, HandleRotate },
+    { KEY_R, true, false, false, HandleResetRotate },
+    { KEY_A, false, false, false, HandleSelectAll },
+    { KEY_Q, false, false, false, HandlePrevFrameCommand },
+    { KEY_E, false, false, false, HandleNextFrameCommand },
+    { KEY_SPACE, false, false, false, HandlePlayCommand },
+    { INPUT_CODE_NONE }
+};
 
 static void UpdateSelectionCenter()
 {
@@ -242,8 +262,6 @@ static void UpdateDefaultState()
     EditorAnimation& en = *g_animation_editor.animation;
     if (!en.skeleton_asset)
         return;
-
-    EditorSkeleton& es = *en.skeleton_asset->skeleton;
 
     // If a drag has started then switch to box select
     if (g_view.drag)
@@ -512,18 +530,6 @@ static void HandleSelectAll()
     for (int i=0; i<en.bone_count; i++)
         AddSelection(i);
 }
-
-static Shortcut g_animation_editor_shortcuts[] = {
-    { KEY_G, false, false, false, HandleMoveCommand },
-    { KEY_G, true, false, false, HandleResetMoveCommand },
-    { KEY_R, false, false, false, HandleRotate },
-    { KEY_R, true, false, false, HandleResetRotate },
-    { KEY_A, false, false, false, HandleSelectAll },
-    { KEY_Q, false, false, false, HandlePrevFrameCommand },
-    { KEY_E, false, false, false, HandleNextFrameCommand },
-    { KEY_SPACE, false, false, false, HandlePlayCommand },
-    { INPUT_CODE_NONE }
-};
 
 void InitAnimationEditor(EditorAsset& ea)
 {

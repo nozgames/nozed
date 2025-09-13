@@ -80,6 +80,10 @@ target_link_libraries(nozed PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/noz/external/enet/enet.lib
 )
 
+if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4 /WX")
+endif()
 
 set_target_properties(nozed PROPERTIES WIN32_EXECUTABLE TRUE)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT nozed)

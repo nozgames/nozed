@@ -73,9 +73,9 @@ constexpr Color COLOR_ORIGIN = { 1.0f, 159.0f / 255.0f, 44.0f / 255.0f, 1};
 constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 
 // @editor
-extern void InitAssetEditor();
-extern void UpdateAssetEditor();
-extern void ShutdownAssetEditor();
+extern void InitView();
+extern void UpdateView();
+extern void ShutdownView();
 extern void BeginBoxSelect(void (*callback)(const Bounds2& bounds));
 extern void ClearBoxSelect();
 extern void PushState(ViewState state);
@@ -121,7 +121,7 @@ extern int FindEditorAssetByName(const Name* name);
 extern EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea);
 extern void Copy(EditorAsset& dst, const EditorAsset& src);
 extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em);
-extern EditorAsset* GetEditorAsset(int index);
+extern EditorAsset* GetEditorAsset(u32 index);
 
 // @notifications
 extern void InitNotifications();
