@@ -8,7 +8,7 @@ struct EditorAnimationBone
 {
     const Name* name;
     int index;
-    BoneTransform frames[MAX_ANIMATION_FRAMES];
+    Transform frames[MAX_ANIMATION_FRAMES];
 };
 
 struct EditorAnimation

@@ -16,7 +16,7 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
     BindMaterial(g_view.material);
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
-        const EditorBone& bone = es.bones[es.skinned_meshes[i].bone_index];
+        EditorBone& bone = es.bones[es.skinned_meshes[i].bone_index];
         const EditorAsset& skinned_mesh_asset = *g_view.assets[es.skinned_meshes[i].asset_index];
         if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
@@ -25,7 +25,7 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
         // Vec2 parent_position = es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
         // Vec2 dir = Normalize(bone_position - parent_position);
 
-        BindTransform(TRS(bone.local_to_world * VEC2_ZERO + position, 0, VEC2_ONE));
+        BindTransform(bone.transform);
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
@@ -33,9 +33,9 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
     BindColor(selected ? COLOR_SELECTED : COLOR_BLACK);
     for (int i=1; i<es.bone_count; i++)
     {
-        const EditorBone& bone = es.bones[i];
-        Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
-        Vec2 parent_position = es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
+        EditorBone& bone = es.bones[i];
+        Vec2 bone_position = TransformPoint(bone.transform);
+        Vec2 parent_position = TransformPoint(es.bones[bone.parent_index >= 0 ? bone.parent_index : i].transform);
         Vec2 dir = Normalize(bone_position - parent_position);
         float len = Length(bone_position - parent_position);
         BindTransform(TRS(parent_position, dir, VEC2_ONE * len));
@@ -50,13 +50,13 @@ void DrawEditorSkeleton(EditorAsset& ea, bool selected)
     DrawEditorSkeleton(ea, ea.position, selected);
 }
 
-int HitTestBone(const EditorSkeleton& em, const Vec2& world_pos)
+int HitTestBone(EditorSkeleton& em, const Vec2& world_pos)
 {
     const float size = g_view.select_size;
     for (int i=0; i<em.bone_count; i++)
     {
-        const EditorBone& bone = em.bones[i];
-        Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
+        EditorBone& bone = em.bones[i];
+        Vec2 bone_position = TransformPoint(bone.transform);
         if (Length(bone_position - world_pos) < size)
             return i;
     }
@@ -73,8 +73,7 @@ static void ParseBonePosition(EditorBone& eb, Tokenizer& tk)
     if (!ExpectFloat(tk, &y))
         ThrowError("misssing 'y' in bone position");
 
-    eb.position.x = x;
-    eb.position.y = y;
+    SetPosition(eb.transform, x, y);
 }
 
 static void ParseBone(EditorSkeleton& es, Tokenizer& tk)
@@ -129,7 +128,11 @@ void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& p
     for (int i=0; i<es.bone_count; i++)
     {
         const EditorBone& ev = es.bones[i];
-        WriteCSTR(stream, "b \"%s\" %d p %g %g\n", ev.name->value, ev.parent_index, ev.position.x, ev.position.y);
+        WriteCSTR(stream, "b \"%s\" %d p %g %g\n",
+            ev.name->value,
+            ev.parent_index,
+            ev.transform.position.x,
+            ev.transform.position.y);
     }
 
     SaveStream(stream, path);
@@ -172,6 +175,7 @@ void UpdateTransforms(EditorSkeleton& es)
     if (es.bone_count <= 0)
         return;
 
+#if 0
     EditorBone& root = es.bones[0];
     root.local_to_world = TRS(root.position, 0, VEC2_ONE);
     root.world_to_local = Inverse(root.local_to_world);
@@ -194,6 +198,7 @@ void UpdateTransforms(EditorSkeleton& es)
     }
 
     es.bounds = Expand(bounds, 0.5f);
+#endif
 }
 
 void SaveAssetMetadata(const EditorSkeleton& es, Props* meta)
@@ -257,9 +262,11 @@ void Serialize(EditorSkeleton& es, Stream* output_stream)
     {
         EditorBone& eb = es.bones[i];
         WriteI8(output_stream, (char)eb.parent_index);
-        WriteStruct(output_stream, eb.local_to_world);
-        WriteStruct(output_stream, eb.world_to_local);
-        WriteStruct(output_stream, eb.position);
+        WriteStruct(output_stream, GetLocalToWorld(eb.transform));
+        WriteStruct(output_stream, GetWorldToLocal(eb.transform));
+        WriteStruct(output_stream, eb.transform.position);
+        WriteFloat(output_stream, eb.transform.rotation);
+        WriteStruct(output_stream, eb.transform.scale);
     }
 }
 

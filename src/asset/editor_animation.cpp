@@ -45,7 +45,7 @@ void DrawEditorAnimation(EditorAsset& ea)
     {
         Vec2 b1 = en.bone_transforms[es.bones[i].parent_index] * VEC2_ZERO;
         Vec2 b2 = en.bone_transforms[i] * VEC2_ZERO;
-        DrawBone(b2 + ea.position, b1 + ea.position);
+        DrawBone(b1 + ea.position, b2 + ea.position);
     }
 }
 
@@ -67,8 +67,6 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     std::filesystem::path skeleton_path = GetEditorAssetPath(en.skeleton_name, ".skel");
     EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, skeleton_path);
 
-    // Populate the bone list with the skeleton bones and default all frames to
-    // to the bind pose
     en.bone_count = es->bone_count;
     for (int i=0; i<es->bone_count; i++)
     {
@@ -78,10 +76,9 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
         enb.index = i;
     }
 
-    // Make sure all scales are defaulted to 1
     for (int i=0; i<en.bone_count; i++)
         for (int f=0; f<MAX_ANIMATION_FRAMES; f++)
-            en.bones[i].frames[f].scale = 1.0f;
+            SetScale(en.bones[i].frames[f], 1.0f);
 
     int bone_index = 0;
     while (!IsEOF(tk))
@@ -139,7 +136,7 @@ static void ParseFrameScale(EditorAnimation& ea, Tokenizer& tk, int bone_index, 
     if (bone_index == -1)
         return;
 
-    ea.bones[bone_index].frames[frame_index].scale = s;
+    SetScale(ea.bones[bone_index].frames[frame_index], s);
 }
 
 static void ParseFrame(EditorAnimation& ea, Tokenizer& tk, int frame_index, int* bone_map)
@@ -234,7 +231,10 @@ void UpdateTransforms(EditorAnimation& en, int frame_index)
 
         en.bone_transforms[i] =
             en.bone_transforms[es.bones[i].parent_index] *
-            TRS(es.bones[i].position + eab.frames[frame_index].position, eab.frames[frame_index].rotation, VEC2_ONE * eab.frames[frame_index].scale);
+            TRS(
+                es.bones[i].transform.position + eab.frames[frame_index].position,
+                es.bones[i].transform.rotation + eab.frames[frame_index].rotation,
+                es.bones[i].transform.scale * eab.frames[frame_index].scale);
     }
 }
 
@@ -294,13 +294,13 @@ void SaveEditorAnimation(const EditorAnimation& en, const std::filesystem::path&
         for (int bone_index=0; bone_index<en.bone_count; bone_index++)
         {
             const EditorAnimationBone& eab = en.bones[bone_index];
-            const BoneTransform& bt = eab.frames[frame_index];
+            const Transform& bt = eab.frames[frame_index];
 
             bool has_pos = bt.position != VEC2_ZERO;
             bool has_rot = bt.rotation != 0.0f;
-            bool has_scale = bt.scale != 1.0f;
+//            bool has_scale = bt.scale != 1.0f;
 
-            if (!has_pos && !has_rot && !has_scale)
+            if (!has_pos && !has_rot)
                 continue;
 
             WriteCSTR(stream, "b %d", bone_index);
@@ -311,8 +311,8 @@ void SaveEditorAnimation(const EditorAnimation& en, const std::filesystem::path&
             if (has_rot)
                 WriteCSTR(stream, " r %g", bt.rotation);
 
-            if (has_scale)
-                WriteCSTR(stream, " s %g", bt.scale);
+            // if (has_scale)
+            //     WriteCSTR(stream, " s %g", bt.scale);
 
             WriteCSTR(stream, "\n");
         }

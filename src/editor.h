@@ -20,7 +20,6 @@ struct Editor
     TextInputBox* search_input;
     bool command_mode;
     bool search_mode;
-    bool is_running;
     bool auto_quit;
     int fps;
     bool stats_requested;

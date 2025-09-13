@@ -2,7 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "editor.h"
 #include <editor.h>
 #include "editor_assets.h"
 
@@ -100,6 +99,46 @@ void HandleImported(EventId event_id, const void* event_data)
     AddNotification("imported '%s'", event.asset_name);
 }
 
+static void SaveUserConfig(Props* user_config)
+{
+    SaveViewUserConfig(user_config);
+}
+
+static void SaveUserConfig()
+{
+    Stream* config_stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
+    if (!config_stream)
+        return;
+
+    Props* user_config = Props::Load(config_stream);
+    if (!user_config)
+        user_config = new Props();
+
+    SaveUserConfig(user_config);
+
+    delete user_config;
+    Free(config_stream);
+}
+
+static void InitUserConfig(Props* user_config)
+{
+    InitViewUserConfig(user_config);
+}
+
+static void InitUserConfig()
+{
+    if (Stream* config_stream = LoadStream(nullptr, "./.noz/user.cfg"))
+    {
+        if (Props* user_config = Props::Load(config_stream))
+        {
+            InitUserConfig(user_config);
+            delete user_config;
+        }
+
+        Free(config_stream);
+    }
+}
+
 static void InitConfig()
 {
     std::filesystem::path config_path = "./editor.cfg";
@@ -107,7 +146,7 @@ static void InitConfig()
     {
         g_config = Props::Load(config_stream);
         Free(config_stream);
-}
+    }
 
     if (g_config == nullptr)
     {
@@ -118,7 +157,6 @@ static void InitConfig()
     // Read in the source paths
     for (auto& path : g_config->GetKeys("source"))
         Copy(g_editor.asset_paths[g_editor.asset_path_count++], 4096, path.c_str());
-
 }
 
 void InitEditor()
@@ -132,6 +170,7 @@ void InitEditor()
 
 void ShutdownEditor()
 {
+    SaveUserConfig();
     ShutdownEditorServer();
     ShutdownImporter();
 }
@@ -153,7 +192,6 @@ int main(int argc, const char* argv[])
     ApplicationTraits traits = {};
     Init(traits);
     traits.assets_path = "build/assets";
-    traits.console = true;
     traits.load_assets = LoadAssets;
     traits.unload_assets = UnloadAssets;
     traits.hotload_asset = EditorHotLoad;
@@ -162,25 +200,16 @@ int main(int argc, const char* argv[])
     InitEditor();
     InitLog(HandleLog);
 
-    g_editor.is_running = true;
-
     InitView();
     InitCommands();
+    InitUserConfig();
     InitImporter();
     InitEditorServer(g_config);
 
-    bool had_window = IsWindowCreated();
-    while (UpdateApplication() && g_editor.is_running)
+    while (UpdateApplication())
     {
-        if (had_window && !IsWindowCreated() && g_editor.auto_quit)
-            break;
-
         UpdateEditor();
-
-        if (IsWindowCreated())
-            UpdateView();
-        else
-            ThreadSleep(1);
+        UpdateView();
     }
 
     if (IsWindowCreated())

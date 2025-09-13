@@ -21,7 +21,7 @@ void DrawLine(const Vec2& v0, const Vec2& v1, f32 width)
     Vec2 mid = (v0 + v1) * 0.5f;
     Vec2 dir = Normalize(v1 - v0);
     float length = Length(v1 - v0);
-    BindTransform(TRS(mid, dir, Vec2{width * g_view.zoom_ref_scale, length * 0.5f}));
+    BindTransform(TRS(mid, dir, Vec2{length * 0.5f, width * g_view.zoom_ref_scale}));
     DrawMesh(g_view.edge_mesh);
 }
 
@@ -33,7 +33,7 @@ void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length)
 
     for (float pos = length/2; pos < line_len; pos += length * 2)
     {
-        BindTransform(TRS(v0 + line_dir * pos, line_dir, Vec2{width * g_view.zoom_ref_scale, scale}));
+        BindTransform(TRS(v0 + line_dir * pos, line_dir, Vec2{scale, width * g_view.zoom_ref_scale}));
         DrawMesh(g_view.edge_mesh);
     }
 }

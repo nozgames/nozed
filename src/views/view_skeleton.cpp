@@ -21,9 +21,7 @@ enum SkeletonEditorState
 
 struct SavedBone
 {
-    Mat3 world_to_local;
-    Vec2 world_position;
-    float rotation;
+    Transform transform;
 };
 
 struct SkeletonEditor
@@ -77,7 +75,7 @@ static void UpdateAssetNames()
     EditorSkeleton& es = *g_skeleton_view.skeleton;
     for (u16 i=0; i<es.bone_count; i++)
     {
-        BeginWorldCanvas(g_view.camera, ea.position + es.bones[i].local_to_world * VEC2_ZERO, Vec2{6, 0});
+        BeginWorldCanvas(g_view.camera, ea.position + GetLocalToWorld(es.bones[i].transform) * VEC2_ZERO, Vec2{6, 0});
         SetStyleSheet(g_assets.ui.view);
             BeginElement(g_names.asset_name_container);
                 Label(es.bones[i].name->value, g_names.asset_name);
@@ -95,7 +93,7 @@ static void UpdateSelectionCenter()
         EditorBone& eb = g_skeleton_view.skeleton->bones[i];
         if (!eb.selected)
             continue;
-        center += eb.local_to_world * VEC2_ZERO;
+        center += TransformPoint(eb.transform);
         center_count += 1.0f;
     }
 
@@ -112,8 +110,7 @@ static void SaveState()
     {
         EditorBone& eb = g_skeleton_view.skeleton->bones[i];
         SavedBone& sb = g_skeleton_view.saved_bones[i];
-        sb.world_to_local = g_skeleton_view.skeleton->bones[eb.parent_index].world_to_local;
-        sb.world_position = eb.local_to_world * VEC2_ZERO;
+        sb.transform = eb.transform;
     }
 
     UpdateSelectionCenter();
@@ -212,6 +209,7 @@ static void UpdateRotateState()
 
 static void UpdateMoveState()
 {
+#if 0
     Vec2 world_delta = g_view.mouse_world_position - g_skeleton_view.command_world_position;
 
     EditorSkeleton& es = *g_skeleton_view.asset->skeleton;
@@ -222,11 +220,12 @@ static void UpdateMoveState()
             continue;
 
         SavedBone& sb = g_skeleton_view.saved_bones[i];
-        Vec2 bone_position = sb.world_to_local * (sb.world_position + world_delta);
-        eb.position = bone_position;
+        // Vec2 bone_position = sb.world_to_local * (sb.world_position + world_delta);
+        // eb.position = bone_position;
     }
 
     UpdateTransforms(es);
+#endif
 }
 
 static void UpdateParentState()
@@ -257,7 +256,7 @@ static void UpdateUnparentState()
         for (int i=0; i<g_skeleton_view.skeleton->skinned_mesh_count; i++)
         {
             EditorSkinnedMesh& esm = g_skeleton_view.skeleton->skinned_meshes[i];
-            Vec2 bone_position = es.bones[esm.bone_index].local_to_world * VEC2_ZERO + g_skeleton_view.asset->position;
+            Vec2 bone_position = TransformPoint(es.bones[esm.bone_index].transform) + g_skeleton_view.asset->position;
             EditorAsset& skinned_mesh_asset = *g_view.assets[esm.asset_index];
             if (!HitTestAsset(skinned_mesh_asset, bone_position, g_view.mouse_world_position))
                 continue;
@@ -310,11 +309,10 @@ static void DrawSkeleton()
     EditorAsset& ea = *g_skeleton_view.asset;
     EditorSkeleton& es = *g_skeleton_view.skeleton;
 
-    // Draw bone joints
     for (int i=0; i<es.bone_count; i++)
     {
-        const EditorBone& bone = es.bones[i];
-        Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
+        EditorBone& bone = es.bones[i];
+        Vec2 bone_position = TransformPoint(bone.transform);
         BindColor(bone.selected ? COLOR_SELECTED : COLOR_BLACK);
         DrawVertex(bone_position + ea.position);
     }
@@ -386,9 +384,7 @@ static void HandleExtrudeCommand()
     es.bones[es.bone_count++] = {
         GetName("Bone"),
         parent_bone_index,
-        VEC2_ZERO,
-        parent_bone.local_to_world,
-        parent_bone.world_to_local,
+        parent_bone.transform,
         false
     };
 

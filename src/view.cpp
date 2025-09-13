@@ -364,7 +364,7 @@ static void UpdateCommon()
     if (IsButtonDown(g_view.input, MOUSE_MIDDLE))
     {
         Vec2 dir = Normalize(GetScreenCenter() - g_view.mouse_position);
-        g_view.light_dir = Vec3{-dir.x, dir.y, 1.0f};
+        g_view.light_dir = Vec2{-dir.x, dir.y};
     }
 
     if (WasButtonPressed(g_view.input, KEY_Z) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
@@ -471,7 +471,7 @@ static void DrawBoxSelect()
 void RenderView()
 {
     BindCamera(g_view.camera);
-    BindLight(g_view.light_dir, COLOR_WHITE, COLOR_BLACK);
+    BindLight(Normalize(Vec3{g_view.light_dir.x, g_view.light_dir.y, 1.0f}), COLOR_WHITE, COLOR_BLACK);
 
     // Grid
     DrawGrid(g_view.camera);
@@ -671,10 +671,19 @@ static void HandleTextInputChanged(EventId event_id, const void* event_data)
             g_view.command_preview = g_view.vtable->preview_command(g_view.command);
 }
 
+void InitViewUserConfig(Props* user_config)
+{
+    g_view.light_dir = user_config->GetVec2("view", "light_direction""view.light_dir", g_view.light_dir);
+}
+
+void SaveViewUserConfig(Props* user_config)
+{
+    user_config->SetVec2("view", "light_direction", g_view.light_dir);
+}
+
 void InitView()
 {
     InitUndo();
-    InitWindow();
 
     g_view.camera = CreateCamera(ALLOCATOR_DEFAULT);
     g_view.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.lit);
@@ -684,6 +693,7 @@ void InitView()
     g_view.dpi = 72.0f;
     g_view.selected_vertex = -1;
     g_view.edit_asset_index = -1;
+    g_view.light_dir = { -1, 0 };
     UpdateCamera();
     SetTexture(g_view.material, g_assets.textures.palette, 0);
 

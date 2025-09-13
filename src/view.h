@@ -71,7 +71,7 @@ struct View
     Vec2 mouse_position;
     Vec2 mouse_world_position;
 
-    Vec3 light_dir;
+    Vec2 light_dir;
 
     ViewVtable* vtable;
 };
@@ -89,6 +89,8 @@ constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 extern void InitView();
 extern void UpdateView();
 extern void ShutdownView();
+extern void InitViewUserConfig(Props* user_config);
+extern void SaveViewUserConfig(Props* user_config);
 extern void BeginBoxSelect(void (*callback)(const Bounds2& bounds));
 extern void ClearBoxSelect();
 extern void PushState(ViewState state);
