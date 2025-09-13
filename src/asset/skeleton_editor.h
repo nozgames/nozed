@@ -17,7 +17,9 @@ struct EditorBone
 {
     const Name* name;
     int parent_index;
-    Transform transform;
+    BoneTransform transform;
+    Mat3 local_to_world;
+    Mat3 world_to_local;
     float length;
 };
 

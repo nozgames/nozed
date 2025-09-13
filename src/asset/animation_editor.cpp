@@ -7,13 +7,43 @@ extern EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorA
 static EditorSkeleton& GetEditorSkeleton(EditorAnimation& en) { return *en.skeleton_asset->skeleton; }
 static EditorBone& GetEditorBone(EditorAnimation& en, int bone_index) { return en.skeleton_asset->skeleton->bones[bone_index]; }
 
-void DrawEditorAnimation(EditorAsset& ea)
+static void UpdateTransforms(EditorAnimation& en)
+{
+    // assert(animator.skeleton);
+    // assert(animator.animation);
+    // assert(GetBoneCount(animator.skeleton) == GetBoneCount(animator.animation));
+    //
+    // f32 float_frame = animator.time * ANIMATION_FRAME_RATE;
+    // assert(float_frame < anim_impl->frame_count);
+    // i32 frame1 = static_cast<i32>(Floor(float_frame));
+    // i32 frame2 = (frame1 + 1) % anim_impl->frame_count;
+    // f32 t = float_frame - static_cast<f32>(frame1);
+    // assert(t >= 0.0f && t < 1.0f);
+    // BoneTransform* frames = anim_impl->frames;
+    //
+
+    EditorSkeleton& es = GetEditorSkeleton(en);
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+    {
+        EditorBone& eb = es.bones[bone_index];
+        //Transform& t = GetFrameTransform(en, bone_index, en.current_frame);
+        //en.animator.bones[bone_index] = TRS(eb.transform.position + t.position, eb.transform.rotation + t.rotation, t.scale);
+        en.animator.bones[bone_index] = TRS(eb.transform.position, eb.transform.rotation, eb.transform.scale);
+    }
+
+    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+        en.animator.bones[bone_index] = en.animator.bones[es.bones[bone_index].parent_index] * en.animator.bones[bone_index];
+}
+
+static void DrawEditorAnimation(EditorAsset& ea)
 {
     EditorAnimation& en = *ea.anim;
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BLACK);
 
     EditorSkeleton& es = GetEditorSkeleton(en);
+
+    UpdateTransforms(en);
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
@@ -29,11 +59,9 @@ void DrawEditorAnimation(EditorAsset& ea)
 
     for (int bone_index=1; bone_index<en.bone_count; bone_index++)
     {
-        Transform& t0 = GetFrameTransform(en, es.bones[bone_index].parent_index, en.current_frame);
-        Transform& t1 = GetFrameTransform(en, bone_index, en.current_frame);
-        Vec2 b1 = TransformPoint(t0);
-        Vec2 b2 = TransformPoint(t1);
-        DrawBone(b1 + ea.position, b2 + ea.position);
+        Vec2 p0 = en.animator.bones[es.bones[bone_index].parent_index] * VEC2_ZERO;
+        Vec2 p1 = en.animator.bones[bone_index] * VEC2_ZERO;
+        DrawBone(p0 + ea.position, p1 + ea.position);
     }
 }
 
@@ -149,6 +177,7 @@ static void ParseFrame(EditorAnimation& en, Tokenizer& tk, int* bone_map)
 static void PostLoadEditorAnimation(EditorAsset& ea)
 {
     ea.anim->skeleton_asset = GetEditorAsset(FindEditorAssetByName(ea.anim->skeleton_name));
+    UpdateBounds(*ea.anim);
 }
 
 EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path)
@@ -369,7 +398,8 @@ EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
     EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_ANIMATION);
     ea->anim = en;
     ea->vtable = {
-        .post_load = PostLoadEditorAnimation
+        .post_load = PostLoadEditorAnimation,
+        .draw = DrawEditorAnimation,
     };
     return ea;
 }

@@ -12,6 +12,8 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
 {
     EditorSkeleton& es = *ea.skeleton;
 
+    UpdateTransforms(es);
+
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
     for (int i=0; i<es.skinned_mesh_count; i++)
@@ -21,11 +23,7 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
         if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
-        // Vec2 bone_position = bone.local_to_world * VEC2_ZERO;
-        // Vec2 parent_position = es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world * VEC2_ZERO;
-        // Vec2 dir = Normalize(bone_position - parent_position);
-
-        BindTransform(bone.transform);
+        BindTransform(TRS(ea.position, 0, VEC2_ONE) * bone.local_to_world);
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
@@ -34,8 +32,8 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
     for (int i=1; i<es.bone_count; i++)
     {
         EditorBone& bone = es.bones[i];
-        Vec2 bone_position = TransformPoint(bone.transform);
-        Vec2 parent_position = TransformPoint(es.bones[bone.parent_index >= 0 ? bone.parent_index : i].transform);
+        Vec2 bone_position = TransformPoint(bone.local_to_world);
+        Vec2 parent_position = TransformPoint(es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world);
         Vec2 dir = Normalize(bone_position - parent_position);
         float len = Length(bone_position - parent_position);
         BindTransform(TRS(parent_position, dir, VEC2_ONE * len));
@@ -58,7 +56,7 @@ int HitTestBone(EditorSkeleton& es, const Vec2& world_pos)
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         EditorBone& bone = es.bones[bone_index];
-        Vec2 bone_position = TransformPoint(bone.transform);
+        Vec2 bone_position = TransformPoint(bone.local_to_world);
         float dist = Length(bone_position - world_pos);
         if (dist < size && dist < best_dist)
         {
@@ -75,8 +73,8 @@ int HitTestBone(EditorSkeleton& es, const Vec2& world_pos)
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {
         EditorBone& bone = es.bones[bone_index];
-        Vec2 b0 = TransformPoint(bone.transform);
-        Vec2 b1 = TransformPoint(es.bones[bone.parent_index].transform);
+        Vec2 b0 = TransformPoint(bone.local_to_world);
+        Vec2 b1 = TransformPoint(es.bones[bone.parent_index].local_to_world);
         float dist = DistanceFromLine(b0, b1, world_pos);
         if (dist < size && dist < best_dist)
         {
@@ -97,7 +95,7 @@ static void ParseBonePosition(EditorBone& eb, Tokenizer& tk)
     if (!ExpectFloat(tk, &y))
         ThrowError("misssing 'y' in bone position");
 
-    SetPosition(eb.transform, x, y);
+    eb.transform.position = {x,y};
 }
 
 static void ParseBone(EditorSkeleton& es, Tokenizer& tk)
@@ -114,6 +112,7 @@ static void ParseBone(EditorSkeleton& es, Tokenizer& tk)
     EditorBone& bone = es.bones[es.bone_count++];
     bone.name = bone_name;
     bone.parent_index = parent_index;
+    bone.transform.scale = VEC2_ONE;
 
     while (!IsEOF(tk))
     {
@@ -188,19 +187,23 @@ void UpdateTransforms(EditorSkeleton& es)
     if (es.bone_count <= 0)
         return;
 
-    //EditorBone& root = es.bones[0];
+    EditorBone& root = es.bones[0];
+    root.local_to_world = MAT3_IDENTITY;
+    root.world_to_local = MAT3_IDENTITY;
 
-    // for (int i=1; i<es.bone_count; i++)
-    // {
-    //     EditorBone& bone = es.bones[i];
-    //     EditorBone& parent = es.bones[bone.parent_index];
-    //     bone.length = Length(bone.position);
-    // }
+    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    {
+        EditorBone& bone = es.bones[bone_index];
+        EditorBone& parent = es.bones[bone.parent_index];
+        bone.local_to_world = parent.local_to_world * TRS(bone.transform.position, bone.transform.rotation, bone.transform.scale);
+        bone.world_to_local = Inverse(root.local_to_world);
+        bone.length = 1.0f; // Length(bone.position);
+    }
 
-    Vec2 root_position = TransformPoint(es.bones[0].transform);
+    Vec2 root_position = TransformPoint(es.bones[0].local_to_world);
     Bounds2 bounds = Bounds2 { root_position, root_position };
     for (int i=1; i<es.bone_count; i++)
-        bounds = Union(bounds, TransformPoint(es.bones[i].transform));
+        bounds = Union(bounds, TransformPoint(es.bones[i].local_to_world));
 
     es.bounds = Expand(bounds, 0.5f);
 }
@@ -267,8 +270,8 @@ void Serialize(EditorSkeleton& es, Stream* output_stream)
     {
         EditorBone& eb = es.bones[i];
         WriteI8(output_stream, (char)eb.parent_index);
-        WriteStruct(output_stream, GetLocalToWorld(eb.transform));
-        WriteStruct(output_stream, GetWorldToLocal(eb.transform));
+        WriteStruct(output_stream, eb.local_to_world);
+        WriteStruct(output_stream, eb.world_to_local);
         WriteStruct(output_stream, eb.transform.position);
         WriteFloat(output_stream, eb.transform.rotation);
         WriteStruct(output_stream, eb.transform.scale);

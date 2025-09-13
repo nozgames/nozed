@@ -220,6 +220,9 @@ int HitTestAssets(const Bounds2& hit_bounds)
 
 void DrawAsset(EditorAsset& ea)
 {
+    if (ea.vtable.draw)
+        ea.vtable.draw(ea);
+
     switch (ea.type)
     {
     case EDITOR_ASSET_TYPE_MESH:
@@ -232,10 +235,6 @@ void DrawAsset(EditorAsset& ea)
 
     case EDITOR_ASSET_TYPE_SKELETON:
         DrawEditorSkeleton(ea, ea.selected && !ea.editing);
-        break;
-
-    case EDITOR_ASSET_TYPE_ANIMATION:
-        DrawEditorAnimation(ea);
         break;
 
     default:

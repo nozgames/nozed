@@ -24,6 +24,7 @@ typedef void (*EditorAssetRenameFunc) (const Name* new_name);
 struct EditorAssetVtable
 {
     void (*post_load)(EditorAsset& ea);
+    void (*draw)(EditorAsset& ea);
 };
 
 struct EditorAsset
