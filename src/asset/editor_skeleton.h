@@ -19,7 +19,6 @@ struct EditorBone
     int parent_index;
     Transform transform;
     float length;
-    bool selected;
 };
 
 struct EditorSkeleton

@@ -17,11 +17,8 @@ void DrawEditorAnimation(EditorAsset& ea)
     if (en.skeleton_asset == nullptr)
     {
         en.skeleton_asset = GetEditorAsset(FindEditorAssetByName(en.skeleton_name));
-        UpdateTransforms(en, en.current_frame);
         UpdateBounds(en);
     }
-
-    UpdateTransforms(en, en.current_frame);
 
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BLACK);
@@ -36,15 +33,15 @@ void DrawEditorAnimation(EditorAsset& ea)
         if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
-        BindTransform(TRS(ea.position, 0, VEC2_ONE) * en.bone_transforms[es.skinned_meshes[i].bone_index]);
+        BindTransform(TRS(ea.position, 0, VEC2_ONE) * GetLocalToWorld(GetFrameTransform(en, es.skinned_meshes[i].bone_index, en.current_frame)));
         //BindTransform(TRS(en.bone_transforms[i] * VEC2_ZERO + ea.position, 0, VEC2_ONE));
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
-    for (int i=1; i<en.bone_count; i++)
+    for (int bone_index=1; bone_index<en.bone_count; bone_index++)
     {
-        Vec2 b1 = en.bone_transforms[es.bones[i].parent_index] * VEC2_ZERO;
-        Vec2 b2 = en.bone_transforms[i] * VEC2_ZERO;
+        Vec2 b1 = TransformPoint(GetFrameTransform(en, es.bones[bone_index].parent_index, en.current_frame));
+        Vec2 b2 = TransformPoint(GetFrameTransform(en, bone_index, en.current_frame));
         DrawBone(b1 + ea.position, b2 + ea.position);
     }
 }
@@ -76,9 +73,9 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
         enb.index = i;
     }
 
-    for (int i=0; i<en.bone_count; i++)
-        for (int f=0; f<MAX_ANIMATION_FRAMES; f++)
-            SetScale(en.bones[i].frames[f], 1.0f);
+    for (int frame_index=0; frame_index<MAX_ANIMATION_FRAMES; frame_index++)
+        for (int bone_index=0; bone_index<en.bone_count; bone_index++)
+            SetIdentity(en.frames[frame_index * MAX_BONES + bone_index]);
 
     int bone_index = 0;
     while (!IsEOF(tk))
@@ -100,7 +97,7 @@ static int ParseFrameBone(EditorAnimation& ea, Tokenizer& tk, int* bone_map)
     return bone_map[bone_index];
 }
 
-static void ParseFramePosition(EditorAnimation& ea, Tokenizer& tk, int bone_index, int frame_index)
+static void ParseFramePosition(EditorAnimation& en, Tokenizer& tk, int bone_index, int frame_index)
 {
     float x;
     if (!ExpectFloat(tk, &x))
@@ -112,10 +109,10 @@ static void ParseFramePosition(EditorAnimation& ea, Tokenizer& tk, int bone_inde
     if (bone_index == -1)
         return;
 
-    ea.bones[bone_index].frames[frame_index].position = {x,y};
+    SetPosition(GetFrameTransform(en, bone_index, frame_index), {x,y});
 }
 
-static void ParseFrameRotation(EditorAnimation& ea, Tokenizer& tk, int bone_index, int frame_index)
+static void ParseFrameRotation(EditorAnimation& en, Tokenizer& tk, int bone_index, int frame_index)
 {
     float r;
     if (!ExpectFloat(tk, &r))
@@ -124,10 +121,10 @@ static void ParseFrameRotation(EditorAnimation& ea, Tokenizer& tk, int bone_inde
     if (bone_index == -1)
         return;
 
-    ea.bones[bone_index].frames[frame_index].rotation = r;
+    SetRotation(GetFrameTransform(en, bone_index, frame_index), r);
 }
 
-static void ParseFrameScale(EditorAnimation& ea, Tokenizer& tk, int bone_index, int frame_index)
+static void ParseFrameScale(EditorAnimation& en, Tokenizer& tk, int bone_index, int frame_index)
 {
     float s;
     if (!ExpectFloat(tk, &s))
@@ -136,22 +133,23 @@ static void ParseFrameScale(EditorAnimation& ea, Tokenizer& tk, int bone_index, 
     if (bone_index == -1)
         return;
 
-    SetScale(ea.bones[bone_index].frames[frame_index], s);
+    SetScale(GetFrameTransform(en, bone_index, frame_index), s);
 }
 
-static void ParseFrame(EditorAnimation& ea, Tokenizer& tk, int frame_index, int* bone_map)
+static void ParseFrame(EditorAnimation& en, Tokenizer& tk, int* bone_map)
 {
     int bone_index = -1;
+    en.frame_count++;
     while (!IsEOF(tk))
     {
         if (ExpectIdentifier(tk, "b"))
-            bone_index = ParseFrameBone(ea, tk, bone_map);
+            bone_index = ParseFrameBone(en, tk, bone_map);
         else if (ExpectIdentifier(tk, "r"))
-            ParseFrameRotation(ea, tk, bone_index, frame_index);
+            ParseFrameRotation(en, tk, bone_index, en.frame_count - 1);
         else if (ExpectIdentifier(tk, "s"))
-            ParseFrameScale(ea, tk, bone_index, frame_index);
+            ParseFrameScale(en, tk, bone_index, en.frame_count - 1);
         else if (ExpectIdentifier(tk, "p"))
-            ParseFramePosition(ea, tk, bone_index, frame_index);
+            ParseFramePosition(en, tk, bone_index, en.frame_count - 1);
         else
             break;
     }
@@ -168,8 +166,6 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     for (int i=0; i<MAX_BONES; i++)
         bone_map[i] = -1;
 
-    int frame_index = 0;
-
     try
     {
         while (!IsEOF(tk))
@@ -177,7 +173,7 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
             if (ExpectIdentifier(tk, "s"))
                 ParseSkeleton(*en, tk, bone_map);
             if (ExpectIdentifier(tk, "f"))
-                ParseFrame(*en, tk, frame_index++, bone_map);
+                ParseFrame(*en, tk, bone_map);
             else
                 ThrowError("invalid token '%s' in animation", GetString(tk));
         }
@@ -189,10 +185,6 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     }
 
     en->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
-    en->frame_count = frame_index;
-
-    for (int i=0; i<en->frame_count; i++)
-        UpdateTransforms(*en, i);
 
     return en;
 }
@@ -216,29 +208,7 @@ void UpdateBounds(EditorAnimation& en)
     en.bounds = en.skeleton_asset->skeleton->bounds;
 }
 
-void UpdateTransforms(EditorAnimation& en, int frame_index)
-{
-    if (!en.skeleton_asset)
-        return;
-
-    EditorSkeleton& es = *en.skeleton_asset->skeleton;
-
-    en.bone_transforms[0] = MAT3_IDENTITY;
-
-    for (int i=1; i<en.bone_count; i++)
-    {
-        EditorAnimationBone& eab = en.bones[i];
-
-        en.bone_transforms[i] =
-            en.bone_transforms[es.bones[i].parent_index] *
-            TRS(
-                es.bones[i].transform.position + eab.frames[frame_index].position,
-                es.bones[i].transform.rotation + eab.frames[frame_index].rotation,
-                es.bones[i].transform.scale * eab.frames[frame_index].scale);
-    }
-}
-
-void Serialize(const EditorAnimation& en, Stream* output_stream)
+void Serialize(EditorAnimation& en, Stream* output_stream)
 {
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_ANIMATION;
@@ -257,9 +227,17 @@ void Serialize(const EditorAnimation& en, Stream* output_stream)
         WriteU8(output_stream, (u8)en.bones[i].index);
 
     // Write all bone transforms
-    for (int f=0; f<en.frame_count; f++)
-        for (int i=0; i<en.bone_count; i++)
-            WriteStruct(output_stream, en.bones[i].frames[f]);
+    for (int frame_index=0; frame_index<en.frame_count; frame_index++)
+        for (int bone_index=0; bone_index<en.bone_count; bone_index++)
+        {
+            Transform& transform = en.frames[frame_index * MAX_BONES + bone_index];
+            BoneTransform bone_transform = {
+                .position = transform.position,
+                .scale = transform.scale,
+                .rotation = transform.rotation
+            };
+            WriteStruct(output_stream, bone_transform);
+        }
 }
 
 Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* name)
@@ -276,7 +254,7 @@ Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* na
     return animation;
 }
 
-void SaveEditorAnimation(const EditorAnimation& en, const std::filesystem::path& path)
+void SaveEditorAnimation(EditorAnimation& en, const std::filesystem::path& path)
 {
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
@@ -293,8 +271,7 @@ void SaveEditorAnimation(const EditorAnimation& en, const std::filesystem::path&
         WriteCSTR(stream, "f\n");
         for (int bone_index=0; bone_index<en.bone_count; bone_index++)
         {
-            const EditorAnimationBone& eab = en.bones[bone_index];
-            const Transform& bt = eab.frames[frame_index];
+            Transform& bt = GetFrameTransform(en, bone_index, frame_index);
 
             bool has_pos = bt.position != VEC2_ZERO;
             bool has_rot = bt.rotation != 0.0f;
@@ -330,11 +307,11 @@ int InsertFrame(EditorAnimation& en, int frame_index)
 
     for (int i=frame_index + 1; i<en.frame_count; i++)
         for (int j=0; j<en.bone_count; j++)
-            en.bones[j].frames[i] = en.bones[j].frames[i - 1];
+            GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i - 1);
 
     if (copy_frame > 0)
         for (int j=0; j<en.bone_count; j++)
-            en.bones[j].frames[frame_index] = en.bones[j].frames[copy_frame];
+            GetFrameTransform(en, j, frame_index) = GetFrameTransform(en, j, copy_frame);
 
     en.frame_count++;
 
@@ -348,9 +325,16 @@ int DeleteFrame(EditorAnimation& en, int frame_index)
 
     for (int i=frame_index; i<en.frame_count - 1; i++)
         for (int j=0; j<en.bone_count; j++)
-            en.bones[j].frames[i] = en.bones[j].frames[i + 1];
+            GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i + 1);
 
     en.frame_count--;
 
     return Min(frame_index, en.frame_count - 1);
+}
+
+Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_index)
+{
+    assert(bone_index >= 0 && bone_index < en.bone_count);
+    assert(frame_index >= 0 && frame_index < en.frame_count);
+    return en.frames[frame_index * MAX_BONES + bone_index];
 }

@@ -19,12 +19,13 @@ enum SkeletonEditorState
     SKELETON_EDITOR_STATE_UNPARENT
 };
 
-struct SavedBone
+struct SkeletonViewBone
 {
     Transform transform;
+    bool selected;
 };
 
-struct SkeletonEditor
+struct SkeletonView
 {
     SkeletonEditorState state;
     void (*state_update)();
@@ -34,12 +35,12 @@ struct SkeletonEditor
     bool clear_selection_on_up;
     int selected_bone_count;
     Vec2 command_world_position;
-    SavedBone saved_bones[MAX_BONES];
+    SkeletonViewBone bones[MAX_BONES];
     Vec2 selection_center;
     Vec2 selection_center_world;
 };
 
-static SkeletonEditor g_skeleton_view = {};
+static SkeletonView g_skeleton_view = {};
 
 static void HandleMoveCommand();
 static void HandleParentCommand();
@@ -54,11 +55,22 @@ static Shortcut g_skeleton_editor_shortcuts[] = {
     { INPUT_CODE_NONE }
 };
 
+static EditorAsset& GetAsset() { return *g_skeleton_view.asset; }
+static EditorSkeleton& GetSkeleton() { return *g_skeleton_view.skeleton; }
+static bool IsBoneSelected(int bone_index) { return g_skeleton_view.bones[bone_index].selected; }
+static void SetBoneSelected(int bone_index, bool selected)
+{
+    if (IsBoneSelected(selected) == selected)
+        return;
+    g_skeleton_view.bones[bone_index].selected = selected;
+    g_skeleton_view.selected_bone_count += selected ? 1 : -1;
+}
+
 static int GetFirstSelectedBoneIndex()
 {
-    EditorSkeleton& es = *g_skeleton_view.skeleton;
+    EditorSkeleton& es = GetSkeleton();
     for (int i=0; i<es.bone_count; i++)
-        if (es.bones[i].selected)
+        if (IsBoneSelected(i))
             return i;
     return -1;
 }
@@ -71,8 +83,8 @@ static void UpdateAssetNames()
     if (!IsAltDown(g_view.input))
         return;
 
-    EditorAsset& ea = *g_skeleton_view.asset;
-    EditorSkeleton& es = *g_skeleton_view.skeleton;
+    EditorAsset& ea = GetAsset();
+    EditorSkeleton& es = GetSkeleton();
     for (u16 i=0; i<es.bone_count; i++)
     {
         BeginWorldCanvas(g_view.camera, ea.position + GetLocalToWorld(es.bones[i].transform) * VEC2_ZERO, Vec2{6, 0});
@@ -91,7 +103,7 @@ static void UpdateSelectionCenter()
     for (int i=0; i<g_skeleton_view.skeleton->bone_count; i++)
     {
         EditorBone& eb = g_skeleton_view.skeleton->bones[i];
-        if (!eb.selected)
+        if (!g_skeleton_view.bones[i].selected)
             continue;
         center += TransformPoint(eb.transform);
         center_count += 1.0f;
@@ -109,7 +121,7 @@ static void SaveState()
     for (int i=1; i<g_skeleton_view.skeleton->bone_count; i++)
     {
         EditorBone& eb = g_skeleton_view.skeleton->bones[i];
-        SavedBone& sb = g_skeleton_view.saved_bones[i];
+        SkeletonViewBone& sb = g_skeleton_view.bones[i];
         sb.transform = eb.transform;
     }
 
@@ -128,20 +140,15 @@ static void SetState(SkeletonEditorState state, void (*state_update)(), void (*s
 
 static void ClearSelection()
 {
-    EditorSkeleton& es = *g_skeleton_view.skeleton;
-    for (int i=0; i<es.bone_count; i++)
-        es.bones[i].selected = false;
-
-    g_skeleton_view.selected_bone_count = 0;
+    EditorSkeleton& es = GetSkeleton();
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+        SetBoneSelected(bone_index, false);
 }
 
 static void SelectBone(int bone_index)
 {
-    EditorSkeleton& es = *g_skeleton_view.skeleton;
     ClearSelection();
-
-    es.bones[bone_index].selected = true;
-    g_skeleton_view.selected_bone_count++;
+    SetBoneSelected(bone_index, true);
 }
 
 static bool SelectBone()
@@ -219,7 +226,7 @@ static void UpdateMoveState()
         if (!eb.selected)
             continue;
 
-        SavedBone& sb = g_skeleton_view.saved_bones[i];
+        SkeletonViewBone& sb = g_skeleton_view.bones[i];
         // Vec2 bone_position = sb.world_to_local * (sb.world_position + world_delta);
         // eb.position = bone_position;
     }
@@ -309,11 +316,11 @@ static void DrawSkeleton()
     EditorAsset& ea = *g_skeleton_view.asset;
     EditorSkeleton& es = *g_skeleton_view.skeleton;
 
-    for (int i=0; i<es.bone_count; i++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
-        EditorBone& bone = es.bones[i];
+        EditorBone& bone = es.bones[bone_index];
         Vec2 bone_position = TransformPoint(bone.transform);
-        BindColor(bone.selected ? COLOR_SELECTED : COLOR_BLACK);
+        BindColor(IsBoneSelected(bone_index) ? COLOR_SELECTED : COLOR_BLACK);
         DrawVertex(bone_position + ea.position);
     }
 }
