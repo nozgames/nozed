@@ -47,22 +47,7 @@
 #define NOUSER
 
 #include <noz/noz.h>
-
-#include "import/asset_importer.h"
-#include "utils/props.h"
-#include "utils/tokenizer.h"
-
-static constexpr int TERM_COLOR_STATUS_BAR = 1;
-static constexpr int TERM_COLOR_COMMAND_LINE = 2;
-static constexpr int TERM_COLOR_SUCCESS = 3;
-static constexpr int TERM_COLOR_ERROR = 4;
-static constexpr int TERM_COLOR_WARNING = 5;
-
-static constexpr int TERM_COLOR_DISABLED_TEXT = 8;
-
-// Terminal key constants
-static constexpr int ERR = -1;
-static constexpr int KEY_MOUSE = 409;
+#include "../../../src/vfx/vfx_internal.h"
 
 struct EditorEventStats
 {
@@ -75,4 +60,12 @@ enum EditorEvent
     EDITOR_EVENT_IMPORTED
 };
 
+#include <import/asset_importer.h>
+#include <utils/props.h>
+#include <utils/tokenizer.h>
+#include <asset_editor.h>
+#include <editor.h>
+#include <utils/file_helpers.h>
+
 extern Props* g_config;
+

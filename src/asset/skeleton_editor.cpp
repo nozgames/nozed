@@ -2,9 +2,9 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <editor.h>
-#include "editor_asset.h"
+#include "../asset_editor.h"
 #include "utils/file_helpers.h"
+#include <editor.h>
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 
@@ -50,18 +50,42 @@ void DrawEditorSkeleton(EditorAsset& ea, bool selected)
     DrawEditorSkeleton(ea, ea.position, selected);
 }
 
-int HitTestBone(EditorSkeleton& em, const Vec2& world_pos)
+int HitTestBone(EditorSkeleton& es, const Vec2& world_pos)
 {
     const float size = g_view.select_size;
-    for (int i=0; i<em.bone_count; i++)
+    float best_dist = F32_MAX;
+    int best_bone_index = -1;
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
-        EditorBone& bone = em.bones[i];
+        EditorBone& bone = es.bones[bone_index];
         Vec2 bone_position = TransformPoint(bone.transform);
-        if (Length(bone_position - world_pos) < size)
-            return i;
+        float dist = Length(bone_position - world_pos);
+        if (dist < size && dist < best_dist)
+        {
+            best_dist = dist;
+            best_bone_index = bone_index;
+        }
     }
 
-    return -1;
+    if (best_bone_index != -1)
+        return best_bone_index;
+
+    best_bone_index = -1;
+    best_dist = F32_MAX;
+    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    {
+        EditorBone& bone = es.bones[bone_index];
+        Vec2 b0 = TransformPoint(bone.transform);
+        Vec2 b1 = TransformPoint(es.bones[bone.parent_index].transform);
+        float dist = DistanceFromLine(b0, b1, world_pos);
+        if (dist < size && dist < best_dist)
+        {
+            best_dist = dist;
+            best_bone_index = bone_index;
+        }
+    }
+
+    return best_bone_index;
 }
 
 static void ParseBonePosition(EditorBone& eb, Tokenizer& tk)
@@ -139,17 +163,6 @@ void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& p
     Free(stream);
 }
 
-EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
-{
-    EditorSkeleton* skeleton = LoadEditorSkeleton(ALLOCATOR_DEFAULT, path);
-    if (!skeleton)
-        return nullptr;
-
-    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_SKELETON);
-    ea->skeleton = skeleton;
-    return ea;
-}
-
 EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
 {
     const char* default_mesh = "b \"root\" -1 p 0 0\n";
@@ -175,30 +188,21 @@ void UpdateTransforms(EditorSkeleton& es)
     if (es.bone_count <= 0)
         return;
 
-#if 0
-    EditorBone& root = es.bones[0];
-    root.local_to_world = TRS(root.position, 0, VEC2_ONE);
-    root.world_to_local = Inverse(root.local_to_world);
+    //EditorBone& root = es.bones[0];
 
-    for (int i=1; i<es.bone_count; i++)
-    {
-        EditorBone& bone = es.bones[i];
-        EditorBone& parent = es.bones[bone.parent_index];
-        bone.local_to_world = parent.local_to_world * TRS(bone.position, 0, VEC2_ONE);
-        bone.world_to_local = Inverse(bone.local_to_world);
-        bone.length = Length(bone.position);
-    }
+    // for (int i=1; i<es.bone_count; i++)
+    // {
+    //     EditorBone& bone = es.bones[i];
+    //     EditorBone& parent = es.bones[bone.parent_index];
+    //     bone.length = Length(bone.position);
+    // }
 
-    Vec2 root_position = es.bones[0].local_to_world * VEC2_ZERO;
+    Vec2 root_position = TransformPoint(es.bones[0].transform);
     Bounds2 bounds = Bounds2 { root_position, root_position };
     for (int i=1; i<es.bone_count; i++)
-    {
-        Vec2 bone_position = es.bones[i].local_to_world * VEC2_ZERO;
-        bounds = Union(bounds, bone_position);
-    }
+        bounds = Union(bounds, TransformPoint(es.bones[i].transform));
 
     es.bounds = Expand(bounds, 0.5f);
-#endif
 }
 
 void SaveAssetMetadata(const EditorSkeleton& es, Props* meta)
@@ -223,8 +227,9 @@ void LoadAssetMetadata(EditorSkeleton& es, Props* meta)
     }
 }
 
-void PostLoadEditorAssets(EditorSkeleton& es)
+static void PostLoadEditorSkeleton(EditorAsset& ea)
 {
+    EditorSkeleton& es = *ea.skeleton;
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
         EditorSkinnedMesh& esm = es.skinned_meshes[i];
@@ -287,4 +292,18 @@ Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton& es, const Name* name)
     es.skeleton = skeleton;
 
     return skeleton;
+}
+
+EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
+{
+    EditorSkeleton* skeleton = LoadEditorSkeleton(ALLOCATOR_DEFAULT, path);
+    if (!skeleton)
+        return nullptr;
+
+    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_SKELETON);
+    ea->skeleton = skeleton;
+    ea->vtable = {
+        .post_load = PostLoadEditorSkeleton
+    };
+    return ea;
 }

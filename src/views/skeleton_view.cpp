@@ -33,6 +33,7 @@ struct SkeletonView
     EditorAsset* asset;
     EditorSkeleton* skeleton;
     bool clear_selection_on_up;
+    bool ignore_up;
     int selected_bone_count;
     Vec2 command_world_position;
     SkeletonViewBone bones[MAX_BONES];
@@ -60,7 +61,7 @@ static EditorSkeleton& GetSkeleton() { return *g_skeleton_view.skeleton; }
 static bool IsBoneSelected(int bone_index) { return g_skeleton_view.bones[bone_index].selected; }
 static void SetBoneSelected(int bone_index, bool selected)
 {
-    if (IsBoneSelected(selected) == selected)
+    if (IsBoneSelected(bone_index) == selected)
         return;
     g_skeleton_view.bones[bone_index].selected = selected;
     g_skeleton_view.selected_bone_count += selected ? 1 : -1;
@@ -174,8 +175,7 @@ static void UpdateDefaultState()
         return;
     }
 
-    // Select
-    if (!g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
+    if (!g_skeleton_view.ignore_up && !g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
     {
         g_skeleton_view.clear_selection_on_up = false;
 
@@ -185,10 +185,11 @@ static void UpdateDefaultState()
         g_skeleton_view.clear_selection_on_up = true;
     }
 
+    g_skeleton_view.ignore_up &= !WasButtonReleased(g_view.input, MOUSE_LEFT);
+
     if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_skeleton_view.clear_selection_on_up)
     {
-        // ClearSelection(em);
-        // UpdateSelection(ea);
+        ClearSelection();
     }
 }
 
@@ -216,23 +217,20 @@ static void UpdateRotateState()
 
 static void UpdateMoveState()
 {
-#if 0
     Vec2 world_delta = g_view.mouse_world_position - g_skeleton_view.command_world_position;
 
     EditorSkeleton& es = *g_skeleton_view.asset->skeleton;
-    for (int i=0; i<es.bone_count; i++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
-        EditorBone& eb = es.bones[i];
-        if (!eb.selected)
+        EditorBone& eb = es.bones[bone_index];
+        if (!IsBoneSelected(bone_index))
             continue;
 
-        SkeletonViewBone& sb = g_skeleton_view.bones[i];
-        // Vec2 bone_position = sb.world_to_local * (sb.world_position + world_delta);
-        // eb.position = bone_position;
+        SkeletonViewBone& vb = g_skeleton_view.bones[bone_index];
+        SetPosition(eb.transform, InverseTransformPoint(vb.transform, TransformPoint(vb.transform) + world_delta));
     }
 
     UpdateTransforms(es);
-#endif
 }
 
 static void UpdateParentState()
@@ -289,12 +287,16 @@ void UpdateSkeletonEditor()
         g_skeleton_view.state_update();
 
     if (g_skeleton_view.state == SKELETON_EDITOR_STATE_DEFAULT)
+    {
         UpdateDefaultState();
+        return;
+    }
 
     // Commit the tool
     if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
     {
         g_skeleton_view.asset->modified = true;
+        g_skeleton_view.ignore_up = true;
         SetState(SKELETON_EDITOR_STATE_DEFAULT, nullptr, nullptr);
     }
     // Cancel the tool

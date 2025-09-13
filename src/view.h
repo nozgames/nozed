@@ -10,7 +10,7 @@ constexpr int MAX_ASSETS = 1024;
 constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
 
-#include <asset/editor_asset.h>
+#include <asset_editor.h>
 #include <editor_assets.h>
 
 enum ViewState
@@ -137,7 +137,7 @@ extern int FindEditorAssetByName(const Name* name);
 extern EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea);
 extern void Copy(EditorAsset& dst, const EditorAsset& src);
 extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em);
-extern EditorAsset* GetEditorAsset(u32 index);
+extern EditorAsset* GetEditorAsset(i32 index);
 
 // @notifications
 extern void InitNotifications();

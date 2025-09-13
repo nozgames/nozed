@@ -4,7 +4,7 @@
 // @STL
 
 #include "../../../src/internal.h"
-#include "../asset/editor_mesh.h"
+#include "../asset/mesh_editor.h"
 
 namespace fs = std::filesystem;
 using namespace noz;

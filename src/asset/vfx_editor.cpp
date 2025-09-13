@@ -2,13 +2,9 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "editor_asset.h"
-#include <editor.h>
-#include <utils/file_helpers.h>
-#include "../../../src/vfx/vfx_internal.h"
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
-extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
+extern EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type);
 
 void DrawEditorVfx(EditorAsset& ea)
 {
@@ -395,7 +391,7 @@ EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path)
     if (!evfx)
         return nullptr;
 
-    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_VFX);
+    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_VFX);
     ea->vfx = evfx;
     ea->vfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *evfx, ea->name);
     ea->vfx_handle = INVALID_VFX_HANDLE;

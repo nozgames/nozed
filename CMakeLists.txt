@@ -14,16 +14,16 @@ set(SOURCE_FILES
     src/grid.cpp
     src/view.cpp
     src/notifications.cpp
+    src/asset_editor.cpp
 
-    src/views/view_animation.cpp
-    src/views/view_mesh.cpp
-    src/views/view_skeleton.cpp
+    src/views/animation_view.cpp
+    src/views/mesh_view.cpp
+    src/views/skeleton_view.cpp
 
-    src/asset/editor_asset.cpp
-    src/asset/editor_skeleton.cpp
-    src/asset/editor_mesh.cpp
-    src/asset/editor_vfx.cpp
-    src/asset/editor_animation.cpp
+    src/asset/skeleton_editor.cpp
+    src/asset/mesh_editor.cpp
+    src/asset/vfx_editor.cpp
+    src/asset/animation_editor.cpp
 
     src/utils/file_watcher.cpp
     src/utils/rect_packer.cpp

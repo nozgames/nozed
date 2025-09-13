@@ -5,7 +5,7 @@
 #include <editor.h>
 #include <utils/file_helpers.h>
 
-EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type)
+EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type)
 {
     std::error_code ec;
     std::filesystem::path relative_path = std::filesystem::relative(path, "assets", ec);
@@ -22,7 +22,7 @@ EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetT
 
 EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em)
 {
-    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_MESH);
+    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_MESH);
     ea->mesh = em;
     return ea;
 }
@@ -33,7 +33,7 @@ EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path)
     if (!em)
         return nullptr;
 
-    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_MESH);
+    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_MESH);
     ea->mesh = em;
     return ea;
 }
@@ -335,7 +335,7 @@ int FindEditorAssetByName(const Name* name)
 
 EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea)
 {
-    EditorAsset* clone = CreateEditableAsset(ea.path, ea.type);
+    EditorAsset* clone = CreateEditorAsset(ea.path, ea.type);
     *clone = ea;
     switch (clone->type)
     {
@@ -386,15 +386,8 @@ void LoadEditorAssets()
     for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
-        switch (ea.type)
-        {
-        case EDITOR_ASSET_TYPE_SKELETON:
-            PostLoadEditorAssets(*ea.skeleton);
-            break;
-
-        default:
-            break;
-        }
+        if (ea.vtable.post_load)
+            ea.vtable.post_load(ea);
     }
 }
 
@@ -443,9 +436,9 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
     return path;
 }
 
-EditorAsset* GetEditorAsset(u32 index)
+EditorAsset* GetEditorAsset(i32 index)
 {
-    if (index < 0 || index >= g_view.asset_count)
+    if (index < 0 || index >= (i32)g_view.asset_count)
         return nullptr;
 
     return g_view.assets[index];

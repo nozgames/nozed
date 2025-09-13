@@ -4,7 +4,7 @@
 
 constexpr float OUTLINE_WIDTH = 0.05f;
 
-#include "editor_mesh.h"
+#include "mesh_editor.h"
 
 #include <editor.h>
 #include <utils/file_helpers.h>

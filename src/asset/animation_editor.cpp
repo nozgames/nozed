@@ -2,28 +2,18 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <utils/file_helpers.h>
-#include <utils/tokenizer.h>
-#include <editor.h>
-#include "editor_asset.h"
-
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
-extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
+extern EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type);
+static EditorSkeleton& GetEditorSkeleton(EditorAnimation& en) { return *en.skeleton_asset->skeleton; }
+static EditorBone& GetEditorBone(EditorAnimation& en, int bone_index) { return en.skeleton_asset->skeleton->bones[bone_index]; }
 
 void DrawEditorAnimation(EditorAsset& ea)
 {
     EditorAnimation& en = *ea.anim;
-
-    if (en.skeleton_asset == nullptr)
-    {
-        en.skeleton_asset = GetEditorAsset(FindEditorAssetByName(en.skeleton_name));
-        UpdateBounds(en);
-    }
-
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BLACK);
 
-    EditorSkeleton& es = *en.skeleton_asset->skeleton;
+    EditorSkeleton& es = GetEditorSkeleton(en);
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
@@ -34,14 +24,15 @@ void DrawEditorAnimation(EditorAsset& ea)
             continue;
 
         BindTransform(TRS(ea.position, 0, VEC2_ONE) * GetLocalToWorld(GetFrameTransform(en, es.skinned_meshes[i].bone_index, en.current_frame)));
-        //BindTransform(TRS(en.bone_transforms[i] * VEC2_ZERO + ea.position, 0, VEC2_ONE));
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
     for (int bone_index=1; bone_index<en.bone_count; bone_index++)
     {
-        Vec2 b1 = TransformPoint(GetFrameTransform(en, es.bones[bone_index].parent_index, en.current_frame));
-        Vec2 b2 = TransformPoint(GetFrameTransform(en, bone_index, en.current_frame));
+        Transform& t0 = GetFrameTransform(en, es.bones[bone_index].parent_index, en.current_frame);
+        Transform& t1 = GetFrameTransform(en, bone_index, en.current_frame);
+        Vec2 b1 = TransformPoint(t0);
+        Vec2 b2 = TransformPoint(t1);
         DrawBone(b1 + ea.position, b2 + ea.position);
     }
 }
@@ -155,6 +146,11 @@ static void ParseFrame(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     }
 }
 
+static void PostLoadEditorAnimation(EditorAsset& ea)
+{
+    ea.anim->skeleton_asset = GetEditorAsset(FindEditorAssetByName(ea.anim->skeleton_name));
+}
+
 EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path)
 {
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
@@ -187,17 +183,6 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     en->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
 
     return en;
-}
-
-EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
-{
-    EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, path);
-    if (!en)
-        return nullptr;
-
-    EditorAsset* ea = CreateEditableAsset(path, EDITOR_ASSET_TYPE_ANIMATION);
-    ea->anim = en;
-    return ea;
 }
 
 void UpdateBounds(EditorAnimation& en)
@@ -337,4 +322,54 @@ Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_inde
     assert(bone_index >= 0 && bone_index < en.bone_count);
     assert(frame_index >= 0 && frame_index < en.frame_count);
     return en.frames[frame_index * MAX_BONES + bone_index];
+}
+
+bool HitTestBone(EditorAnimation& en, const Vec2& world_pos)
+{
+    const float size = g_view.select_size;
+    float best_dist = F32_MAX;
+    int best_bone_index = -1;
+    for (int bone_index=0; bone_index<en.bone_count; bone_index++)
+    {
+        Vec2 b0 = TransformPoint(GetFrameTransform(en, bone_index, en.current_frame));
+        float dist = Length(b0 - world_pos);
+        if (dist < size && dist < best_dist)
+        {
+            best_dist = dist;
+            best_bone_index = bone_index;
+        }
+    }
+
+    if (best_bone_index != -1)
+        return best_bone_index;
+
+    best_bone_index = -1;
+    best_dist = F32_MAX;
+    for (int bone_index=1; bone_index<en.bone_count; bone_index++)
+    {
+        Vec2 b0 = TransformPoint(GetFrameTransform(en, bone_index, en.current_frame));
+        Vec2 b1 = TransformPoint(GetFrameTransform(en, GetEditorBone(en, bone_index).parent_index, en.current_frame));
+        float dist = DistanceFromLine(b0, b1, world_pos);
+        if (dist < size && dist < best_dist)
+        {
+            best_dist = dist;
+            best_bone_index = bone_index;
+        }
+    }
+
+    return best_bone_index;
+}
+
+EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
+{
+    EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, path);
+    if (!en)
+        return nullptr;
+
+    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_ANIMATION);
+    ea->anim = en;
+    ea->vtable = {
+        .post_load = PostLoadEditorAnimation
+    };
+    return ea;
 }

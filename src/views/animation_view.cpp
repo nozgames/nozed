@@ -55,7 +55,7 @@ static Shortcut* g_animation_editor_shortcuts;
 static bool IsBoneSelected(int bone_index) { return g_animation_view.bones[bone_index].selected; }
 static void SetBoneSelected(int bone_index, bool selected)
 {
-    if (IsBoneSelected(selected) == selected)
+    if (IsBoneSelected(bone_index) == selected)
         return;
     g_animation_view.bones[bone_index].selected = selected;
     g_animation_view.selected_bone_count += selected ? 1 : -1;
@@ -125,25 +125,6 @@ static void ClearSelection()
 static void AddSelection(int bone_index)
 {
     SetBoneSelected(bone_index, true);
-}
-
-static int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
-{
-    const float size = g_view.select_size;
-    float best_dist = F32_MAX;
-    int best_index = -1;
-    for (int i=0; i<en.bone_count; i++)
-    {
-        Vec2 bone_position = TransformPoint(GetFrameTransform(en, i, en.current_frame));
-        f32 dist = Length(bone_position - world_pos);
-        if (dist < size && dist < best_dist)
-        {
-            best_dist = dist;
-            best_index = i;
-        }
-    }
-
-    return best_index;
 }
 
 static void SelectBone(int bone_index)
@@ -253,7 +234,6 @@ static void UpdateDefaultState()
         return;
     }
 
-    // Select
     if (!g_animation_view.ignore_up && !g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
     {
         g_animation_view.clear_selection_on_up = false;

@@ -2,8 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <asset/editor_asset.h>
-
 namespace fs = std::filesystem;
 
 void ImportSkeleton(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)

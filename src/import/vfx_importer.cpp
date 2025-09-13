@@ -2,15 +2,13 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <utils/props.h>
-#include <asset/editor_asset.h>
-
 namespace fs = std::filesystem;
 
 void ImportVfx(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
 {
-    (config);
-    (meta);
+    (void)config;
+    (void)meta;
+
     EditorVfx* evfx = LoadEditorVfx(ALLOCATOR_DEFAULT, source_path);
     if (!evfx)
         throw std::exception("failed to load vfx");

@@ -4,6 +4,8 @@
 
 #pragma once
 
+struct EditorAsset;
+
 struct EditorAnimationBone
 {
     const Name* name;
@@ -21,10 +23,12 @@ struct EditorAnimation
     Bounds2 bounds;
     EditorAsset* skeleton_asset;
     Animation* animation;
+    Animator animator;
 };
 
 extern EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path);
 extern EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path);
+extern void PostLoadEditorAssets(EditorAnimation& en);
 extern void DrawEditorAnimation(EditorAsset& ea);
 extern void UpdateBounds(EditorAnimation& en);
 extern void Serialize(EditorAnimation& en, Stream* output_stream);
@@ -33,3 +37,4 @@ extern void SaveEditorAnimation(EditorAnimation& en, const std::filesystem::path
 extern int InsertFrame(EditorAnimation& en, int frame_index);
 extern int DeleteFrame(EditorAnimation& en, int frame_index);
 extern Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_index);
+extern bool HitTestBone(EditorAnimation& en, const Vec2& world_pos);

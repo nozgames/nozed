@@ -4,10 +4,10 @@
 
 #pragma once
 
-#include "editor_mesh.h"
-#include "editor_vfx.h"
-#include "editor_skeleton.h"
-#include "editor_animation.h"
+#include "asset/animation_editor.h"
+#include "asset/mesh_editor.h"
+#include "asset/skeleton_editor.h"
+#include "asset/vfx_editor.h"
 
 enum EditorAssetType
 {
@@ -20,6 +20,11 @@ enum EditorAssetType
 };
 
 typedef void (*EditorAssetRenameFunc) (const Name* new_name);
+
+struct EditorAssetVtable
+{
+    void (*post_load)(EditorAsset& ea);
+};
 
 struct EditorAsset
 {
@@ -40,9 +45,10 @@ struct EditorAsset
     VfxHandle vfx_handle;
     bool editing;
     bool modified;
+    EditorAssetVtable vtable;
 };
 
 extern void HotloadEditorAsset(const Name* name);
 extern void MarkModified(EditorAsset& ea);
-extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type);
+extern EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type);
 extern std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext);
