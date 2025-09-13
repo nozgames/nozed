@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <view.h>
+#include <editor.h>
 
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 

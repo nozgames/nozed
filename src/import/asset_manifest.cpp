@@ -140,6 +140,9 @@ bool GenerateAssetManifest(
                generator.output_dir.string().c_str(), e.what());
     }
 
+    for (const std::string& name : config->GetKeys("names"))
+        generator.name_entries.insert(GetName(name.c_str()));
+
     // Generate header file (change .cpp to .h)
     fs::path header_path = manifest_output_path;
     header_path.replace_extension(".h");
@@ -495,6 +498,7 @@ static std::string PathToVarName(const std::string& path_str)
     
     // Check for C keywords and add underscore prefix if needed
     static std::vector<std::string> c_keywords = {
+        "new",
         "default", "switch", "case", "break", "continue", "return",
         "if", "else", "for", "while", "do", "goto", "void",
         "int", "float", "double", "char", "const", "static",
@@ -691,7 +695,18 @@ static std::string NameToVar(const std::string& path)
         else
             result += '_';
     }
-    
+
+    static std::vector<std::string> c_keywords = {
+        "new",
+        "default", "switch", "case", "break", "continue", "return",
+        "if", "else", "for", "while", "do", "goto", "void",
+        "int", "float", "double", "char", "const", "static",
+        "struct", "union", "enum", "typedef"
+    };
+
+    if (std::find(c_keywords.begin(), c_keywords.end(), result) != c_keywords.end())
+        result = "_" + result;
+
     return result;
 }
 

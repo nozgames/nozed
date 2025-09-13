@@ -6,11 +6,11 @@ margin-bottom=40
 
 [notification]
 margin-top=10
-width=200
-height=50
+width=300
+height=auto
 padding=10
 background-color=#555558
 
 [notification_text]
-color=white
-font-size=20
+color=black
+font-size=18

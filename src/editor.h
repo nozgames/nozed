@@ -36,4 +36,19 @@ extern View* GetView();
 extern void PushView(View* view);
 extern void PopView();
 
-// @shortcut
+// @command
+
+constexpr int MAX_COMMAND_ARGS = 4;
+constexpr int MAX_COMMAND_ARG_SIZE = 128;
+
+struct Command
+{
+    const Name* name;
+    int arg_count;
+    char args[MAX_COMMAND_ARGS][MAX_COMMAND_ARG_SIZE];
+};
+
+extern void InitCommands();
+extern bool ParseCommand(const char* str, Command& command);
+
+#include "view.h"

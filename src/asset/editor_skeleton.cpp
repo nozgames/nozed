@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <view.h>
+#include <editor.h>
 #include "editor_asset.h"
 #include "utils/file_helpers.h"
 
@@ -256,7 +256,6 @@ void Serialize(EditorSkeleton& es, Stream* output_stream)
     for (int i=0; i<es.bone_count; i++)
     {
         EditorBone& eb = es.bones[i];
-        WriteString(output_stream, eb.name->value);
         WriteI8(output_stream, (char)eb.parent_index);
         WriteStruct(output_stream, eb.local_to_world);
         WriteStruct(output_stream, eb.world_to_local);

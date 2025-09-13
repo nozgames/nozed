@@ -16,6 +16,7 @@
 // LoadedAssets.ui.command_palette
 // LoadedAssets.ui.mesh_editor
 // LoadedAssets.ui.notifications
+// LoadedAssets.ui.view
 //
 // @textures
 // LoadedAssets.textures.palette
@@ -49,6 +50,7 @@ struct LoadedAssets
         const Name* ui_command_palette;
         const Name* ui_mesh_editor;
         const Name* ui_notifications;
+        const Name* ui_view;
     } paths;
     struct
     {
@@ -70,6 +72,7 @@ struct LoadedAssets
         StyleSheet* command_palette;
         StyleSheet* mesh_editor;
         StyleSheet* notifications;
+        StyleSheet* view;
     } ui;
 };
 
@@ -84,6 +87,19 @@ struct LoadedNames
     const Name* notification_container;
     const Name* notification;
     const Name* notification_text;
+    const Name* asset_name;
+    const Name* asset_name_container;
+    const Name* r;
+    const Name* rename;
+    const Name* save;
+    const Name* e;
+    const Name* _new;
+    const Name* n;
+    const Name* edit;
+    const Name* s;
+    const Name* command_text_preview;
+    const Name* mesh;
+    const Name* skeleton;
 };
 
 extern LoadedAssets g_assets;

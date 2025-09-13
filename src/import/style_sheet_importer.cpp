@@ -69,6 +69,13 @@ static StyleFlexDirection ParseStyleFlexDirection(const string& value)
     return StyleFlexDirection{ STYLE_KEYWORD_INHERIT, FLEX_DIRECTION_ROW };
 }
 
+static StyleTextAlign ParseTextAlign(const string& value)
+{
+    if (value == "center") return StyleTextAlign { STYLE_KEYWORD_OVERWRITE, TEXT_ALIGN_CENTER };
+    if (value == "max") return StyleTextAlign { STYLE_KEYWORD_OVERWRITE, TEXT_ALIGN_MAX };
+    return StyleTextAlign{ STYLE_KEYWORD_INHERIT, TEXT_ALIGN_MIN };
+}
+
 static void WriteStyleSheetData(Stream* stream, const StyleDictionary& styles)
 {
     // Create a name table of all the style names
@@ -151,6 +158,10 @@ static bool ParseParameter(const string& group, const string& key, Props* source
         style.padding_right = ParseStyleLength(value);
     else if (key == "flex-direction")
         style.flex_direction = ParseStyleFlexDirection(value);
+    else if (key == "text-align")
+        style.text_align = ParseTextAlign(value);
+    else if (key == "vertical-align")
+        style.vertical_align = ParseTextAlign(value);
 
     return true;
 }

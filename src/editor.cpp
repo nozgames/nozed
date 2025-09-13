@@ -3,7 +3,7 @@
 //
 
 #include "editor.h"
-#include <view.h>
+#include <editor.h>
 #include "editor_assets.h"
 
 extern void InitEvent(ApplicationTraits* traits);
@@ -97,6 +97,7 @@ void HandleImported(EventId event_id, const void* event_data)
     (void)event_id;
     HotloadEvent event = { (const char*)event_data };
     Send(EVENT_HOTLOAD, &event);
+    AddNotification("imported '%s'", event.asset_name);
 }
 
 static void InitConfig()
@@ -125,8 +126,6 @@ void InitEditor()
     g_main_thread_id = std::this_thread::get_id();
 
     InitLog(HandleLog);
-    InitImporter();
-    InitEditorServer(g_config);
     Listen(EDITOR_EVENT_STATS, HandleStatsEvents);
     Listen(EDITOR_EVENT_IMPORTED, HandleImported);
 }
@@ -163,16 +162,12 @@ int main(int argc, const char* argv[])
     InitEditor();
     InitLog(HandleLog);
 
-    for (int i = 1; i < argc; i++)
-    {
-        HandleCommand(argv[i]);
+    g_editor.is_running = true;
 
-        if (!g_editor.is_running)
-        {
-            g_editor.is_running = true;
-            g_editor.auto_quit = true;
-        }
-    }
+    InitView();
+    InitCommands();
+    InitImporter();
+    InitEditorServer(g_config);
 
     bool had_window = IsWindowCreated();
     while (UpdateApplication() && g_editor.is_running)

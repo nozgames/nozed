@@ -58,11 +58,13 @@ extern void Init(Tokenizer& tk, const char* input);
 extern const Name* GetName(const Tokenizer& tk);
 extern char* GetString(const Tokenizer& tk, char* dst, u32 dst_size);
 extern char* GetString(const Tokenizer& tk);
+extern char* GetString(const Token& token, char* dst, u32 dst_size);
 extern bool Equals(Tokenizer& tk, const char* value, bool ignore_case=false);
 extern bool Equals(Tokenizer& tk, TokenType type);
-extern bool ExpectLine(Tokenizer& tk);
 extern bool IsEOF(Tokenizer& tk);
 
+extern bool ExpectLine(Tokenizer& tk);
+extern bool ExpectToken(Tokenizer& tk, Token* out_value=nullptr);
 extern bool ExpectQuotedString(Tokenizer &tk);
 extern bool ExpectInt(Tokenizer& tk, int* out_value);
 extern bool ExpectFloat(Tokenizer& tk, float* out_value);

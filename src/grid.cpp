@@ -2,7 +2,7 @@
 //  MeshZ - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <view.h>
+#include <editor.h>
 #include "editor_assets.h"
 
 constexpr float GRID_SPACING = 1.0f;

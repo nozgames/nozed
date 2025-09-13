@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <view.h>
+#include <editor.h>
 
 constexpr float FRAME_LINE_SIZE = 0.5f;
 constexpr float FRAME_LINE_OFFSET = -0.2f;
@@ -49,28 +49,9 @@ struct AnimationView
     Animator animator;
 };
 
-static void HandleMoveCommand();
-static void HandleResetMoveCommand();
-static void HandleRotate();
-static void HandleResetRotate();
-static void HandleSelectAll();
-static void HandlePrevFrameCommand();
-static void HandleNextFrameCommand();
-static void HandlePlayCommand();
-
 static AnimationView g_animation_editor = {};
 
-static Shortcut g_animation_editor_shortcuts[] = {
-    { KEY_G, false, false, false, HandleMoveCommand },
-    { KEY_G, true, false, false, HandleResetMoveCommand },
-    { KEY_R, false, false, false, HandleRotate },
-    { KEY_R, true, false, false, HandleResetRotate },
-    { KEY_A, false, false, false, HandleSelectAll },
-    { KEY_Q, false, false, false, HandlePrevFrameCommand },
-    { KEY_E, false, false, false, HandleNextFrameCommand },
-    { KEY_SPACE, false, false, false, HandlePlayCommand },
-    { INPUT_CODE_NONE }
-};
+static Shortcut* g_animation_editor_shortcuts;
 
 static void UpdateSelectionCenter()
 {
@@ -531,12 +512,49 @@ static void HandleSelectAll()
         AddSelection(i);
 }
 
+static void HandleInsertBeforeFrame()
+{
+    EditorAnimation& en = *g_animation_editor.animation;
+    en.current_frame = InsertFrame(en, en.current_frame);
+}
+
+static void HandleInsertAfterFrame()
+{
+    EditorAnimation& en = *g_animation_editor.animation;
+    en.current_frame = InsertFrame(en, en.current_frame + 1);
+}
+
+static void HandleDeleteFrame()
+{
+    EditorAnimation& en = *g_animation_editor.animation;
+    en.current_frame = DeleteFrame(en, en.current_frame);
+}
+
 void InitAnimationEditor(EditorAsset& ea)
 {
     g_animation_editor.state = ANIMATION_VIEW_STATE_DEFAULT;
     g_animation_editor.asset = &ea;
     g_animation_editor.animation = ea.anim;
 
-    EnableShortcuts(g_animation_editor_shortcuts);
+    if (g_animation_editor_shortcuts == nullptr)
+    {
+        static Shortcut shortcuts[] = {
+            { KEY_G, false, false, false, HandleMoveCommand },
+            { KEY_G, true, false, false, HandleResetMoveCommand },
+            { KEY_R, false, false, false, HandleRotate },
+            { KEY_R, true, false, false, HandleResetRotate },
+            { KEY_A, false, false, false, HandleSelectAll },
+            { KEY_Q, false, false, false, HandlePrevFrameCommand },
+            { KEY_E, false, false, false, HandleNextFrameCommand },
+            { KEY_SPACE, false, false, false, HandlePlayCommand },
+            { KEY_I, false, false, false, HandleInsertBeforeFrame },
+            { KEY_O, false, false, false, HandleInsertAfterFrame },
+            { KEY_X, false, false, false, HandleDeleteFrame },
+            { INPUT_CODE_NONE }
+        };
+
+        g_animation_editor_shortcuts = shortcuts;
+        EnableShortcuts(g_animation_editor_shortcuts);
+    }
 }
 

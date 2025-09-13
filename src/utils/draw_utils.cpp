@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <view.h>
+#include <editor.h>
 
 constexpr float DEFAULT_LINE_WIDTH = 0.01f;
 constexpr float DEFAULT_VERTEX_SIZE = 0.08f;

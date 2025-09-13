@@ -6,7 +6,7 @@ constexpr float OUTLINE_WIDTH = 0.05f;
 
 #include "editor_mesh.h"
 
-#include <view.h>
+#include <editor.h>
 #include <utils/file_helpers.h>
 
 void DrawEditorMesh(EditorAsset& ea)

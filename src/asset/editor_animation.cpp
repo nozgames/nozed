@@ -4,7 +4,7 @@
 
 #include <utils/file_helpers.h>
 #include <utils/tokenizer.h>
-#include <view.h>
+#include <editor.h>
 #include "editor_asset.h"
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
@@ -320,4 +320,37 @@ void SaveEditorAnimation(const EditorAnimation& en, const std::filesystem::path&
 
     SaveStream(stream, path);
     Free(stream);
+}
+
+int InsertFrame(EditorAnimation& en, int frame_index)
+{
+    int copy_frame = 1;
+    if (frame_index > 0)
+        copy_frame = frame_index - 1;
+
+    for (int i=frame_index + 1; i<en.frame_count; i++)
+        for (int j=0; j<en.bone_count; j++)
+            en.bones[j].frames[i] = en.bones[j].frames[i - 1];
+
+    if (copy_frame > 0)
+        for (int j=0; j<en.bone_count; j++)
+            en.bones[j].frames[frame_index] = en.bones[j].frames[copy_frame];
+
+    en.frame_count++;
+
+    return frame_index;
+}
+
+int DeleteFrame(EditorAnimation& en, int frame_index)
+{
+    if (en.frame_count <= 1)
+        return frame_index;
+
+    for (int i=frame_index; i<en.frame_count - 1; i++)
+        for (int j=0; j<en.bone_count; j++)
+            en.bones[j].frames[i] = en.bones[j].frames[i + 1];
+
+    en.frame_count--;
+
+    return Min(frame_index, en.frame_count - 1);
 }

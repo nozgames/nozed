@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "view.h"
+#include "editor.h"
 
 constexpr int MAX_COMMAND_LENGTH = 1024;
 constexpr float SELECT_SIZE = 20.0f;
@@ -104,7 +104,7 @@ static void FrameView()
 void BeginBoxSelect(void (*callback)(const Bounds2& bounds))
 {
     g_view.box_select_callback = callback;
-    PushState(ASSET_EDITOR_STATE_BOX_SELECT);
+    PushState(VIEW_STATE_BOX_SELECT);
 }
 
 static void HandleBoxSelect()
@@ -233,7 +233,7 @@ static void UpdateDefaultState()
 
     if (g_view.drag)
     {
-        PushState(ASSET_EDITOR_STATE_BOX_SELECT);
+        PushState(VIEW_STATE_BOX_SELECT);
         return;
     }
 
@@ -256,17 +256,17 @@ static void UpdateDefaultState()
         switch (ea.type)
         {
         case EDITOR_ASSET_TYPE_MESH:
-            PushState(ASSET_EDITOR_STATE_EDIT);
+            PushState(VIEW_STATE_EDIT);
             InitMeshEditor(ea);
             break;
 
         case EDITOR_ASSET_TYPE_SKELETON:
-            PushState(ASSET_EDITOR_STATE_EDIT);
+            PushState(VIEW_STATE_EDIT);
             InitSkeletonEditor(ea);
             break;
 
         case EDITOR_ASSET_TYPE_ANIMATION:
-            PushState(ASSET_EDITOR_STATE_EDIT);
+            PushState(VIEW_STATE_EDIT);
             InitAnimationEditor(ea);
             break;
 
@@ -278,24 +278,24 @@ static void UpdateDefaultState()
     // Start an object move
     if (WasButtonPressed(g_view.input, KEY_G) && g_view.selected_asset_count > 0)
     {
-        PushState(ASSET_EDITOR_STATE_MOVE);
+        PushState(VIEW_STATE_MOVE);
         return;
     }
 }
 
 void PushState(ViewState state)
 {
-    assert(state != ASSET_EDITOR_STATE_DEFAULT);
+    assert(state != VIEW_STATE_DEFAULT);
     assert(g_view.state_stack_count < STATE_STACK_SIZE);
     g_view.state_stack[g_view.state_stack_count++] = state;
 
     switch (state)
     {
-    case ASSET_EDITOR_STATE_BOX_SELECT:
+    case VIEW_STATE_BOX_SELECT:
         UpdateBoxSelect();
         break;
 
-    case ASSET_EDITOR_STATE_MOVE:
+    case VIEW_STATE_MOVE:
         g_view.move_world_position = g_view.mouse_world_position;
         BeginUndoGroup();
         for (u32 i=0; i<g_view.asset_count; i++)
@@ -320,9 +320,10 @@ void PopState()
 
     switch (state)
     {
-    case ASSET_EDITOR_STATE_EDIT:
+    case VIEW_STATE_EDIT:
         g_view.assets[g_view.edit_asset_index]->editing = false;
         g_view.edit_asset_index = -1;
+        g_view.vtable = nullptr;
         break;
 
     default:
@@ -387,7 +388,7 @@ static void UpdateViewInternal()
 
     switch (GetState())
     {
-    case ASSET_EDITOR_STATE_EDIT:
+    case VIEW_STATE_EDIT:
     {
         if (WasButtonPressed(g_view.input, KEY_TAB) && !IsAltDown(g_view.input))
         {
@@ -417,13 +418,13 @@ static void UpdateViewInternal()
         break;
     }
 
-    case ASSET_EDITOR_STATE_MOVE:
+    case VIEW_STATE_MOVE:
     {
         UpdateMoveState();
         return;
     }
 
-    case ASSET_EDITOR_STATE_BOX_SELECT:
+    case VIEW_STATE_BOX_SELECT:
         UpdateBoxSelect();
         break;
 
@@ -442,7 +443,7 @@ static void UpdateViewInternal()
 
 static void DrawBoxSelect()
 {
-    if (GetState() != ASSET_EDITOR_STATE_BOX_SELECT)
+    if (GetState() != VIEW_STATE_BOX_SELECT)
         return;
 
     Vec2 center = GetCenter(g_view.box_selection);
@@ -480,6 +481,9 @@ void RenderView()
     BindMaterial(g_view.material);
     for (u32 i=0; i<g_view.asset_count; i++)
         DrawAsset(*g_view.assets[i]);
+
+
+
 
     // Draw edges
     if (g_view.edit_asset_index != -1)
@@ -546,6 +550,7 @@ void UpdateCommandPalette()
         if (input.value[0] == ':')
         {
             g_view.command_palette = true;
+            g_view.command_preview = nullptr;
             TextInput clipped = {};
             Copy(clipped.value, TEXT_INPUT_MAX_LENGTH, input.value + 1);
             clipped.length = input.length - 1;
@@ -571,7 +576,7 @@ void UpdateCommandPalette()
     {
         PopInputSet();
         g_view.command_palette = false;
-        HandleCommand(GetTextInput().value);
+        HandleCommand(g_view.command);
         return;
     }
 
@@ -581,11 +586,34 @@ void UpdateCommandPalette()
         BeginElement(g_names.command_input);
             Label(":", g_names.command_colon);
             Label(input.value, g_names.command_text);
-            BeginElement(g_names.command_text_cursor);
-            EndElement();
+            if (g_view.command_preview)
+                Label(g_view.command_preview->value, g_names.command_text_preview);
+            else
+                EmptyElement(g_names.command_text_cursor);
         EndElement();
     EndElement();
     EndCanvas();
+}
+
+static void UpdateAssetNames()
+{
+    if (GetState() != VIEW_STATE_DEFAULT)
+        return;
+
+    if (!IsAltDown(g_view.input))
+        return;
+
+    for (u32 i=0; i<g_view.asset_count; i++)
+    {
+        EditorAsset& ea = *g_view.assets[i];
+
+        BeginWorldCanvas(g_view.camera, ea.position, Vec2{6, 0});
+            SetStyleSheet(g_assets.ui.view);
+            BeginElement(g_names.asset_name_container);
+                Label(ea.name->value, g_names.asset_name);
+            EndElement();
+        EndCanvas();
+    }
 }
 
 void UpdateView()
@@ -593,6 +621,7 @@ void UpdateView()
     BeginUI(UI_REF_WIDTH, UI_REF_HEIGHT);
     UpdateViewInternal();
     UpdateCommandPalette();
+    UpdateAssetNames();
     EndUI();
 
     BeginRenderFrame(VIEW_COLOR);
@@ -619,6 +648,27 @@ static void HandleUIZoomIn()
 static void HandleUIZoomOut()
 {
     g_view.ui_scale = Max(g_view.ui_scale - 0.1f, 0.3f);
+}
+
+void HandleRename(const Name* name)
+{
+    if (g_view.vtable && g_view.vtable->rename)
+        g_view.vtable->rename(name);
+}
+
+static void HandleTextInputChanged(EventId event_id, const void* event_data)
+{
+    (void)event_id;
+
+    g_view.command_preview = nullptr;
+
+    TextInput* input = (TextInput*)event_data;
+    if (!ParseCommand(input->value, g_view.command))
+        return;
+
+    if (g_view.command.name == g_names.r || g_view.command.name == g_names.rename)
+        if (g_view.vtable && g_view.vtable->preview_command)
+            g_view.command_preview = g_view.vtable->preview_command(g_view.command);
 }
 
 void InitView()
@@ -698,13 +748,17 @@ void InitView()
     InitGrid(ALLOCATOR_DEFAULT);
     InitNotifications();
     LoadEditorAssets();
-    g_view.state_stack[0] = ASSET_EDITOR_STATE_DEFAULT;
+    g_view.state_stack[0] = VIEW_STATE_DEFAULT;
     g_view.state_stack_count = 1;
+
+    Listen(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
 }
 
 void ShutdownView()
 {
     g_view = {};
+
+    Unlisten(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
 
     ShutdownGrid();
     ShutdownWindow();

@@ -83,7 +83,7 @@ static bool IsIdentifier(char c, bool first_char)
 {
     if (first_char)
         return isalpha(c) || c == '_';
-    return isalnum(c) || c == '_' || c == ':' || c == '/';
+    return isalnum(c) || c == '_' || c == ':' || c == '/' || c == '-';
 }
 
 static bool IsNumber(char c)
@@ -109,6 +109,15 @@ char* GetString(const Tokenizer& tk, char* dst, u32 dst_size)
     assert(dst_size > 0);
 
     Copy(dst, dst_size, tk.current_token.raw, tk.current_token.length);
+    return dst;
+}
+
+char* GetString(const Token& token, char* dst, u32 dst_size)
+{
+    assert(dst);
+    assert(dst_size > 0);
+
+    Copy(dst, dst_size, token.raw, token.length);
     return dst;
 }
 
@@ -261,13 +270,15 @@ bool ReadIdentifier(Tokenizer& tk)
     return true;
 }
 
-static bool ReadVec(Tokenizer& tk)
+static bool ReadVec(Tokenizer& tk, bool start_token=true)
 {
     char c = PeekChar(tk);
     if (c != '(')
         return false;
 
-    BeginToken(tk);
+    if (start_token)
+        BeginToken(tk);
+
     Token saved_token = tk.next_token;
 
     SkipWhitespace(tk);
@@ -285,14 +296,10 @@ static bool ReadVec(Tokenizer& tk)
 
         ReadNumber(tk);
 
-        if (component_index == 0)
-            result.x = tk.next_token.value.f;
-        else if (component_index == 1)
-            result.y = tk.next_token.value.f;
-        else if (component_index == 2)
-            result.z = tk.next_token.value.f;
-        else if (component_index == 3)
-            result.w = tk.next_token.value.f;
+        if (tk.next_token.type == TOKEN_TYPE_INT)
+            result[component_index] = (f32)tk.next_token.value.i;
+        else
+            result[component_index] = tk.next_token.value.f;
 
         SkipWhitespace(tk);
 
@@ -324,13 +331,13 @@ static bool ReadVec(Tokenizer& tk)
 
 bool ReadColor(Tokenizer& tk)
 {
-    BeginToken(tk);
-
     char c = PeekChar(tk);
 
     // Handle hex colors: #RRGGBB or #RRGGBBAA
     if (c == '#')
     {
+        BeginToken(tk);
+
         // skip #
         NextChar(tk);
 
@@ -379,41 +386,48 @@ bool ReadColor(Tokenizer& tk)
 
     if (Equals(tk.input + tk.position, "rgba", 4, true))
     {
+        BeginToken(tk);
         NextChar(tk);
         NextChar(tk);
         NextChar(tk);
         NextChar(tk);
         SkipWhitespace(tk);
-        ReadVec(tk);
+        ReadVec(tk, false);
 
+        Color color = COLOR_WHITE;
         if (tk.next_token.type == TOKEN_TYPE_VEC4)
         {
-            tk.next_token.value.c.r /= 255.0f;
-            tk.next_token.value.c.g /= 255.0f;
-            tk.next_token.value.c.b /= 255.0f;
+            color.r = tk.next_token.value.c.r / 255.0f;
+            color.g = tk.next_token.value.c.g / 255.0f;
+            color.b = tk.next_token.value.c.b / 255.0f;
+            color.a = tk.next_token.value.c.a;
         }
-        else
-            tk.next_token.value.c = COLOR_WHITE;
+
+        tk.next_token.type = TOKEN_TYPE_COLOR;
+        tk.next_token.value.c = color;
 
         return true;
     }
 
     if (Equals(tk.input + tk.position, "rgb", 3, true))
     {
+        BeginToken(tk);
         NextChar(tk);
         NextChar(tk);
         NextChar(tk);
         SkipWhitespace(tk);
-        ReadVec(tk);
+        ReadVec(tk, false);
 
+        Color color = COLOR_WHITE;
         if (tk.next_token.type == TOKEN_TYPE_VEC3)
         {
-            tk.next_token.value.c.r /= 255.0f;
-            tk.next_token.value.c.g /= 255.0f;
-            tk.next_token.value.c.b /= 255.0f;
+            color.r = tk.next_token.value.c.r / 255.0f;
+            color.g = tk.next_token.value.c.g / 255.0f;
+            color.b = tk.next_token.value.c.b / 255.0f;
         }
-        else
-            tk.next_token.value.c = COLOR_WHITE;
+
+        tk.next_token.type = TOKEN_TYPE_COLOR;
+        tk.next_token.value.c = color;
 
         return true;
     }
@@ -446,6 +460,7 @@ bool ReadColor(Tokenizer& tk)
 
         if (Equals(tk.input + tk.position, color->name, (u32)color->name_len, true))
         {
+            BeginToken(tk);
             for (size_t i = 0; i < (u32)color->name_len; i++)
                 NextChar(tk);
             EndToken(tk, TOKEN_TYPE_COLOR);
@@ -490,16 +505,16 @@ bool ReadToken(Tokenizer& tk)
     if (ReadBool(tk))
         return true;
 
+    // Color?
+    if (ReadColor(tk))
+        return true;
+
     // Read Vector
     if (ReadVec(tk))
         return true;
 
     // Number?
     if (ReadNumber(tk))
-        return true;
-
-    // Color?
-    if (ReadColor(tk))
         return true;
 
     // Identifier?
@@ -638,6 +653,18 @@ bool ExpectVec4(Tokenizer& tk, Vec4* out_value)
 
     ReadToken(tk);
 
+    return true;
+}
+
+bool ExpectToken(Tokenizer& tk, Token* out_value)
+{
+    if (Equals(tk.next_token, TOKEN_TYPE_EOF))
+        return false;
+
+    if (out_value)
+        *out_value = tk.next_token;
+
+    ReadToken(tk);
     return true;
 }
 

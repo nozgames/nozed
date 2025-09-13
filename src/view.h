@@ -15,10 +15,19 @@ constexpr int UI_REF_HEIGHT = 1080;
 
 enum ViewState
 {
-    ASSET_EDITOR_STATE_DEFAULT,
-    ASSET_EDITOR_STATE_MOVE,
-    ASSET_EDITOR_STATE_EDIT,
-    ASSET_EDITOR_STATE_BOX_SELECT
+    VIEW_STATE_DEFAULT,
+    VIEW_STATE_MOVE,
+    VIEW_STATE_EDIT,
+    VIEW_STATE_BOX_SELECT
+};
+
+typedef void (*ViewRenameFunc)(const Name* new_name);
+typedef const Name* (*PreviewCommandFunc)(const Command& command);
+
+struct ViewVtable
+{
+    ViewRenameFunc rename;
+    PreviewCommandFunc preview_command;
 };
 
 struct View
@@ -42,7 +51,9 @@ struct View
     bool clear_selection_on_release;
     Vec2 pan_position_camera;
     Vec2 pan_position;
+    Command command;
     bool command_palette;
+    const Name* command_preview;
 
     EditorAsset* assets[MAX_ASSETS];
     u32 asset_count;
@@ -61,6 +72,8 @@ struct View
     Vec2 mouse_world_position;
 
     Vec3 light_dir;
+
+    ViewVtable* vtable;
 };
 
 extern View g_view;
@@ -72,7 +85,7 @@ constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
 constexpr Color COLOR_ORIGIN = { 1.0f, 159.0f / 255.0f, 44.0f / 255.0f, 1};
 constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 
-// @editor
+// @view
 extern void InitView();
 extern void UpdateView();
 extern void ShutdownView();
@@ -81,6 +94,7 @@ extern void ClearBoxSelect();
 extern void PushState(ViewState state);
 extern void PopState();
 extern void FocusAsset(int asset_index);
+extern void HandleRename(const Name* name);
 
 // @grid
 extern void InitGrid(Allocator* allocator);
@@ -90,7 +104,7 @@ extern void DrawGrid(Camera* camera);
 // @undo
 extern void InitUndo();
 extern void ShutdownUndo();
-extern void HandleCommand(const std::string& str);
+extern void HandleCommand(const Command& command);
 extern void RecordUndo(EditorAsset& ea);
 extern void BeginUndoGroup();
 extern void EndUndoGroup();

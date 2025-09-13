@@ -2,44 +2,39 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <view.h>
-#include "editor.h"
+#include <editor.h>
 
-struct CommandDef
+struct CommandHandler
 {
-    const char* short_name;
-    const char* name;
-    void (*handler)(Tokenizer&);
+    const Name* short_name;
+    const Name* name;
+    void (*handler)(const Command&);
 };
 
-// @quit
-static void HandleQuit(Tokenizer& tk)
-{
-    (void)tk;
-    g_editor.is_running = false;
-}
+static CommandHandler* g_commands = nullptr;
 
 // @save
-static void HandleSave(Tokenizer& tk)
+static void HandleSave(const Command& command)
 {
-    (void)tk;
+    (void)command;
     SaveEditorAssets();
 }
 
 // @edit
-static void HandleEdit(Tokenizer& tk)
+static void HandleEdit(const Command& command)
 {
-    if (IsWindowCreated())
-        FocusWindow();
-    else
-        InitView();
-
-    if (!ExpectIdentifier(tk))
+    if (command.arg_count < 1)
+    {
+        LogError("missing asset name");
         return;
+    }
 
-    const Name* name = GetName(tk);
+    const Name* name = GetName(command.args[0]);
     if (name == NAME_NONE)
+    {
+        LogError("missing asset name");
         return;
+    }
 
     int asset_index = FindEditorAssetByName(name);
     if (asset_index == -1)
@@ -52,73 +47,86 @@ static void HandleEdit(Tokenizer& tk)
 }
 
 // @new
-static void HandleNew(Tokenizer& tk)
+static void HandleNew(const Command& command)
 {
-    if (!ExpectIdentifier(tk))
+    if (command.arg_count < 1)
     {
         LogError("missing asset type (mesh, etc)");
         return;
     }
 
-    std::string type_name = GetString(tk);
-    if (!ExpectLine(tk))
+    const Name* type = GetName(command.args[0]);
+
+    if (command.arg_count < 2)
     {
         LogError("missing asset name");
         return;
     }
 
-    const Name* name = GetName(tk);
-    if (name == NAME_NONE)
-        return;
+    const Name* asset_name = GetName(command.args[1]);
 
-    if (type_name == "mesh")
-        NewEditorMesh(name->value);
-    else if (type_name == "skeleton")
-        NewEditorSkeleton(name->value);
+    if (type == g_names.mesh)
+        NewEditorMesh(asset_name->value);
+    else if (type == g_names.skeleton)
+        NewEditorSkeleton(asset_name->value);
 }
 
 // @rename
-static void HandleRename(Tokenizer& tk)
+static void HandleRename(const Command& command)
 {
-    if (!ExpectIdentifier(tk))
+    if (command.arg_count < 1)
     {
         LogError("missing name");
         return;
     }
 
-    // todo: route to the asset editor
+    HandleRename(GetName(command.args[0]));
 }
 
-static CommandDef g_commands[] = {
-    { "q", "quit", HandleQuit },
-    { "s", "save", HandleSave },
-    { "e", "edit", HandleEdit },
-    { "n", "new", HandleNew },
-    { "r", "rename", HandleRename },
-    { nullptr, nullptr, nullptr }
-};
-
-void HandleCommand(const std::string& str)
+void HandleCommand(const Command& command)
 {
-    Tokenizer tk;
-    Init(tk, str.c_str());
-
-    if (!ExpectIdentifier(tk))
+    for (CommandHandler* cmd = g_commands; cmd->name; cmd++)
     {
-        LogError("Unknown command");
-        return;
-    }
-
-    std::string command = GetString(tk);
-
-    for (CommandDef* cmd = g_commands; cmd->name; cmd++)
-    {
-        if (Equals(command.c_str(), cmd->name, true) || Equals(command.c_str(), cmd->short_name))
+        if (command.name == cmd->name || command.name == cmd->short_name)
         {
-            cmd->handler(tk);
+            cmd->handler(command);
             return;
         }
     }
 
-    LogError("Unknown command: %s", command.c_str());
+    LogError("Unknown command: %s", command.name->value);
+}
+
+bool ParseCommand(const char* str, Command& command)
+{
+    Tokenizer tk;
+    Init(tk, str);
+
+    if (!ExpectIdentifier(tk))
+        return NAME_NONE;
+
+    command.arg_count = 0;
+    command.name = GetName(tk);
+
+    Token token = {};
+    while (ExpectToken(tk, &token))
+        GetString(token, command.args[command.arg_count++], MAX_COMMAND_ARG_SIZE);
+
+    if (command.arg_count <= 0 && tk.input[tk.position-1] != ' ')
+        return false;
+
+    return true;
+}
+
+void InitCommands()
+{
+    static CommandHandler commands[] = {
+        { g_names.s, g_names.save, HandleSave },
+        { g_names.e, g_names.edit, HandleEdit },
+        { g_names.n, g_names._new, HandleNew },
+        { g_names.r, g_names.rename, HandleRename },
+        { nullptr, nullptr, nullptr }
+    };
+
+    g_commands = commands;
 }

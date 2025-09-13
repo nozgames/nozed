@@ -29,6 +29,7 @@ void HotloadAsset(const Name* incoming_name)
     NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_command_palette, g_assets.ui.command_palette);
     NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_mesh_editor, g_assets.ui.mesh_editor);
     NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_notifications, g_assets.ui.notifications);
+    NOZ_RELOAD_STYLE_SHEET(g_assets.paths.ui_view, g_assets.ui.view);
 
     // @textures
     NOZ_RELOAD_TEXTURE(g_assets.paths.textures_palette, g_assets.textures.palette);
@@ -48,6 +49,7 @@ bool LoadAssets(Allocator* allocator)
     g_assets.paths.ui_command_palette = GetName("ui/command_palette");
     g_assets.paths.ui_mesh_editor = GetName("ui/mesh_editor");
     g_assets.paths.ui_notifications = GetName("ui/notifications");
+    g_assets.paths.ui_view = GetName("ui/view");
     g_names.command_palette = GetName("command_palette");
     g_names.command_input = GetName("command_input");
     g_names.command_colon = GetName("command_colon");
@@ -57,6 +59,19 @@ bool LoadAssets(Allocator* allocator)
     g_names.notification_container = GetName("notification_container");
     g_names.notification = GetName("notification");
     g_names.notification_text = GetName("notification_text");
+    g_names.asset_name = GetName("asset_name");
+    g_names.asset_name_container = GetName("asset_name_container");
+    g_names.r = GetName("r");
+    g_names.rename = GetName("rename");
+    g_names.save = GetName("save");
+    g_names.e = GetName("e");
+    g_names._new = GetName("new");
+    g_names.n = GetName("n");
+    g_names.edit = GetName("edit");
+    g_names.s = GetName("s");
+    g_names.command_text_preview = GetName("command_text_preview");
+    g_names.mesh = GetName("mesh");
+    g_names.skeleton = GetName("skeleton");
 
 
     NOZ_LOAD_FONT(allocator, g_assets.paths.fonts_seguisb, g_assets.fonts.seguisb);
@@ -68,6 +83,7 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_command_palette, g_assets.ui.command_palette);
     NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_mesh_editor, g_assets.ui.mesh_editor);
     NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_notifications, g_assets.ui.notifications);
+    NOZ_LOAD_STYLE_SHEET(allocator, g_assets.paths.ui_view, g_assets.ui.view);
 
     // Assign core engine assets
     g_core_assets.shaders.lit = g_assets.shaders.lit;
