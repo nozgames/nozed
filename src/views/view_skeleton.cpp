@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "asset_editor.h"
+#include <view.h>
 
 constexpr float CENTER_SIZE = 0.2f;
 constexpr float ORIGIN_SIZE = 0.1f;
@@ -90,7 +90,7 @@ static void SetState(SkeletonEditorState state, void (*state_update)(), void (*s
 {
     g_skeleton_editor.state = state;
     g_skeleton_editor.state_update = state_update;
-    g_skeleton_editor.command_world_position = g_asset_editor.mouse_world_position;
+    g_skeleton_editor.command_world_position = g_view.mouse_world_position;
 
     SetCursor(SYSTEM_CURSOR_DEFAULT);
 }
@@ -118,7 +118,7 @@ static bool SelectBone()
     EditorSkeleton& es = *g_skeleton_editor.skeleton;
     int bone_index = HitTestBone(
         es,
-        ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - g_skeleton_editor.asset->position);
+        ScreenToWorld(g_view.camera, GetMousePosition()) - g_skeleton_editor.asset->position);
 
     if (bone_index == -1)
         return false;
@@ -132,14 +132,14 @@ static void UpdateDefaultState()
     EditorSkeleton& es = *g_skeleton_editor.skeleton;
 
     // If a drag has started then switch to box select
-    if (g_asset_editor.drag)
+    if (g_view.drag)
     {
         //BeginBoxSelect(HandleBoxSelect);
         return;
     }
 
     // Select
-    if (!g_asset_editor.drag && WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
+    if (!g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
     {
         g_skeleton_editor.clear_selection_on_up = false;
 
@@ -149,7 +149,7 @@ static void UpdateDefaultState()
         g_skeleton_editor.clear_selection_on_up = true;
     }
 
-    if (WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) && g_skeleton_editor.clear_selection_on_up)
+    if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_skeleton_editor.clear_selection_on_up)
     {
         // ClearSelection(em);
         // UpdateSelection(ea);
@@ -159,7 +159,7 @@ static void UpdateDefaultState()
 static void UpdateRotateState()
 {
     Vec2 dir_start = Normalize(g_skeleton_editor.command_world_position - g_skeleton_editor.selection_center_world);
-    Vec2 dir_current = Normalize(g_asset_editor.mouse_world_position - g_skeleton_editor.selection_center_world);
+    Vec2 dir_current = Normalize(g_view.mouse_world_position - g_skeleton_editor.selection_center_world);
     float angle = SignedAngleDelta(dir_start, dir_current);
     if (fabsf(angle) < F32_EPSILON)
         return;
@@ -180,7 +180,7 @@ static void UpdateRotateState()
 
 static void UpdateMoveState()
 {
-    Vec2 world_delta = g_asset_editor.mouse_world_position - g_skeleton_editor.command_world_position;
+    Vec2 world_delta = g_view.mouse_world_position - g_skeleton_editor.command_world_position;
 
     EditorSkeleton& es = *g_skeleton_editor.asset->skeleton;
     for (int i=0; i<es.bone_count; i++)
@@ -199,13 +199,13 @@ static void UpdateMoveState()
 
 static void UpdateParentState()
 {
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT))
     {
-        int asset_index = HitTestAssets(g_asset_editor.mouse_world_position);
+        int asset_index = HitTestAssets(g_view.mouse_world_position);
         if (asset_index == -1)
             return;
 
-        EditorAsset& hit_asset = *g_asset_editor.assets[asset_index];
+        EditorAsset& hit_asset = *g_view.assets[asset_index];
         EditorSkeleton& es = *g_skeleton_editor.skeleton;
         es.skinned_meshes[es.skinned_mesh_count++] = {
             hit_asset.name,
@@ -220,14 +220,14 @@ static void UpdateParentState()
 static void UpdateUnparentState()
 {
     EditorSkeleton& es = *g_skeleton_editor.skeleton;
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT))
     {
         for (int i=0; i<g_skeleton_editor.skeleton->skinned_mesh_count; i++)
         {
             EditorSkinnedMesh& esm = g_skeleton_editor.skeleton->skinned_meshes[i];
             Vec2 bone_position = es.bones[esm.bone_index].local_to_world * VEC2_ZERO + g_skeleton_editor.asset->position;
-            EditorAsset& skinned_mesh_asset = *g_asset_editor.assets[esm.asset_index];
-            if (!HitTestAsset(skinned_mesh_asset, bone_position, g_asset_editor.mouse_world_position))
+            EditorAsset& skinned_mesh_asset = *g_view.assets[esm.asset_index];
+            if (!HitTestAsset(skinned_mesh_asset, bone_position, g_view.mouse_world_position))
                 continue;
 
             for (int j=i; j<es.skinned_mesh_count-1; j++)
@@ -252,13 +252,13 @@ void UpdateSkeletonEditor()
         UpdateDefaultState();
 
     // Commit the tool
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
     {
         g_skeleton_editor.asset->modified = true;
         SetState(SKELETON_EDITOR_STATE_DEFAULT, nullptr, nullptr);
     }
     // Cancel the tool
-    else if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE) || WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
+    else if (WasButtonPressed(g_view.input, KEY_ESCAPE) || WasButtonPressed(g_view.input, MOUSE_RIGHT))
     {
         CancelUndo();
         SetState(SKELETON_EDITOR_STATE_DEFAULT, nullptr, nullptr);

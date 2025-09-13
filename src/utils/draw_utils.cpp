@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../asset_editor/asset_editor.h"
+#include <view.h>
 
 constexpr float DEFAULT_LINE_WIDTH = 0.01f;
 constexpr float DEFAULT_VERTEX_SIZE = 0.08f;
@@ -21,8 +21,8 @@ void DrawLine(const Vec2& v0, const Vec2& v1, f32 width)
     Vec2 mid = (v0 + v1) * 0.5f;
     Vec2 dir = Normalize(v1 - v0);
     float length = Length(v1 - v0);
-    BindTransform(TRS(mid, dir, Vec2{width * g_asset_editor.zoom_ref_scale, length * 0.5f}));
-    DrawMesh(g_asset_editor.edge_mesh);
+    BindTransform(TRS(mid, dir, Vec2{width * g_view.zoom_ref_scale, length * 0.5f}));
+    DrawMesh(g_view.edge_mesh);
 }
 
 void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length)
@@ -33,8 +33,8 @@ void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length)
 
     for (float pos = length/2; pos < line_len; pos += length * 2)
     {
-        BindTransform(TRS(v0 + line_dir * pos, line_dir, Vec2{width * g_asset_editor.zoom_ref_scale, scale}));
-        DrawMesh(g_asset_editor.edge_mesh);
+        BindTransform(TRS(v0 + line_dir * pos, line_dir, Vec2{width * g_view.zoom_ref_scale, scale}));
+        DrawMesh(g_view.edge_mesh);
     }
 }
 
@@ -49,13 +49,13 @@ void DrawVertex(const Vec2& v)
 
 void DrawVertex(const Vec2& v, f32 size)
 {
-    BindTransform(TRS(v, 0, VEC2_ONE * g_asset_editor.zoom_ref_scale * size));
-    DrawMesh(g_asset_editor.vertex_mesh);
+    BindTransform(TRS(v, 0, VEC2_ONE * g_view.zoom_ref_scale * size));
+    DrawMesh(g_view.vertex_mesh);
 }
 
 void DrawOrigin(const Vec2& position)
 {
-    BindMaterial(g_asset_editor.vertex_material);
+    BindMaterial(g_view.vertex_material);
     BindColor(COLOR_ORIGIN_BORDER);
     DrawVertex(position, ORIGIN_BORDER_SIZE);
     BindColor(COLOR_ORIGIN);
@@ -69,7 +69,7 @@ void DrawOrigin(const EditorAsset& ea)
 
 void DrawBounds(const EditorAsset& ea, float expand)
 {
-    BindMaterial(g_asset_editor.vertex_material);
+    BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BLACK);
     Bounds2 b = Expand(GetBounds(ea), expand);
     Vec2 center = GetCenter(b) + ea.position;

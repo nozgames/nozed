@@ -2,8 +2,8 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../asset_editor/asset_editor.h"
-#include "../utils/file_helpers.h"
+#include <view.h>
+#include <utils/file_helpers.h>
 #include "editor.h"
 
 EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorAssetType type)
@@ -79,9 +79,9 @@ static void SaveAssetMetadata(const EditorAsset& asset)
 
 static void SaveAssetMetadata()
 {
-    for (i32 i=0; i<g_asset_editor.asset_count; i++)
+    for (i32 i=0; i<g_view.asset_count; i++)
     {
-        EditorAsset& asset = *g_asset_editor.assets[i];
+        EditorAsset& asset = *g_view.assets[i];
         if (!asset.modified)
             continue;
 
@@ -101,7 +101,7 @@ void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color)
         return;
 
     BindColor(color);
-    BindMaterial(g_asset_editor.vertex_material);
+    BindMaterial(g_view.vertex_material);
 
     const EditorMesh& em = *ea.mesh;
     for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
@@ -121,9 +121,9 @@ void SaveEditorAssets()
     SaveAssetMetadata();
 
     u32 count = 0;
-    for (i32 i=0; i<g_asset_editor.asset_count; i++)
+    for (i32 i=0; i<g_view.asset_count; i++)
     {
-        EditorAsset& ea = *g_asset_editor.assets[i];
+        EditorAsset& ea = *g_view.assets[i];
         if (!ea.modified)
             continue;
 
@@ -182,8 +182,8 @@ bool HitTestAsset(const EditorAsset& ea, const Vec2& position, const Vec2& hit_p
 
 int HitTestAssets(const Vec2& hit_pos)
 {
-    for (int i=0, c=g_asset_editor.asset_count; i<c; i++)
-        if (HitTestAsset(*g_asset_editor.assets[i], hit_pos))
+    for (int i=0, c=g_view.asset_count; i<c; i++)
+        if (HitTestAsset(*g_view.assets[i], hit_pos))
             return i;
 
     return -1;
@@ -212,8 +212,8 @@ bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds)
 
 int HitTestAssets(const Bounds2& hit_bounds)
 {
-    for (int i=0, c=g_asset_editor.asset_count; i<c; i++)
-        if (HitTestAsset(*g_asset_editor.assets[i], hit_bounds))
+    for (int i=0, c=g_view.asset_count; i<c; i++)
+        if (HitTestAsset(*g_view.assets[i], hit_bounds))
             return i;
 
     return -1;
@@ -292,8 +292,8 @@ Bounds2 GetSelectedBounds(const EditorAsset& ea)
 
 int GetFirstSelectedAsset()
 {
-    for (int i=0; i<g_asset_editor.asset_count; i++)
-        if (g_asset_editor.assets[i]->selected)
+    for (int i=0; i<g_view.asset_count; i++)
+        if (g_view.assets[i]->selected)
             return i;
 
     return -1;
@@ -301,34 +301,34 @@ int GetFirstSelectedAsset()
 
 void ClearAssetSelection()
 {
-    for (int i=0; i<g_asset_editor.asset_count; i++)
-        g_asset_editor.assets[i]->selected = false;
+    for (int i=0; i<g_view.asset_count; i++)
+        g_view.assets[i]->selected = false;
 
-    g_asset_editor.selected_asset_count = 0;
+    g_view.selected_asset_count = 0;
 }
 
 void SetAssetSelection(int asset_index)
 {
     ClearAssetSelection();
-    g_asset_editor.assets[asset_index]->selected = true;
-    g_asset_editor.selected_asset_count = 1;
+    g_view.assets[asset_index]->selected = true;
+    g_view.selected_asset_count = 1;
 }
 
 
 void AddAssetSelection(int asset_index)
 {
-    EditorAsset& ea = *g_asset_editor.assets[asset_index];
+    EditorAsset& ea = *g_view.assets[asset_index];
     if (ea.selected)
         return;
 
     ea.selected = true;
-    g_asset_editor.selected_asset_count++;
+    g_view.selected_asset_count++;
 }
 
 int FindEditorAssetByName(const Name* name)
 {
-    for (int i=0; i<g_asset_editor.asset_count; i++)
-        if (g_asset_editor.assets[i]->name == name)
+    for (int i=0; i<g_view.asset_count; i++)
+        if (g_view.assets[i]->name == name)
             return i;
 
     return -1;
@@ -380,13 +380,13 @@ void LoadEditorAssets()
         if (ea)
         {
             LoadAssetMetadata(*ea, asset_path);
-            g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
+            g_view.assets[g_view.asset_count++] = ea;
         }
     }
 
-    for (int i=0; i<g_asset_editor.asset_count; i++)
+    for (int i=0; i<g_view.asset_count; i++)
     {
-        EditorAsset& ea = *g_asset_editor.assets[i];
+        EditorAsset& ea = *g_view.assets[i];
         switch (ea.type)
         {
             case EDITOR_ASSET_TYPE_SKELETON:
@@ -398,9 +398,9 @@ void LoadEditorAssets()
 
 void HotloadEditorAsset(const Name* name)
 {
-    for (int i=0; i<g_asset_editor.asset_count; i++)
+    for (int i=0; i<g_view.asset_count; i++)
     {
-        EditorAsset& ea = *g_asset_editor.assets[i];
+        EditorAsset& ea = *g_view.assets[i];
         if (ea.name != name)
             continue;
 
@@ -443,7 +443,7 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
 
 EditorAsset* GetEditorAsset(int index)
 {
-    if (index < 0 || index >= g_asset_editor.asset_count)
+    if (index < 0 || index >= g_view.asset_count)
         return nullptr;
-    return g_asset_editor.assets[index];
+    return g_view.assets[index];
 }

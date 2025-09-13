@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "asset_editor.h"
+#include <view.h>
 
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
@@ -93,9 +93,9 @@ static void RevertPositions(EditorAsset& ea)
 
 static void UpdateHeightState(EditorAsset& ea)
 {
-    float delta = (g_asset_editor.mouse_position.y - g_mesh_editor.state_mouse.y) / (g_asset_editor.dpi * HEIGHT_SLIDER_SIZE);
+    float delta = (g_view.mouse_position.y - g_mesh_editor.state_mouse.y) / (g_view.dpi * HEIGHT_SLIDER_SIZE);
 
-    if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE))
+    if (WasButtonPressed(g_view.input, KEY_ESCAPE))
     {
         EditorMesh& em = *ea.mesh;
         for (i32 i=0; i<em.vertex_count; i++)
@@ -110,13 +110,13 @@ static void UpdateHeightState(EditorAsset& ea)
         MarkModified(ea);
         return;
     }
-    if (WasButtonPressed(g_asset_editor.input, KEY_0))
+    if (WasButtonPressed(g_view.input, KEY_0))
     {
         g_mesh_editor.use_fixed_value = true;
         g_mesh_editor.use_negative_fixed_value = false;
         g_mesh_editor.fixed_value = 0.0f;
     }
-    else if (WasButtonPressed(g_asset_editor.input, KEY_1))
+    else if (WasButtonPressed(g_view.input, KEY_1))
     {
         g_mesh_editor.use_fixed_value = true;
         if (g_mesh_editor.use_negative_fixed_value)
@@ -124,7 +124,7 @@ static void UpdateHeightState(EditorAsset& ea)
         else
             g_mesh_editor.fixed_value = HEIGHT_MAX;
     }
-    else if (WasButtonPressed(g_asset_editor.input, KEY_MINUS))
+    else if (WasButtonPressed(g_view.input, KEY_MINUS))
         g_mesh_editor.use_negative_fixed_value = true;
 
     EditorMesh& em = *ea.mesh;
@@ -143,11 +143,11 @@ static void UpdateHeightState(EditorAsset& ea)
     MarkDirty(em);
     MarkModified(ea);
 
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
     {
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
-    else if (WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
+    else if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
     {
         RevertPositions(ea);
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
@@ -157,7 +157,7 @@ static void UpdateHeightState(EditorAsset& ea)
 static void UpdateScaleState(EditorAsset& ea)
 {
     float delta =
-        Length(g_asset_editor.mouse_world_position - g_mesh_editor.selection_drag_start) -
+        Length(g_view.mouse_world_position - g_mesh_editor.selection_drag_start) -
         Length(g_mesh_editor.world_drag_start - g_mesh_editor.selection_drag_start);
 
     EditorMesh& em = *ea.mesh;
@@ -174,12 +174,12 @@ static void UpdateScaleState(EditorAsset& ea)
     MarkDirty(em);
     MarkModified(ea);
 
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT))
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT))
     {
         UpdateSelection(ea);
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
-    else if (WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
+    else if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
     {
         RevertPositions(ea);
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
@@ -188,9 +188,9 @@ static void UpdateScaleState(EditorAsset& ea)
 
 static void UpdateMoveState(EditorAsset& ea)
 {
-    Vec2 delta = g_asset_editor.mouse_world_position - g_mesh_editor.world_drag_start;
+    Vec2 delta = g_view.mouse_world_position - g_mesh_editor.world_drag_start;
     Vec2 new_center = g_mesh_editor.selection_drag_start + delta;
-    if (IsButtonDown(g_asset_editor.input, KEY_LEFT_CTRL))
+    if (IsButtonDown(g_view.input, KEY_LEFT_CTRL))
         new_center = SnapToGrid(new_center, true);
 
     EditorMesh& em = *ea.mesh;
@@ -208,8 +208,8 @@ static void UpdateMoveState(EditorAsset& ea)
 static void SetState(EditorAsset& ea, MeshEditorState state)
 {
     g_mesh_editor.state = state;
-    g_mesh_editor.world_drag_start = g_asset_editor.mouse_world_position;
-    g_mesh_editor.state_mouse = g_asset_editor.mouse_position;
+    g_mesh_editor.world_drag_start = g_view.mouse_world_position;
+    g_mesh_editor.state_mouse = g_view.mouse_position;
     g_mesh_editor.selection_drag_start = ea.position + g_mesh_editor.selection_center;
     g_mesh_editor.use_fixed_value = false;
     g_mesh_editor.use_negative_fixed_value = false;
@@ -245,12 +245,12 @@ static bool SelectVertex(EditorAsset& ea)
     EditorMesh& em = *ea.mesh;
     int vertex_index = HitTestVertex(
         em,
-        ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ea.position);
+        ScreenToWorld(g_view.camera, GetMousePosition()) - ea.position);
 
     if (vertex_index == -1)
         return false;
 
-    if (IsCtrlDown(g_asset_editor.input) || IsShiftDown(g_asset_editor.input))
+    if (IsCtrlDown(g_view.input) || IsShiftDown(g_view.input))
         ToggleSelection(em, vertex_index);
     else
         SetSelection(em, vertex_index);
@@ -263,12 +263,12 @@ static bool SelectVertex(EditorAsset& ea)
 static bool SelectEdge(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
-    int edge_index = HitTestEdge(em, ScreenToWorld(g_asset_editor.camera, GetMousePosition()) - ea.position);
+    int edge_index = HitTestEdge(em, ScreenToWorld(g_view.camera, GetMousePosition()) - ea.position);
     if (edge_index == -1)
         return false;
 
-    bool ctrl = IsCtrlDown(g_asset_editor.input);
-    bool shift = IsShiftDown(g_asset_editor.input);
+    bool ctrl = IsCtrlDown(g_view.input);
+    bool shift = IsShiftDown(g_view.input);
 
     if (!ctrl && !shift)
         ClearSelection(em);
@@ -299,14 +299,14 @@ static bool SelectTriangle(EditorAsset& ea)
     int triangle_index = HitTestTriangle(
         em,
         ea.position,
-        ScreenToWorld(g_asset_editor.camera, GetMousePosition()),
+        ScreenToWorld(g_view.camera, GetMousePosition()),
         nullptr);
 
     if (triangle_index == -1)
         return false;
 
-    bool ctrl = IsCtrlDown(g_asset_editor.input);
-    bool shift = IsShiftDown(g_asset_editor.input);
+    bool ctrl = IsCtrlDown(g_view.input);
+    bool shift = IsShiftDown(g_view.input);
 
     if (!ctrl && !shift)
         ClearSelection(em);
@@ -341,7 +341,7 @@ static void AddVertexAtMouse()
 
     EditorAsset& ea = *g_mesh_editor.asset;
     EditorMesh& em = *ea.mesh;
-    int new_vertex = AddVertex(em, g_asset_editor.mouse_world_position - ea.position);
+    int new_vertex = AddVertex(em, g_view.mouse_world_position - ea.position);
     if (new_vertex == -1)
         return;
 
@@ -407,14 +407,14 @@ static void UpdateDefaultState(EditorAsset& ea)
     EditorMesh& em = *ea.mesh;
 
     // If a drag has started then switch to box select
-    if (g_asset_editor.drag)
+    if (g_view.drag)
     {
         BeginBoxSelect(HandleBoxSelect);
         return;
     }
 
     // Select
-    if (!g_asset_editor.drag && WasButtonReleased(g_asset_editor.input, MOUSE_LEFT))
+    if (!g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
     {
         g_mesh_editor.clear_selection_on_up = false;
 
@@ -430,7 +430,7 @@ static void UpdateDefaultState(EditorAsset& ea)
         g_mesh_editor.clear_selection_on_up = true;
     }
 
-    if (WasButtonReleased(g_asset_editor.input, MOUSE_LEFT) && g_mesh_editor.clear_selection_on_up)
+    if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_mesh_editor.clear_selection_on_up)
     {
         ClearSelection(em);
         UpdateSelection(ea);
@@ -489,13 +489,13 @@ void UpdateMeshEditor(EditorAsset& ea)
     }
 
     // Commit the tool
-    if (WasButtonPressed(g_asset_editor.input, MOUSE_LEFT) || WasButtonPressed(g_asset_editor.input, KEY_ENTER))
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
     {
         UpdateSelection(ea);
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
     // Cancel the tool
-    else if (WasButtonPressed(g_asset_editor.input, KEY_ESCAPE) || WasButtonPressed(g_asset_editor.input, MOUSE_RIGHT))
+    else if (WasButtonPressed(g_view.input, KEY_ESCAPE) || WasButtonPressed(g_view.input, MOUSE_RIGHT))
     {
         CancelUndo();
         RevertPositions(ea);
@@ -508,17 +508,17 @@ static void DrawScaleState()
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
     DrawVertex(g_mesh_editor.selection_drag_start, CENTER_SIZE * 0.75f);
     BindColor(COLOR_CENTER);
-    DrawLine(g_asset_editor.mouse_world_position, g_mesh_editor.selection_drag_start, ROTATE_TOOL_WIDTH);
+    DrawLine(g_view.mouse_world_position, g_mesh_editor.selection_drag_start, ROTATE_TOOL_WIDTH);
     BindColor(COLOR_ORIGIN);
-    DrawVertex(g_asset_editor.mouse_world_position, CENTER_SIZE);
+    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
 
 static void DrawHeightState()
 {
     EditorAsset& ea = *g_mesh_editor.asset;
     Vec2 h1 =
-        ScreenToWorld(g_asset_editor.camera, {0, g_asset_editor.dpi * HEIGHT_SLIDER_SIZE}) -
-        ScreenToWorld(g_asset_editor.camera, VEC2_ZERO);
+        ScreenToWorld(g_view.camera, {0, g_view.dpi * HEIGHT_SLIDER_SIZE}) -
+        ScreenToWorld(g_view.camera, VEC2_ZERO);
 
     float total_height = 0.0f;
     int height_count = 0;
@@ -554,8 +554,8 @@ void DrawMeshEditor(EditorAsset& ea)
 
     DrawOrigin(ea);
 
-    BindTransform(TRS(ea.position, 0, VEC2_ONE * g_asset_editor.zoom_ref_scale * ORIGIN_SIZE));
-    DrawMesh(g_asset_editor.vertex_mesh);
+    BindTransform(TRS(ea.position, 0, VEC2_ONE * g_view.zoom_ref_scale * ORIGIN_SIZE));
+    DrawMesh(g_view.vertex_mesh);
 
     switch (g_mesh_editor.state)
     {
@@ -577,8 +577,8 @@ static void HandleBoxSelect(const Bounds2& bounds)
     EditorAsset& ea = *g_mesh_editor.asset;
     EditorMesh& em = *ea.mesh;
 
-    bool shift = IsShiftDown(g_asset_editor.input);
-    bool ctrl = IsCtrlDown(g_asset_editor.input);
+    bool shift = IsShiftDown(g_view.input);
+    bool ctrl = IsCtrlDown(g_view.input);
 
     if (!shift && !ctrl)
         ClearSelection(em);

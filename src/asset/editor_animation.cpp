@@ -4,7 +4,7 @@
 
 #include <utils/file_helpers.h>
 #include <utils/tokenizer.h>
-#include <asset_editor/asset_editor.h>
+#include <view.h>
 #include "editor_asset.h"
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
@@ -23,16 +23,16 @@ void DrawEditorAnimation(EditorAsset& ea)
 
     UpdateTransforms(en, en.current_frame);
 
-    BindMaterial(g_asset_editor.vertex_material);
+    BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BLACK);
 
     EditorSkeleton& es = *en.skeleton_asset->skeleton;
 
     BindColor(COLOR_WHITE);
-    BindMaterial(g_asset_editor.material);
+    BindMaterial(g_view.material);
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
-        const EditorAsset& skinned_mesh_asset = *g_asset_editor.assets[es.skinned_meshes[i].asset_index];
+        const EditorAsset& skinned_mesh_asset = *g_view.assets[es.skinned_meshes[i].asset_index];
         if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
 

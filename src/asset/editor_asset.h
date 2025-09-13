@@ -19,6 +19,8 @@ enum EditorAssetType
     EDITOR_ASSET_TYPE_COUNT,
 };
 
+typedef void (*EditorAssetRenameFunc) (const Name* new_name);
+
 struct EditorAsset
 {
     EditorAssetType type;

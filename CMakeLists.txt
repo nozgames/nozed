@@ -10,12 +10,14 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 add_subdirectory(noz noz)
     
 set(SOURCE_FILES
-    src/asset_editor/asset_editor.cpp
-    src/asset_editor/mesh_editor.cpp
-    src/asset_editor/skeleton_editor.cpp
-    src/asset_editor/animation_editor.cpp
-    src/asset_editor/grid.cpp
-    src/asset_editor/notifications.cpp
+
+    src/grid.cpp
+    src/view.cpp
+    src/notifications.cpp
+
+    src/views/view_animation.cpp
+    src/views/view_mesh.cpp
+    src/views/view_skeleton.cpp
 
     src/asset/editor_asset.cpp
     src/asset/editor_skeleton.cpp

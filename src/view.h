@@ -10,10 +10,10 @@ constexpr int MAX_ASSETS = 1024;
 constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
 
-#include "../asset/editor_asset.h"
-#include "../editor_assets.h"
+#include <asset/editor_asset.h>
+#include <editor_assets.h>
 
-enum AssetEditorState
+enum ViewState
 {
     ASSET_EDITOR_STATE_DEFAULT,
     ASSET_EDITOR_STATE_MOVE,
@@ -21,9 +21,9 @@ enum AssetEditorState
     ASSET_EDITOR_STATE_BOX_SELECT
 };
 
-struct AssetEditor
+struct View
 {
-    AssetEditorState state_stack[STATE_STACK_SIZE];
+    ViewState state_stack[STATE_STACK_SIZE];
     int state_stack_count;
     Camera* camera;
     Material* material;
@@ -63,7 +63,7 @@ struct AssetEditor
     Vec3 light_dir;
 };
 
-extern AssetEditor g_asset_editor;
+extern View g_view;
 
 constexpr Color COLOR_SELECTED = { 1,1,1,1 };
 constexpr Color COLOR_EDGE = { 0,0,0, 0.5f };
@@ -78,7 +78,7 @@ extern void UpdateAssetEditor();
 extern void ShutdownAssetEditor();
 extern void BeginBoxSelect(void (*callback)(const Bounds2& bounds));
 extern void ClearBoxSelect();
-extern void PushState(AssetEditorState state);
+extern void PushState(ViewState state);
 extern void PopState();
 extern void FocusAsset(int asset_index);
 

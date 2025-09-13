@@ -3,7 +3,7 @@
 //
 
 #include "editor.h"
-#include "asset_editor/asset_editor.h"
+#include <view.h>
 #include "editor_assets.h"
 
 extern void InitEvent(ApplicationTraits* traits);

@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "asset_editor/asset_editor.h"
+#include <view.h>
 
 #define MAX_UNDO 256
 

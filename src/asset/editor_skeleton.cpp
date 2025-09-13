@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "asset_editor/asset_editor.h"
+#include <view.h>
 #include "editor_asset.h"
 #include "utils/file_helpers.h"
 
@@ -13,11 +13,11 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
     EditorSkeleton& es = *ea.skeleton;
 
     BindColor(COLOR_WHITE);
-    BindMaterial(g_asset_editor.material);
+    BindMaterial(g_view.material);
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
         const EditorBone& bone = es.bones[es.skinned_meshes[i].bone_index];
-        const EditorAsset& skinned_mesh_asset = *g_asset_editor.assets[es.skinned_meshes[i].asset_index];
+        const EditorAsset& skinned_mesh_asset = *g_view.assets[es.skinned_meshes[i].asset_index];
         if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
@@ -29,7 +29,7 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
-    BindMaterial(g_asset_editor.vertex_material);
+    BindMaterial(g_view.vertex_material);
     BindColor(selected ? COLOR_SELECTED : COLOR_BLACK);
     for (int i=1; i<es.bone_count; i++)
     {
@@ -52,7 +52,7 @@ void DrawEditorSkeleton(EditorAsset& ea, bool selected)
 
 int HitTestBone(const EditorSkeleton& em, const Vec2& world_pos)
 {
-    const float size = g_asset_editor.select_size;
+    const float size = g_view.select_size;
     for (int i=0; i<em.bone_count; i++)
     {
         const EditorBone& bone = em.bones[i];
@@ -149,10 +149,10 @@ EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
 
 EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
 {
-    const char* default_mesh = "b root p 0 0 r 0\n";
+    const char* default_mesh = "b \"root\" -1 p 0 0\n";
 
     std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / path : path;
-    full_path += ".mesh";
+    full_path += ".skel";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
     WriteCSTR(stream, default_mesh);
@@ -163,7 +163,7 @@ EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
     if (!ea)
         return nullptr;
 
-    g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
+    g_view.assets[g_view.asset_count++] = ea;
     return ea;
 }
 
@@ -227,7 +227,7 @@ void PostLoadEditorAssets(EditorSkeleton& es)
     {
         EditorSkinnedMesh& esm = es.skinned_meshes[i];
         esm.asset_index = FindEditorAssetByName(esm.asset_name);
-        if (esm.asset_index < 0 || g_asset_editor.assets[esm.asset_index]->type != EDITOR_ASSET_TYPE_MESH)
+        if (esm.asset_index < 0 || g_view.assets[esm.asset_index]->type != EDITOR_ASSET_TYPE_MESH)
             esm.asset_index = -1;
     }
 }
@@ -243,11 +243,16 @@ int FindBoneIndex(const EditorSkeleton& es, const Name* name)
 
 void Serialize(EditorSkeleton& es, Stream* output_stream)
 {
+    const Name* bone_names[MAX_BONES];
+    for (int i=0; i<es.bone_count; i++)
+        bone_names[i] = es.bones[i].name;
+
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_SKELETON;
     header.version = 1;
     header.flags = 0;
-    WriteAssetHeader(output_stream, &header);
+    header.names = es.bone_count;
+    WriteAssetHeader(output_stream, &header, bone_names);
 
     WriteU8(output_stream, (u8)es.bone_count);
 

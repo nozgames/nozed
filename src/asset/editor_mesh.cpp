@@ -6,13 +6,13 @@ constexpr float OUTLINE_WIDTH = 0.05f;
 
 #include "editor_mesh.h"
 
-#include "../asset_editor/asset_editor.h"
-#include "../utils/file_helpers.h"
+#include <view.h>
+#include <utils/file_helpers.h>
 
 void DrawEditorMesh(EditorAsset& ea)
 {
     BindColor(COLOR_WHITE);
-    BindMaterial(g_asset_editor.material);
+    BindMaterial(g_view.material);
     BindTransform(TRS(ea.position, 0, VEC2_ONE));
     DrawMesh(ToMesh(*ea.mesh));
 }
@@ -739,7 +739,7 @@ int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& position)
 
 int HitTestVertex(const EditorMesh& em, const Vec2& world_pos)
 {
-    const float size = g_asset_editor.select_size;
+    const float size = g_view.select_size;
     float best_dist = F32_MAX;
     int best_vertex = -1;
     for (int i = 0; i < em.vertex_count; i++)
@@ -758,7 +758,7 @@ int HitTestVertex(const EditorMesh& em, const Vec2& world_pos)
 
 int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float* where)
 {
-    const float size = g_asset_editor.select_size * 0.75f;
+    const float size = g_view.select_size * 0.75f;
     for (int i = 0; i < em.edge_count; i++)
     {
         const EditorEdge& ee = em.edges[i];
@@ -1300,6 +1300,6 @@ EditorAsset* NewEditorMesh(const std::filesystem::path& path)
     if (!ea)
         return nullptr;
 
-    g_asset_editor.assets[g_asset_editor.asset_count++] = ea;
+    g_view.assets[g_view.asset_count++] = ea;
     return ea;
 }

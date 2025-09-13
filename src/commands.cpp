@@ -2,8 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include <view.h>
 #include "editor.h"
-#include "asset_editor/asset_editor.h"
 
 struct CommandDef
 {
@@ -59,12 +59,6 @@ static void HandleNew(Tokenizer& tk)
     }
 
     std::string type_name = GetString(tk);
-    if (type_name != "mesh")
-    {
-        LogError("invalid asset type: %s", type_name.c_str());
-        return;
-    }
-
     if (!ExpectLine(tk))
     {
         LogError("missing asset name");
@@ -81,11 +75,24 @@ static void HandleNew(Tokenizer& tk)
         NewEditorSkeleton(name->value);
 }
 
+// @rename
+static void HandleRename(Tokenizer& tk)
+{
+    if (!ExpectIdentifier(tk))
+    {
+        LogError("missing name");
+        return;
+    }
+
+    // todo: route to the asset editor
+}
+
 static CommandDef g_commands[] = {
     { "q", "quit", HandleQuit },
     { "s", "save", HandleSave },
     { "e", "edit", HandleEdit },
     { "n", "new", HandleNew },
+    { "r", "rename", HandleRename },
     { nullptr, nullptr, nullptr }
 };
 

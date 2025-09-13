@@ -34,11 +34,11 @@ struct EditorSkeleton
     Skeleton* skeleton;
 };
 
+extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
+extern EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path);
 extern EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::path& path);
 extern void DrawEditorSkeleton(EditorAsset& ea, bool selected);
 extern void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected);
-extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
-extern EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path);
 extern int HitTestBone(const EditorSkeleton& es, const Vec2& world_pos);
 extern void UpdateTransforms(EditorSkeleton& es);
 extern void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& path);

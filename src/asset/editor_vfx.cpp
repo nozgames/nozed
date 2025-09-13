@@ -3,7 +3,7 @@
 //
 
 #include "editor_asset.h"
-#include <asset_editor/asset_editor.h>
+#include <view.h>
 #include <utils/file_helpers.h>
 #include "../../../src/vfx/vfx_internal.h"
 
