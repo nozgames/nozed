@@ -3,7 +3,6 @@
 //
 
 #include <editor.h>
-#include <server.h>
 #include <utils/file_watcher.h>
 #include "asset_manifest.h"
 
@@ -41,6 +40,7 @@ struct Importer
     std::filesystem::path manifest_path;
     std::mutex mutex;
     std::vector<JobHandle> jobs;
+    std::vector<const Name*> imported_files;
     JobHandle post_import_job;
 };
 
@@ -156,10 +156,9 @@ static void ExecuteJob(void* data)
 
     // todo: Check if any other assets depend on this and if so requeue them
 
-    // Print success message using the relative path we computed
-    fs::path asset_path = job->source_relative_path;
-    asset_path.replace_extension("");
-    LogInfo("Imported \033[38;2;128;128;128m%s", asset_path.c_str());
+    g_importer.mutex.lock();
+    g_importer.imported_files.push_back(job->source_name);
+    g_importer.mutex.unlock();
 }
 
 static void PostImportJob(void *data)
@@ -354,12 +353,28 @@ static void RunImporter()
     }
 
     ShutdownFileWatcher();
-    //g_importer.queue.clear();
 }
 
 void UpdateImporter()
 {
-    UpdateJobs();
+    if (UpdateJobs())
+        return;
+
+    g_importer.mutex.lock();
+    if (g_importer.imported_files.empty())
+    {
+        g_importer.mutex.unlock();
+        return;
+    }
+
+    std::vector<const Name*> names = std::move(g_importer.imported_files);
+    g_importer.mutex.unlock();
+
+    for (const Name* name : names)
+    {
+        HotloadEvent event = { .asset_name = name };
+        Send(EDITOR_EVENT_IMPORTED, &event);
+    }
 }
 
 void InitImporter()

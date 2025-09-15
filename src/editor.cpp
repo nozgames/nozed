@@ -95,9 +95,9 @@ void HandleStatsEvents(EventId event_id, const void* event_data)
 void HandleImported(EventId event_id, const void* event_data)
 {
     (void)event_id;
-    HotloadEvent event = { (const char*)event_data };
+    HotloadEvent event = { (const Name*)event_data };
     Send(EVENT_HOTLOAD, &event);
-    AddNotification("imported '%s'", event.asset_name);
+    AddNotification("imported '%s'", event.asset_name->value);
 }
 
 static void SaveUserConfig(Props* user_config)
