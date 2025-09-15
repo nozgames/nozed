@@ -57,6 +57,7 @@ static const AssetImporterTraits* FindImporter(const fs::path& ext)
     return nullptr;
 }
 
+#if 0
 static const AssetImporterTraits* FindImporter(AssetSignature signature)
 {
     for (const auto* importer : g_importer.importers)
@@ -65,6 +66,7 @@ static const AssetImporterTraits* FindImporter(AssetSignature signature)
 
     return nullptr;
 }
+#endif
 
 static void QueueImport(const fs::path& source_path, const fs::path& assets_path, bool force)
 {
@@ -161,13 +163,17 @@ static void ExecuteJob(void* data)
     g_importer.mutex.unlock();
 }
 
+static void CleanupOrphanedAssets()
+{
+    // todo: handle deleted files.
+}
+
 static void PostImportJob(void *data)
 {
     (void)data;
 
     GenerateAssetManifest(g_importer.output_dir, g_importer.manifest_path, g_importer.importers, g_config);
-
-    // todo: cleanup unused assets
+    CleanupOrphanedAssets();
 }
 
 static bool UpdateJobs()
@@ -221,111 +227,6 @@ static void InitialImport()
     WaitForJobs();
 }
 
-static void CleanupOrphanedAssets()
-{
-    if (g_importer.running)
-        return;
-
-    // Build set of valid imported asset files by scanning source directories
-    std::set<fs::path> valid_asset_files;
-    
-    // Get source directories from config
-    for (int p=0; p<g_editor.asset_path_count; p++)
-    {
-        fs::path source_dir(g_editor.asset_paths[p]);
-        if (!fs::exists(source_dir) || !fs::is_directory(source_dir))
-            continue;
-
-        try
-        {
-            for (const auto& entry : fs::recursive_directory_iterator(source_dir))
-            {
-                if (!entry.is_regular_file())
-                    continue;
-
-                const fs::path& source_file = entry.path();
-                std::string ext = source_file.extension().string();
-
-                // Skip .meta files
-                if (ext == ".meta")
-                    continue;
-
-
-                const AssetImporterTraits* importer = FindImporter(source_file);
-                if (!importer)
-                    continue;
-
-                // Build expected output file path
-                fs::path relative_path;
-                std::error_code ec;
-                relative_path = fs::relative(source_file, source_dir, ec);
-                if (ec || relative_path.empty() || relative_path.string().find("..") != std::string::npos)
-                    relative_path = source_file.filename();
-
-                fs::path expected_output = g_importer.output_dir / relative_path;
-                std::string derived_extension = GetExtensionFromSignature(importer->signature);
-                expected_output.replace_extension(derived_extension);
-
-                valid_asset_files.insert(expected_output);
-            }
-        }
-        catch (const std::exception&)
-        {
-            continue;
-        }
-    }
-
-    // Scan output directory and remove files not in the valid set
-    std::vector<fs::path> files_to_remove;
-    
-    try
-    {
-        for (const auto& entry : fs::recursive_directory_iterator(g_importer.output_dir))
-        {
-            if (!entry.is_regular_file())
-                continue;
-
-            const fs::path& output_file = entry.path();
-            
-            bool is_asset_file = false;
-            if (Stream* stream = LoadStream(nullptr, output_file))
-            {
-                AssetHeader header;
-                is_asset_file = ReadAssetHeader(stream, &header) && nullptr != FindImporter(header.signature);
-                Free(stream);
-            }
-
-            // If it's an asset file but not in our valid set, mark for removal
-            if (is_asset_file && valid_asset_files.find(output_file) == valid_asset_files.end())
-                files_to_remove.push_back(output_file);
-        }
-    }
-    catch (const std::exception&)
-    {
-        return;
-    }
-
-    // Remove orphaned files
-    for (const fs::path& file_to_remove : files_to_remove)
-    {
-        try
-        {
-            fs::remove(file_to_remove);
-            
-            // Convert to relative path for logging
-            fs::path relative_removed = fs::relative(file_to_remove, g_importer.output_dir);
-            relative_removed.replace_extension("");
-            std::string asset_name = relative_removed.string();
-            std::replace(asset_name.begin(), asset_name.end(), '\\', '/');
-            LogInfo("Removed orphaned asset: \033[38;2;128;128;128m%s", asset_name.c_str());
-        }
-        catch (const std::exception& e)
-        {
-            LogWarning("Failed to remove orphaned file '%s': %s", file_to_remove.string().c_str(), e.what());
-        }
-    }
-}
-
 static void RunImporter()
 {
     if (g_editor.asset_path_count == 0)
@@ -345,11 +246,6 @@ static void RunImporter()
         FileChangeEvent event;
         while (g_importer.running && GetFileChangeEvent(&event))
             HandleFileChangeEvent(event);
-
-        if (!g_importer.running)
-            break;
-
-        CleanupOrphanedAssets();
     }
 
     ShutdownFileWatcher();
