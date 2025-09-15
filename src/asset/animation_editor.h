@@ -15,7 +15,6 @@ struct EditorAnimationBone
 struct EditorAnimation
 {
     const Name* skeleton_name;
-    int bone_count;
     int frame_count;
     int current_frame;
     EditorAnimationBone bones[MAX_BONES];
@@ -36,4 +35,5 @@ extern void SaveEditorAnimation(EditorAnimation& en, const std::filesystem::path
 extern int InsertFrame(EditorAnimation& en, int frame_index);
 extern int DeleteFrame(EditorAnimation& en, int frame_index);
 extern Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_index);
-extern bool HitTestBone(EditorAnimation& en, const Vec2& world_pos);
+extern int HitTestBone(EditorAnimation& en, const Vec2& world_pos);
+extern void UpdateTransforms(EditorAnimation& en);

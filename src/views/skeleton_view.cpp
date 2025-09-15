@@ -217,7 +217,7 @@ static void UpdateRotateState()
             continue;
 
         SkeletonViewBone& vb = g_skeleton_view.bones[bone_index];
-        es.bones[bone_index].transform.rotation = vb.transform.rotation - angle;
+        es.bones[bone_index].transform.rotation = vb.transform.rotation + angle;
     }
 
     UpdateTransforms(es);

@@ -7,26 +7,45 @@ extern EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorA
 static EditorSkeleton& GetEditorSkeleton(EditorAnimation& en) { return *en.skeleton_asset->skeleton; }
 static EditorBone& GetEditorBone(EditorAnimation& en, int bone_index) { return en.skeleton_asset->skeleton->bones[bone_index]; }
 
-static void UpdateTransforms(EditorAnimation& en)
+void UpdateTransforms(EditorAnimation& en)
 {
     EditorSkeleton& es = GetEditorSkeleton(en);
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         EditorBone& eb = es.bones[bone_index];
-        en.animator.bones[bone_index] = TRS(eb.transform.position, eb.transform.rotation, eb.transform.scale);
+        Transform& frame = GetFrameTransform(en, bone_index, en.current_frame);
+
+        en.animator.bones[bone_index] = TRS(
+            eb.transform.position + frame.position,
+            eb.transform.rotation + frame.rotation, eb.transform.scale);
     }
 
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
         en.animator.bones[bone_index] = en.animator.bones[es.bones[bone_index].parent_index] * en.animator.bones[bone_index];
 }
 
+void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& position)
+{
+    EditorSkeleton& es = GetEditorSkeleton(en);
+    Mat3& eb = en.animator.bones[bone_index];
+    Mat3& ep = en.animator.bones[es.bones[bone_index].parent_index];
+    Vec2 p0 = TransformPoint(eb);
+    Vec2 p1 = TransformPoint(eb, Vec2 {1, 0});
+    Vec2 pp = TransformPoint(ep);
+    DrawDashedLine(pp + position, p0 + position);
+    DrawVertex(p0 + position);
+    DrawVertex(p1 + position);
+    DrawBone(p0 + position, p1 + position);
+}
+
 static void DrawEditorAnimation(EditorAsset& ea)
 {
     EditorAnimation& en = *ea.anim;
+    EditorSkeleton& es = GetEditorSkeleton(en);
+
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BLACK);
 
-    EditorSkeleton& es = GetEditorSkeleton(en);
 
     UpdateTransforms(en);
 
@@ -38,16 +57,12 @@ static void DrawEditorAnimation(EditorAsset& ea)
         if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
-        BindTransform(TRS(ea.position, 0, VEC2_ONE) * en.animator.bones[es.skinned_meshes[i].bone_index]);
+        BindTransform(Translate(ea.position) * en.animator.bones[es.skinned_meshes[i].bone_index]);
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
-    for (int bone_index=1; bone_index<en.bone_count; bone_index++)
-    {
-        Vec2 p0 = en.animator.bones[es.bones[bone_index].parent_index] * VEC2_ZERO;
-        Vec2 p1 = en.animator.bones[bone_index] * VEC2_ZERO;
-        DrawBone(p0 + ea.position, p1 + ea.position);
-    }
+    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+        DrawEditorAnimationBone(en, bone_index, ea.position);
 }
 
 static void ParseSkeletonBone(Tokenizer& tk, const EditorSkeleton& es, int bone_index, int* bone_map)
@@ -68,7 +83,6 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     std::filesystem::path skeleton_path = GetEditorAssetPath(en.skeleton_name, ".skel");
     EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, skeleton_path);
 
-    en.bone_count = es->bone_count;
     for (int i=0; i<es->bone_count; i++)
     {
         EditorAnimationBone& enb = en.bones[i];
@@ -78,7 +92,7 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     }
 
     for (int frame_index=0; frame_index<MAX_ANIMATION_FRAMES; frame_index++)
-        for (int bone_index=0; bone_index<en.bone_count; bone_index++)
+        for (int bone_index=0; bone_index<es->bone_count; bone_index++)
             SetIdentity(en.frames[frame_index * MAX_BONES + bone_index]);
 
     int bone_index = 0;
@@ -222,16 +236,16 @@ void Serialize(EditorAnimation& en, Stream* output_stream)
     if (!es)
         throw std::runtime_error("invalid skeleton");
 
-    WriteU8(output_stream, (u8)en.bone_count);
+    WriteU8(output_stream, (u8)es->bone_count);
     WriteU8(output_stream, (u8)en.frame_count);
 
     // todo: we could remove bones that have no actual data?
-    for (int i=0; i<en.bone_count; i++)
+    for (int i=0; i<es->bone_count; i++)
         WriteU8(output_stream, (u8)en.bones[i].index);
 
     // Write all bone transforms
     for (int frame_index=0; frame_index<en.frame_count; frame_index++)
-        for (int bone_index=0; bone_index<en.bone_count; bone_index++)
+        for (int bone_index=0; bone_index<es->bone_count; bone_index++)
         {
             Transform& transform = en.frames[frame_index * MAX_BONES + bone_index];
             BoneTransform bone_transform = {
@@ -259,11 +273,13 @@ Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* na
 
 void SaveEditorAnimation(EditorAnimation& en, const std::filesystem::path& path)
 {
+    EditorSkeleton& es = GetEditorSkeleton(en);
+
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
     WriteCSTR(stream, "s \"%s\"\n", en.skeleton_name->value);
 
-    for (int i=0; i<en.bone_count; i++)
+    for (int i=0; i<es.bone_count; i++)
     {
         const EditorAnimationBone& eab = en.bones[i];
         WriteCSTR(stream, "b \"%s\"\n", eab.name->value);
@@ -272,7 +288,7 @@ void SaveEditorAnimation(EditorAnimation& en, const std::filesystem::path& path)
     for (int frame_index=0; frame_index<en.frame_count; frame_index++)
     {
         WriteCSTR(stream, "f\n");
-        for (int bone_index=0; bone_index<en.bone_count; bone_index++)
+        for (int bone_index=0; bone_index<es.bone_count; bone_index++)
         {
             Transform& bt = GetFrameTransform(en, bone_index, frame_index);
 
@@ -308,12 +324,13 @@ int InsertFrame(EditorAnimation& en, int frame_index)
     if (frame_index > 0)
         copy_frame = frame_index - 1;
 
+    EditorSkeleton& es = GetEditorSkeleton(en);
     for (int i=frame_index + 1; i<en.frame_count; i++)
-        for (int j=0; j<en.bone_count; j++)
+        for (int j=0; j<es.bone_count; j++)
             GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i - 1);
 
     if (copy_frame > 0)
-        for (int j=0; j<en.bone_count; j++)
+        for (int j=0; j<es.bone_count; j++)
             GetFrameTransform(en, j, frame_index) = GetFrameTransform(en, j, copy_frame);
 
     en.frame_count++;
@@ -326,8 +343,9 @@ int DeleteFrame(EditorAnimation& en, int frame_index)
     if (en.frame_count <= 1)
         return frame_index;
 
+    EditorSkeleton& es = GetEditorSkeleton(en);
     for (int i=frame_index; i<en.frame_count - 1; i++)
-        for (int j=0; j<en.bone_count; j++)
+        for (int j=0; j<es.bone_count; j++)
             GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i + 1);
 
     en.frame_count--;
@@ -337,19 +355,23 @@ int DeleteFrame(EditorAnimation& en, int frame_index)
 
 Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_index)
 {
-    assert(bone_index >= 0 && bone_index < en.bone_count);
+    assert(bone_index >= 0 && bone_index < MAX_BONES);
     assert(frame_index >= 0 && frame_index < en.frame_count);
     return en.frames[frame_index * MAX_BONES + bone_index];
 }
 
-bool HitTestBone(EditorAnimation& en, const Vec2& world_pos)
+int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
 {
+    EditorSkeleton& es = GetEditorSkeleton(en);
+
+    UpdateTransforms(en);
+
     const float size = g_view.select_size;
     float best_dist = F32_MAX;
     int best_bone_index = -1;
-    for (int bone_index=0; bone_index<en.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
-        Vec2 b0 = TransformPoint(GetFrameTransform(en, bone_index, en.current_frame));
+        Vec2 b0 = TransformPoint(en.animator.bones[bone_index]);
         float dist = Length(b0 - world_pos);
         if (dist < size && dist < best_dist)
         {
@@ -363,10 +385,10 @@ bool HitTestBone(EditorAnimation& en, const Vec2& world_pos)
 
     best_bone_index = -1;
     best_dist = F32_MAX;
-    for (int bone_index=1; bone_index<en.bone_count; bone_index++)
+    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {
-        Vec2 b0 = TransformPoint(GetFrameTransform(en, bone_index, en.current_frame));
-        Vec2 b1 = TransformPoint(GetFrameTransform(en, GetEditorBone(en, bone_index).parent_index, en.current_frame));
+        Vec2 b0 = TransformPoint(en.animator.bones[bone_index]);
+        Vec2 b1 = TransformPoint(en.animator.bones[GetEditorBone(en, bone_index).parent_index]);
         float dist = DistanceFromLine(b0, b1, world_pos);
         if (dist < size && dist < best_dist)
         {
