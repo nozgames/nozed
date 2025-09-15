@@ -19,6 +19,7 @@ constexpr float BOX_SELECT_EDGE_WIDTH = 0.005f;
 constexpr Color BOX_SELECT_COLOR = Color {0.2f, 0.6f, 1.0f, 0.025f};
 constexpr Color BOX_SELECT_OUTLINE_COLOR = Color {0.2f, 0.6f, 1.0f, 0.2f};
 constexpr float FRAME_VIEW_PERCENTAGE = 1.0f / 0.75f;
+constexpr float BONE_WIDTH = 0.10f;
 
 extern void SetPosition(EditorMesh* em, int index, const Vec2& position);
 extern int SplitEdge(EditorMesh* em, int edge_index, float edge_pos);
@@ -253,25 +254,10 @@ static void UpdateDefaultState()
         g_view.assets[g_view.edit_asset_index]->editing = true;
 
         EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
-        switch (ea.type)
+        if (ea.vtable.init_editor)
         {
-        case EDITOR_ASSET_TYPE_MESH:
             PushState(VIEW_STATE_EDIT);
-            InitMeshEditor(ea);
-            break;
-
-        case EDITOR_ASSET_TYPE_SKELETON:
-            PushState(VIEW_STATE_EDIT);
-            InitSkeletonEditor(ea);
-            break;
-
-        case EDITOR_ASSET_TYPE_ANIMATION:
-            PushState(VIEW_STATE_EDIT);
-            InitAnimationEditor(ea);
-            break;
-
-        default:
-            break;
+            ea.vtable.init_editor(ea);
         }
     }
 
@@ -369,13 +355,21 @@ static void UpdateCommon()
 
     if (WasButtonPressed(g_view.input, KEY_Z) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
     {
-        Undo();
+        if (Undo())
+        {
+            if (g_view.vtable && g_view.vtable->undo_redo)
+                g_view.vtable->undo_redo();
+        }
         return;
     }
 
     if (WasButtonPressed(g_view.input, KEY_Y) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
     {
-        Redo();
+        if (Redo())
+        {
+            if (g_view.vtable && g_view.vtable->undo_redo)
+                g_view.vtable->undo_redo();
+        }
         return;
     }
 }
@@ -390,14 +384,18 @@ static void UpdateViewInternal()
     {
     case VIEW_STATE_EDIT:
     {
+        EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
+
         if (WasButtonPressed(g_view.input, KEY_TAB) && !IsAltDown(g_view.input))
         {
+            if (ea.vtable.shutdown_editor)
+                ea.vtable.shutdown_editor();
+
             SetCursor(SYSTEM_CURSOR_DEFAULT);
             PopState();
             return;
         }
 
-        EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
         switch (ea.type)
         {
         case EDITOR_ASSET_TYPE_MESH:
@@ -752,6 +750,14 @@ void InitView()
     AddTriangle(builder, 0, 1, 2);
     AddTriangle(builder, 2, 3, 0);
     g_view.edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+
+    Vec2 bone_collider_verts[] = {
+        {0, 0},
+        {BONE_WIDTH, -BONE_WIDTH},
+        {1, 0},
+        {BONE_WIDTH, BONE_WIDTH}
+    };
+    g_view.bone_collider = CreateCollider(ALLOCATOR_DEFAULT, bone_collider_verts, 4);
 
     Free(builder);
 

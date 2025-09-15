@@ -11,13 +11,7 @@ extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, As
 void DrawEditorSkeletonBone(EditorSkeleton& es, int bone_index, const Vec2& position)
 {
     EditorBone& eb = es.bones[bone_index];
-    Vec2 p0 = TransformPoint(eb.local_to_world);
-    Vec2 p1 = TransformPoint(eb.local_to_world, Vec2 {1, 0});
-    Vec2 pp = TransformPoint(es.bones[eb.parent_index].local_to_world);
-    DrawDashedLine(pp + position, p0 + position);
-    DrawVertex(p0 + position);
-    DrawVertex(p1 + position);
-    DrawBone(p0 + position, p1 + position);
+    DrawBone(eb.local_to_world, es.bones[eb.parent_index].local_to_world, position);
 }
 
 void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
@@ -77,10 +71,14 @@ int HitTestBone(EditorSkeleton& es, const Vec2& world_pos)
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {
         EditorBone& bone = es.bones[bone_index];
+
+        if (!OverlapPoint(g_view.bone_collider, TransformPoint(bone.world_to_local, world_pos)))
+            continue;
+
         Vec2 b0 = TransformPoint(bone.local_to_world);
-        Vec2 b1 = TransformPoint(es.bones[bone.parent_index].local_to_world);
+        Vec2 b1 = TransformPoint(bone.local_to_world, {1, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
-        if (dist < size && dist < best_dist)
+        if (dist < best_dist)
         {
             best_dist = dist;
             best_bone_index = bone_index;
@@ -102,6 +100,15 @@ static void ParseBonePosition(EditorBone& eb, Tokenizer& tk)
     eb.transform.position = {x,y};
 }
 
+static void ParseBoneRotation(EditorBone& eb, Tokenizer& tk)
+{
+    float r;
+    if (!ExpectFloat(tk, &r))
+        ThrowError("misssing bone rotation value");
+
+    eb.transform.rotation = r;
+}
+
 static void ParseBone(EditorSkeleton& es, Tokenizer& tk)
 {
     if (!ExpectQuotedString(tk))
@@ -116,12 +123,15 @@ static void ParseBone(EditorSkeleton& es, Tokenizer& tk)
     EditorBone& bone = es.bones[es.bone_count++];
     bone.name = bone_name;
     bone.parent_index = parent_index;
+    bone.index = es.bone_count - 1;
     bone.transform.scale = VEC2_ONE;
 
     while (!IsEOF(tk))
     {
         if (ExpectIdentifier(tk, "p"))
             ParseBonePosition(bone, tk);
+        else if (ExpectIdentifier(tk, "r"))
+            ParseBoneRotation(bone, tk);
         else
             break;
     }
@@ -159,11 +169,12 @@ void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& p
     for (int i=0; i<es.bone_count; i++)
     {
         const EditorBone& ev = es.bones[i];
-        WriteCSTR(stream, "b \"%s\" %d p %g %g\n",
+        WriteCSTR(stream, "b \"%s\" %d p %g %g r %g\n",
             ev.name->value,
             ev.parent_index,
             ev.transform.position.x,
-            ev.transform.position.y);
+            ev.transform.position.y,
+            ev.transform.rotation);
     }
 
     SaveStream(stream, path);
@@ -204,7 +215,7 @@ void UpdateTransforms(EditorSkeleton& es)
         EditorBone& bone = es.bones[bone_index];
         EditorBone& parent = es.bones[bone.parent_index];
         bone.local_to_world = parent.local_to_world * TRS(bone.transform.position, bone.transform.rotation, bone.transform.scale);
-        bone.world_to_local = Inverse(root.local_to_world);
+        bone.world_to_local = Inverse(bone.local_to_world);
         bone.length = 1.0f; // Length(bone.position);
     }
 
@@ -218,23 +229,38 @@ void UpdateTransforms(EditorSkeleton& es)
 
 void SaveAssetMetadata(const EditorSkeleton& es, Props* meta)
 {
+    meta->ClearGroup("skin");
+
     for (int i=0; i<es.skinned_mesh_count; i++)
-        meta->SetInt("skinned_meshes", es.skinned_meshes[i].asset_name->value, es.skinned_meshes[i].bone_index);
+    {
+        const Name* mesh_name = es.skinned_meshes[i].asset_name;
+        std::string value = meta->GetString("skin", mesh_name->value, "");
+        if (!value.empty())
+            value += ", ";
+        value += std::to_string(es.skinned_meshes[i].bone_index);
+        meta->SetString("skin", mesh_name->value, value.c_str());
+    }
 }
 
 void LoadAssetMetadata(EditorSkeleton& es, Props* meta)
 {
-    for (auto& key : meta->GetKeys("skinned_meshes"))
-    {
-        int bone_index = meta->GetInt("skinned_meshes", key.c_str(), -1);
-        if (bone_index < 0 || bone_index >= es.bone_count)
-            continue;
+    for (auto& key : meta->GetKeys("skin")) {
+        std::string bones = meta->GetString("skin", key.c_str(), "");
+        Tokenizer tk;
+        Init(tk, bones.c_str());
 
-        es.skinned_meshes[es.skinned_mesh_count++] = {
-            GetName(key.c_str()),
-            -1,
-            bone_index
-        };
+        int bone_index = -1;
+        while (ExpectInt(tk, &bone_index))
+        {
+            es.skinned_meshes[es.skinned_mesh_count++] = {
+                GetName(key.c_str()),
+                -1,
+                bone_index
+            };
+
+            if (!ExpectDelimiter(tk, ','))
+                break;
+        }
     }
 }
 
@@ -257,6 +283,135 @@ int FindBoneIndex(const EditorSkeleton& es, const Name* name)
             return i;
 
     return -1;
+}
+
+static int CompareBoneParentIndex(void const* p, void const* arg)
+{
+    EditorBone* a = (EditorBone*)p;
+    EditorBone* b = (EditorBone*)arg;
+    return a->parent_index - b->parent_index;
+}
+
+static void ReparentBoneTransform(EditorBone& b, EditorBone& p)
+{
+    Mat3 new_local = p.world_to_local * b.local_to_world;
+
+    b.transform.position.x = new_local.m[6];
+    b.transform.position.y = new_local.m[7];
+
+    // Scale (magnitude of basis vectors)
+    f32 scale_x = Sqrt(
+        new_local.m[0] * new_local.m[0] +
+        new_local.m[1] * new_local.m[1]);
+    f32 scale_y = Sqrt(
+        new_local.m[3] * new_local.m[3] +
+        new_local.m[4] * new_local.m[4]);
+
+    b.transform.scale = Vec2(scale_x, scale_y);
+    b.transform.rotation = Degrees(
+        Atan2(
+            new_local.m[1] / scale_x,
+            new_local.m[0] / scale_x));
+}
+
+int ReparentBone(EditorSkeleton& es, int bone_index, int parent_index)
+{
+    EditorBone& eb = es.bones[bone_index];
+
+    eb.parent_index = parent_index;
+
+    qsort(es.bones, es.bone_count, sizeof(EditorBone), CompareBoneParentIndex);
+
+    int bone_map[MAX_BONES];
+    for (int i=0; i<es.bone_count; i++)
+        bone_map[es.bones[i].index] = i;
+
+    for (int i=1; i<es.bone_count; i++)
+    {
+        es.bones[i].parent_index = bone_map[es.bones[i].parent_index];
+        es.bones[i].index = i;
+    }
+
+    for (int i=0; i<es.skinned_mesh_count; i++)
+    {
+        EditorSkinnedMesh& esm = es.skinned_meshes[i];
+        esm.bone_index = bone_map[esm.bone_index];
+    }
+
+    ReparentBoneTransform(es.bones[bone_map[bone_index]], es.bones[bone_map[parent_index]]);
+    UpdateTransforms(es);
+
+    return bone_map[bone_index];
+}
+
+void RemoveBone(EditorSkeleton& es, int bone_index)
+{
+    if (bone_index <= 0 || bone_index >= es.bone_count)
+        return;
+
+    EditorBone& eb = es.bones[bone_index];
+    int parent_index = eb.parent_index;
+
+    // Reparent children to parent
+    for (int i=0; i<es.bone_count; i++)
+    {
+        EditorBone& child = es.bones[i];
+        if (child.parent_index == bone_index)
+        {
+            child.parent_index = parent_index;
+            ReparentBoneTransform(child, es.bones[parent_index]);
+        }
+    }
+
+    // Remove any skinned meshes attached to this bone
+    for (int i=0; i<es.skinned_mesh_count; )
+    {
+        EditorSkinnedMesh& esm = es.skinned_meshes[i];
+        if (esm.bone_index == bone_index)
+        {
+            es.skinned_meshes[i] = es.skinned_meshes[--es.skinned_mesh_count];
+        }
+        else
+            i++;
+    }
+
+    // Remove the bone
+    es.bones[bone_index] = es.bones[--es.bone_count];
+
+    // Update indices and parent indices
+    for (int i=0; i<es.bone_count; i++)
+    {
+        if (es.bones[i].parent_index == bone_index)
+            es.bones[i].parent_index = parent_index;
+        else if (es.bones[i].parent_index == es.bone_count)
+            es.bones[i].parent_index = bone_index;
+
+        es.bones[i].index = i;
+    }
+
+    for (int i=0; i<es.skinned_mesh_count; i++)
+    {
+        EditorSkinnedMesh& esm = es.skinned_meshes[i];
+        if (esm.bone_index == es.bone_count)
+            esm.bone_index = bone_index;
+    }
+
+    UpdateTransforms(es);
+}
+
+const Name* GetUniqueBoneName(EditorSkeleton& es)
+{
+    const Name* bone_name = GetName("Bone");
+
+    int bone_postfix = 2;
+    while (FindBoneIndex(es, bone_name) != -1)
+    {
+        char name[64];
+        Format(name, sizeof(name), "Bone%d", bone_postfix++);
+        bone_name = GetName(name);
+    }
+
+    return bone_name;
 }
 
 void Serialize(EditorSkeleton& es, Stream* output_stream)
@@ -305,16 +460,25 @@ Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton& es, const Name* name)
     return skeleton;
 }
 
-EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
+EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton)
 {
-    EditorSkeleton* skeleton = LoadEditorSkeleton(ALLOCATOR_DEFAULT, path);
     if (!skeleton)
         return nullptr;
 
     EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_SKELETON);
     ea->skeleton = skeleton;
     ea->vtable = {
-        .post_load = PostLoadEditorSkeleton
+        .post_load = PostLoadEditorSkeleton,
+        .init_editor = InitSkeletonEditor
     };
     return ea;
+}
+
+EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
+{
+    EditorSkeleton* skeleton = LoadEditorSkeleton(ALLOCATOR_DEFAULT, path);
+    if (!skeleton)
+        return nullptr;
+
+    return CreateEditorSkeletonAsset(path, skeleton);
 }

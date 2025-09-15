@@ -16,6 +16,7 @@ struct EditorSkinnedMesh
 struct EditorBone
 {
     const Name* name;
+    int index;
     int parent_index;
     BoneTransform transform;
     Mat3 local_to_world;
@@ -34,6 +35,7 @@ struct EditorSkeleton
 };
 
 extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
+extern EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton);
 extern EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path);
 extern EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::path& path);
 extern void DrawEditorSkeleton(EditorAsset& ea, bool selected);
@@ -48,3 +50,6 @@ extern void PostLoadEditorAssets(EditorSkeleton& es);
 extern int FindBoneIndex(const EditorSkeleton& es, const Name* name);
 extern void Serialize(EditorSkeleton& es, Stream* stream);
 extern Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton& es, const Name* name);
+extern int ReparentBone(EditorSkeleton& es, int bone_index, int parent_index);
+extern const Name* GetUniqueBoneName(EditorSkeleton& es);
+extern void RemoveBone(EditorSkeleton& es, int bone_index);

@@ -78,6 +78,8 @@ struct LoadedAssets
 
 struct LoadedNames
 {
+    const Name* asset_name_container;
+    const Name* asset_name;
     const Name* command_palette;
     const Name* command_input;
     const Name* command_colon;
@@ -88,8 +90,6 @@ struct LoadedNames
     const Name* notification_container;
     const Name* notification;
     const Name* notification_text;
-    const Name* asset_name_container;
-    const Name* asset_name;
     const Name* r;
     const Name* rename;
     const Name* save;

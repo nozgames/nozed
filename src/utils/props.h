@@ -22,6 +22,7 @@ public:
 
     // Clear all properties
     void Clear();
+    void ClearGroup(const char* group);
     
     // @set
     void SetString(const char* group, const char* key, const char* value);

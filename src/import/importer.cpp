@@ -267,10 +267,7 @@ void UpdateImporter()
     g_importer.mutex.unlock();
 
     for (const Name* name : names)
-    {
-        HotloadEvent event = { .asset_name = name };
-        Send(EDITOR_EVENT_IMPORTED, &event);
-    }
+        Send(EDITOR_EVENT_IMPORTED, name);
 }
 
 void InitImporter()

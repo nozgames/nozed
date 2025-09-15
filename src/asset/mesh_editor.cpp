@@ -825,13 +825,6 @@ Bounds2 GetSelectedBounds(const EditorMesh& emesh)
     return bounds;
 }
 
-EditorMesh* CreateEditableMesh(Allocator* allocator)
-{
-    EditorMesh* em = (EditorMesh*)Alloc(allocator, sizeof(EditorMesh));
-    MarkDirty(*em);
-    return em;
-}
-
 void SetSelection(EditorMesh& em, int vertex_index)
 {
     assert(vertex_index >= 0 && vertex_index < em.vertex_count);
@@ -1217,10 +1210,36 @@ EditorAsset* NewEditorMesh(const std::filesystem::path& path)
     SaveStream(stream, full_path);
     Free(stream);
 
-    EditorAsset* ea = CreateEditableAsset(full_path, LoadEditorMesh(ALLOCATOR_DEFAULT, full_path));
+    EditorAsset* ea = CreateEditableMeshAsset(full_path, LoadEditorMesh(ALLOCATOR_DEFAULT, full_path));
     if (!ea)
         return nullptr;
 
     g_view.assets[g_view.asset_count++] = ea;
+    return ea;
+}
+
+EditorMesh* CreateEditableMesh(Allocator* allocator)
+{
+    EditorMesh* em = (EditorMesh*)Alloc(allocator, sizeof(EditorMesh));
+    MarkDirty(*em);
+    return em;
+}
+
+EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path)
+{
+    EditorMesh* em = LoadEditorMesh(ALLOCATOR_DEFAULT, path);
+    if (!em)
+        return nullptr;
+
+    return CreateEditableMeshAsset(path, em);
+}
+
+EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path, EditorMesh* em)
+{
+    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_MESH);
+    ea->mesh = em;
+    ea->vtable = {
+        .init_editor = InitMeshEditor
+    };
     return ea;
 }

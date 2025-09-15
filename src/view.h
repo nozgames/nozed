@@ -23,11 +23,13 @@ enum ViewState
 
 typedef void (*ViewRenameFunc)(const Name* new_name);
 typedef const Name* (*PreviewCommandFunc)(const Command& command);
+typedef void (*UndoRedoFunc)();
 
 struct ViewVtable
 {
     ViewRenameFunc rename;
     PreviewCommandFunc preview_command;
+    UndoRedoFunc undo_redo;
 };
 
 struct View
@@ -39,6 +41,7 @@ struct View
     Material* vertex_material;
     Mesh* vertex_mesh;
     Mesh* edge_mesh;
+    Collider* bone_collider;
     float zoom;
     float zoom_ref_scale;
     float select_size;
@@ -110,8 +113,8 @@ extern void HandleCommand(const Command& command);
 extern void RecordUndo(EditorAsset& ea);
 extern void BeginUndoGroup();
 extern void EndUndoGroup();
-extern void Undo();
-extern void Redo();
+extern bool Undo();
+extern bool Redo();
 extern void CancelUndo();
 
 // @editable_asset
@@ -136,7 +139,6 @@ extern void AddAssetSelection(int asset_index);
 extern int FindEditorAssetByName(const Name* name);
 extern EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea);
 extern void Copy(EditorAsset& dst, const EditorAsset& src);
-extern EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em);
 extern EditorAsset* GetEditorAsset(i32 index);
 
 // @notifications
@@ -157,6 +159,7 @@ extern void DrawSkeletonEditor();
 
 // @animation_editor
 extern void InitAnimationEditor(EditorAsset& ea);
+extern void ShutdownAnimationEditor();
 extern void DrawAnimationEditor();
 extern void UpdateAnimationEditor();
 
@@ -169,6 +172,7 @@ extern void DrawOrigin(const EditorAsset& ea);
 extern void DrawOrigin(const Vec2& position);
 extern void DrawBounds(const EditorAsset& ea, float expand=0);
 extern void DrawBone(const Vec2& a, const Vec2& b);
+extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1);
 

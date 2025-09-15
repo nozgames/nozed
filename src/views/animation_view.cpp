@@ -35,7 +35,6 @@ struct AnimationView
 {
     AnimationViewState state;
     EditorAsset* asset;
-    EditorAnimation* animation;
     int selected_bone_count;
     bool clear_selection_on_up;
     bool ignore_up;
@@ -45,7 +44,6 @@ struct AnimationView
     Vec2 selection_center;
     Vec2 selection_center_world;
     AnimationViewBone bones[MAX_BONES];
-    Animator animator;
 };
 
 static AnimationView g_animation_view = {};
@@ -53,7 +51,7 @@ static AnimationView g_animation_view = {};
 static Shortcut* g_animation_editor_shortcuts;
 
 static EditorAsset& GetEditorAsset() { return *g_animation_view.asset; }
-static EditorAnimation& GetEditorAnimation() { return *g_animation_view.animation; }
+static EditorAnimation& GetEditorAnimation() { return *GetEditorAsset().anim; }
 static EditorSkeleton& GetEditorSkeleton() { return *GetEditorAnimation().skeleton_asset->skeleton; }
 static bool IsBoneSelected(int bone_index) { return g_animation_view.bones[bone_index].selected; }
 static void SetBoneSelected(int bone_index, bool selected)
@@ -75,7 +73,7 @@ static void UpdateSelectionCenter()
     {
         if (!IsBoneSelected(bone_index))
             continue;
-        center += TransformPoint(GetFrameTransform(en, bone_index, en.current_frame));
+        center += TransformPoint(en.animator.bones[bone_index]);
         center_count += 1.0f;
     }
 
@@ -93,6 +91,20 @@ static void SaveState()
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
         g_animation_view.bones[bone_index].transform = GetFrameTransform(en, bone_index, en.current_frame);
 
+    UpdateSelectionCenter();
+}
+
+static void RevertToSavedState()
+{
+    EditorSkeleton& es = GetEditorSkeleton();
+    EditorAnimation& en = GetEditorAnimation();
+    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    {
+        AnimationViewBone& vb = g_animation_view.bones[bone_index];
+        GetFrameTransform(en, bone_index, en.current_frame) = vb.transform;
+    }
+
+    UpdateTransforms(en);
     UpdateSelectionCenter();
 }
 
@@ -157,6 +169,8 @@ static void UpdateRotateState()
         AnimationViewBone& sb = g_animation_view.bones[bone_index];
         SetRotation(GetFrameTransform(en, bone_index, en.current_frame), sb.transform.rotation + angle);
     }
+
+    UpdateTransforms(en);
 }
 
 static void UpdateMoveState()
@@ -190,23 +204,31 @@ static void UpdateAssetNames()
     EditorSkeleton& es = GetEditorSkeleton();
     for (u16 bone_index=0; bone_index<es.bone_count; bone_index++)
     {
-        BeginWorldCanvas(g_view.camera, ea.position + TransformPoint(GetFrameTransform(en, bone_index, en.current_frame)), Vec2{6, 0});
+        Vec2 p =
+            (TransformPoint(en.animator.bones[bone_index]) +
+             TransformPoint(en.animator.bones[bone_index], {1,0})) * 0.5f;
+
+
         SetStyleSheet(g_assets.ui.view);
-        BeginElement(g_names.asset_name_container);
-        Label(es.bones[bone_index].name->value, g_names.asset_name);
-        EndElement();
+        BeginWorldCanvas(g_view.camera, ea.position + p, Vec2{2, 2});
+            BeginElement(g_names.asset_name_container);
+                Label(es.bones[bone_index].name->value, g_names.asset_name);
+            EndElement();
         EndCanvas();
     }
 }
 
 static void UpdatePlayState()
 {
-    Animation* animation = g_animation_view.animation->animation;
-    if (!animation)
-        animation = g_animation_view.animation->animation = ToAnimation(ALLOCATOR_DEFAULT, *g_animation_view.animation, g_animation_view.asset->name);
+    EditorAnimation& ea = GetEditorAnimation();
+    if (!ea.animation)
+        ea.animation = ToAnimation(ALLOCATOR_DEFAULT, ea, g_animation_view.asset->name);
 
-    if (!animation)
+    if (!ea.animation)
         return;
+
+    EditorAnimation& en = GetEditorAnimation();
+    Update(en.animator);
 
     // todo: how do we animate?
 }
@@ -240,8 +262,9 @@ static void UpdateDefaultState()
 
 void UpdateAnimationEditor()
 {
+    EditorAnimation& ea = GetEditorAnimation();
     CheckShortcuts(g_animation_editor_shortcuts);
-    UpdateBounds(*g_animation_view.animation);
+    UpdateBounds(ea);
     UpdateAssetNames();
 
     // Commit the tool
@@ -260,6 +283,7 @@ void UpdateAnimationEditor()
         if (WasButtonPressed(g_view.input, KEY_ESCAPE) || WasButtonPressed(g_view.input, MOUSE_RIGHT))
         {
             CancelUndo();
+            RevertToSavedState();
             SetState(ANIMATION_VIEW_STATE_DEFAULT, nullptr, nullptr);
             return;
         }
@@ -275,30 +299,19 @@ void UpdateAnimationEditor()
 static void DrawSkeleton()
 {
     EditorAsset& ea = GetEditorAsset();
-    EditorAnimation& en = GetEditorAnimation();
     EditorSkeleton& es = GetEditorSkeleton();
+    EditorAnimation& en = GetEditorAnimation();
 
-    BindColor(COLOR_SELECTED);
-    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+    BindColor(COLOR_WHITE);
+    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {
         if (!IsBoneSelected(bone_index))
             continue;
 
-        DrawVertex(TransformPoint(en.animator.bones[bone_index]) + ea.position, BONE_ORIGIN_SIZE);
-    }
-
-    if (IsPlaying(g_animation_view.animator))
-    {
-        Update(g_animation_view.animator);
-
-        BindMaterial(g_view.vertex_material);
-        BindColor(COLOR_RED);
-        for (int i=1; i<es.bone_count; i++)
-        {
-            Vec2 b1 = g_animation_view.animator.bones[es.bones[i].parent_index] * VEC2_ZERO;
-            Vec2 b2 = g_animation_view.animator.bones[i] * VEC2_ZERO;
-            DrawBone(b2 + ea.position, b1 + ea.position);
-        }
+        DrawBone(
+            en.animator.bones[bone_index],
+            en.animator.bones[es.bones[bone_index].parent_index],
+            ea.position);
     }
 }
 
@@ -332,9 +345,9 @@ static void DrawTimeline()
         DrawVertex({pos.x - left.x + h1.x * i, pos.y}, FRAME_SIZE);
 
     int current_frame = en.current_frame;
-    if (IsPlaying(g_animation_view.animator))
+    if (IsPlaying(en.animator))
     {
-        current_frame = GetFrame(g_animation_view.animator);
+        current_frame = GetFrame(en.animator);
         BindColor({0.02f, 0.02f, 0.02f, 1.0f});
         DrawLine(pos + left, pos + left + h1);
         DrawVertex(pos + left + h1, FRAME_SIZE * 0.9f);
@@ -343,7 +356,7 @@ static void DrawTimeline()
     BindColor(COLOR_ORIGIN);
     DrawVertex({pos.x - left.x + h1.x * current_frame, pos.y}, FRAME_SELECTED_SIZE);
 
-    if (IsPlaying(g_animation_view.animator))
+    if (IsPlaying(en.animator))
     {
         Vec2 s2 =
                 ScreenToWorld(g_view.camera, {0, g_view.dpi * FRAME_TIME_SIZE}) -
@@ -351,7 +364,7 @@ static void DrawTimeline()
 
 
         BindColor(COLOR_WHITE);
-        float time = GetNormalizedTime(g_animation_view.animator);
+        float time = GetNormalizedTime(en.animator);
         Vec2 tpos = pos + Mix(right, left, time);
         DrawLine(tpos - s2, tpos + s2);
     }
@@ -368,14 +381,16 @@ void DrawAnimationEditor()
 
 static void HandlePrevFrameCommand()
 {
-    EditorAnimation& en = *g_animation_view.animation;
-    en.current_frame = (en.current_frame - 1 + g_animation_view.animation->frame_count) % g_animation_view.animation->frame_count;
+    EditorAnimation& en = GetEditorAnimation();
+    en.current_frame = (en.current_frame - 1 + en.frame_count) % en.frame_count;
+    UpdateTransforms(en);
 }
 
 static void HandleNextFrameCommand()
 {
-    EditorAnimation& en = *g_animation_view.animation;
-    en.current_frame = (en.current_frame + 1) % g_animation_view.animation->frame_count;
+    EditorAnimation& en = GetEditorAnimation();
+    en.current_frame = (en.current_frame + 1) % en.frame_count;
+    UpdateTransforms(en);
 }
 
 static void HandleMoveCommand()
@@ -386,7 +401,7 @@ static void HandleMoveCommand()
     if (g_animation_view.selected_bone_count <= 0)
         return;
 
-    RecordUndo(*g_animation_view.asset);
+    RecordUndo(GetEditorAsset());
     SaveState();
     SetState(ANIMATION_VIEW_STATE_MOVE, UpdateMoveState, nullptr);
     SetCursor(SYSTEM_CURSOR_MOVE);
@@ -400,10 +415,9 @@ static void HandleRotate()
     if (g_animation_view.selected_bone_count <= 0)
         return;
 
-    RecordUndo(*g_animation_view.asset);
+    RecordUndo(GetEditorAsset());
     SaveState();
     SetState(ANIMATION_VIEW_STATE_ROTATE, UpdateRotateState, DrawRotateState);
-    //SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
 static void HandleResetRotate()
@@ -425,9 +439,11 @@ static void HandleResetRotate()
 
 static void HandlePlayCommand()
 {
+    EditorAnimation& en = GetEditorAnimation();
     if (g_animation_view.state == ANIMATION_VIEW_STATE_PLAY)
     {
-        Stop(g_animation_view.animator);
+        Stop(en.animator);
+        UpdateTransforms(en);
         SetState(ANIMATION_VIEW_STATE_DEFAULT, nullptr, nullptr);
         return;
     }
@@ -436,13 +452,12 @@ static void HandlePlayCommand()
         return;
 
     EditorAsset& ea = GetEditorAsset();
-    EditorAnimation& en = GetEditorAnimation();
     EditorSkeleton& es = GetEditorSkeleton();
 
     Init(
-        g_animation_view.animator,
+        en.animator,
         ToSkeleton(ALLOCATOR_DEFAULT, es, en.skeleton_asset->name));
-    Play(g_animation_view.animator, ToAnimation(ALLOCATOR_DEFAULT, en, ea.name), 0.1f, true);
+    Play(en.animator, ToAnimation(ALLOCATOR_DEFAULT, en, ea.name), 1.0f, true);
     SetState(ANIMATION_VIEW_STATE_PLAY, UpdatePlayState, nullptr);
 }
 
@@ -492,11 +507,22 @@ static void HandleDeleteFrame()
     en.current_frame = DeleteFrame(en, en.current_frame);
 }
 
+static void HandleUndoRedo()
+{
+    UpdateTransforms(GetEditorAnimation());
+}
+
+static ViewVtable g_animation_view_vtable = {
+    .undo_redo = HandleUndoRedo
+};
+
 void InitAnimationEditor(EditorAsset& ea)
 {
     g_animation_view.state = ANIMATION_VIEW_STATE_DEFAULT;
     g_animation_view.asset = &ea;
-    g_animation_view.animation = ea.anim;
+    g_animation_view.state_update = nullptr;
+    g_animation_view.state_draw = nullptr;
+    g_view.vtable = &g_animation_view_vtable;
 
     if (g_animation_editor_shortcuts == nullptr)
     {
@@ -520,3 +546,10 @@ void InitAnimationEditor(EditorAsset& ea)
     }
 }
 
+void ShutdownAnimationEditor()
+{
+    EditorAnimation& en = GetEditorAnimation();
+    Stop(en.animator);
+    UpdateTransforms(en);
+    g_animation_view.asset = nullptr;
+}

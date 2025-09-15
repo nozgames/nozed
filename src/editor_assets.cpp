@@ -50,6 +50,8 @@ bool LoadAssets(Allocator* allocator)
     g_assets.paths.ui_mesh_editor = GetName("ui/mesh_editor");
     g_assets.paths.ui_notifications = GetName("ui/notifications");
     g_assets.paths.ui_view = GetName("ui/view");
+    g_names.asset_name_container = GetName("asset_name_container");
+    g_names.asset_name = GetName("asset_name");
     g_names.command_palette = GetName("command_palette");
     g_names.command_input = GetName("command_input");
     g_names.command_colon = GetName("command_colon");
@@ -60,8 +62,6 @@ bool LoadAssets(Allocator* allocator)
     g_names.notification_container = GetName("notification_container");
     g_names.notification = GetName("notification");
     g_names.notification_text = GetName("notification_text");
-    g_names.asset_name_container = GetName("asset_name_container");
-    g_names.asset_name = GetName("asset_name");
     g_names.r = GetName("r");
     g_names.rename = GetName("rename");
     g_names.save = GetName("save");

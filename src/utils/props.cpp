@@ -13,6 +13,15 @@ void Props::Clear()
     _properties.clear();
 }
 
+void Props::ClearGroup(const char* group)
+{
+    auto it = _properties.find(group);
+    if (it == _properties.end())
+        return;
+
+    it->second.clear();
+}
+
 void Props::SetString(const char* group, const char* key, const char* value)
 {
     assert(group && key && value);

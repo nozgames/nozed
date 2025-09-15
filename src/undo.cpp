@@ -23,10 +23,10 @@ struct UndoSystem
 
 static UndoSystem g_undo = {};
 
-void Undo()
+bool Undo()
 {
     if (IsEmpty(g_undo.undo))
-        return;
+        return false;
 
     int group_id = ((UndoItem*)GetBack(g_undo.undo))->group_id;
 
@@ -35,7 +35,6 @@ void Undo()
         UndoItem& item = *(UndoItem*)GetBack(g_undo.undo);
         if (item.group_id != -1 && item.group_id != group_id)
             break;
-
 
         UndoItem& redo = *(UndoItem*)PushBack(g_undo.redo);
         redo = item;
@@ -48,12 +47,14 @@ void Undo()
         if (item.group_id == -1)
             break;
     }
+
+    return true;
 }
 
-void Redo()
+bool Redo()
 {
     if (IsEmpty(g_undo.redo))
-        return;
+        return false;
 
     int group_id = ((UndoItem*)GetBack(g_undo.redo))->group_id;
 
@@ -74,6 +75,8 @@ void Redo()
         if (item.group_id == -1)
             break;
     }
+
+    return true;
 }
 
 void CancelUndo()

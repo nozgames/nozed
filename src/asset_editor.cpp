@@ -20,24 +20,6 @@ EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetTyp
     return ea;
 }
 
-EditorAsset* CreateEditableAsset(const std::filesystem::path& path, EditorMesh* em)
-{
-    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_MESH);
-    ea->mesh = em;
-    return ea;
-}
-
-EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path)
-{
-    EditorMesh* em = LoadEditorMesh(ALLOCATOR_DEFAULT, path);
-    if (!em)
-        return nullptr;
-
-    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_MESH);
-    ea->mesh = em;
-    return ea;
-}
-
 static void LoadAssetMetadata(EditorAsset& ea, const std::filesystem::path& path)
 {
     Props* props = LoadProps(std::filesystem::path(path.string() + ".meta"));
@@ -347,6 +329,9 @@ EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea)
     default:
         break;
     }
+
+    if (ea.vtable.clone)
+        ea.vtable.clone(allocator, ea, *clone);
 
     return clone;
 }

@@ -5,7 +5,6 @@
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 extern EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type);
 static EditorSkeleton& GetEditorSkeleton(EditorAnimation& en) { return *en.skeleton_asset->skeleton; }
-static EditorBone& GetEditorBone(EditorAnimation& en, int bone_index) { return en.skeleton_asset->skeleton->bones[bone_index]; }
 
 void UpdateTransforms(EditorAnimation& en)
 {
@@ -42,12 +41,6 @@ static void DrawEditorAnimation(EditorAsset& ea)
 {
     EditorAnimation& en = *ea.anim;
     EditorSkeleton& es = GetEditorSkeleton(en);
-
-    BindMaterial(g_view.vertex_material);
-    BindColor(COLOR_BLACK);
-
-
-    UpdateTransforms(en);
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
@@ -176,6 +169,7 @@ static void ParseFrame(EditorAnimation& en, Tokenizer& tk, int* bone_map)
 static void PostLoadEditorAnimation(EditorAsset& ea)
 {
     ea.anim->skeleton_asset = GetEditorAsset(FindEditorAssetByName(ea.anim->skeleton_name));
+    UpdateTransforms(*ea.anim);
     UpdateBounds(*ea.anim);
 }
 
@@ -232,7 +226,7 @@ void Serialize(EditorAnimation& en, Stream* output_stream)
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
 
-    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, std::string(en.skeleton_name->value) + ".skel");
+    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, en.skeleton_asset->path);
     if (!es)
         throw std::runtime_error("invalid skeleton");
 
@@ -387,8 +381,11 @@ int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
     best_dist = F32_MAX;
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {
+        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Inverse(en.animator.bones[bone_index]), world_pos)))
+            continue;
+
         Vec2 b0 = TransformPoint(en.animator.bones[bone_index]);
-        Vec2 b1 = TransformPoint(en.animator.bones[GetEditorBone(en, bone_index).parent_index]);
+        Vec2 b1 = TransformPoint(en.animator.bones[bone_index], {1, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
         if (dist < size && dist < best_dist)
         {
@@ -398,6 +395,13 @@ int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
     }
 
     return best_bone_index;
+}
+
+void EditorAnimationClone(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone)
+{
+    clone.anim = (EditorAnimation*)Alloc(allocator, sizeof(EditorAnimation));
+    memcpy(clone.anim, ea.anim, sizeof(EditorAnimation));
+    clone.vtable = ea.vtable;
 }
 
 EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
@@ -411,6 +415,9 @@ EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
     ea->vtable = {
         .post_load = PostLoadEditorAnimation,
         .draw = DrawEditorAnimation,
+        .clone = EditorAnimationClone,
+        .init_editor = InitAnimationEditor,
+        .shutdown_editor = ShutdownAnimationEditor
     };
     return ea;
 }

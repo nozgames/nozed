@@ -95,3 +95,15 @@ void DrawBone(const Vec2& a, const Vec2& b)
     DrawLine(aa, b);
     DrawLine(bb, b);
 }
+
+
+void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position)
+{
+    Vec2 p0 = TransformPoint(transform);
+    Vec2 p1 = TransformPoint(transform, Vec2 {1, 0});
+    Vec2 pp = TransformPoint(parent_transform);
+    DrawDashedLine(pp + position, p0 + position);
+    DrawVertex(p0 + position);
+    DrawVertex(p1 + position);
+    DrawBone(p0 + position, p1 + position);
+}

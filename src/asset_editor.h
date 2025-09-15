@@ -25,6 +25,9 @@ struct EditorAssetVtable
 {
     void (*post_load)(EditorAsset& ea);
     void (*draw)(EditorAsset& ea);
+    void (*clone)(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone);
+    void (*init_editor)(EditorAsset& ea);
+    void (*shutdown_editor)();
 };
 
 struct EditorAsset

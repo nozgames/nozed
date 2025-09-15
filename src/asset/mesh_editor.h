@@ -55,6 +55,7 @@ struct EditorMesh
 
 // @editor_mesh
 extern EditorMesh* CreateEditableMesh(Allocator* allocator);
+extern EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path, EditorMesh* em);
 extern bool HitTest(const EditorMesh& mesh, const Vec2& position, const Bounds2& hit_bounds);
 extern bool HitTestTriangle(const EditorMesh& em, const EditorFace& et, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
 extern int HitTestTriangle(const EditorMesh& mesh, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
