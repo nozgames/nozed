@@ -16,11 +16,11 @@ enum FileChangeType
 struct FileChangeEvent
 {
     std::filesystem::path path;
+    std::filesystem::path relative_path;
     FileChangeType type;
     uint64_t timestamp;
 };
 
-void InitFileWatcher(int poll_interval_ms);
-void ShutdownFileWatcher();
-bool WatchDirectory(const std::filesystem::path& directory);
-bool GetFileChangeEvent(FileChangeEvent* event);
+extern void InitFileWatcher(int poll_interval_ms, const char** dirs);
+extern void ShutdownFileWatcher();
+extern bool GetFileChangeEvent(FileChangeEvent* event);

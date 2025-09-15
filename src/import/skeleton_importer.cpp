@@ -25,7 +25,7 @@ static const char* g_skeleton_extensions[] = {
 static AssetImporterTraits g_skeleton_importer_traits = {
     .type_name = "Skeleton",
     .signature = ASSET_SIGNATURE_SKELETON,
-    .file_extensions = g_skeleton_extensions,
+    .ext = ".skel",
     .import_func = ImportSkeleton
 };
 

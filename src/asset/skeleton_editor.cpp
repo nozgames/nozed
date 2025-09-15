@@ -136,7 +136,11 @@ EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::
         if (ExpectIdentifier(tk, "b"))
             ParseBone(*es, tk);
         else
-            ThrowError("unknown identifier '%s' in skeleton", GetString(tk));
+        {
+            char error[1024];
+            GetString(tk, error, sizeof(error) - 1);
+            ThrowError("unknown identifier '%s' in skeleton", error);
+        }
     }
 
     UpdateTransforms(*es);

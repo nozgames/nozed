@@ -1132,7 +1132,6 @@ EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& pa
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
-    Token token={};
 
     EditorMesh* em = CreateEditableMesh(allocator);
 
@@ -1145,7 +1144,11 @@ EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& pa
             else if (ExpectIdentifier(tk, "f"))
                 ParseFace(*em, tk);
             else
-                ThrowError("invalid token '%s' in mesh", GetString(tk));
+            {
+                char error[1024];
+                GetString(tk, error, sizeof(error) - 1);
+                ThrowError("invalid token '%s' in mesh", error);
+            }
         }
     }
     catch (std::exception& e)

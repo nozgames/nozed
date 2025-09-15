@@ -50,32 +50,11 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
     WriteBytes(output_stream, i, sizeof(u16) * GetIndexCount(m));
 }
 
-bool CanImportMesh(const fs::path& source_path)
-{
-    Stream* stream = LoadStream(ALLOCATOR_DEFAULT, fs::path(source_path.string() + ".meta"));
-    if (!stream)
-        return true;
-    Props* props = Props::Load(stream);
-    if (!props)
-    {
-        Free(stream);
-        return true;
-    }
-
-    bool can_import = !props->GetBool("mesh", "skip_mesh", false);
-    Free(stream);
-    delete props;
-    return can_import;
-}
-
-static const char* g_mesh_extensions[] = { ".mesh", nullptr };
-
 static AssetImporterTraits g_mesh_importer_traits = {
     .type_name = "Mesh",
     .signature = ASSET_SIGNATURE_MESH,
-    .file_extensions = g_mesh_extensions,
-    .import_func = ImportMesh,
-    .can_import = CanImportMesh
+    .ext = ".mesh",
+    .import_func = ImportMesh
 };
 
 AssetImporterTraits* GetMeshImporterTraits()

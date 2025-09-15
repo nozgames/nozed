@@ -192,21 +192,6 @@ bool DoesShaderDependOn(const fs::path& source_path, const fs::path& dependency_
     }
 }
 
-static const char* g_shader_extensions[] = { ".glsl", nullptr };
-
-static AssetImporterTraits g_shader_importer_traits = {
-    .type_name = "Shader",
-    .signature = ASSET_SIGNATURE_SHADER,
-    .file_extensions = g_shader_extensions,
-    .import_func = ImportShader,
-    .does_depend_on = DoesShaderDependOn
-};
-
-AssetImporterTraits* GetShaderImporterTraits()
-{
-    return &g_shader_importer_traits;
-}
-
 static std::vector<u32> CompileGLSLToSPIRV(const std::string& source, glslang_stage_t stage, const std::string& filename)
 {
     // Initialize glslang if not already done
@@ -438,4 +423,17 @@ static std::string ProcessIncludes(const std::string& source, const fs::path& ba
     }
     
     return result;
+}
+
+static AssetImporterTraits g_shader_importer_traits = {
+    .type_name = "Shader",
+    .signature = ASSET_SIGNATURE_SHADER,
+    .ext = ".glsl",
+    .import_func = ImportShader,
+    .does_depend_on = DoesShaderDependOn
+};
+
+AssetImporterTraits* GetShaderImporterTraits()
+{
+    return &g_shader_importer_traits;
 }

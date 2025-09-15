@@ -63,7 +63,7 @@ bool GenerateAssetManifest(
     const std::vector<AssetImporterTraits*>& importers,
     Props* config)
 {
-    if (output_directory.empty() || manifest_output_path.empty())
+    if (output_directory.empty())
     {
         printf("ERROR: Invalid parameters for manifest generation\n");
         return false;

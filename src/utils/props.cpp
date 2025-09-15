@@ -194,13 +194,15 @@ Props* Props::Load(const char* content, size_t content_length)
     Init(tk, content);
     
     std::string group_name;
-    
+    char line_raw[4096];
+
     while (!IsEOF(tk))
     {
         if (!ExpectLine(tk))
             break;
 
-        std::string line_str = ::GetString(tk);
+        ::GetString(tk, line_raw, sizeof(line_raw));
+        std::string line_str = line_raw;
 
         if (line_str.size() == 0)
             continue;
@@ -217,19 +219,18 @@ Props* Props::Load(const char* content, size_t content_length)
         if (!ExpectIdentifier(tk_line))
             continue;
 
-        std::string key = ::GetString(tk_line);
+        ::GetString(tk_line, line_raw, sizeof(line_raw));
+        std::string key = line_raw;
         if (key.size() == 0)
             continue;
-
-        if (key == "position")
-            key = "position";
 
         // value
         std::string value;
         if (ExpectDelimiter(tk_line, '='))
         {
             ExpectLine(tk_line);
-            value = ::GetString(tk_line);
+            ::GetString(tk_line, line_raw, sizeof(line_raw));
+            value = line_raw;
         }
 
         props->SetString(group_name.c_str(), key.c_str(), value.c_str());

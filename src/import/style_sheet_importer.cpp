@@ -250,15 +250,10 @@ void ImportStyleSheet(const fs::path& source_path, Stream* output_stream, Props*
     WriteStyleSheetData(output_stream, styles);
 }
 
-static const char* g_stylesheet_extensions[] = {
-    ".styles",
-    nullptr
-};
-
 static AssetImporterTraits g_stylesheet_importer_traits = {
     .type_name = "StyleSheet",
     .signature = ASSET_SIGNATURE_STYLE_SHEET,
-    .file_extensions = g_stylesheet_extensions,
+    .ext = ".styles",
     .import_func = ImportStyleSheet
 };
 

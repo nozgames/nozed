@@ -41,15 +41,10 @@ static bool DoesAnimationDependOn(const std::filesystem::path& path, const std::
     return result;
 }
 
-static const char* g_animation_extensions[] = {
-    ".anim",
-    nullptr
-};
-
 static AssetImporterTraits g_animation_importer_traits = {
     .type_name = "Animation",
     .signature = ASSET_SIGNATURE_ANIMATION,
-    .file_extensions = g_animation_extensions,
+    .ext = ".anim",
     .import_func = ImportAnimation,
     .does_depend_on = DoesAnimationDependOn,
 };

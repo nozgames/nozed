@@ -5,18 +5,20 @@
 
 #include "file_helpers.h"
 
-std::vector<std::filesystem::path> GetFilesInDirectory(const std::filesystem::path& directory)
+namespace fs = std::filesystem;
+
+std::vector<fs::path> GetFilesInDirectory(const fs::path& directory)
 {
-    std::vector<std::filesystem::path> results;
+    std::vector<fs::path> results;
     results.reserve(128);
 
     try
     {
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(directory))
+        for (const auto& entry : fs::recursive_directory_iterator(directory))
             if (entry.is_regular_file())
                 results.push_back(entry.path().string());
     }
-    catch (const std::filesystem::filesystem_error&)
+    catch (const fs::filesystem_error&)
     {
     }
 
@@ -34,7 +36,7 @@ static AssetSignature GetAssetSignatureInternal(Stream* stream)
     return header.signature;
 }
 
-AssetSignature GetAssetSignature(const std::filesystem::path& path)
+AssetSignature GetAssetSignature(const fs::path& path)
 {
     Stream* stream = LoadStream(ALLOCATOR_DEFAULT, path);
     AssetSignature result = GetAssetSignatureInternal(stream);
@@ -42,7 +44,7 @@ AssetSignature GetAssetSignature(const std::filesystem::path& path)
     return result;
 }
 
-std::filesystem::path FixSlashes(const std::filesystem::path& path)
+fs::path FixSlashes(const fs::path& path)
 {
     std::string result = path.string();
     for (char& c : result)
@@ -51,7 +53,7 @@ std::filesystem::path FixSlashes(const std::filesystem::path& path)
     return result;
 }
 
-std::string ReadAllText(Allocator* allocator, const std::filesystem::path& path)
+std::string ReadAllText(Allocator* allocator, const fs::path& path)
 {
     std::string result;
 
@@ -69,4 +71,17 @@ std::string ReadAllText(Allocator* allocator, const std::filesystem::path& path)
     }
 
     return result;
+}
+
+int CompareModifiedTime(const fs::path& a, const fs::path& b)
+{
+    auto a_time = fs::exists(a) ? fs::last_write_time(a) : fs::file_time_type {};
+    auto b_time = fs::exists(b) ? fs::last_write_time(b) : fs::file_time_type {};
+    if (a_time > b_time)
+        return 1;
+
+    if (a_time == b_time)
+        return 0;
+
+    return -1;
 }

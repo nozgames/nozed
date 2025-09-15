@@ -127,15 +127,10 @@ void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* co
     );
 }
 
-static const char* g_texture_extensions[] = {
-    ".png",
-    nullptr
-};
-
 static AssetImporterTraits g_texture_importer_traits = {
     .type_name = "Texture",
     .signature = ASSET_SIGNATURE_TEXTURE,
-    .file_extensions = g_texture_extensions,
+    .ext = ".png",
     .import_func = ImportTexture
 };
 

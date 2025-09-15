@@ -9,25 +9,10 @@ static EditorBone& GetEditorBone(EditorAnimation& en, int bone_index) { return e
 
 static void UpdateTransforms(EditorAnimation& en)
 {
-    // assert(animator.skeleton);
-    // assert(animator.animation);
-    // assert(GetBoneCount(animator.skeleton) == GetBoneCount(animator.animation));
-    //
-    // f32 float_frame = animator.time * ANIMATION_FRAME_RATE;
-    // assert(float_frame < anim_impl->frame_count);
-    // i32 frame1 = static_cast<i32>(Floor(float_frame));
-    // i32 frame2 = (frame1 + 1) % anim_impl->frame_count;
-    // f32 t = float_frame - static_cast<f32>(frame1);
-    // assert(t >= 0.0f && t < 1.0f);
-    // BoneTransform* frames = anim_impl->frames;
-    //
-
     EditorSkeleton& es = GetEditorSkeleton(en);
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         EditorBone& eb = es.bones[bone_index];
-        //Transform& t = GetFrameTransform(en, bone_index, en.current_frame);
-        //en.animator.bones[bone_index] = TRS(eb.transform.position + t.position, eb.transform.rotation + t.rotation, t.scale);
         en.animator.bones[bone_index] = TRS(eb.transform.position, eb.transform.rotation, eb.transform.scale);
     }
 
@@ -53,7 +38,7 @@ static void DrawEditorAnimation(EditorAsset& ea)
         if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
-        BindTransform(TRS(ea.position, 0, VEC2_ONE) * GetLocalToWorld(GetFrameTransform(en, es.skinned_meshes[i].bone_index, en.current_frame)));
+        BindTransform(TRS(ea.position, 0, VEC2_ONE) * en.animator.bones[es.skinned_meshes[i].bone_index]);
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
@@ -200,7 +185,11 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
             if (ExpectIdentifier(tk, "f"))
                 ParseFrame(*en, tk, bone_map);
             else
-                ThrowError("invalid token '%s' in animation", GetString(tk));
+            {
+                char error[1024];
+                GetString(tk, error, sizeof(error) - 1);
+                ThrowError("invalid token '%s' in animation", error);
+            }
         }
     }
     catch (std::exception&)

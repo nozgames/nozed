@@ -121,12 +121,6 @@ char* GetString(const Token& token, char* dst, u32 dst_size)
     return dst;
 }
 
-char* GetString(const Tokenizer& tk)
-{
-    static char buffer[1024];
-    return GetString(tk, buffer, sizeof(buffer));
-}
-
 static bool Equals(const Token& token, const char* value, bool ignore_case=false)
 {
     return Equals(token.raw, value, token.length, ignore_case);

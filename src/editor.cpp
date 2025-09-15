@@ -200,11 +200,13 @@ int main(int argc, const char* argv[])
     InitEditor();
     InitLog(HandleLog);
 
+    InitImporter();
+    InitWindow();
     InitView();
     InitCommands();
     InitUserConfig();
-    InitImporter();
     InitEditorServer(g_config);
+
 
     while (UpdateApplication())
     {

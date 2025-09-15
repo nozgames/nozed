@@ -179,15 +179,10 @@ void ImportSound(const fs::path& source_path, Stream* output_stream, Props* conf
     WriteBytes(output_stream, audio_data.data(), data_chunk.sub_chunk2_size);
 }
 
-static const char* g_sound_extensions[] = {
-    ".wav",
-    nullptr
-};
-
 static AssetImporterTraits g_sound_importer_traits = {
     .type_name = "Sound",
     .signature = ASSET_SIGNATURE_SOUND,
-    .file_extensions = g_sound_extensions,
+    .ext = ".wav",
     .import_func = ImportSound
 };
 
