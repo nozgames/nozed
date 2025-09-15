@@ -42,22 +42,10 @@ struct SkeletonView
     SkeletonViewBone bones[MAX_BONES];
     Vec2 selection_center;
     Vec2 selection_center_world;
+    Shortcut* shortcuts;
 };
 
 static SkeletonView g_skeleton_view = {};
-
-static void HandleMoveCommand();
-static void HandleParentCommand();
-static void HandleUnparentCommand();
-static void HandleExtrudeCommand();
-
-static Shortcut g_skeleton_editor_shortcuts[] = {
-    { KEY_G, false, false, false, HandleMoveCommand },
-    { KEY_P, false, false, false, HandleParentCommand },
-    { KEY_P, false, true, false, HandleUnparentCommand },
-    { KEY_E, false, false, false, HandleExtrudeCommand },
-    { INPUT_CODE_NONE }
-};
 
 static EditorAsset& GetAsset() { return *g_skeleton_view.asset; }
 static EditorSkeleton& GetSkeleton() { return *g_skeleton_view.skeleton; }
@@ -213,27 +201,27 @@ static void UpdateDefaultState()
     }
 }
 
-#if 0
 static void UpdateRotateState()
 {
+    EditorSkeleton& es = *g_skeleton_view.skeleton;
+
     Vec2 dir_start = Normalize(g_skeleton_view.command_world_position - g_skeleton_view.selection_center_world);
     Vec2 dir_current = Normalize(g_view.mouse_world_position - g_skeleton_view.selection_center_world);
     float angle = SignedAngleDelta(dir_start, dir_current);
     if (fabsf(angle) < F32_EPSILON)
         return;
 
-    EditorSkeleton& es = *g_skeleton_view.skeleton;
-    for (int i=0; i<es.bone_count; i++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
-        EditorBone& eb = es.bones[i];
-        if (!eb.selected)
+        if (!IsBoneSelected(bone_index))
             continue;
+
+        SkeletonViewBone& vb = g_skeleton_view.bones[bone_index];
+        es.bones[bone_index].transform.rotation = vb.transform.rotation - angle;
     }
 
     UpdateTransforms(es);
-    UpdateSelectionCenter();
 }
-#endif
 
 static void UpdateMoveState()
 {
@@ -300,7 +288,7 @@ static void UpdateUnparentState()
 
 void UpdateSkeletonEditor()
 {
-    CheckShortcuts(g_skeleton_editor_shortcuts);
+    CheckShortcuts(g_skeleton_view.shortcuts);
 
     UpdateAssetNames();
 
@@ -329,11 +317,15 @@ void UpdateSkeletonEditor()
     }
 }
 
-#if 0
 static void DrawRotateState()
 {
+    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
+    DrawVertex(g_skeleton_view.selection_center_world, CENTER_SIZE * 0.75f);
+    BindColor(COLOR_CENTER);
+    DrawDashedLine(g_view.mouse_world_position, g_skeleton_view.selection_center_world);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
-#endif
 
 static void DrawSkeleton()
 {
@@ -344,15 +336,10 @@ static void DrawSkeleton()
     BindColor(COLOR_WHITE);
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {
-        EditorBone& bone = es.bones[bone_index];
         if (!IsBoneSelected(bone_index))
             continue;
-        Vec2 bone_position = TransformPoint(bone.local_to_world);
-        Vec2 parent_position = TransformPoint(es.bones[bone.parent_index >= 0 ? bone.parent_index : bone_index].local_to_world);
-        Vec2 dir = Normalize(bone_position - parent_position);
-        float len = Length(bone_position - parent_position);
-        BindTransform(TRS(parent_position, dir, VEC2_ONE * len));
-        DrawBone(parent_position + ea.position, bone_position + ea.position);
+
+        DrawEditorSkeletonBone(es, bone_index, ea.position);
     }
 
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
@@ -386,7 +373,6 @@ static void HandleMoveCommand()
     SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
-#if 0
 static void HandleRotate()
 {
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
@@ -399,7 +385,6 @@ static void HandleRotate()
     SaveState();
     SetState(SKELETON_EDITOR_STATE_ROTATE, UpdateRotateState, DrawRotateState);
 }
-#endif
 
 static void HandleParentCommand()
 {
@@ -481,6 +466,19 @@ void InitSkeletonEditor(EditorAsset& ea)
     g_skeleton_view.skeleton = ea.skeleton;
     g_view.vtable = &g_skeleton_view_vtable;
 
-    EnableShortcuts(g_skeleton_editor_shortcuts);
+    if (!g_skeleton_view.shortcuts)
+    {
+        static Shortcut shortcuts[] = {
+            { KEY_G, false, false, false, HandleMoveCommand },
+            { KEY_P, false, false, false, HandleParentCommand },
+            { KEY_P, false, true, false, HandleUnparentCommand },
+            { KEY_E, false, false, false, HandleExtrudeCommand },
+            { KEY_R, false, false, false, HandleRotate },
+            { INPUT_CODE_NONE }
+        };
+
+        g_skeleton_view.shortcuts = shortcuts;
+        EnableShortcuts(g_skeleton_view.shortcuts);
+    }
 }
 

@@ -8,6 +8,18 @@
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 
+void DrawEditorSkeletonBone(EditorSkeleton& es, int bone_index, const Vec2& position)
+{
+    EditorBone& eb = es.bones[bone_index];
+    Vec2 p0 = TransformPoint(eb.local_to_world);
+    Vec2 p1 = TransformPoint(eb.local_to_world, Vec2 {1, 0});
+    Vec2 pp = TransformPoint(es.bones[eb.parent_index].local_to_world);
+    DrawDashedLine(pp + position, p0 + position);
+    DrawVertex(p0 + position);
+    DrawVertex(p1 + position);
+    DrawBone(p0 + position, p1 + position);
+}
+
 void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
 {
     EditorSkeleton& es = *ea.skeleton;
@@ -23,22 +35,14 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
         if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
-        BindTransform(TRS(ea.position, 0, VEC2_ONE) * bone.local_to_world);
+        BindTransform(Translate(ea.position) * bone.local_to_world);
         DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
     }
 
     BindMaterial(g_view.vertex_material);
     BindColor(selected ? COLOR_SELECTED : COLOR_BLACK);
-    for (int i=1; i<es.bone_count; i++)
-    {
-        EditorBone& bone = es.bones[i];
-        Vec2 bone_position = TransformPoint(bone.local_to_world);
-        Vec2 parent_position = TransformPoint(es.bones[bone.parent_index >= 0 ? bone.parent_index : i].local_to_world);
-        Vec2 dir = Normalize(bone_position - parent_position);
-        float len = Length(bone_position - parent_position);
-        BindTransform(TRS(parent_position, dir, VEC2_ONE * len));
-        DrawBone(parent_position + position, bone_position + position);
-    }
+    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+        DrawEditorSkeletonBone(es, bone_index, position);
 
     DrawOrigin(position);
 }
