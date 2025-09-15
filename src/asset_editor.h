@@ -28,6 +28,7 @@ struct EditorAssetVtable
     void (*clone)(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone);
     void (*init_editor)(EditorAsset& ea);
     void (*shutdown_editor)();
+    void (*save_metadata)(const EditorAsset& ea, Props* meta);
 };
 
 struct EditorAsset
@@ -44,11 +45,11 @@ struct EditorAsset
     };
     Vec2 position;
     Vec2 saved_position;
-    bool dirty;
     bool selected;
     VfxHandle vfx_handle;
     bool editing;
     bool modified;
+    bool meta_modified;
     EditorAssetVtable vtable;
 };
 

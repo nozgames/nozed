@@ -26,6 +26,7 @@ struct Editor
     const char* exe;
     char asset_paths[MAX_ASSET_PATHS][4096];
     int asset_path_count;
+    std::filesystem::file_time_type config_timestamp;
 };
 
 extern Editor g_editor;

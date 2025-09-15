@@ -27,6 +27,7 @@ struct EditorAnimation
 
 extern EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path);
 extern EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path);
+extern EditorAsset* NewEditorAnimation(const std::filesystem::path& path);
 extern void PostLoadEditorAssets(EditorAnimation& en);
 extern void UpdateBounds(EditorAnimation& en);
 extern void Serialize(EditorAnimation& en, Stream* output_stream);

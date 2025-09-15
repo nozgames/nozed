@@ -78,15 +78,15 @@ struct LoadedAssets
 
 struct LoadedNames
 {
-    const Name* asset_name_container;
-    const Name* asset_name;
+    const Name* color_picker_image;
     const Name* command_palette;
     const Name* command_input;
     const Name* command_colon;
     const Name* command_text;
     const Name* command_text_cursor;
     const Name* command_text_preview;
-    const Name* color_picker_image;
+    const Name* asset_name_container;
+    const Name* asset_name;
     const Name* notification_container;
     const Name* notification;
     const Name* notification_text;
@@ -100,6 +100,7 @@ struct LoadedNames
     const Name* s;
     const Name* mesh;
     const Name* skeleton;
+    const Name* animation;
 };
 
 extern LoadedAssets g_assets;

@@ -689,7 +689,6 @@ void InitView()
     g_view.zoom = ZOOM_DEFAULT;
     g_view.ui_scale = 1.0f;
     g_view.dpi = 72.0f;
-    g_view.selected_vertex = -1;
     g_view.edit_asset_index = -1;
     g_view.light_dir = { -1, 0 };
     UpdateCamera();

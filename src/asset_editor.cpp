@@ -39,21 +39,16 @@ static void LoadAssetMetadata(EditorAsset& ea, const std::filesystem::path& path
     }
 }
 
-static void SaveAssetMetadata(const EditorAsset& asset)
+static void SaveAssetMetadata(const EditorAsset& ea)
 {
-    std::filesystem::path meta_path = std::filesystem::path(std::string(asset.path) + ".meta");
+    std::filesystem::path meta_path = std::filesystem::path(std::string(ea.path) + ".meta");
     Props* props = LoadProps(meta_path);
     if (!props)
         props = new Props{};
-    props->SetVec2("editor", "position", asset.position);
+    props->SetVec2("editor", "position", ea.position);
 
-
-    switch (asset.type)
-    {
-    case EDITOR_ASSET_TYPE_SKELETON:
-        SaveAssetMetadata(*asset.skeleton, props);
-        break;
-    }
+    if (ea.vtable.save_metadata)
+        ea.vtable.save_metadata(ea, props);
 
     SaveProps(props, meta_path);
 }
@@ -63,17 +58,19 @@ static void SaveAssetMetadata()
     for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& asset = *g_view.assets[i];
-        if (!asset.modified)
+        if (!asset.modified && !asset.meta_modified)
             continue;
 
         SaveAssetMetadata(asset);
+
+        asset.meta_modified= false;
     }
 }
 
 void MoveTo(EditorAsset& asset, const Vec2& position)
 {
     asset.position = position;
-    asset.dirty = true;
+    asset.meta_modified = true;
 }
 
 void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color)

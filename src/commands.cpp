@@ -69,6 +69,8 @@ static void HandleNew(const Command& command)
         NewEditorMesh(asset_name->value);
     else if (type == g_names.skeleton)
         NewEditorSkeleton(asset_name->value);
+    else if (type == g_names.animation)
+        NewEditorAnimation(asset_name->value);
 }
 
 // @rename

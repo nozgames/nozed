@@ -50,15 +50,15 @@ bool LoadAssets(Allocator* allocator)
     g_assets.paths.ui_mesh_editor = GetName("ui/mesh_editor");
     g_assets.paths.ui_notifications = GetName("ui/notifications");
     g_assets.paths.ui_view = GetName("ui/view");
-    g_names.asset_name_container = GetName("asset_name_container");
-    g_names.asset_name = GetName("asset_name");
+    g_names.color_picker_image = GetName("color_picker_image");
     g_names.command_palette = GetName("command_palette");
     g_names.command_input = GetName("command_input");
     g_names.command_colon = GetName("command_colon");
     g_names.command_text = GetName("command_text");
     g_names.command_text_cursor = GetName("command_text_cursor");
     g_names.command_text_preview = GetName("command_text_preview");
-    g_names.color_picker_image = GetName("color_picker_image");
+    g_names.asset_name_container = GetName("asset_name_container");
+    g_names.asset_name = GetName("asset_name");
     g_names.notification_container = GetName("notification_container");
     g_names.notification = GetName("notification");
     g_names.notification_text = GetName("notification_text");
@@ -72,6 +72,7 @@ bool LoadAssets(Allocator* allocator)
     g_names.s = GetName("s");
     g_names.mesh = GetName("mesh");
     g_names.skeleton = GetName("skeleton");
+    g_names.animation = GetName("animation");
 
 
     NOZ_LOAD_FONT(allocator, g_assets.paths.fonts_seguisb, g_assets.fonts.seguisb);

@@ -224,22 +224,7 @@ void UpdateTransforms(EditorSkeleton& es)
     for (int i=1; i<es.bone_count; i++)
         bounds = Union(bounds, TransformPoint(es.bones[i].local_to_world));
 
-    es.bounds = Expand(bounds, 0.5f);
-}
-
-void SaveAssetMetadata(const EditorSkeleton& es, Props* meta)
-{
-    meta->ClearGroup("skin");
-
-    for (int i=0; i<es.skinned_mesh_count; i++)
-    {
-        const Name* mesh_name = es.skinned_meshes[i].asset_name;
-        std::string value = meta->GetString("skin", mesh_name->value, "");
-        if (!value.empty())
-            value += ", ";
-        value += std::to_string(es.skinned_meshes[i].bone_index);
-        meta->SetString("skin", mesh_name->value, value.c_str());
-    }
+    es.bounds = Expand(bounds, 1);
 }
 
 void LoadAssetMetadata(EditorSkeleton& es, Props* meta)
@@ -460,6 +445,22 @@ Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton& es, const Name* name)
     return skeleton;
 }
 
+void SkeletonEditorSaveMetadata(const EditorAsset& ea, Props* meta)
+{
+    EditorSkeleton& es = *ea.skeleton;
+    meta->ClearGroup("skin");
+
+    for (int i=0; i<es.skinned_mesh_count; i++)
+    {
+        const Name* mesh_name = es.skinned_meshes[i].asset_name;
+        std::string value = meta->GetString("skin", mesh_name->value, "");
+        if (!value.empty())
+            value += ", ";
+        value += std::to_string(es.skinned_meshes[i].bone_index);
+        meta->SetString("skin", mesh_name->value, value.c_str());
+    }
+}
+
 EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton)
 {
     if (!skeleton)
@@ -469,7 +470,8 @@ EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, Editor
     ea->skeleton = skeleton;
     ea->vtable = {
         .post_load = PostLoadEditorSkeleton,
-        .init_editor = InitSkeletonEditor
+        .init_editor = InitSkeletonEditor,
+        .save_metadata = SkeletonEditorSaveMetadata
     };
     return ea;
 }

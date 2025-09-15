@@ -86,8 +86,9 @@ static void QueueImport(const fs::path& source_path, const fs::path& assets_path
     bool target_exists = fs::exists(target_path);
     bool meta_changed = !target_exists || (fs::exists(source_meta_path) && CompareModifiedTime(source_meta_path, target_path) > 0);
     bool source_changed = !target_exists || CompareModifiedTime(source_path, target_path) > 0;
+    bool config_changed = CompareModifiedTime(g_editor.config_timestamp, fs::last_write_time(source_path)) > 0;
 
-    if (!force && !meta_changed && !source_changed)
+    if (!force && !meta_changed && !source_changed && !config_changed)
         return;
 
     fs::path source_name = source_relative_path;

@@ -49,7 +49,6 @@ struct View
     float dpi;
     InputSet* input;
     InputSet* command_input;
-    int selected_vertex;
     int edit_asset_index;
     bool clear_selection_on_release;
     Vec2 pan_position_camera;

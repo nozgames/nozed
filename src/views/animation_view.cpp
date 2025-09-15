@@ -425,7 +425,7 @@ static void HandleResetRotate()
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    RecordUndo(*g_animation_view.asset);
+    RecordUndo(GetEditorAsset());
     EditorAnimation& en = GetEditorAnimation();
     EditorSkeleton& es = GetEditorSkeleton();
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
@@ -435,6 +435,8 @@ static void HandleResetRotate()
 
         SetRotation(GetFrameTransform(en, bone_index, en.current_frame), 0);
     }
+
+    UpdateTransforms(en);
 }
 
 static void HandlePlayCommand()
@@ -466,7 +468,7 @@ static void HandleResetMoveCommand()
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    RecordUndo(*g_animation_view.asset);
+    RecordUndo(GetEditorAsset());
 
     EditorAnimation& en = GetEditorAnimation();
     EditorSkeleton& es = GetEditorSkeleton();
@@ -477,6 +479,8 @@ static void HandleResetMoveCommand()
 
         SetPosition(GetFrameTransform(en, bone_index, en.current_frame), VEC2_ZERO);
     }
+
+    UpdateTransforms(en);
 }
 
 static void HandleSelectAll()

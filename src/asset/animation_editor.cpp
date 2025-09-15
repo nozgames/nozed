@@ -190,7 +190,7 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
         {
             if (ExpectIdentifier(tk, "s"))
                 ParseSkeleton(*en, tk, bone_map);
-            if (ExpectIdentifier(tk, "f"))
+            else if (ExpectIdentifier(tk, "f"))
                 ParseFrame(*en, tk, bone_map);
             else
             {
@@ -204,6 +204,19 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     {
         Free(en);
         return nullptr;
+    }
+
+    if (en->frame_count == 0)
+    {
+        for (int i=0; i<MAX_BONES; i++)
+            en->frames[i] = {
+                .position = VEC2_ZERO,
+                .scale = VEC2_ONE,
+                .rotation = 0,
+                .local_to_world = MAT3_IDENTITY,
+                .world_to_local = MAT3_IDENTITY
+            };
+        en->frame_count = 1;
     }
 
     en->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
@@ -395,6 +408,42 @@ int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
     }
 
     return best_bone_index;
+}
+
+EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
+{
+    (void)path;
+
+    if (g_view.selected_asset_count != 1)
+    {
+        LogError("no skeleton selected");
+        return nullptr;
+    }
+
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / path : path;
+    full_path += ".anim";
+
+    EditorAsset* skeleton_asset = GetEditorAsset(GetFirstSelectedAsset());
+    if (!skeleton_asset || skeleton_asset->type != EDITOR_ASSET_TYPE_SKELETON)
+    {
+        LogError("no skeleton selected");
+        return nullptr;
+    }
+
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+    WriteCSTR(stream, "s \"%s\"\n", skeleton_asset->name->value);
+    SaveStream(stream, full_path);
+    Free(stream);
+
+    EditorAsset* ea = LoadEditorAnimationAsset(full_path);
+    if (!ea)
+        return nullptr;
+
+    PostLoadEditorAnimation(*ea);
+
+    g_view.assets[g_view.asset_count++] = ea;
+
+    return ea;
 }
 
 void EditorAnimationClone(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone)
