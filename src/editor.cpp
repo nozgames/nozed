@@ -12,8 +12,9 @@ extern void UpdateEditorServer();
 extern void ShutdownEditorServer();
 extern void HandleCommand(const std::string& str);
 
-void InitImporter();
-void ShutdownImporter();
+extern void InitImporter();
+extern void ShutdownImporter();
+extern void UpdateImporter();
 
 Editor g_editor = {};
 Props* g_config = nullptr;
@@ -191,6 +192,7 @@ int main(int argc, const char* argv[])
 
     ApplicationTraits traits = {};
     Init(traits);
+    traits.title = "NoZ Editor";
     traits.assets_path = "build/assets";
     traits.load_assets = LoadAssets;
     traits.unload_assets = UnloadAssets;
@@ -210,6 +212,7 @@ int main(int argc, const char* argv[])
 
     while (UpdateApplication())
     {
+        UpdateImporter();
         UpdateEditor();
         UpdateView();
     }

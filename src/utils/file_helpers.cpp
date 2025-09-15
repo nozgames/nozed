@@ -73,6 +73,17 @@ std::string ReadAllText(Allocator* allocator, const fs::path& path)
     return result;
 }
 
+int CompareModifiedTime(const fs::file_time_type& a, const fs::file_time_type& b)
+{
+    if (a > b)
+        return 1;
+
+    if (a == b)
+        return 0;
+
+    return -1;
+}
+
 int CompareModifiedTime(const fs::path& a, const fs::path& b)
 {
     auto a_time = fs::exists(a) ? fs::last_write_time(a) : fs::file_time_type {};

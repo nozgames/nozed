@@ -55,21 +55,21 @@ bool LoadAssets(Allocator* allocator)
     g_names.command_colon = GetName("command_colon");
     g_names.command_text = GetName("command_text");
     g_names.command_text_cursor = GetName("command_text_cursor");
+    g_names.command_text_preview = GetName("command_text_preview");
     g_names.color_picker_image = GetName("color_picker_image");
     g_names.notification_container = GetName("notification_container");
     g_names.notification = GetName("notification");
     g_names.notification_text = GetName("notification_text");
-    g_names.asset_name = GetName("asset_name");
     g_names.asset_name_container = GetName("asset_name_container");
+    g_names.asset_name = GetName("asset_name");
     g_names.r = GetName("r");
     g_names.rename = GetName("rename");
     g_names.save = GetName("save");
     g_names.e = GetName("e");
-    g_names._new = GetName("new");
-    g_names.n = GetName("n");
     g_names.edit = GetName("edit");
+    g_names.n = GetName("n");
+    g_names._new = GetName("new");
     g_names.s = GetName("s");
-    g_names.command_text_preview = GetName("command_text_preview");
     g_names.mesh = GetName("mesh");
     g_names.skeleton = GetName("skeleton");
 

@@ -63,7 +63,7 @@ set(SOURCE_FILES
 )
 
 
-add_executable(nozed ${SOURCE_FILES})
+add_executable(nozed ${SOURCE_FILES} res/windows/nozed.rc)
 
 target_link_libraries(nozed PRIVATE
     noz
@@ -91,6 +91,7 @@ target_precompile_headers(nozed PUBLIC src/pch.h)
 target_include_directories(nozed PRIVATE
     src
     external
+    res/windows
     ${CMAKE_CURRENT_SOURCE_DIR}/noz/external
     ${CMAKE_CURRENT_SOURCE_DIR}/external/glslang/include
     ${CMAKE_CURRENT_SOURCE_DIR}/external/enet/include

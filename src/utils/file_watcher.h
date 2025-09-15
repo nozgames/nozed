@@ -17,8 +17,8 @@ struct FileChangeEvent
 {
     std::filesystem::path path;
     std::filesystem::path relative_path;
+    std::filesystem::path watch_path;
     FileChangeType type;
-    uint64_t timestamp;
 };
 
 extern void InitFileWatcher(int poll_interval_ms, const char** dirs);
