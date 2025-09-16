@@ -44,13 +44,12 @@ struct EditorMesh
     EditorVertex vertices[MAX_VERTICES];
     EditorEdge edges[MAX_EDGES];
     EditorFace faces[MAX_TRIANGLES];
-    Mesh* mesh;
     int vertex_count;
     int edge_count;
     int face_count;
-    bool dirty;
     Bounds2 bounds;
     int selected_vertex_count;
+    Mesh* mesh;
 };
 
 // @editor_mesh
@@ -78,5 +77,3 @@ extern void ToggleSelection(EditorMesh& em, int vertex_index);
 extern void ClearSelection(EditorMesh& em);
 extern void SelectAll(EditorMesh& em);
 extern int RotateEdge(EditorMesh& em, int edge_index);
-extern void Copy(EditorMesh& dst, const EditorMesh& src);
-extern void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path);

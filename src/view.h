@@ -113,6 +113,7 @@ extern void InitUndo();
 extern void ShutdownUndo();
 extern void HandleCommand(const Command& command);
 extern void RecordUndo(EditorAsset& ea);
+extern void RecordUndo();
 extern void BeginUndoGroup();
 extern void EndUndoGroup();
 extern bool Undo();

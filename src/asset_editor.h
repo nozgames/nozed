@@ -26,15 +26,17 @@ struct EditorAssetVtable
     Bounds2 (*bounds)(EditorAsset& ea);
     void (*post_load)(EditorAsset& ea);
     void (*draw)(EditorAsset& ea);
-    void (*clone)(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone);
-    void (*view_init)(EditorAsset& ea);
+    void (*view_init)();
     void (*view_update)();
     void (*view_draw)();
     Bounds2 (*view_bounds)();
     void (*view_shutdown)();
+    void (*load_metadata)(EditorAsset& ea, Props* meta);
     void (*save_metadata)(const EditorAsset& ea, Props* meta);
     bool (*overlap_point)(EditorAsset& ea, const Vec2& position, const Vec2& hit_pos);
     bool (*overlap_bounds)(EditorAsset& ea, const Bounds2& hit_bounds);
+    void (*save)(EditorAsset& ea, const std::filesystem::path& path);
+    void (*clone)(EditorAsset& ea);
 };
 
 struct EditorAsset
@@ -45,15 +47,14 @@ struct EditorAsset
     char path[1024];
     union
     {
-        EditorMesh* mesh;
-        EditorVfx* vfx;
-        EditorSkeleton* skeleton;
-        EditorAnimation* anim;
+        EditorMesh mesh;
+        EditorVfx vfx;
+        EditorSkeleton skeleton;
+        EditorAnimation animation;
     };
     Vec2 position;
     Vec2 saved_position;
     bool selected;
-    VfxHandle vfx_handle;
     bool editing;
     bool modified;
     bool meta_modified;
@@ -61,11 +62,13 @@ struct EditorAsset
 };
 
 extern void HotloadEditorAsset(const Name* name);
+extern void MarkModified();
 extern void MarkModified(EditorAsset& ea);
-extern EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type);
+extern EditorAsset* CreateEditorAsset(Allocator* allocator, const std::filesystem::path& path, EditorAssetType type);
 extern std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext);
 extern EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path);
 extern EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path);
+extern EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea);
 extern void LoadEditorAssets();
 extern void SaveEditorAssets();
 extern bool OverlapPoint(EditorAsset& ea, const Vec2& overlap_point);
@@ -83,6 +86,4 @@ extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
 extern void AddAssetSelection(int asset_index);
 extern int FindEditorAssetByName(const Name* name);
-extern EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea);
-extern void Copy(EditorAsset& dst, const EditorAsset& src);
 extern EditorAsset* GetEditorAsset(i32 index);

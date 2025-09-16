@@ -5,6 +5,7 @@
 #pragma once
 
 struct EditorAsset;
+struct EditorSkeleton;
 
 struct EditorAnimationBone
 {
@@ -20,7 +21,7 @@ struct EditorAnimation
     EditorAnimationBone bones[MAX_BONES];
     Transform frames[MAX_BONES * MAX_ANIMATION_FRAMES];
     Bounds2 bounds;
-    EditorAsset* skeleton_asset;
+    int skeleton_asset_index;
     Animation* animation;
     Animator animator;
 };
@@ -30,9 +31,8 @@ extern EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path);
 extern EditorAsset* NewEditorAnimation(const std::filesystem::path& path);
 extern void PostLoadEditorAssets(EditorAnimation& en);
 extern void UpdateBounds(EditorAnimation& en);
-extern void Serialize(EditorAnimation& en, Stream* output_stream);
+extern void Serialize(EditorAnimation& en, Stream* output_stream, EditorSkeleton* es);
 extern Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* name);
-extern void SaveEditorAnimation(EditorAnimation& en, const std::filesystem::path& path);
 extern int InsertFrame(EditorAnimation& en, int frame_index);
 extern int DeleteFrame(EditorAnimation& en, int frame_index);
 extern Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_index);

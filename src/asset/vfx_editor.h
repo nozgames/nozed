@@ -22,6 +22,7 @@ struct EditorVfx
     EditorVfxEmitter emitters[MAX_EMITTERS_PER_VFX];
     int emitter_count;
     Vfx* vfx;
+    VfxHandle handle;
 };
 
 extern EditorAsset* CreateEditableVfxAsset(const std::filesystem::path& path, EditorVfx* evfx);

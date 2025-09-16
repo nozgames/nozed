@@ -42,7 +42,7 @@ struct MeshEditor
 
 static MeshEditor g_mesh_editor = {};
 
-inline EditorMesh& GetEditingMesh() { return *GetEditingAsset().mesh; }
+inline EditorMesh& GetEditingMesh() { return GetEditingAsset().mesh; }
 
 static void DrawVertices(bool selected)
 {
@@ -59,8 +59,7 @@ static void DrawVertices(bool selected)
 
 static void UpdateSelection()
 {
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = *ea.mesh;
+    EditorMesh& em = GetEditingMesh();
     Vec2 center = VEC2_ZERO;
     int count = 0;
     for (int i=0; i<em.vertex_count; i++)
@@ -97,11 +96,11 @@ static void RevertPositions()
 static void UpdateHeightState()
 {
     EditorAsset& ea = GetEditingAsset();
+    EditorMesh& em = GetEditingMesh();
     float delta = (g_view.mouse_position.y - g_mesh_editor.state_mouse.y) / (g_view.dpi * HEIGHT_SLIDER_SIZE);
 
     if (WasButtonPressed(g_view.input, KEY_ESCAPE))
     {
-        EditorMesh& em = *ea.mesh;
         for (i32 i=0; i<em.vertex_count; i++)
         {
             EditorVertex& ev = em.vertices[i];
@@ -131,7 +130,6 @@ static void UpdateHeightState()
     else if (WasButtonPressed(g_view.input, KEY_MINUS))
         g_mesh_editor.use_negative_fixed_value = true;
 
-    EditorMesh& em = *ea.mesh;
     for (i32 i=0; i<em.vertex_count; i++)
     {
         EditorVertex& ev = em.vertices[i];
@@ -164,7 +162,7 @@ static void UpdateScaleState(EditorAsset& ea)
         Length(g_view.mouse_world_position - g_mesh_editor.selection_drag_start) -
         Length(g_mesh_editor.world_drag_start - g_mesh_editor.selection_drag_start);
 
-    EditorMesh& em = *ea.mesh;
+    EditorMesh& em = GetEditingMesh();
     for (i32 i=0; i<em.vertex_count; i++)
     {
         EditorVertex& ev = em.vertices[i];
@@ -216,9 +214,10 @@ static void SetState(MeshEditorState state)
     g_mesh_editor.use_fixed_value = false;
     g_mesh_editor.use_negative_fixed_value = false;
 
-    for (int i=0; i<ea.mesh->vertex_count; i++)
+    EditorMesh& em = GetEditingMesh();
+    for (int i=0; i<em.vertex_count; i++)
     {
-        EditorVertex& ev = ea.mesh->vertices[i];
+        EditorVertex& ev = em.vertices[i];
         ev.saved_position = ev.position;
         ev.saved_height = ev.height;
     }
@@ -244,11 +243,8 @@ static void SetState(MeshEditorState state)
 
 static bool SelectVertex(EditorAsset& ea)
 {
-    EditorMesh& em = *ea.mesh;
-    int vertex_index = HitTestVertex(
-        em,
-        ScreenToWorld(g_view.camera, GetMousePosition()) - ea.position);
-
+    EditorMesh& em = GetEditingMesh();
+    int vertex_index = HitTestVertex(em, g_view.mouse_world_position - ea.position);
     if (vertex_index == -1)
         return false;
 
@@ -264,8 +260,8 @@ static bool SelectVertex(EditorAsset& ea)
 
 static bool SelectEdge(EditorAsset& ea)
 {
-    EditorMesh& em = *ea.mesh;
-    int edge_index = HitTestEdge(em, ScreenToWorld(g_view.camera, GetMousePosition()) - ea.position);
+    EditorMesh& em = GetEditingMesh();
+    int edge_index = HitTestEdge(em, g_view.mouse_world_position - ea.position);
     if (edge_index == -1)
         return false;
 
@@ -297,7 +293,7 @@ static bool SelectEdge(EditorAsset& ea)
 
 static bool SelectTriangle(EditorAsset& ea)
 {
-    EditorMesh& em = *ea.mesh;
+    EditorMesh& em = GetEditingMesh();
     int triangle_index = HitTestFace(
         em,
         ea.position,
@@ -342,7 +338,7 @@ static void AddVertexAtMouse()
         return;
 
     EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = *ea.mesh;
+    EditorMesh& em = GetEditingMesh();
     int new_vertex = AddVertex(em, g_view.mouse_world_position - ea.position);
     if (new_vertex == -1)
         return;
@@ -451,7 +447,7 @@ bool HandleColorPickerInput(const ElementInput& input)
     i32 row = (i32)(y * 16.0f);
 
     EditorAsset& ea = *(EditorAsset*)input.user_data;
-    SetSelectedTrianglesColor(*ea.mesh, { col, row });
+    SetSelectedTrianglesColor(GetEditingMesh(), { col, row });
     MarkModified(ea);
     return true;
 }
@@ -517,16 +513,16 @@ static void DrawScaleState()
 
 static void DrawHeightState()
 {
-    EditorAsset& ea = GetEditingAsset();
+    EditorMesh& em = GetEditingMesh();
     Vec2 h1 =
         ScreenToWorld(g_view.camera, {0, g_view.dpi * HEIGHT_SLIDER_SIZE}) -
         ScreenToWorld(g_view.camera, VEC2_ZERO);
 
     float total_height = 0.0f;
     int height_count = 0;
-    for (int i=0; i<ea.mesh->vertex_count; i++)
+    for (int i=0; i<em.vertex_count; i++)
     {
-        EditorVertex& ev = ea.mesh->vertices[i];
+        EditorVertex& ev = em.vertices[i];
         if (!ev.selected)
             continue;
 
@@ -667,12 +663,14 @@ static void HandleSelectAllCommand()
     SelectAll(GetEditingMesh());
 }
 
-void MeshViewInit(EditorAsset& ea)
+void MeshViewInit()
 {
+    EditorMesh& em = GetEditingMesh();
+
     g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
 
-    for (int i=0; i<ea.mesh->vertex_count; i++)
-        ea.mesh->vertices[i].selected = false;
+    for (int i=0; i<em.vertex_count; i++)
+        em.vertices[i].selected = false;
 
     if (!g_mesh_editor.color_material)
     {

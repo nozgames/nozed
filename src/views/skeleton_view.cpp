@@ -34,8 +34,6 @@ struct SkeletonView
     SkeletonEditorState state;
     void (*state_update)();
     void (*state_draw)();
-    EditorAsset* asset;
-    EditorSkeleton* skeleton;
     bool clear_selection_on_up;
     bool ignore_up;
     int selected_bone_count;
@@ -48,8 +46,7 @@ struct SkeletonView
 
 static SkeletonView g_skeleton_view = {};
 
-static EditorAsset& GetEditorAsset() { return *g_skeleton_view.asset; }
-static EditorSkeleton& GetEditorSkeleton() { return *g_skeleton_view.skeleton; }
+static EditorSkeleton& GetEditingSkeleton() { return GetEditingAsset().skeleton; }
 static bool IsBoneSelected(int bone_index) { return g_skeleton_view.bones[bone_index].selected; }
 static void SetBoneSelected(int bone_index, bool selected)
 {
@@ -61,7 +58,7 @@ static void SetBoneSelected(int bone_index, bool selected)
 
 static int GetFirstSelectedBoneIndex()
 {
-    EditorSkeleton& es = GetEditorSkeleton();
+    EditorSkeleton& es = GetEditingSkeleton();
     for (int i=0; i<es.bone_count; i++)
         if (IsBoneSelected(i))
             return i;
@@ -76,8 +73,8 @@ static void UpdateAssetNames()
     if (!IsAltDown(g_view.input))
         return;
 
-    EditorAsset& ea = GetEditorAsset();
-    EditorSkeleton& es = GetEditorSkeleton();
+    EditorAsset& ea = GetEditingAsset();
+    EditorSkeleton& es = GetEditingSkeleton();
     for (u16 i=0; i<es.bone_count; i++)
     {
         Vec2 p =
@@ -94,11 +91,14 @@ static void UpdateAssetNames()
 
 static void UpdateSelectionCenter()
 {
+    EditorAsset& ea = GetEditingAsset();
+    EditorSkeleton& es = GetEditingSkeleton();
+
     Vec2 center = VEC2_ZERO;
     float center_count = 0.0f;
-    for (int i=0; i<g_skeleton_view.skeleton->bone_count; i++)
+    for (int i=0; i<es.bone_count; i++)
     {
-        EditorBone& eb = g_skeleton_view.skeleton->bones[i];
+        EditorBone& eb = es.bones[i];
         if (!g_skeleton_view.bones[i].selected)
             continue;
         center += TransformPoint(eb.local_to_world);
@@ -109,14 +109,15 @@ static void UpdateSelectionCenter()
         center_count < F32_EPSILON
             ? center
             : center / center_count;
-    g_skeleton_view.selection_center_world = g_skeleton_view.selection_center + g_skeleton_view.asset->position;
+    g_skeleton_view.selection_center_world = g_skeleton_view.selection_center + ea.position;
 }
 
 static void SaveState()
 {
-    for (int i=1; i<g_skeleton_view.skeleton->bone_count; i++)
+    EditorSkeleton& es = GetEditingSkeleton();
+    for (int i=1; i<es.bone_count; i++)
     {
-        EditorBone& eb = g_skeleton_view.skeleton->bones[i];
+        EditorBone& eb = es.bones[i];
         SkeletonViewBone& sb = g_skeleton_view.bones[i];
         sb.local_to_world = eb.local_to_world;
         sb.world_to_local = eb.world_to_local;
@@ -128,9 +129,10 @@ static void SaveState()
 
 static void RevertToSavedState()
 {
-    for (int i=1; i<g_skeleton_view.skeleton->bone_count; i++)
+    EditorSkeleton& es = GetEditingSkeleton();
+    for (int i=1; i<es.bone_count; i++)
     {
-        EditorBone& eb = g_skeleton_view.skeleton->bones[i];
+        EditorBone& eb = es.bones[i];
         SkeletonViewBone& sb = g_skeleton_view.bones[i];
         eb.transform = sb.transform;
         eb.local_to_world = sb.local_to_world;
@@ -152,7 +154,7 @@ static void SetState(SkeletonEditorState state, void (*state_update)(), void (*s
 
 static void ClearSelection()
 {
-    EditorSkeleton& es = GetEditorSkeleton();
+    EditorSkeleton& es = GetEditingSkeleton();
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
         SetBoneSelected(bone_index, false);
 }
@@ -165,11 +167,9 @@ static void SelectBone(int bone_index)
 
 static bool SelectBone()
 {
-    EditorSkeleton& es = *g_skeleton_view.skeleton;
-    int bone_index = HitTestBone(
-        es,
-        g_view.mouse_world_position - g_skeleton_view.asset->position);
-
+    EditorAsset& ea = GetEditingAsset();
+    EditorSkeleton& es = GetEditingSkeleton();
+    int bone_index = HitTestBone(es, g_view.mouse_world_position - ea.position);
     if (bone_index == -1)
         return false;
 
@@ -206,7 +206,7 @@ static void UpdateDefaultState()
 
 static void UpdateRotateState()
 {
-    EditorSkeleton& es = *g_skeleton_view.skeleton;
+    EditorSkeleton& es = GetEditingSkeleton();
 
     Vec2 dir_start = Normalize(g_skeleton_view.command_world_position - g_skeleton_view.selection_center_world);
     Vec2 dir_current = Normalize(g_view.mouse_world_position - g_skeleton_view.selection_center_world);
@@ -228,7 +228,7 @@ static void UpdateRotateState()
 
 static void UpdateMoveState()
 {
-    EditorSkeleton& es = *g_skeleton_view.asset->skeleton;
+    EditorSkeleton& es = GetEditingSkeleton();
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {
         if (!IsBoneSelected(bone_index))
@@ -249,8 +249,8 @@ static void UpdateParentState()
     if (!WasButtonPressed(g_view.input, MOUSE_LEFT))
         return;
 
-    EditorAsset& ea = GetEditorAsset();
-    EditorSkeleton& es = GetEditorSkeleton();
+    EditorAsset& ea = GetEditingAsset();
+    EditorSkeleton& es = GetEditingSkeleton();
 
     // Bone?
     int bone_index = HitTestBone(
@@ -277,7 +277,7 @@ static void UpdateParentState()
         GetFirstSelectedBoneIndex()
     };
 
-    MarkModified(*g_skeleton_view.asset);
+    MarkModified();
 }
 
 static void UpdateUnparentState()
@@ -285,12 +285,12 @@ static void UpdateUnparentState()
     if (!WasButtonPressed(g_view.input, MOUSE_LEFT))
         return;
 
-    EditorSkeleton& es = GetEditorSkeleton();
-
-    for (int i=0; i<g_skeleton_view.skeleton->skinned_mesh_count; i++)
+    EditorAsset& ea = GetEditingAsset();
+    EditorSkeleton& es = GetEditingSkeleton();
+    for (int i=0; i<es.skinned_mesh_count; i++)
     {
-        EditorSkinnedMesh& esm = g_skeleton_view.skeleton->skinned_meshes[i];
-        Vec2 bone_position = TransformPoint(es.bones[esm.bone_index].local_to_world) + g_skeleton_view.asset->position;
+        EditorSkinnedMesh& esm = es.skinned_meshes[i];
+        Vec2 bone_position = TransformPoint(es.bones[esm.bone_index].local_to_world) + ea.position;
         EditorAsset& skinned_mesh_asset = *g_view.assets[esm.asset_index];
         if (!OverlapPoint(skinned_mesh_asset, bone_position, g_view.mouse_world_position))
             continue;
@@ -302,7 +302,7 @@ static void UpdateUnparentState()
         return;
     }
 
-    MarkModified(*g_skeleton_view.asset);
+    MarkModified();
 }
 
 void SkeletonViewUpdate()
@@ -323,7 +323,7 @@ void SkeletonViewUpdate()
     // Commit the tool
     if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
     {
-        g_skeleton_view.asset->modified = true;
+        MarkModified();
         g_skeleton_view.ignore_up = true;
         SetState(SKELETON_EDITOR_STATE_DEFAULT, nullptr, nullptr);
     }
@@ -348,8 +348,8 @@ static void DrawRotateState()
 
 static void DrawSkeleton()
 {
-    EditorAsset& ea = *g_skeleton_view.asset;
-    EditorSkeleton& es = *g_skeleton_view.skeleton;
+    EditorAsset& ea = GetEditingAsset();
+    EditorSkeleton& es = GetEditingSkeleton();
 
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_WHITE);
@@ -386,7 +386,7 @@ static void HandleMoveCommand()
     if (g_skeleton_view.selected_bone_count <= 0)
         return;
 
-    RecordUndo(*g_skeleton_view.asset);
+    RecordUndo();
     SaveState();
     SetState(SKELETON_EDITOR_STATE_MOVE, UpdateMoveState, nullptr);
     SetCursor(SYSTEM_CURSOR_MOVE);
@@ -400,7 +400,7 @@ static void HandleRotate()
     if (g_skeleton_view.selected_bone_count <= 0)
         return;
 
-    RecordUndo(*g_skeleton_view.asset);
+    RecordUndo();
     SaveState();
     SetState(SKELETON_EDITOR_STATE_ROTATE, UpdateRotateState, DrawRotateState);
 }
@@ -413,9 +413,9 @@ static void HandleRemove()
     if (g_skeleton_view.selected_bone_count <= 0)
         return;
 
-    RecordUndo(GetEditorAsset());
+    RecordUndo(GetEditingAsset());
 
-    EditorSkeleton& es = GetEditorSkeleton();
+    EditorSkeleton& es = GetEditingSkeleton();
     for (int i=es.bone_count - 1; i >=0; i--)
     {
         if (!IsBoneSelected(i))
@@ -425,7 +425,7 @@ static void HandleRemove()
     }
 
     ClearSelection();
-    MarkModified(GetEditorAsset());
+    MarkModified(GetEditingAsset());
 }
 
 static void HandleParentCommand()
@@ -445,15 +445,14 @@ static void HandleExtrudeCommand()
     if (g_skeleton_view.selected_bone_count != 1)
         return;
 
-    EditorSkeleton& es = GetEditorSkeleton();
+    EditorSkeleton& es = GetEditingSkeleton();
     if (es.bone_count >= MAX_BONES)
         return;
 
     int parent_bone_index = GetFirstSelectedBoneIndex();
     assert(parent_bone_index != -1);
 
-
-    RecordUndo(*g_skeleton_view.asset);
+    RecordUndo();
 
     es.bones[es.bone_count] = {
         .name = GetUniqueBoneName(es),
@@ -481,9 +480,7 @@ static void RenameBone(const Name* name)
         return;
     }
 
-    EditorSkeleton& es = *g_skeleton_view.asset->skeleton;
-
-    es.bones[GetFirstSelectedBoneIndex()].name = name;
+    GetEditingSkeleton().bones[GetFirstSelectedBoneIndex()].name = name;
 }
 
 static const Name* SkeletonViewCommandPreview(const Command& command)
@@ -494,24 +491,27 @@ static const Name* SkeletonViewCommandPreview(const Command& command)
     if (command.name != g_names.rename && command.name != g_names.r)
         return NAME_NONE;
 
-    EditorSkeleton& es = *g_skeleton_view.asset->skeleton;
     if (command.arg_count <= 0)
-        return es.bones[GetFirstSelectedBoneIndex()].name;
+        return GetEditingSkeleton().bones[GetFirstSelectedBoneIndex()].name;
 
     return NAME_NONE;
 }
 
-static ViewVtable g_skeleton_view_vtable = {
-    .rename = RenameBone,
-    .preview_command = SkeletonViewCommandPreview
-};
-
-void SkeletonViewInit(EditorAsset& ea)
+static void SkeletonViewUndoRedo()
 {
+    UpdateTransforms(GetEditingSkeleton());
+}
+
+void SkeletonViewInit()
+{
+    static ViewVtable vtable = {
+        .rename = RenameBone,
+        .preview_command = SkeletonViewCommandPreview,
+        .undo_redo = SkeletonViewUndoRedo
+    };
+
     g_skeleton_view.state = SKELETON_EDITOR_STATE_DEFAULT;
-    g_skeleton_view.asset = &ea;
-    g_skeleton_view.skeleton = ea.skeleton;
-    g_view.vtable = &g_skeleton_view_vtable;
+    g_view.vtable = &vtable;
 
     if (!g_skeleton_view.shortcuts)
     {

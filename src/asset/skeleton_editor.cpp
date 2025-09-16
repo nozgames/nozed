@@ -16,7 +16,7 @@ void DrawEditorSkeletonBone(EditorSkeleton& es, int bone_index, const Vec2& posi
 
 void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
 {
-    EditorSkeleton& es = *ea.skeleton;
+    EditorSkeleton& es = ea.skeleton;
 
     UpdateTransforms(es);
 
@@ -25,12 +25,12 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
         EditorBone& bone = es.bones[es.skinned_meshes[i].bone_index];
-        const EditorAsset& skinned_mesh_asset = *g_view.assets[es.skinned_meshes[i].asset_index];
-        if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
+        EditorAsset* skinned_mesh_asset = GetEditorAsset(es.skinned_meshes[i].asset_index);
+        if (!skinned_mesh_asset || skinned_mesh_asset->type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
         BindTransform(Translate(ea.position) * bone.local_to_world);
-        DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
+        DrawMesh(ToMesh(skinned_mesh_asset->mesh));
     }
 
     BindMaterial(g_view.vertex_material);
@@ -164,8 +164,9 @@ EditorSkeleton* LoadEditorSkeleton(Allocator* allocator, const std::filesystem::
     return es;
 }
 
-void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& path)
+static void EditorSkeletonSave(EditorAsset& ea, const std::filesystem::path& path)
 {
+    EditorSkeleton& es = ea.skeleton;
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
     for (int i=0; i<es.bone_count; i++)
@@ -224,8 +225,10 @@ void UpdateTransforms(EditorSkeleton& es)
     es.bounds = Expand(bounds, 1);
 }
 
-void LoadAssetMetadata(EditorSkeleton& es, Props* meta)
+static void EditorSkeletonLoadMetadata(EditorAsset& ea, Props* meta)
 {
+    EditorSkeleton& es = ea.skeleton;
+
     for (auto& key : meta->GetKeys("skin")) {
         std::string bones = meta->GetString("skin", key.c_str(), "");
         Tokenizer tk;
@@ -248,7 +251,7 @@ void LoadAssetMetadata(EditorSkeleton& es, Props* meta)
 
 static void PostLoadEditorSkeleton(EditorAsset& ea)
 {
-    EditorSkeleton& es = *ea.skeleton;
+    EditorSkeleton& es = ea.skeleton;
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
         EditorSkinnedMesh& esm = es.skinned_meshes[i];
@@ -425,9 +428,6 @@ void Serialize(EditorSkeleton& es, Stream* output_stream)
 
 Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton& es, const Name* name)
 {
-    if (es.skeleton)
-        return es.skeleton;
-
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
         return nullptr;
@@ -437,18 +437,19 @@ Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton& es, const Name* name)
     Skeleton* skeleton = (Skeleton*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_SKELETON, LoadSkeleton, stream);
     Free(stream);
 
-    es.skeleton = skeleton;
-
     return skeleton;
 }
 
 void SkeletonEditorSaveMetadata(const EditorAsset& ea, Props* meta)
 {
-    EditorSkeleton& es = *ea.skeleton;
+    const EditorSkeleton& es = ea.skeleton;
     meta->ClearGroup("skin");
 
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
+        if (es.skinned_meshes[i].asset_index < 0)
+            continue;
+
         const Name* mesh_name = es.skinned_meshes[i].asset_name;
         std::string value = meta->GetString("skin", mesh_name->value, "");
         if (!value.empty())
@@ -460,41 +461,17 @@ void SkeletonEditorSaveMetadata(const EditorAsset& ea, Props* meta)
 
 static bool EditorSkeletonOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
 {
-    return Contains(ea.skeleton->bounds + position, overlap_point);
+    return Contains(ea.skeleton.bounds + position, overlap_point);
 }
 
 static bool EditorSkeletonOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
 {
-    return Intersects(ea.skeleton->bounds + ea.position, overlap_bounds);
+    return Intersects(ea.skeleton.bounds + ea.position, overlap_bounds);
 }
 
 static Bounds2 EditorSkeletonBounds(EditorAsset& ea)
 {
-    return ea.skeleton->bounds;
-}
-
-extern void SkeletonViewInit(EditorAsset& ea);
-extern void SkeletonViewDraw();
-extern void SkeletonViewUpdate();
-
-EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton)
-{
-    if (!skeleton)
-        return nullptr;
-
-    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_SKELETON);
-    ea->skeleton = skeleton;
-    ea->vtable = {
-        .bounds = EditorSkeletonBounds,
-        .post_load = PostLoadEditorSkeleton,
-        .view_init = SkeletonViewInit,
-        .view_update = SkeletonViewUpdate,
-        .view_draw = SkeletonViewDraw,
-        .save_metadata = SkeletonEditorSaveMetadata,
-        .overlap_point = EditorSkeletonOverlapPoint,
-        .overlap_bounds = EditorSkeletonOverlapBounds
-    };
-    return ea;
+    return ea.skeleton.bounds;
 }
 
 EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
@@ -504,4 +481,33 @@ EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
         return nullptr;
 
     return CreateEditorSkeletonAsset(path, skeleton);
+}
+
+EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton)
+{
+    extern void SkeletonViewInit();
+    extern void SkeletonViewDraw();
+    extern void SkeletonViewUpdate();
+
+    if (!skeleton)
+        return nullptr;
+
+    EditorAsset* ea = CreateEditorAsset(ALLOCATOR_DEFAULT, path, EDITOR_ASSET_TYPE_SKELETON);
+    ea->skeleton = *skeleton;
+    ea->vtable = {
+        .bounds = EditorSkeletonBounds,
+        .post_load = PostLoadEditorSkeleton,
+        .view_init = SkeletonViewInit,
+        .view_update = SkeletonViewUpdate,
+        .view_draw = SkeletonViewDraw,
+        .load_metadata = EditorSkeletonLoadMetadata,
+        .save_metadata = SkeletonEditorSaveMetadata,
+        .overlap_point = EditorSkeletonOverlapPoint,
+        .overlap_bounds = EditorSkeletonOverlapBounds,
+        .save = EditorSkeletonSave
+    };
+
+    Free(skeleton);
+
+    return ea;
 }

@@ -9,7 +9,6 @@
 struct UndoItem
 {
     EditorAsset* ea;
-    EditorAsset* saved;
     int group_id;
 };
 
@@ -23,6 +22,14 @@ struct UndoSystem
 
 static UndoSystem g_undo = {};
 
+static void Free(UndoItem& item)
+{
+    if (item.ea)
+        Free(item.ea);
+    item.ea = nullptr;
+    item.group_id = -1;
+}
+
 bool Undo()
 {
     if (IsEmpty(g_undo.undo))
@@ -32,19 +39,19 @@ bool Undo()
 
     while (!IsEmpty(g_undo.undo))
     {
-        UndoItem& item = *(UndoItem*)GetBack(g_undo.undo);
-        if (item.group_id != -1 && item.group_id != group_id)
+        UndoItem& undo = *(UndoItem*)GetBack(g_undo.undo);
+        if (undo.group_id != -1 && undo.group_id != group_id)
             break;
 
         UndoItem& redo = *(UndoItem*)PushBack(g_undo.redo);
-        redo = item;
-        redo.saved = Clone(ALLOCATOR_DEFAULT, *item.ea);
+        redo.ea = GetEditorAsset(undo.ea->index);
+        redo.group_id = group_id;
 
-        Copy(*item.ea, *item.saved);
-        Free(item.saved);
+        g_view.assets[undo.ea->index] = undo.ea;
+
         PopBack(g_undo.undo);
 
-        if (item.group_id == -1)
+        if (undo.group_id == -1)
             break;
     }
 
@@ -60,19 +67,18 @@ bool Redo()
 
     while (!IsEmpty(g_undo.redo))
     {
-        UndoItem& item = *(UndoItem*)GetBack(g_undo.redo);
-        if (item.group_id != -1 && item.group_id != group_id)
+        UndoItem& redo = *(UndoItem*)GetBack(g_undo.redo);
+        if (redo.group_id != -1 && redo.group_id != group_id)
             break;
 
         UndoItem& undo = *(UndoItem*)PushBack(g_undo.undo);
-        undo = item;
-        undo.saved = Clone(ALLOCATOR_DEFAULT, *item.ea);
+        undo.ea = GetEditorAsset(redo.ea->index);
+        undo.group_id = group_id;
 
-        Copy(*item.ea, *item.saved);
-        Free(item.saved);
+        g_view.assets[undo.ea->index] = redo.ea;
         PopBack(g_undo.redo);
 
-        if (item.group_id == -1)
+        if (redo.group_id == -1)
             break;
     }
 
@@ -92,9 +98,7 @@ void CancelUndo()
         if (item.group_id != -1 && item.group_id != group_id)
             break;
 
-        Free(item.saved);
-        item.ea = nullptr;
-        item.saved = nullptr;
+        Free(item);
         PopBack(g_undo.undo);
 
         if (item.group_id == -1)
@@ -112,30 +116,30 @@ void EndUndoGroup()
     g_undo.current_group_id = -1;
 }
 
+void RecordUndo()
+{
+    RecordUndo(GetEditingAsset());
+}
+
 void RecordUndo(EditorAsset& ea)
 {
     // Maxium undo size
     if (IsFull(g_undo.undo))
     {
         UndoItem& old = *(UndoItem*)GetFront(g_undo.undo);
-        Free(old.saved);
-        old.ea = nullptr;
-        old.saved = nullptr;
+        Free(old);
         PopBack(g_undo.undo);
     }
 
     UndoItem& item = *(UndoItem*)PushBack(g_undo.undo);
     item.group_id = g_undo.current_group_id;
-    item.ea = &ea;
-    item.saved = Clone(ALLOCATOR_DEFAULT, ea);
+    item.ea = Clone(ALLOCATOR_DEFAULT, ea);
 
     // Clear the redo
     while (!IsEmpty(g_undo.redo))
     {
         UndoItem& old = *(UndoItem*)GetFront(g_undo.redo);
-        Free(old.saved);
-        old.ea = nullptr;
-        old.saved = nullptr;
+        Free(old);
         PopBack(g_undo.redo);
     }
 }

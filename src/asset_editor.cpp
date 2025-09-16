@@ -11,14 +11,14 @@ void AddEditorAsset(EditorAsset* ea)
     g_view.assets[g_view.asset_count++] = ea;
 }
 
-EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type)
+EditorAsset* CreateEditorAsset(Allocator* allocator, const std::filesystem::path& path, EditorAssetType type)
 {
     std::error_code ec;
     std::filesystem::path relative_path = std::filesystem::relative(path, "assets", ec);
     relative_path.replace_extension("");
     relative_path = FixSlashes(relative_path);
 
-    EditorAsset* ea = (EditorAsset*)Alloc(ALLOCATOR_DEFAULT, sizeof(EditorAsset));
+    EditorAsset* ea = (EditorAsset*)Alloc(allocator, sizeof(EditorAsset));
     Copy(ea->path, sizeof(ea->path), path.string().c_str());
     ea->name = GetName(relative_path.string().c_str());
     ea->type = type;
@@ -34,15 +34,8 @@ static void LoadAssetMetadata(EditorAsset& ea, const std::filesystem::path& path
 
     ea.position = props->GetVec2("editor", "position", VEC2_ZERO);
 
-    switch (ea.type)
-    {
-    case EDITOR_ASSET_TYPE_SKELETON:
-        LoadAssetMetadata(*ea.skeleton, props);
-        break;
-
-    default:
-        break;
-    }
+    if (ea.vtable.load_metadata)
+        ea.vtable.load_metadata(ea, props);
 }
 
 static void SaveAssetMetadata(const EditorAsset& ea)
@@ -87,7 +80,7 @@ void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color)
     BindColor(color);
     BindMaterial(g_view.vertex_material);
 
-    const EditorMesh& em = *ea.mesh;
+    const EditorMesh& em = ea.mesh;
     for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
     {
         const EditorEdge& ee = em.edges[edge_index];
@@ -113,23 +106,10 @@ void SaveEditorAssets()
 
         ea.modified = false;
 
-        switch (ea.type)
-        {
-        case EDITOR_ASSET_TYPE_MESH:
-            SaveEditorMesh(*ea.mesh, ea.path);
-            break;
-
-        case EDITOR_ASSET_TYPE_SKELETON:
-            SaveEditorSkeleton(*ea.skeleton, ea.path);
-            break;
-
-        case EDITOR_ASSET_TYPE_ANIMATION:
-            SaveEditorAnimation(*ea.anim, ea.path);
-            break;
-
-        default:
+        if (ea.vtable.save)
+            ea.vtable.save(ea, ea.path);
+        else
             continue;
-        }
 
         count++;
     }
@@ -266,20 +246,12 @@ int FindEditorAssetByName(const Name* name)
 
 EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea)
 {
-    EditorAsset* clone = CreateEditorAsset(ea.path, ea.type);
+    EditorAsset* clone = CreateEditorAsset(allocator, ea.path, ea.type);
     *clone = ea;
-    if (ea.vtable.clone)
-        ea.vtable.clone(allocator, ea, *clone);
+    if (clone->vtable.clone)
+        clone->vtable.clone(*clone);
 
     return clone;
-}
-
-void Copy(EditorAsset& dst, const EditorAsset& src)
-{
-    dst = src;
-
-    if (dst.mesh)
-        Copy(*dst.mesh, *src.mesh);
 }
 
 void LoadEditorAssets()
@@ -324,16 +296,21 @@ void HotloadEditorAsset(const Name* name)
         switch (ea.type)
         {
         case EDITOR_ASSET_TYPE_VFX:
-            Stop(ea.vfx_handle);
-            Free(ea.vfx);
-            ea.vfx = LoadEditorVfx(ALLOCATOR_DEFAULT, ea.path);
-            ea.vfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *ea.vfx, ea.name);
+            // Stop(ea.vfx_handle);
+            // Free(ea.vfx);
+            // ea.vfx = LoadEditorVfx(ALLOCATOR_DEFAULT, ea.path);
+            // ea.vfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *ea.vfx, ea.name);
             break;
 
         default:
             break;
         }
     }
+}
+
+void MarkModified()
+{
+    MarkModified(GetEditingAsset());
 }
 
 void MarkModified(EditorAsset& ea)

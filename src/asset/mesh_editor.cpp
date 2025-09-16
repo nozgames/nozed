@@ -14,7 +14,7 @@ static void EditorMeshDraw(EditorAsset& ea)
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
     BindTransform(TRS(ea.position, 0, VEC2_ONE));
-    DrawMesh(ToMesh(*ea.mesh));
+    DrawMesh(ToMesh(ea.mesh));
 }
 
 static int GetOrAddEdge(EditorMesh& em, int v0, int v1)
@@ -98,8 +98,6 @@ static void UpdateNormals(EditorMesh& em)
         Vec3 p2 = Vec3{v2.position.x, v2.position.y, v2.height};
         em.faces[i].normal = TriangleNormal(p0, p1, p2);
     }
-
-    em.dirty = true;
 }
 
 static void UpdateEdges(EditorMesh& em)
@@ -132,18 +130,15 @@ static void UpdateEdges(EditorMesh& em)
 
 void MarkDirty(EditorMesh& em)
 {
-    em.dirty = true;
+    Free(em.mesh);
     UpdateEdges(em);
     UpdateNormals(em);
 }
 
 Mesh* ToMesh(EditorMesh& em, bool upload)
 {
-    if (!em.dirty)
+    if (em.mesh)
         return em.mesh;
-
-    // Free old mesh
-    Free(em.mesh);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
 
@@ -181,8 +176,6 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
 
     em.mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
     Free(builder);
-
-    em.dirty = false;
 
     return em.mesh;
 }
@@ -1059,23 +1052,6 @@ static EditorMesh* CreateEditableMesh(Allocator* allocator)
     return em;
 }
 
-static void EditorMeshClone(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone)
-{
-    clone.mesh = CreateEditableMesh(allocator);
-    *clone.mesh = *ea.mesh;
-    clone.mesh->mesh = nullptr;
-}
-
-void Copy(EditorMesh& dst, const EditorMesh& src)
-{
-    if (dst.mesh)
-        Free(dst.mesh);
-
-    dst = src;
-    dst.mesh = nullptr;
-    dst.dirty = true;
-}
-
 EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path)
 {
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
@@ -1126,14 +1102,15 @@ EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& pa
     return em;
 }
 
-void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path)
+static void EditorMeshSave(EditorAsset& ea, const std::filesystem::path& path)
 {
+    EditorMesh& em = ea.mesh;
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
     for (int i=0; i<em.vertex_count; i++)
     {
         const EditorVertex& ev = em.vertices[i];
-        WriteCSTR(stream, "v %g %g e %g h %g\n", ev.position.x, ev.position.y, ev.edge_size, ev.height);
+        WriteCSTR(stream, "v %f %f e %f h %f\n", ev.position.x, ev.position.y, ev.edge_size, ev.height);
     }
 
     WriteCSTR(stream, "\n");
@@ -1158,11 +1135,22 @@ EditorAsset* NewEditorMesh(const std::filesystem::path& path)
                                "f 0 1 2 c 1 0\n"
                                "f 0 2 3 c 1 0\n";
 
+    std::string text = default_mesh;
+
+    if (g_view.selected_asset_count == 1)
+    {
+        EditorAsset* selected = GetEditorAsset(GetFirstSelectedAsset());
+        if (selected->type != EDITOR_ASSET_TYPE_MESH)
+            return nullptr;
+
+        text = ReadAllText(ALLOCATOR_DEFAULT, selected->path);
+    }
+
     std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "meshes" / path : path;
     full_path += ".mesh";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
-    WriteCSTR(stream, default_mesh);
+    WriteCSTR(stream, text.c_str());
     SaveStream(stream, full_path);
     Free(stream);
 
@@ -1180,7 +1168,7 @@ EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path)
 
 static bool EditorMeshOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
 {
-    EditorMesh& em = *ea.mesh;
+    EditorMesh& em = ea.mesh;
     Mesh* mesh = ToMesh(em, false);
     if (!mesh)
         return false;
@@ -1190,33 +1178,40 @@ static bool EditorMeshOverlapPoint(EditorAsset& ea, const Vec2& position, const 
 
 static bool EditorMeshOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
 {
-    return OverlapBounds(*ea.mesh, ea.position, overlap_bounds);
+    return OverlapBounds(ea.mesh, ea.position, overlap_bounds);
 }
 
 static Bounds2 EditorMeshBounds(EditorAsset& ea)
 {
-    return ea.mesh->bounds;
+    return ea.mesh.bounds;
 }
 
-extern void MeshViewInit(EditorAsset& ea);
+static void EditorClone(EditorAsset& ea)
+{
+    ea.mesh.mesh = nullptr;
+}
+
+extern void MeshViewInit();
 extern void MeshViewDraw();
 extern void MeshViewUpdate();
 extern Bounds2 MeshViewBounds();
 
 EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path, EditorMesh* em)
 {
-    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_MESH);
-    ea->mesh = em;
+    EditorAsset* ea = CreateEditorAsset(ALLOCATOR_DEFAULT, path, EDITOR_ASSET_TYPE_MESH);
+    ea->mesh = *em;
     ea->vtable = {
         .bounds = EditorMeshBounds,
         .draw = EditorMeshDraw,
-        .clone = EditorMeshClone,
         .view_init = MeshViewInit,
         .view_update = MeshViewUpdate,
         .view_draw = MeshViewDraw,
         .view_bounds = MeshViewBounds,
         .overlap_point = EditorMeshOverlapPoint,
-        .overlap_bounds = EditorMeshOverlapBounds
+        .overlap_bounds = EditorMeshOverlapBounds,
+        .save = EditorMeshSave,
+        .clone = EditorClone
     };
+    Free(em);
     return ea;
 }

@@ -13,13 +13,12 @@ static void ImportAnimation(const fs::path& source_path, Stream* output_stream, 
     if (!en)
         ThrowError("failed to load animation");
 
+    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, GetEditorAssetPath(en->skeleton_name, ".skel"));
+    if (!es)
+        ThrowError("invalid skeleton");
 
-    std::filesystem::path skeleton_path = GetEditorAssetPath(en->skeleton_name, ".skel");
-
-    en->skeleton_asset = LoadEditorSkeletonAsset(skeleton_path);
-
-    Serialize(*en, output_stream);
-    Free(en->skeleton_asset);
+    Serialize(*en, output_stream, es);
+    Free(es);
     Free(en);
 }
 

@@ -3,8 +3,7 @@
 //
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
-extern EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type);
-static EditorSkeleton& GetEditorSkeleton(EditorAnimation& en) { return *en.skeleton_asset->skeleton; }
+static EditorSkeleton& GetEditorSkeleton(EditorAnimation& en) { return GetEditorAsset(en.skeleton_asset_index)->skeleton; }
 
 void UpdateTransforms(EditorAnimation& en)
 {
@@ -39,19 +38,19 @@ void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& po
 
 static void DrawEditorAnimation(EditorAsset& ea)
 {
-    EditorAnimation& en = *ea.anim;
+    EditorAnimation& en = ea.animation;
     EditorSkeleton& es = GetEditorSkeleton(en);
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
-        const EditorAsset& skinned_mesh_asset = *g_view.assets[es.skinned_meshes[i].asset_index];
-        if (skinned_mesh_asset.type != EDITOR_ASSET_TYPE_MESH)
+        EditorAsset* skinned_mesh_asset = GetEditorAsset(es.skinned_meshes[i].asset_index);
+        if (!skinned_mesh_asset || skinned_mesh_asset->type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
         BindTransform(Translate(ea.position) * en.animator.bones[es.skinned_meshes[i].bone_index]);
-        DrawMesh(ToMesh(*skinned_mesh_asset.mesh));
+        DrawMesh(ToMesh(skinned_mesh_asset->mesh));
     }
 
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
@@ -166,11 +165,16 @@ static void ParseFrame(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     }
 }
 
+void UpdateBounds(EditorAnimation& en)
+{
+    en.bounds = GetEditorSkeleton(en).bounds;
+}
+
 static void PostLoadEditorAnimation(EditorAsset& ea)
 {
-    ea.anim->skeleton_asset = GetEditorAsset(FindEditorAssetByName(ea.anim->skeleton_name));
-    UpdateTransforms(*ea.anim);
-    UpdateBounds(*ea.anim);
+    ea.animation.skeleton_asset_index = FindEditorAssetByName(ea.animation.skeleton_name);
+    UpdateTransforms(ea.animation);
+    UpdateBounds(ea.animation);
 }
 
 EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path)
@@ -224,24 +228,14 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     return en;
 }
 
-void UpdateBounds(EditorAnimation& en)
+void Serialize(EditorAnimation& en, Stream* output_stream, EditorSkeleton* es)
 {
-    if (!en.skeleton_asset)
-        return;
+    assert(es);
 
-    en.bounds = en.skeleton_asset->skeleton->bounds;
-}
-
-void Serialize(EditorAnimation& en, Stream* output_stream)
-{
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_ANIMATION;
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
-
-    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, en.skeleton_asset->path);
-    if (!es)
-        throw std::runtime_error("invalid skeleton");
 
     WriteU8(output_stream, (u8)es->bone_count);
     WriteU8(output_stream, (u8)en.frame_count);
@@ -266,10 +260,12 @@ void Serialize(EditorAnimation& en, Stream* output_stream)
 
 Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* name)
 {
+    EditorSkeleton& es = GetEditorSkeleton(en);
+
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
         return nullptr;
-    Serialize(en, stream);
+    Serialize(en, stream, &es);
     SeekBegin(stream, 0);
 
     Animation* animation = (Animation*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_ANIMATION, LoadAnimation, stream);
@@ -278,8 +274,9 @@ Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* na
     return animation;
 }
 
-void SaveEditorAnimation(EditorAnimation& en, const std::filesystem::path& path)
+static void EditorAnimationSave(EditorAsset& ea, const std::filesystem::path& path)
 {
+    EditorAnimation& en = ea.animation;
     EditorSkeleton& es = GetEditorSkeleton(en);
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
@@ -438,51 +435,56 @@ EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
     return LoadEditorAnimationAsset(full_path);
 }
 
-void EditorAnimationClone(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone)
-{
-    clone.anim = (EditorAnimation*)Alloc(allocator, sizeof(EditorAnimation));
-    memcpy(clone.anim, ea.anim, sizeof(EditorAnimation));
-}
-
 static bool EditorAnimationOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
 {
-    return Contains(ea.anim->bounds + position, overlap_point);
+    return Contains(ea.animation.bounds + position, overlap_point);
 }
 
 static bool EditorAnimationOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
 {
-    return Intersects(ea.anim->bounds + ea.position, overlap_bounds);
+    return Intersects(ea.animation.bounds + ea.position, overlap_bounds);
 }
 
 static Bounds2 EditorAnimationBounds(EditorAsset& ea)
 {
-    return ea.anim->bounds;
+    return ea.animation.bounds;
 }
 
-extern void AnimationViewInit(EditorAsset& ea);
-extern void AnimationViewDraw();
-extern void AnimationViewUpdate();
-extern void AnimationViewShutdown();
+static void EditorAnimationClone(EditorAsset& ea)
+{
+    ea.animation.animation = nullptr;
+    ea.animation.animator = {};
+    UpdateTransforms(ea.animation);
+    UpdateBounds(ea.animation);
+}
 
 EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
 {
+    extern void AnimationViewInit();
+    extern void AnimationViewDraw();
+    extern void AnimationViewUpdate();
+    extern void AnimationViewShutdown();
+
     EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, path);
     if (!en)
         return nullptr;
 
-    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_ANIMATION);
-    ea->anim = en;
+    EditorAsset* ea = CreateEditorAsset(ALLOCATOR_DEFAULT, path, EDITOR_ASSET_TYPE_ANIMATION);
+    ea->animation = *en;
     ea->vtable = {
         .bounds = EditorAnimationBounds,
         .post_load = PostLoadEditorAnimation,
         .draw = DrawEditorAnimation,
-        .clone = EditorAnimationClone,
         .view_init = AnimationViewInit,
         .view_update = AnimationViewUpdate,
         .view_draw = AnimationViewDraw,
         .view_shutdown = AnimationViewShutdown,
         .overlap_point = EditorAnimationOverlapPoint,
-        .overlap_bounds = EditorAnimationOverlapBounds
+        .overlap_bounds = EditorAnimationOverlapBounds,
+        .save = EditorAnimationSave,
+        .clone = EditorAnimationClone
     };
+
+    Free(en);
     return ea;
 }

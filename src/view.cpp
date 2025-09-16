@@ -251,7 +251,7 @@ static void UpdateDefaultState()
         if (ea.vtable.view_init)
         {
             PushState(VIEW_STATE_EDIT);
-            ea.vtable.view_init(ea);
+            ea.vtable.view_init();
         }
     }
 
@@ -281,6 +281,8 @@ void PushState(ViewState state)
         for (u32 i=0; i<g_view.asset_count; i++)
         {
             EditorAsset& ea = *g_view.assets[i];
+            if (!ea.selected)
+                continue;
             RecordUndo(ea);
             ea.saved_position = ea.position;
         }

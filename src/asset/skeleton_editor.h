@@ -31,7 +31,6 @@ struct EditorSkeleton
     Bounds2 bounds;
     EditorSkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
     int skinned_mesh_count;
-    Skeleton* skeleton;
 };
 
 extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
@@ -43,9 +42,6 @@ extern void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selec
 extern void DrawEditorSkeletonBone(EditorSkeleton& es, int bone_index, const Vec2& position);
 extern int HitTestBone(EditorSkeleton& es, const Vec2& world_pos);
 extern void UpdateTransforms(EditorSkeleton& es);
-extern void SaveEditorSkeleton(const EditorSkeleton& es, const std::filesystem::path& path);
-extern void SaveAssetMetadata(const EditorSkeleton& es, Props* meta);
-extern void LoadAssetMetadata(EditorSkeleton& es, Props* meta);
 extern void PostLoadEditorAssets(EditorSkeleton& es);
 extern int FindBoneIndex(const EditorSkeleton& es, const Name* name);
 extern void Serialize(EditorSkeleton& es, Stream* stream);
