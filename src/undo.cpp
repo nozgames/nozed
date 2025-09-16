@@ -18,6 +18,8 @@ struct UndoSystem
     RingBuffer* redo;
     int next_group_id;
     int current_group_id;
+    int temp[MAX_UNDO];
+    int temp_count;
 };
 
 static UndoSystem g_undo = {};
@@ -30,7 +32,19 @@ static void Free(UndoItem& item)
     item.group_id = -1;
 }
 
-bool Undo()
+static void CallUndoRedo()
+{
+    for (int i=0; i<g_undo.temp_count; i++)
+    {
+        EditorAsset* ea = GetEditorAsset(g_undo.temp[i]);
+        if (ea->vtable.undo_redo)
+            ea->vtable.undo_redo(*ea);
+    }
+
+    g_undo.temp_count = 0;
+}
+
+static bool UndoInternal(bool allow_redo)
 {
     if (IsEmpty(g_undo.undo))
         return false;
@@ -43,11 +57,15 @@ bool Undo()
         if (undo.group_id != -1 && undo.group_id != group_id)
             break;
 
-        UndoItem& redo = *(UndoItem*)PushBack(g_undo.redo);
-        redo.ea = GetEditorAsset(undo.ea->index);
-        redo.group_id = group_id;
+        if (allow_redo)
+        {
+            UndoItem& redo = *(UndoItem*)PushBack(g_undo.redo);
+            redo.ea = GetEditorAsset(undo.ea->index);
+            redo.group_id = group_id;
+        }
 
         g_view.assets[undo.ea->index] = undo.ea;
+        g_undo.temp[g_undo.temp_count++] = undo.ea->index;
 
         PopBack(g_undo.undo);
 
@@ -55,7 +73,14 @@ bool Undo()
             break;
     }
 
+    CallUndoRedo();
+
     return true;
+}
+
+bool Undo()
+{
+    return UndoInternal(true);;
 }
 
 bool Redo()
@@ -75,7 +100,10 @@ bool Redo()
         undo.ea = GetEditorAsset(redo.ea->index);
         undo.group_id = group_id;
 
-        g_view.assets[undo.ea->index] = redo.ea;
+        g_view.assets[redo.ea->index] = redo.ea;
+
+        g_undo.temp[g_undo.temp_count++] = redo.ea->index;
+
         PopBack(g_undo.redo);
 
         if (redo.group_id == -1)
@@ -90,20 +118,7 @@ void CancelUndo()
     if (GetCount(g_undo.undo) == 0)
         return;
 
-    int group_id = ((UndoItem*)GetBack(g_undo.undo))->group_id;
-
-    while (!IsEmpty(g_undo.undo))
-    {
-        UndoItem& item = *(UndoItem*)GetBack(g_undo.undo);
-        if (item.group_id != -1 && item.group_id != group_id)
-            break;
-
-        Free(item);
-        PopBack(g_undo.undo);
-
-        if (item.group_id == -1)
-            break;
-    }
+    UndoInternal(false);
 }
 
 void BeginUndoGroup()

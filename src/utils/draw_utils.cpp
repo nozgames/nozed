@@ -31,7 +31,8 @@ void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length)
     float line_len = Length(v1 - v0);
     float scale = length * 0.5f;
 
-    for (float pos = length/2; pos < line_len; pos += length * 2)
+    int count = 0;
+    for (float pos = length/2; pos < line_len && count < 100; pos += length * 2, count++)
     {
         BindTransform(TRS(v0 + line_dir * pos, line_dir, Vec2{scale, width * g_view.zoom_ref_scale}));
         DrawMesh(g_view.edge_mesh);

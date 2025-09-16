@@ -360,25 +360,24 @@ void RemoveBone(EditorSkeleton& es, int bone_index)
             i++;
     }
 
-    // Remove the bone
-    es.bones[bone_index] = es.bones[--es.bone_count];
+    es.bone_count--;
 
-    // Update indices and parent indices
-    for (int i=0; i<es.bone_count; i++)
+    for (int i=bone_index; i<es.bone_count; i++)
     {
-        if (es.bones[i].parent_index == bone_index)
-            es.bones[i].parent_index = parent_index;
-        else if (es.bones[i].parent_index == es.bone_count)
-            es.bones[i].parent_index = bone_index;
-
-        es.bones[i].index = i;
+        EditorBone& enb = es.bones[i];
+        enb = es.bones[i + 1];
+        enb.index = i;
+        if (enb.parent_index == bone_index)
+            enb.parent_index = parent_index;
+        else if (enb.parent_index > bone_index)
+            enb.parent_index--;
     }
 
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
         EditorSkinnedMesh& esm = es.skinned_meshes[i];
-        if (esm.bone_index == es.bone_count)
-            esm.bone_index = bone_index;
+        if (esm.bone_index > bone_index)
+            esm.bone_index--;
     }
 
     UpdateTransforms(es);
@@ -474,6 +473,11 @@ static Bounds2 EditorSkeletonBounds(EditorAsset& ea)
     return ea.skeleton.bounds;
 }
 
+static void EditorSkeletonUndoRedo(EditorAsset& ea)
+{
+    UpdateTransforms(ea.skeleton);
+}
+
 EditorAsset* LoadEditorSkeletonAsset(const std::filesystem::path& path)
 {
     EditorSkeleton* skeleton = LoadEditorSkeleton(ALLOCATOR_DEFAULT, path);
@@ -504,7 +508,8 @@ EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, Editor
         .save_metadata = SkeletonEditorSaveMetadata,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds,
-        .save = EditorSkeletonSave
+        .save = EditorSkeletonSave,
+        .undo_redo = EditorSkeletonUndoRedo
     };
 
     Free(skeleton);

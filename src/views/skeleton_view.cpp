@@ -65,6 +65,25 @@ static int GetFirstSelectedBoneIndex()
     return -1;
 }
 
+static void UpdateAllAnimations(EditorAsset& ea)
+{
+    extern void UpdateSkeleton(EditorAnimation& en);
+
+    for (u32 i=0; i<g_view.asset_count; i++)
+    {
+        EditorAsset* other = g_view.assets[i];
+        if (other->type != EDITOR_ASSET_TYPE_ANIMATION)
+            continue;
+
+        EditorAnimation& en = other->animation;
+        if (en.skeleton_asset_index == ea.index)
+        {
+            RecordUndo(*other);
+            UpdateSkeleton(en);
+        }
+    }
+}
+
 static void UpdateAssetNames()
 {
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
@@ -259,9 +278,12 @@ static void UpdateParentState()
 
     if (bone_index != -1)
     {
+        BeginUndoGroup();
         RecordUndo(ea);
         bone_index = ReparentBone(es, GetFirstSelectedBoneIndex(), bone_index);
         SelectBone(bone_index);
+        UpdateAllAnimations(ea);
+        EndUndoGroup();
         return;
     }
 
@@ -270,6 +292,7 @@ static void UpdateParentState()
     if (asset_index == -1)
         return;
 
+    RecordUndo(ea);
     EditorAsset& ea_hit = *g_view.assets[asset_index];
     es.skinned_meshes[es.skinned_mesh_count++] = {
         ea_hit.name,
@@ -295,6 +318,7 @@ static void UpdateUnparentState()
         if (!OverlapPoint(skinned_mesh_asset, bone_position, g_view.mouse_world_position))
             continue;
 
+        RecordUndo(ea);
         for (int j=i; j<es.skinned_mesh_count-1; j++)
             es.skinned_meshes[j] = es.skinned_meshes[j+1];
 
@@ -413,7 +437,9 @@ static void HandleRemove()
     if (g_skeleton_view.selected_bone_count <= 0)
         return;
 
-    RecordUndo(GetEditingAsset());
+    EditorAsset& ea = GetEditingAsset();
+    BeginUndoGroup();
+    RecordUndo(ea);
 
     EditorSkeleton& es = GetEditingSkeleton();
     for (int i=es.bone_count - 1; i >=0; i--)
@@ -424,6 +450,8 @@ static void HandleRemove()
         RemoveBone(es, i);
     }
 
+    UpdateAllAnimations(ea);
+    EndUndoGroup();
     ClearSelection();
     MarkModified(GetEditingAsset());
 }
@@ -497,21 +525,13 @@ static const Name* SkeletonViewCommandPreview(const Command& command)
     return NAME_NONE;
 }
 
-static void SkeletonViewUndoRedo()
-{
-    UpdateTransforms(GetEditingSkeleton());
-}
-
 void SkeletonViewInit()
 {
-    static ViewVtable vtable = {
-        .rename = RenameBone,
-        .preview_command = SkeletonViewCommandPreview,
-        .undo_redo = SkeletonViewUndoRedo
-    };
-
     g_skeleton_view.state = SKELETON_EDITOR_STATE_DEFAULT;
-    g_view.vtable = &vtable;
+    g_view.vtable = {
+        .rename = RenameBone,
+        .preview_command = SkeletonViewCommandPreview
+    };
 
     if (!g_skeleton_view.shortcuts)
     {

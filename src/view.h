@@ -23,13 +23,11 @@ enum ViewState
 
 typedef void (*ViewRenameFunc)(const Name* new_name);
 typedef const Name* (*PreviewCommandFunc)(const Command& command);
-typedef void (*UndoRedoFunc)();
 
 struct ViewVtable
 {
     ViewRenameFunc rename;
     PreviewCommandFunc preview_command;
-    UndoRedoFunc undo_redo;
 };
 
 struct View
@@ -74,7 +72,7 @@ struct View
 
     Vec2 light_dir;
 
-    ViewVtable* vtable;
+    ViewVtable vtable;
 
     int edit_asset_index;
 };

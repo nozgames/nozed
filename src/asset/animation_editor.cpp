@@ -15,7 +15,8 @@ void UpdateTransforms(EditorAnimation& en)
 
         en.animator.bones[bone_index] = TRS(
             eb.transform.position + frame.position,
-            eb.transform.rotation + frame.rotation, eb.transform.scale);
+            frame.rotation,
+            eb.transform.scale);
     }
 
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
@@ -25,8 +26,8 @@ void UpdateTransforms(EditorAnimation& en)
 void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& position)
 {
     EditorSkeleton& es = GetEditorSkeleton(en);
-    Mat3& eb = en.animator.bones[bone_index];
-    Mat3& ep = en.animator.bones[es.bones[bone_index].parent_index];
+    const Mat3& eb = en.animator.bones[bone_index];
+    const Mat3& ep = en.animator.bones[es.bones[bone_index].parent_index];
     Vec2 p0 = TransformPoint(eb);
     Vec2 p1 = TransformPoint(eb, Vec2 {1, 0});
     Vec2 pp = TransformPoint(ep);
@@ -65,6 +66,46 @@ static void ParseSkeletonBone(Tokenizer& tk, const EditorSkeleton& es, int bone_
     bone_map[bone_index] = FindBoneIndex(es, GetName(tk));
 }
 
+void UpdateSkeleton(EditorAnimation& en)
+{
+    EditorSkeleton& es = GetEditorSkeleton(en);
+
+    // Create a mapping table based on the name
+    int bone_map[MAX_BONES];
+    for (int i=0; i<MAX_BONES; i++)
+        bone_map[i] = -1;
+
+    for (int i=0; i<en.bone_count; i++)
+    {
+        int new_bone_index = FindBoneIndex(es, en.bones[i].name);
+        if (new_bone_index == -1)
+            continue;
+        bone_map[new_bone_index] = i;
+    }
+
+    // recreate the frames using the new bone indicies and then fix the bones
+    Transform new_frames[MAX_BONES * MAX_ANIMATION_FRAMES];
+    for (int frame_index=0; frame_index<en.frame_count; frame_index++)
+        for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+            new_frames[frame_index * MAX_BONES + bone_index] = en.frames[frame_index * MAX_BONES + bone_map[bone_index]];
+
+    // copy the new frames back
+    memcpy(en.frames, new_frames, sizeof(new_frames));
+
+    // fix the bones
+    for (int i=0; i<es.bone_count; i++)
+    {
+        EditorAnimationBone& enb = en.bones[i];
+        enb.index = i;
+        enb.name = es.bones[i].name;
+    }
+
+    en.bone_count = es.bone_count;
+
+    UpdateBounds(en);
+    UpdateTransforms(en);
+}
+
 static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
 {
     if (!ExpectQuotedString(tk))
@@ -82,6 +123,8 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
         enb.name = eb.name;
         enb.index = i;
     }
+
+    en.bone_count = es->bone_count;
 
     for (int frame_index=0; frame_index<MAX_ANIMATION_FRAMES; frame_index++)
         for (int bone_index=0; bone_index<es->bone_count; bone_index++)
@@ -173,8 +216,10 @@ void UpdateBounds(EditorAnimation& en)
 static void PostLoadEditorAnimation(EditorAsset& ea)
 {
     ea.animation.skeleton_asset_index = FindEditorAssetByName(ea.animation.skeleton_name);
-    UpdateTransforms(ea.animation);
-    UpdateBounds(ea.animation);
+    EditorAnimation& en = ea.animation;
+    UpdateTransforms(GetEditorSkeleton(en));
+    UpdateTransforms(en);
+    UpdateBounds(en);
 }
 
 EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path)
@@ -458,6 +503,12 @@ static void EditorAnimationClone(EditorAsset& ea)
     UpdateBounds(ea.animation);
 }
 
+static void EditorAnimationUndoRedo(EditorAsset& ea)
+{
+    UpdateSkeleton(ea.animation);
+    UpdateTransforms(ea.animation);
+}
+
 EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
 {
     extern void AnimationViewInit();
@@ -482,7 +533,8 @@ EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
         .overlap_point = EditorAnimationOverlapPoint,
         .overlap_bounds = EditorAnimationOverlapBounds,
         .save = EditorAnimationSave,
-        .clone = EditorAnimationClone
+        .clone = EditorAnimationClone,
+        .undo_redo = EditorAnimationUndoRedo
     };
 
     Free(en);

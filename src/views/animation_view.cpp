@@ -506,21 +506,11 @@ static void HandleDeleteFrame()
     en.current_frame = DeleteFrame(en, en.current_frame);
 }
 
-static void HandleUndoRedo()
-{
-    UpdateTransforms(GetEditingAnimation());
-}
-
-static ViewVtable g_animation_view_vtable = {
-    .undo_redo = HandleUndoRedo
-};
-
 void AnimationViewInit()
 {
     g_animation_view.state = ANIMATION_VIEW_STATE_DEFAULT;
     g_animation_view.state_update = nullptr;
     g_animation_view.state_draw = nullptr;
-    g_view.vtable = &g_animation_view_vtable;
 
     if (g_animation_editor_shortcuts == nullptr)
     {

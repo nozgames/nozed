@@ -305,7 +305,7 @@ void PopState()
     case VIEW_STATE_EDIT:
         g_view.assets[g_view.edit_asset_index]->editing = false;
         g_view.edit_asset_index = -1;
-        g_view.vtable = nullptr;
+        g_view.vtable = {};
         break;
 
     default:
@@ -351,21 +351,13 @@ static void UpdateCommon()
 
     if (WasButtonPressed(g_view.input, KEY_Z) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
     {
-        if (Undo())
-        {
-            if (g_view.vtable && g_view.vtable->undo_redo)
-                g_view.vtable->undo_redo();
-        }
+        Undo();
         return;
     }
 
     if (WasButtonPressed(g_view.input, KEY_Y) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
     {
-        if (Redo())
-        {
-            if (g_view.vtable && g_view.vtable->undo_redo)
-                g_view.vtable->undo_redo();
-        }
+        Redo();
         return;
     }
 }
@@ -617,8 +609,8 @@ static void HandleUIZoomOut()
 
 void HandleRename(const Name* name)
 {
-    if (g_view.vtable && g_view.vtable->rename)
-        g_view.vtable->rename(name);
+    if (g_view.vtable.rename)
+        g_view.vtable.rename(name);
 }
 
 static void HandleTextInputChanged(EventId event_id, const void* event_data)
@@ -632,8 +624,8 @@ static void HandleTextInputChanged(EventId event_id, const void* event_data)
         return;
 
     if (g_view.command.name == g_names.r || g_view.command.name == g_names.rename)
-        if (g_view.vtable && g_view.vtable->preview_command)
-            g_view.command_preview = g_view.vtable->preview_command(g_view.command);
+        if (g_view.vtable.preview_command)
+            g_view.command_preview = g_view.vtable.preview_command(g_view.command);
 }
 
 void InitViewUserConfig(Props* user_config)

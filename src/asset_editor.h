@@ -37,6 +37,7 @@ struct EditorAssetVtable
     bool (*overlap_bounds)(EditorAsset& ea, const Bounds2& hit_bounds);
     void (*save)(EditorAsset& ea, const std::filesystem::path& path);
     void (*clone)(EditorAsset& ea);
+    void (*undo_redo)(EditorAsset &ea);
 };
 
 struct EditorAsset

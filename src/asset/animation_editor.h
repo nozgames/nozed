@@ -19,6 +19,7 @@ struct EditorAnimation
     int frame_count;
     int current_frame;
     EditorAnimationBone bones[MAX_BONES];
+    int bone_count;
     Transform frames[MAX_BONES * MAX_ANIMATION_FRAMES];
     Bounds2 bounds;
     int skeleton_asset_index;
@@ -38,3 +39,4 @@ extern int DeleteFrame(EditorAnimation& en, int frame_index);
 extern Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_index);
 extern int HitTestBone(EditorAnimation& en, const Vec2& world_pos);
 extern void UpdateTransforms(EditorAnimation& en);
+extern void UpdateSkeleton(EditorAnimation& en);
