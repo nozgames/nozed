@@ -11,7 +11,13 @@ extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, As
 void DrawEditorSkeletonBone(EditorSkeleton& es, int bone_index, const Vec2& position)
 {
     EditorBone& eb = es.bones[bone_index];
-    DrawBone(eb.local_to_world * Rotate(eb.transform.rotation), es.bones[eb.parent_index].local_to_world, position);
+    Mat3 local_to_world = eb.local_to_world * Rotate(eb.transform.rotation);
+    DrawBone(
+        local_to_world,
+        eb.parent_index >= 0
+            ? es.bones[eb.parent_index].local_to_world
+            : local_to_world,
+        position);
 }
 
 void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
@@ -35,7 +41,7 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
 
     BindMaterial(g_view.vertex_material);
     BindColor(selected ? COLOR_SELECTED : COLOR_BLACK);
-    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
         DrawEditorSkeletonBone(es, bone_index, position);
 
     DrawOrigin(position);
@@ -69,7 +75,7 @@ int HitTestBone(EditorSkeleton& es, const Vec2& world_pos)
 
     best_bone_index = -1;
     best_dist = F32_MAX;
-    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         EditorBone& bone = es.bones[bone_index];
 
@@ -205,8 +211,8 @@ void UpdateTransforms(EditorSkeleton& es)
         return;
 
     EditorBone& root = es.bones[0];
-    root.local_to_world = MAT3_IDENTITY;
-    root.world_to_local = MAT3_IDENTITY;
+    root.local_to_world = Translate(root.transform.position);
+    root.world_to_local = Inverse(root.local_to_world);
 
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {

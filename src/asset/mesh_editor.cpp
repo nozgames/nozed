@@ -131,6 +131,7 @@ static void UpdateEdges(EditorMesh& em)
 void MarkDirty(EditorMesh& em)
 {
     Free(em.mesh);
+    em.mesh = nullptr;
     UpdateEdges(em);
     UpdateNormals(em);
 }

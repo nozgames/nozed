@@ -96,9 +96,11 @@ static void UpdateAssetNames()
     EditorSkeleton& es = GetEditingSkeleton();
     for (u16 i=0; i<es.bone_count; i++)
     {
+        Mat3 transform = es.bones[i].local_to_world * Rotate(es.bones[i].transform.rotation);
+
         Vec2 p =
-            (TransformPoint(es.bones[i].local_to_world) +
-             TransformPoint(es.bones[i].local_to_world, {1,0})) * 0.5f;
+            (TransformPoint(transform) +
+             TransformPoint(transform, {1,0})) * 0.5f;
         BeginWorldCanvas(g_view.camera, ea.position + p, Vec2{6, 0});
         SetStyleSheet(g_assets.ui.view);
             BeginElement(g_names.asset_name_container);
@@ -134,7 +136,7 @@ static void UpdateSelectionCenter()
 static void SaveState()
 {
     EditorSkeleton& es = GetEditingSkeleton();
-    for (int i=1; i<es.bone_count; i++)
+    for (int i=0; i<es.bone_count; i++)
     {
         EditorBone& eb = es.bones[i];
         SkeletonViewBone& sb = g_skeleton_view.bones[i];
@@ -149,7 +151,7 @@ static void SaveState()
 static void RevertToSavedState()
 {
     EditorSkeleton& es = GetEditingSkeleton();
-    for (int i=1; i<es.bone_count; i++)
+    for (int i=0; i<es.bone_count; i++)
     {
         EditorBone& eb = es.bones[i];
         SkeletonViewBone& sb = g_skeleton_view.bones[i];
@@ -248,7 +250,7 @@ static void UpdateRotateState()
 static void UpdateMoveState()
 {
     EditorSkeleton& es = GetEditingSkeleton();
-    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         if (!IsBoneSelected(bone_index))
             continue;
@@ -377,7 +379,7 @@ static void DrawSkeleton()
 
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_WHITE);
-    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         if (!IsBoneSelected(bone_index))
             continue;

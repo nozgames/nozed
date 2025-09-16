@@ -39,12 +39,7 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
     WriteU16(output_stream, (u16)GetIndexCount(m));
 
     const MeshVertex* v = GetVertices(m);
-    for (int i=0, c=GetVertexCount(m); i<c; i++)
-    {
-        MeshVertex t = v[i];
-        t.position.y = -t.position.y;
-        WriteBytes(output_stream, &t, sizeof(MeshVertex));
-    }
+    WriteBytes(output_stream, v, sizeof(MeshVertex) * GetVertexCount(m));
 
     const u16* i = GetIndices(m);
     WriteBytes(output_stream, i, sizeof(u16) * GetIndexCount(m));
