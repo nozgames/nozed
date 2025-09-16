@@ -73,7 +73,7 @@ int HitTestBone(EditorSkeleton& es, const Vec2& world_pos)
     {
         EditorBone& bone = es.bones[bone_index];
 
-        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(bone.transform.rotation), TransformPoint(bone.world_to_local, world_pos))))
+        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(-bone.transform.rotation), TransformPoint(bone.world_to_local, world_pos))))
             continue;
 
         Mat3 local_to_world = bone.local_to_world * Rotate(bone.transform.rotation);
@@ -468,6 +468,11 @@ static bool EditorSkeletonOverlapBounds(EditorAsset& ea, const Bounds2& overlap_
     return Intersects(ea.skeleton->bounds + ea.position, overlap_bounds);
 }
 
+static Bounds2 EditorSkeletonBounds(EditorAsset& ea)
+{
+    return ea.skeleton->bounds;
+}
+
 extern void SkeletonViewInit(EditorAsset& ea);
 extern void SkeletonViewDraw();
 extern void SkeletonViewUpdate();
@@ -480,10 +485,11 @@ EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, Editor
     EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_SKELETON);
     ea->skeleton = skeleton;
     ea->vtable = {
+        .bounds = EditorSkeletonBounds,
         .post_load = PostLoadEditorSkeleton,
-        .init_editor = SkeletonViewInit,
-        .update_editor = SkeletonViewUpdate,
-        .draw_editor = SkeletonViewDraw,
+        .view_init = SkeletonViewInit,
+        .view_update = SkeletonViewUpdate,
+        .view_draw = SkeletonViewDraw,
         .save_metadata = SkeletonEditorSaveMetadata,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds

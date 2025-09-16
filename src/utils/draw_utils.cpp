@@ -67,7 +67,7 @@ void DrawOrigin(const EditorAsset& ea)
     DrawOrigin(ea.position);
 }
 
-void DrawBounds(const EditorAsset& ea, float expand)
+void DrawBounds(EditorAsset& ea, float expand)
 {
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BLACK);

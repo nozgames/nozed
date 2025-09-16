@@ -101,6 +101,7 @@ extern void PopState();
 extern void FocusAsset(int asset_index);
 extern void HandleRename(const Name* name);
 extern EditorAsset& GetEditingAsset();
+extern void AddEditorAsset(EditorAsset* ea);
 
 // @grid
 extern void InitGrid(Allocator* allocator);
@@ -133,7 +134,7 @@ extern void DrawVertex(const Vec2& v);
 extern void DrawVertex(const Vec2& v, f32 size);
 extern void DrawOrigin(const EditorAsset& ea);
 extern void DrawOrigin(const Vec2& position);
-extern void DrawBounds(const EditorAsset& ea, float expand=0);
+extern void DrawBounds(EditorAsset& ea, float expand=0);
 extern void DrawBone(const Vec2& a, const Vec2& b);
 extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);

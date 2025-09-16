@@ -759,27 +759,6 @@ bool OverlapBounds(EditorMesh& mesh, const Vec2& position, const Bounds2& hit_bo
     return Intersects(mesh.bounds + position, hit_bounds);
 }
 
-Bounds2 GetSelectedBounds(const EditorMesh& emesh)
-{
-    Bounds2 bounds = BOUNDS2_ZERO;
-    bool first = true;
-    for (int i = 0; i < emesh.vertex_count; i++)
-    {
-        const EditorVertex& ev = emesh.vertices[i];
-        if (!ev.selected)
-            continue;
-
-        if (first)
-            bounds = {ev.position, ev.position};
-        else
-            bounds = Union(bounds, ev.position);
-
-        first = false;
-    }
-
-    return bounds;
-}
-
 void SetSelection(EditorMesh& em, int vertex_index)
 {
     assert(vertex_index >= 0 && vertex_index < em.vertex_count);
@@ -1080,12 +1059,11 @@ static EditorMesh* CreateEditableMesh(Allocator* allocator)
     return em;
 }
 
-EditorMesh* Clone(Allocator* allocator, const EditorMesh& em)
+static void EditorMeshClone(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone)
 {
-    EditorMesh* clone = CreateEditableMesh(allocator);
-    *clone = em;
-    clone->mesh = nullptr;
-    return clone;
+    clone.mesh = CreateEditableMesh(allocator);
+    *clone.mesh = *ea.mesh;
+    clone.mesh->mesh = nullptr;
 }
 
 void Copy(EditorMesh& dst, const EditorMesh& src)
@@ -1215,19 +1193,28 @@ static bool EditorMeshOverlapBounds(EditorAsset& ea, const Bounds2& overlap_boun
     return OverlapBounds(*ea.mesh, ea.position, overlap_bounds);
 }
 
+static Bounds2 EditorMeshBounds(EditorAsset& ea)
+{
+    return ea.mesh->bounds;
+}
+
 extern void MeshViewInit(EditorAsset& ea);
 extern void MeshViewDraw();
 extern void MeshViewUpdate();
+extern Bounds2 MeshViewBounds();
 
 EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path, EditorMesh* em)
 {
     EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_MESH);
     ea->mesh = em;
     ea->vtable = {
+        .bounds = EditorMeshBounds,
         .draw = EditorMeshDraw,
-        .init_editor = MeshViewInit,
-        .update_editor = MeshViewUpdate,
-        .draw_editor = MeshViewDraw,
+        .clone = EditorMeshClone,
+        .view_init = MeshViewInit,
+        .view_update = MeshViewUpdate,
+        .view_draw = MeshViewDraw,
+        .view_bounds = MeshViewBounds,
         .overlap_point = EditorMeshOverlapPoint,
         .overlap_bounds = EditorMeshOverlapBounds
     };

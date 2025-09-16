@@ -64,25 +64,18 @@ static void FrameView()
     Bounds2 bounds = {};
     bool first = true;
 
-    if (g_view.edit_asset_index != -1)
-    {
-        EditorAsset& ea = GetEditingAsset();
-        bounds = GetSelectedBounds(ea) + ea.position;
-        first = GetSize(bounds) == VEC2_ZERO;
-    }
-
     if (first)
     {
         for (u32 i=0; i<g_view.asset_count; i++)
         {
-            const EditorAsset& ea = *g_view.assets[i];
+            EditorAsset& ea = *g_view.assets[i];
             if (!ea.selected)
                 continue;
 
             if (first)
-                bounds = GetBounds(ea) + ea.position;
+                bounds = GetViewBounds(ea) + ea.position;
             else
-                bounds = Union(bounds, GetBounds(ea) + ea.position);
+                bounds = Union(bounds, GetViewBounds(ea) + ea.position);
 
             first = false;
         }
@@ -255,10 +248,10 @@ static void UpdateDefaultState()
         g_view.assets[g_view.edit_asset_index]->editing = true;
 
         EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
-        if (ea.vtable.init_editor)
+        if (ea.vtable.view_init)
         {
             PushState(VIEW_STATE_EDIT);
-            ea.vtable.init_editor(ea);
+            ea.vtable.view_init(ea);
         }
     }
 
@@ -389,16 +382,16 @@ static void UpdateViewInternal()
 
         if (WasButtonPressed(g_view.input, KEY_TAB) && !IsAltDown(g_view.input))
         {
-            if (ea.vtable.shutdown_editor)
-                ea.vtable.shutdown_editor();
+            if (ea.vtable.view_shutdown)
+                ea.vtable.view_shutdown();
 
             SetCursor(SYSTEM_CURSOR_DEFAULT);
             PopState();
             return;
         }
 
-        if (ea.vtable.update_editor)
-            ea.vtable.update_editor();
+        if (ea.vtable.view_update)
+            ea.vtable.view_update();
 
         break;
     }
@@ -474,8 +467,8 @@ void RenderView()
     if (g_view.edit_asset_index != -1)
     {
         EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
-        if (ea.vtable.draw_editor)
-            ea.vtable.draw_editor();
+        if (ea.vtable.view_draw)
+            ea.vtable.view_draw();
     }
     else
     {

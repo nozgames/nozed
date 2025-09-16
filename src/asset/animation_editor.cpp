@@ -442,7 +442,6 @@ void EditorAnimationClone(Allocator* allocator, const EditorAsset& ea, EditorAss
 {
     clone.anim = (EditorAnimation*)Alloc(allocator, sizeof(EditorAnimation));
     memcpy(clone.anim, ea.anim, sizeof(EditorAnimation));
-    clone.vtable = ea.vtable;
 }
 
 static bool EditorAnimationOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
@@ -453,6 +452,11 @@ static bool EditorAnimationOverlapPoint(EditorAsset& ea, const Vec2& position, c
 static bool EditorAnimationOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
 {
     return Intersects(ea.anim->bounds + ea.position, overlap_bounds);
+}
+
+static Bounds2 EditorAnimationBounds(EditorAsset& ea)
+{
+    return ea.anim->bounds;
 }
 
 extern void AnimationViewInit(EditorAsset& ea);
@@ -469,13 +473,14 @@ EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
     EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_ANIMATION);
     ea->anim = en;
     ea->vtable = {
+        .bounds = EditorAnimationBounds,
         .post_load = PostLoadEditorAnimation,
         .draw = DrawEditorAnimation,
         .clone = EditorAnimationClone,
-        .init_editor = AnimationViewInit,
-        .update_editor = AnimationViewUpdate,
-        .draw_editor = AnimationViewDraw,
-        .shutdown_editor = AnimationViewShutdown,
+        .view_init = AnimationViewInit,
+        .view_update = AnimationViewUpdate,
+        .view_draw = AnimationViewDraw,
+        .view_shutdown = AnimationViewShutdown,
         .overlap_point = EditorAnimationOverlapPoint,
         .overlap_bounds = EditorAnimationOverlapBounds
     };

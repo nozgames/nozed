@@ -5,6 +5,12 @@
 #include <editor.h>
 #include <utils/file_helpers.h>
 
+void AddEditorAsset(EditorAsset* ea)
+{
+    ea->index = g_view.asset_count;
+    g_view.assets[g_view.asset_count++] = ea;
+}
+
 EditorAsset* CreateEditorAsset(const std::filesystem::path& path, EditorAssetType type)
 {
     std::error_code ec;
@@ -195,50 +201,23 @@ void DrawAsset(EditorAsset& ea)
     }
 }
 
-Bounds2 GetBounds(const EditorAsset& ea)
+Bounds2 GetBounds(EditorAsset& ea)
 {
-    switch (ea.type)
-    {
-    case EDITOR_ASSET_TYPE_MESH:
-        return ea.mesh->bounds;
+    if (ea.vtable.bounds)
+        return ea.vtable.bounds(ea);
 
-    case EDITOR_ASSET_TYPE_VFX:
-        return GetBounds(ea.vfx->vfx);
-
-    case EDITOR_ASSET_TYPE_SKELETON:
-        return ea.skeleton->bounds;
-
-    case EDITOR_ASSET_TYPE_ANIMATION:
-        return ea.anim->bounds;
-
-    default:
-        break;
-    }
-
-    return { VEC2_ZERO, VEC2_ZERO };
+    return BOUNDS2_ZERO;
 }
 
-Bounds2 GetSelectedBounds(const EditorAsset& ea)
+Bounds2 GetViewBounds(EditorAsset& ea)
 {
-    switch (ea.type)
-    {
-    case EDITOR_ASSET_TYPE_MESH:
-        return GetSelectedBounds(*ea.mesh);
+    if (g_view.edit_asset_index == ea.index && ea.vtable.view_bounds)
+        return ea.vtable.view_bounds();
 
-    case EDITOR_ASSET_TYPE_VFX:
-        return GetBounds(ea.vfx->vfx);
+    if (ea.vtable.bounds)
+        return ea.vtable.bounds(ea);
 
-    case EDITOR_ASSET_TYPE_SKELETON:
-        return ea.skeleton->bounds;
-
-    case EDITOR_ASSET_TYPE_ANIMATION:
-        return ea.anim->bounds;
-
-    default:
-        break;
-    }
-
-    return { VEC2_ZERO, VEC2_ZERO };
+    return BOUNDS2_ZERO;
 }
 
 int GetFirstSelectedAsset()
@@ -289,18 +268,6 @@ EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea)
 {
     EditorAsset* clone = CreateEditorAsset(ea.path, ea.type);
     *clone = ea;
-    switch (clone->type)
-    {
-    case EDITOR_ASSET_TYPE_MESH:
-        clone->mesh = Clone(allocator, *clone->mesh);
-        break;
-    case EDITOR_ASSET_TYPE_VFX:
-        clone->vfx = Clone(allocator, *clone->vfx);
-        break;
-    default:
-        break;
-    }
-
     if (ea.vtable.clone)
         ea.vtable.clone(allocator, ea, *clone);
 
@@ -334,7 +301,7 @@ void LoadEditorAssets()
         if (ea)
         {
             LoadAssetMetadata(*ea, asset_path);
-            g_view.assets[g_view.asset_count++] = ea;
+            AddEditorAsset(ea);
         }
     }
 

@@ -76,7 +76,7 @@ static void HandleNew(const Command& command)
     if (ea == nullptr)
         return;
 
-    g_view.assets[g_view.asset_count++] = ea;
+    AddEditorAsset(ea);
 
     if (ea->vtable.post_load)
         ea->vtable.post_load(*ea);

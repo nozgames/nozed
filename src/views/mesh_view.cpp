@@ -575,6 +575,28 @@ void MeshViewDraw()
     }
 }
 
+Bounds2 MeshViewBounds()
+{
+    EditorMesh& em = GetEditingMesh();
+    Bounds2 bounds = BOUNDS2_ZERO;
+    bool first = true;
+    for (int i = 0; i < em.vertex_count; i++)
+    {
+        const EditorVertex& ev = em.vertices[i];
+        if (!ev.selected)
+            continue;
+
+        if (first)
+            bounds = {ev.position, ev.position};
+        else
+            bounds = Union(bounds, ev.position);
+
+        first = false;
+    }
+
+    return bounds;
+}
+
 void HandleBoxSelect(const Bounds2& bounds)
 {
     EditorAsset& ea = GetEditingAsset();

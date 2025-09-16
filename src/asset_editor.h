@@ -23,13 +23,15 @@ typedef void (*EditorAssetRenameFunc) (const Name* new_name);
 
 struct EditorAssetVtable
 {
+    Bounds2 (*bounds)(EditorAsset& ea);
     void (*post_load)(EditorAsset& ea);
     void (*draw)(EditorAsset& ea);
     void (*clone)(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone);
-    void (*init_editor)(EditorAsset& ea);
-    void (*update_editor)();
-    void (*draw_editor)();
-    void (*shutdown_editor)();
+    void (*view_init)(EditorAsset& ea);
+    void (*view_update)();
+    void (*view_draw)();
+    Bounds2 (*view_bounds)();
+    void (*view_shutdown)();
     void (*save_metadata)(const EditorAsset& ea, Props* meta);
     bool (*overlap_point)(EditorAsset& ea, const Vec2& position, const Vec2& hit_pos);
     bool (*overlap_bounds)(EditorAsset& ea, const Bounds2& hit_bounds);
@@ -38,6 +40,7 @@ struct EditorAssetVtable
 struct EditorAsset
 {
     EditorAssetType type;
+    int index;
     const Name* name;
     char path[1024];
     union
@@ -72,9 +75,9 @@ extern int HitTestAssets(const Vec2& overlap_point);
 extern int HitTestAssets(const Bounds2& bit_bounds);
 extern void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color);
 extern void DrawAsset(EditorAsset& ea);
-extern Bounds2 GetBounds(const EditorAsset& ea);
+extern Bounds2 GetBounds(EditorAsset& ea);
+extern Bounds2 GetViewBounds(EditorAsset& ea);
 extern int GetFirstSelectedAsset();
-extern Bounds2 GetSelectedBounds(const EditorAsset& ea);
 extern void MoveTo(EditorAsset& asset, const Vec2& position);
 extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
