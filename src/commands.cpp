@@ -65,12 +65,21 @@ static void HandleNew(const Command& command)
 
     const Name* asset_name = GetName(command.args[1]);
 
+    EditorAsset* ea = nullptr;
     if (type == g_names.mesh)
-        NewEditorMesh(asset_name->value);
+        ea = NewEditorMesh(asset_name->value);
     else if (type == g_names.skeleton)
-        NewEditorSkeleton(asset_name->value);
+        ea = NewEditorSkeleton(asset_name->value);
     else if (type == g_names.animation)
-        NewEditorAnimation(asset_name->value);
+        ea = NewEditorAnimation(asset_name->value);
+
+    if (ea == nullptr)
+        return;
+
+    g_view.assets[g_view.asset_count++] = ea;
+
+    if (ea->vtable.post_load)
+        ea->vtable.post_load(*ea);
 }
 
 // @rename

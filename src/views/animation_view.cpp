@@ -260,7 +260,7 @@ static void UpdateDefaultState()
     }
 }
 
-void UpdateAnimationEditor()
+void AnimationViewUpdate()
 {
     EditorAnimation& ea = GetEditorAnimation();
     CheckShortcuts(g_animation_editor_shortcuts);
@@ -370,7 +370,7 @@ static void DrawTimeline()
     }
 }
 
-void DrawAnimationEditor()
+void AnimationViewDraw()
 {
     DrawSkeleton();
     DrawTimeline();
@@ -520,7 +520,7 @@ static ViewVtable g_animation_view_vtable = {
     .undo_redo = HandleUndoRedo
 };
 
-void InitAnimationEditor(EditorAsset& ea)
+void AnimationViewInit(EditorAsset& ea)
 {
     g_animation_view.state = ANIMATION_VIEW_STATE_DEFAULT;
     g_animation_view.asset = &ea;
@@ -550,7 +550,7 @@ void InitAnimationEditor(EditorAsset& ea)
     }
 }
 
-void ShutdownAnimationEditor()
+void AnimationViewShutdown()
 {
     EditorAnimation& en = GetEditorAnimation();
     Stop(en.animator);

@@ -37,36 +37,17 @@ struct MeshEditor
     bool use_fixed_value;
     bool use_negative_fixed_value;
     float fixed_value;
-    EditorAsset* asset;
-    EditorMesh* mesh;
+    Shortcut* shortcuts;
 };
 
 static MeshEditor g_mesh_editor = {};
 
-static void HandleMoveCommand();
-static void HandleScaleCommand();
-static void HandleHeightCommand();
-static void HandleSelectAllCommand();
-static void DissolveSelected();
-static void AddVertexAtMouse();
-static void MergeVertices();
-static void RotateEdges();
+inline EditorMesh& GetEditingMesh() { return *GetEditingAsset().mesh; }
 
-static Shortcut g_mesh_editor_shortcuts[] = {
-    { KEY_G, false, false, false, HandleMoveCommand },
-    { KEY_S, false, false, false, HandleScaleCommand },
-    { KEY_Q, false, false, false, HandleHeightCommand },
-    { KEY_A, false, false, false, HandleSelectAllCommand },
-    { KEY_X, false, false, false, DissolveSelected },
-    { KEY_V, false, false, false, AddVertexAtMouse },
-    { KEY_M, false, false, false, MergeVertices },
-    { KEY_R, false, false, false, RotateEdges },
-    { INPUT_CODE_NONE }
-};
-
-static void DrawVertices(const EditorAsset& ea, bool selected)
+static void DrawVertices(bool selected)
 {
-    const EditorMesh& em = *ea.mesh;
+    const EditorAsset& ea = GetEditingAsset();
+    const EditorMesh& em = GetEditingMesh();
     for (int i=0; i<em.vertex_count; i++)
     {
         const EditorVertex& ev = em.vertices[i];
@@ -76,8 +57,9 @@ static void DrawVertices(const EditorAsset& ea, bool selected)
     }
 }
 
-static void UpdateSelection(EditorAsset& ea)
+static void UpdateSelection()
 {
+    EditorAsset& ea = GetEditingAsset();
     EditorMesh& em = *ea.mesh;
     Vec2 center = VEC2_ZERO;
     int count = 0;
@@ -97,9 +79,10 @@ static void UpdateSelection(EditorAsset& ea)
     g_mesh_editor.selection_center = center;
 }
 
-static void RevertPositions(EditorAsset& ea)
+static void RevertPositions()
 {
-    EditorMesh& em = *ea.mesh;
+    EditorAsset& ea = GetEditingAsset();
+    EditorMesh& em = GetEditingMesh();
     for (int i=0; i<em.vertex_count; i++)
     {
         EditorVertex& ev = em.vertices[i];
@@ -108,11 +91,12 @@ static void RevertPositions(EditorAsset& ea)
 
     MarkDirty(em);
     MarkModified(ea);
-    UpdateSelection(ea);
+    UpdateSelection();
 }
 
-static void UpdateHeightState(EditorAsset& ea)
+static void UpdateHeightState()
 {
+    EditorAsset& ea = GetEditingAsset();
     float delta = (g_view.mouse_position.y - g_mesh_editor.state_mouse.y) / (g_view.dpi * HEIGHT_SLIDER_SIZE);
 
     if (WasButtonPressed(g_view.input, KEY_ESCAPE))
@@ -169,7 +153,7 @@ static void UpdateHeightState(EditorAsset& ea)
     }
     else if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
     {
-        RevertPositions(ea);
+        RevertPositions();
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
 }
@@ -196,24 +180,21 @@ static void UpdateScaleState(EditorAsset& ea)
 
     if (WasButtonPressed(g_view.input, MOUSE_LEFT))
     {
-        UpdateSelection(ea);
+        UpdateSelection();
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
     else if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
     {
-        RevertPositions(ea);
+        RevertPositions();
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
 }
 
-static void UpdateMoveState(EditorAsset& ea)
+static void UpdateMoveState()
 {
     Vec2 delta = g_view.mouse_world_position - g_mesh_editor.world_drag_start;
-    Vec2 new_center = g_mesh_editor.selection_drag_start + delta;
-    if (IsButtonDown(g_view.input, KEY_LEFT_CTRL))
-        new_center = SnapToGrid(new_center, true);
 
-    EditorMesh& em = *ea.mesh;
+    EditorMesh& em = GetEditingMesh();
     for (int i=0; i<em.vertex_count; i++)
     {
         EditorVertex& ev = em.vertices[i];
@@ -222,11 +203,12 @@ static void UpdateMoveState(EditorAsset& ea)
     }
 
     MarkDirty(em);
-    MarkModified(ea);
+    MarkModified(GetEditingAsset());
 }
 
-static void SetState(EditorAsset& ea, MeshEditorState state)
+static void SetState(MeshEditorState state)
 {
+    EditorAsset& ea = GetEditingAsset();
     g_mesh_editor.state = state;
     g_mesh_editor.world_drag_start = g_view.mouse_world_position;
     g_mesh_editor.state_mouse = g_view.mouse_position;
@@ -275,7 +257,7 @@ static bool SelectVertex(EditorAsset& ea)
     else
         SetSelection(em, vertex_index);
 
-    UpdateSelection(ea);
+    UpdateSelection();
 
     return true;
 }
@@ -308,7 +290,7 @@ static bool SelectEdge(EditorAsset& ea)
         RemoveSelection(em, ee.v1);
     }
 
-    UpdateSelection(ea);
+    UpdateSelection();
 
     return true;
 }
@@ -316,7 +298,7 @@ static bool SelectEdge(EditorAsset& ea)
 static bool SelectTriangle(EditorAsset& ea)
 {
     EditorMesh& em = *ea.mesh;
-    int triangle_index = HitTestTriangle(
+    int triangle_index = HitTestFace(
         em,
         ea.position,
         ScreenToWorld(g_view.camera, GetMousePosition()),
@@ -349,7 +331,7 @@ static bool SelectTriangle(EditorAsset& ea)
         RemoveSelection(em, et.v2);
     }
 
-    UpdateSelection(ea);
+    UpdateSelection();
 
     return true;
 }
@@ -359,43 +341,43 @@ static void AddVertexAtMouse()
     if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    EditorAsset& ea = *g_mesh_editor.asset;
+    EditorAsset& ea = GetEditingAsset();
     EditorMesh& em = *ea.mesh;
     int new_vertex = AddVertex(em, g_view.mouse_world_position - ea.position);
     if (new_vertex == -1)
         return;
 
     SetSelection(em, new_vertex);
-    UpdateSelection(ea);
+    UpdateSelection();
 }
 
 static void MergeVertices()
 {
-    EditorAsset& ea = *g_mesh_editor.asset;
-    EditorMesh& em = *ea.mesh;
+    EditorAsset& ea = GetEditingAsset();
+    EditorMesh& em = GetEditingMesh();
     if (em.selected_vertex_count < 2)
         return;
 
     MergeSelectedVerticies(em);
     MarkDirty(em);
     MarkModified(ea);
-    UpdateSelection(ea);
+    UpdateSelection();
 }
 
 static void DissolveSelected()
 {
-    EditorAsset& ea = *g_mesh_editor.asset;
-    EditorMesh& em = *ea.mesh;
+    EditorAsset& ea = GetEditingAsset();
+    EditorMesh& em = GetEditingMesh();
     DissolveSelectedVertices(em);
     MarkDirty(em);
     MarkModified(ea);
-    UpdateSelection(*g_mesh_editor.asset);
+    UpdateSelection();
 }
 
 static void RotateEdges()
 {
-    EditorAsset& ea = *g_mesh_editor.asset;
-    EditorMesh& em = *ea.mesh;
+    EditorAsset& ea = GetEditingAsset();
+    EditorMesh& em = GetEditingMesh();
     int edge_index = -1;
     for (int i=0; i<em.edge_count; i++)
     {
@@ -419,12 +401,13 @@ static void RotateEdges()
     AddSelection(em, em.edges[edge_index].v0);
     AddSelection(em, em.edges[edge_index].v1);
     MarkModified(ea);
-    UpdateSelection(ea);
+    UpdateSelection();
 }
 
-static void UpdateDefaultState(EditorAsset& ea)
+static void UpdateDefaultState()
 {
-    EditorMesh& em = *ea.mesh;
+    EditorAsset& ea = GetEditingAsset();
+    EditorMesh& em = GetEditingMesh();
 
     // If a drag has started then switch to box select
     if (g_view.drag)
@@ -453,7 +436,7 @@ static void UpdateDefaultState(EditorAsset& ea)
     if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_mesh_editor.clear_selection_on_up)
     {
         ClearSelection(em);
-        UpdateSelection(ea);
+        UpdateSelection();
     }
 }
 
@@ -473,10 +456,9 @@ bool HandleColorPickerInput(const ElementInput& input)
     return true;
 }
 
-void UpdateMeshEditor(EditorAsset& ea)
+void MeshViewUpdate()
 {
-    g_mesh_editor.asset = &ea;
-    g_mesh_editor.mesh = ea.mesh;
+    EditorAsset& ea = GetEditingAsset();
 
     BeginCanvas();
     SetStyleSheet(g_assets.ui.mesh_editor);
@@ -484,16 +466,16 @@ void UpdateMeshEditor(EditorAsset& ea)
     SetInputHandler(HandleColorPickerInput, &ea);
     EndCanvas();
 
-    CheckShortcuts(g_mesh_editor_shortcuts);
+    CheckShortcuts(g_mesh_editor.shortcuts);
 
     switch (g_mesh_editor.state)
     {
     case MESH_EDITOR_STATE_DEFAULT:
-        UpdateDefaultState(ea);
+        UpdateDefaultState();
         return;
 
     case MESH_EDITOR_STATE_MOVE:
-        UpdateMoveState(ea);
+        UpdateMoveState();
         break;
 
     case MESH_EDITOR_STATE_SCALE:
@@ -501,7 +483,7 @@ void UpdateMeshEditor(EditorAsset& ea)
         break;
 
     case MESH_EDITOR_STATE_HEIGHT:
-        UpdateHeightState(ea);
+        UpdateHeightState();
         break;
 
     default:
@@ -511,14 +493,14 @@ void UpdateMeshEditor(EditorAsset& ea)
     // Commit the tool
     if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
     {
-        UpdateSelection(ea);
+        UpdateSelection();
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
     // Cancel the tool
     else if (WasButtonPressed(g_view.input, KEY_ESCAPE) || WasButtonPressed(g_view.input, MOUSE_RIGHT))
     {
         CancelUndo();
-        RevertPositions(ea);
+        RevertPositions();
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
 }
@@ -535,7 +517,7 @@ static void DrawScaleState()
 
 static void DrawHeightState()
 {
-    EditorAsset& ea = *g_mesh_editor.asset;
+    EditorAsset& ea = GetEditingAsset();
     Vec2 h1 =
         ScreenToWorld(g_view.camera, {0, g_view.dpi * HEIGHT_SLIDER_SIZE}) -
         ScreenToWorld(g_view.camera, VEC2_ZERO);
@@ -563,14 +545,15 @@ static void DrawHeightState()
     DrawVertex(g_mesh_editor.world_drag_start + Mix(h1, -h1, height_ratio), CENTER_SIZE);
 }
 
-void DrawMeshEditor(EditorAsset& ea)
+void MeshViewDraw()
 {
+    EditorAsset& ea = GetEditingAsset();
     DrawEdges(ea, 10000, COLOR_EDGE);
     BindColor(COLOR_VERTEX);
-    DrawVertices(ea, false);
+    DrawVertices(false);
 
     BindColor(COLOR_SELECTED);
-    DrawVertices(ea, true);
+    DrawVertices(true);
 
     DrawOrigin(ea);
 
@@ -594,8 +577,8 @@ void DrawMeshEditor(EditorAsset& ea)
 
 void HandleBoxSelect(const Bounds2& bounds)
 {
-    EditorAsset& ea = *g_mesh_editor.asset;
-    EditorMesh& em = *ea.mesh;
+    EditorAsset& ea = GetEditingAsset();
+    EditorMesh& em = GetEditingMesh();
 
     bool shift = IsShiftDown(g_view.input);
     bool ctrl = IsCtrlDown(g_view.input);
@@ -618,7 +601,7 @@ void HandleBoxSelect(const Bounds2& bounds)
         }
     }
 
-    UpdateSelection(ea);
+    UpdateSelection();
 }
 
 static void HandleMoveCommand()
@@ -626,10 +609,11 @@ static void HandleMoveCommand()
     if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    if (g_mesh_editor.mesh->selected_vertex_count == 0)
+    EditorMesh& em = GetEditingMesh();
+    if (em.selected_vertex_count == 0)
         return;
 
-    SetState(*g_mesh_editor.asset, MESH_EDITOR_STATE_MOVE);
+    SetState(MESH_EDITOR_STATE_MOVE);
 }
 
 static void HandleScaleCommand()
@@ -637,10 +621,11 @@ static void HandleScaleCommand()
     if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    if (g_mesh_editor.mesh->selected_vertex_count == 0)
+    EditorMesh& em = GetEditingMesh();
+    if (em.selected_vertex_count == 0)
         return;
 
-    SetState(*g_mesh_editor.asset, MESH_EDITOR_STATE_SCALE);
+    SetState(MESH_EDITOR_STATE_SCALE);
 }
 
 static void HandleHeightCommand()
@@ -648,22 +633,21 @@ static void HandleHeightCommand()
     if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    if (g_mesh_editor.mesh->selected_vertex_count == 0)
+    EditorMesh& em = GetEditingMesh();
+    if (em.selected_vertex_count == 0)
         return;
 
-    SetState(*g_mesh_editor.asset, MESH_EDITOR_STATE_HEIGHT);
+    SetState(MESH_EDITOR_STATE_HEIGHT);
 }
 
 static void HandleSelectAllCommand()
 {
-    SelectAll(*g_mesh_editor.mesh);
+    SelectAll(GetEditingMesh());
 }
 
-void InitMeshEditor(EditorAsset& ea)
+void MeshViewInit(EditorAsset& ea)
 {
     g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
-
-    EnableShortcuts(g_mesh_editor_shortcuts);
 
     for (int i=0; i<ea.mesh->vertex_count; i++)
         ea.mesh->vertices[i].selected = false;
@@ -672,6 +656,24 @@ void InitMeshEditor(EditorAsset& ea)
     {
         g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, g_core_assets.shaders.ui);
         SetTexture(g_mesh_editor.color_material, g_assets.textures.palette, 0);
+    }
+
+    if (!g_mesh_editor.shortcuts)
+    {
+        static Shortcut shortcuts[] = {
+            { KEY_G, false, false, false, HandleMoveCommand },
+            { KEY_S, false, false, false, HandleScaleCommand },
+            { KEY_Q, false, false, false, HandleHeightCommand },
+            { KEY_A, false, false, false, HandleSelectAllCommand },
+            { KEY_X, false, false, false, DissolveSelected },
+            { KEY_V, false, false, false, AddVertexAtMouse },
+            { KEY_M, false, false, false, MergeVertices },
+            { KEY_R, false, false, false, RotateEdges },
+            { INPUT_CODE_NONE }
+        };
+
+        g_mesh_editor.shortcuts = shortcuts;
+        EnableShortcuts(shortcuts);
     }
 }
 

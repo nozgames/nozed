@@ -420,7 +420,7 @@ EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
         return nullptr;
     }
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / path : path;
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "animations" / path : path;
     full_path += ".anim";
 
     EditorAsset* skeleton_asset = GetEditorAsset(GetFirstSelectedAsset());
@@ -435,15 +435,7 @@ EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
     SaveStream(stream, full_path);
     Free(stream);
 
-    EditorAsset* ea = LoadEditorAnimationAsset(full_path);
-    if (!ea)
-        return nullptr;
-
-    PostLoadEditorAnimation(*ea);
-
-    g_view.assets[g_view.asset_count++] = ea;
-
-    return ea;
+    return LoadEditorAnimationAsset(full_path);
 }
 
 void EditorAnimationClone(Allocator* allocator, const EditorAsset& ea, EditorAsset& clone)
@@ -452,6 +444,21 @@ void EditorAnimationClone(Allocator* allocator, const EditorAsset& ea, EditorAss
     memcpy(clone.anim, ea.anim, sizeof(EditorAnimation));
     clone.vtable = ea.vtable;
 }
+
+static bool EditorAnimationOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
+{
+    return Contains(ea.anim->bounds + position, overlap_point);
+}
+
+static bool EditorAnimationOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
+{
+    return Intersects(ea.anim->bounds + ea.position, overlap_bounds);
+}
+
+extern void AnimationViewInit(EditorAsset& ea);
+extern void AnimationViewDraw();
+extern void AnimationViewUpdate();
+extern void AnimationViewShutdown();
 
 EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
 {
@@ -465,8 +472,12 @@ EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
         .post_load = PostLoadEditorAnimation,
         .draw = DrawEditorAnimation,
         .clone = EditorAnimationClone,
-        .init_editor = InitAnimationEditor,
-        .shutdown_editor = ShutdownAnimationEditor
+        .init_editor = AnimationViewInit,
+        .update_editor = AnimationViewUpdate,
+        .draw_editor = AnimationViewDraw,
+        .shutdown_editor = AnimationViewShutdown,
+        .overlap_point = EditorAnimationOverlapPoint,
+        .overlap_bounds = EditorAnimationOverlapBounds
     };
     return ea;
 }

@@ -391,11 +391,7 @@ EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path)
     if (!evfx)
         return nullptr;
 
-    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_VFX);
-    ea->vfx = evfx;
-    ea->vfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *evfx, ea->name);
-    ea->vfx_handle = INVALID_VFX_HANDLE;
-    return ea;
+    return CreateEditableVfxAsset(path, evfx);
 }
 
 EditorVfx* Clone(Allocator* allocator, const EditorVfx& ev)
@@ -404,4 +400,27 @@ EditorVfx* Clone(Allocator* allocator, const EditorVfx& ev)
     *clone = ev;
     clone->vfx = nullptr;
     return clone;
+}
+
+static bool EditorVfxOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
+{
+    return Contains(GetBounds(ea.vfx->vfx) + position, overlap_point);
+}
+
+static bool EditorVfxOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
+{
+    return Intersects(GetBounds(ea.vfx->vfx) + ea.position, overlap_bounds);
+}
+
+EditorAsset* CreateEditableVfxAsset(const std::filesystem::path& path, EditorVfx* evfx)
+{
+    EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_VFX);
+    ea->vfx = evfx;
+    ea->vfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *evfx, ea->name);
+    ea->vfx_handle = INVALID_VFX_HANDLE;
+    ea->vtable = {
+        .overlap_point = EditorVfxOverlapPoint,
+        .overlap_bounds = EditorVfxOverlapBounds
+    };
+    return ea;
 }

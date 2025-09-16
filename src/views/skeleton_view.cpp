@@ -287,13 +287,12 @@ static void UpdateUnparentState()
 
     EditorSkeleton& es = GetEditorSkeleton();
 
-    // Skinned mesh hit?
     for (int i=0; i<g_skeleton_view.skeleton->skinned_mesh_count; i++)
     {
         EditorSkinnedMesh& esm = g_skeleton_view.skeleton->skinned_meshes[i];
         Vec2 bone_position = TransformPoint(es.bones[esm.bone_index].local_to_world) + g_skeleton_view.asset->position;
         EditorAsset& skinned_mesh_asset = *g_view.assets[esm.asset_index];
-        if (!HitTestAsset(skinned_mesh_asset, bone_position, g_view.mouse_world_position))
+        if (!OverlapPoint(skinned_mesh_asset, bone_position, g_view.mouse_world_position))
             continue;
 
         for (int j=i; j<es.skinned_mesh_count-1; j++)
@@ -306,7 +305,7 @@ static void UpdateUnparentState()
     MarkModified(*g_skeleton_view.asset);
 }
 
-void UpdateSkeletonEditor()
+void SkeletonViewUpdate()
 {
     CheckShortcuts(g_skeleton_view.shortcuts);
 
@@ -371,7 +370,7 @@ static void DrawSkeleton()
     }
 }
 
-void DrawSkeletonEditor()
+void SkeletonViewDraw()
 {
     DrawSkeleton();
 
@@ -507,7 +506,7 @@ static ViewVtable g_skeleton_view_vtable = {
     .preview_command = SkeletonViewCommandPreview
 };
 
-void InitSkeletonEditor(EditorAsset& ea)
+void SkeletonViewInit(EditorAsset& ea)
 {
     g_skeleton_view.state = SKELETON_EDITOR_STATE_DEFAULT;
     g_skeleton_view.asset = &ea;

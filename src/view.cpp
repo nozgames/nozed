@@ -29,13 +29,14 @@ extern void SetTriangleColor(EditorMesh* em, int index, const Vec2Int& color);
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
 static ViewState GetState() { return g_view.state_stack[g_view.state_stack_count-1]; }
-static EditorAsset& GetEditingAsset() { return *g_view.assets[g_view.edit_asset_index]; }
 
 View g_view = {};
 
 static void HandleFrame();
 static void HandleUIZoomIn();
 static void HandleUIZoomOut();
+
+EditorAsset& GetEditingAsset() { return *g_view.assets[g_view.edit_asset_index]; }
 
 static Shortcut g_common_shortcuts[] = {
     { KEY_F, false, false, false, HandleFrame },
@@ -123,7 +124,7 @@ static void HandleBoxSelect()
     for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
-        if (HitTestAsset(ea, g_view.box_selection))
+        if (OverlapBounds(ea, g_view.box_selection))
             AddAssetSelection(i);
     }
 }
@@ -396,23 +397,9 @@ static void UpdateViewInternal()
             return;
         }
 
-        switch (ea.type)
-        {
-        case EDITOR_ASSET_TYPE_MESH:
-            UpdateMeshEditor(ea);
-            break;
+        if (ea.vtable.update_editor)
+            ea.vtable.update_editor();
 
-        case EDITOR_ASSET_TYPE_SKELETON:
-            UpdateSkeletonEditor();
-            break;
-
-        case EDITOR_ASSET_TYPE_ANIMATION:
-            UpdateAnimationEditor();
-            break;
-
-        default:
-            break;
-        }
         break;
     }
 
@@ -487,23 +474,8 @@ void RenderView()
     if (g_view.edit_asset_index != -1)
     {
         EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
-        switch (ea.type)
-        {
-        case EDITOR_ASSET_TYPE_MESH:
-            DrawMeshEditor(ea);
-            break;
-
-        case EDITOR_ASSET_TYPE_SKELETON:
-            DrawSkeletonEditor();
-            break;
-
-        case EDITOR_ASSET_TYPE_ANIMATION:
-            DrawAnimationEditor();
-            break;
-
-        default:
-            break;
-        }
+        if (ea.vtable.draw_editor)
+            ea.vtable.draw_editor();
     }
     else
     {

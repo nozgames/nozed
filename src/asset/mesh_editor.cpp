@@ -9,7 +9,7 @@ constexpr float OUTLINE_WIDTH = 0.05f;
 #include <editor.h>
 #include <utils/file_helpers.h>
 
-void DrawEditorMesh(EditorAsset& ea)
+static void EditorMeshDraw(EditorAsset& ea)
 {
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
@@ -707,7 +707,7 @@ int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& position)
     return new_vertex_index;
 }
 
-int HitTestVertex(const EditorMesh& em, const Vec2& world_pos)
+int HitTestVertex(EditorMesh& em, const Vec2& world_pos)
 {
     const float size = g_view.select_size;
     float best_dist = F32_MAX;
@@ -726,7 +726,7 @@ int HitTestVertex(const EditorMesh& em, const Vec2& world_pos)
     return best_vertex;
 }
 
-int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float* where)
+int HitTestEdge(EditorMesh& em, const Vec2& hit_pos, float* where)
 {
     const float size = g_view.select_size * 0.75f;
     for (int i = 0; i < em.edge_count; i++)
@@ -754,52 +754,7 @@ int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float* where)
     return -1;
 }
 
-bool HitTestTriangle(const EditorMesh& em, const EditorFace& et, const Vec2& position, const Vec2& hit_pos,
-                     Vec2* where)
-{
-    Vec2 v0 = em.vertices[et.v0].position + position;
-    Vec2 v1 = em.vertices[et.v1].position + position;
-    Vec2 v2 = em.vertices[et.v2].position + position;
-
-    // Calculate the area using cross product (can be negative if clockwise)
-    float area = (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
-
-    // Handle degenerate triangles (zero area)
-    if (fabsf(area) < 1e-6f)
-        return false;
-
-    // Calculate barycentric coordinates
-    float inv_area = 1.0f / area;
-    float s = ((v2.y - v0.y) * (hit_pos.x - v0.x) + (v0.x - v2.x) * (hit_pos.y - v0.y)) * inv_area;
-    float t = ((v0.y - v1.y) * (hit_pos.x - v0.x) + (v1.x - v0.x) * (hit_pos.y - v0.y)) * inv_area;
-
-    if (s >= 0 && t >= 0 && (s + t) <= 1)
-    {
-        if (where)
-            *where = {s, t};
-
-        return true;
-    }
-
-    return false;
-}
-
-int HitTestTriangle(const EditorMesh& mesh, const Vec2& position, const Vec2& hit_pos, Vec2* where)
-{
-    if (!Contains(mesh.bounds, hit_pos - position))
-        return -1;
-
-    for (int i = 0; i < mesh.face_count; i++)
-    {
-        const EditorFace& et = mesh.faces[i];
-        if (HitTestTriangle(mesh, et, position, hit_pos, where))
-            return i;
-    }
-
-    return -1;
-}
-
-bool HitTest(const EditorMesh& mesh, const Vec2& position, const Bounds2& hit_bounds)
+bool OverlapBounds(EditorMesh& mesh, const Vec2& position, const Bounds2& hit_bounds)
 {
     return Intersects(mesh.bounds + position, hit_bounds);
 }
@@ -886,6 +841,22 @@ void SelectAll(EditorMesh& em)
     em.selected_vertex_count = em.vertex_count;
 }
 
+int HitTestFace(EditorMesh& em, const Vec2& position, const Vec2& hit_pos, Vec2* where)
+{
+    for (int i=0; i<em.face_count; i++)
+    {
+        EditorFace& et = em.faces[i];
+        Vec2 v0 = em.vertices[et.v0].position + position;
+        Vec2 v1 = em.vertices[et.v1].position + position;
+        Vec2 v2 = em.vertices[et.v2].position + position;
+
+        if (OverlapPoint(v0, v1, v2, hit_pos, where))
+            return i;
+    }
+
+    return -1;
+}
+
 int AddVertex(EditorMesh& em, const Vec2& position)
 {
     // If on a vertex then return -1
@@ -908,7 +879,7 @@ int AddVertex(EditorMesh& em, const Vec2& position)
 
     // If inside a triangle then split the triangle into three triangles and add the point
     Vec2 tri_pos;
-    int triangle_index = HitTestTriangle(em, VEC2_ZERO, position, &tri_pos);
+    int triangle_index = HitTestFace(em, VEC2_ZERO, position, &tri_pos);
     if (triangle_index >= 0)
     {
         int new_vertex = SplitTriangle(em, triangle_index, position);
@@ -1015,24 +986,6 @@ void FixNormals(EditorMesh& em)
     }
 }
 
-EditorMesh* Clone(Allocator* allocator, const EditorMesh& em)
-{
-    EditorMesh* clone = CreateEditableMesh(allocator);
-    *clone = em;
-    clone->mesh = nullptr;
-    return clone;
-}
-
-void Copy(EditorMesh& dst, const EditorMesh& src)
-{
-    if (dst.mesh)
-        Free(dst.mesh);
-
-    dst = src;
-    dst.mesh = nullptr;
-    dst.dirty = true;
-}
-
 static void ParseVertexHeght(EditorVertex& ev, Tokenizer& tk)
 {
     if (!ExpectFloat(tk, &ev.height))
@@ -1120,6 +1073,31 @@ static void ParseFace(EditorMesh& em, Tokenizer& tk)
     }
 }
 
+static EditorMesh* CreateEditableMesh(Allocator* allocator)
+{
+    EditorMesh* em = (EditorMesh*)Alloc(allocator, sizeof(EditorMesh));
+    MarkDirty(*em);
+    return em;
+}
+
+EditorMesh* Clone(Allocator* allocator, const EditorMesh& em)
+{
+    EditorMesh* clone = CreateEditableMesh(allocator);
+    *clone = em;
+    clone->mesh = nullptr;
+    return clone;
+}
+
+void Copy(EditorMesh& dst, const EditorMesh& src)
+{
+    if (dst.mesh)
+        Free(dst.mesh);
+
+    dst = src;
+    dst.mesh = nullptr;
+    dst.dirty = true;
+}
+
 EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path)
 {
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
@@ -1202,7 +1180,7 @@ EditorAsset* NewEditorMesh(const std::filesystem::path& path)
                                "f 0 1 2 c 1 0\n"
                                "f 0 2 3 c 1 0\n";
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / path : path;
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "meshes" / path : path;
     full_path += ".mesh";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
@@ -1210,19 +1188,7 @@ EditorAsset* NewEditorMesh(const std::filesystem::path& path)
     SaveStream(stream, full_path);
     Free(stream);
 
-    EditorAsset* ea = CreateEditableMeshAsset(full_path, LoadEditorMesh(ALLOCATOR_DEFAULT, full_path));
-    if (!ea)
-        return nullptr;
-
-    g_view.assets[g_view.asset_count++] = ea;
-    return ea;
-}
-
-EditorMesh* CreateEditableMesh(Allocator* allocator)
-{
-    EditorMesh* em = (EditorMesh*)Alloc(allocator, sizeof(EditorMesh));
-    MarkDirty(*em);
-    return em;
+    return CreateEditableMeshAsset(full_path, LoadEditorMesh(ALLOCATOR_DEFAULT, full_path));
 }
 
 EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path)
@@ -1234,12 +1200,36 @@ EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path)
     return CreateEditableMeshAsset(path, em);
 }
 
+static bool EditorMeshOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
+{
+    EditorMesh& em = *ea.mesh;
+    Mesh* mesh = ToMesh(em, false);
+    if (!mesh)
+        return false;
+
+    return OverlapPoint(mesh, overlap_point - position);
+}
+
+static bool EditorMeshOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
+{
+    return OverlapBounds(*ea.mesh, ea.position, overlap_bounds);
+}
+
+extern void MeshViewInit(EditorAsset& ea);
+extern void MeshViewDraw();
+extern void MeshViewUpdate();
+
 EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path, EditorMesh* em)
 {
     EditorAsset* ea = CreateEditorAsset(path, EDITOR_ASSET_TYPE_MESH);
     ea->mesh = em;
     ea->vtable = {
-        .init_editor = InitMeshEditor
+        .draw = EditorMeshDraw,
+        .init_editor = MeshViewInit,
+        .update_editor = MeshViewUpdate,
+        .draw_editor = MeshViewDraw,
+        .overlap_point = EditorMeshOverlapPoint,
+        .overlap_bounds = EditorMeshOverlapBounds
     };
     return ea;
 }

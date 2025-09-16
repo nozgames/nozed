@@ -11,7 +11,7 @@ extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, As
 void DrawEditorSkeletonBone(EditorSkeleton& es, int bone_index, const Vec2& position)
 {
     EditorBone& eb = es.bones[bone_index];
-    DrawBone(eb.local_to_world, es.bones[eb.parent_index].local_to_world, position);
+    DrawBone(eb.local_to_world * Rotate(eb.transform.rotation), es.bones[eb.parent_index].local_to_world, position);
 }
 
 void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
@@ -54,7 +54,8 @@ int HitTestBone(EditorSkeleton& es, const Vec2& world_pos)
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         EditorBone& bone = es.bones[bone_index];
-        Vec2 bone_position = TransformPoint(bone.local_to_world);
+        Mat3 local_to_world = bone.local_to_world * Rotate(bone.transform.rotation);
+        Vec2 bone_position = TransformPoint(local_to_world);
         float dist = Length(bone_position - world_pos);
         if (dist < size && dist < best_dist)
         {
@@ -72,11 +73,12 @@ int HitTestBone(EditorSkeleton& es, const Vec2& world_pos)
     {
         EditorBone& bone = es.bones[bone_index];
 
-        if (!OverlapPoint(g_view.bone_collider, TransformPoint(bone.world_to_local, world_pos)))
+        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(bone.transform.rotation), TransformPoint(bone.world_to_local, world_pos))))
             continue;
 
-        Vec2 b0 = TransformPoint(bone.local_to_world);
-        Vec2 b1 = TransformPoint(bone.local_to_world, {1, 0});
+        Mat3 local_to_world = bone.local_to_world * Rotate(bone.transform.rotation);
+        Vec2 b0 = TransformPoint(local_to_world);
+        Vec2 b1 = TransformPoint(local_to_world, {1, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
         if (dist < best_dist)
         {
@@ -185,7 +187,7 @@ EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
 {
     const char* default_mesh = "b \"root\" -1 p 0 0\n";
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / path : path;
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "skeletons" / path : path;
     full_path += ".skel";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
@@ -193,12 +195,7 @@ EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
     SaveStream(stream, full_path);
     Free(stream);
 
-    EditorAsset* ea = LoadEditorSkeletonAsset(full_path);
-    if (!ea)
-        return nullptr;
-
-    g_view.assets[g_view.asset_count++] = ea;
-    return ea;
+    return LoadEditorSkeletonAsset(full_path);
 }
 
 void UpdateTransforms(EditorSkeleton& es)
@@ -214,7 +211,7 @@ void UpdateTransforms(EditorSkeleton& es)
     {
         EditorBone& bone = es.bones[bone_index];
         EditorBone& parent = es.bones[bone.parent_index];
-        bone.local_to_world = parent.local_to_world * TRS(bone.transform.position, bone.transform.rotation, bone.transform.scale);
+        bone.local_to_world = parent.local_to_world * Translate(bone.transform.position);
         bone.world_to_local = Inverse(bone.local_to_world);
         bone.length = 1.0f; // Length(bone.position);
     }
@@ -461,6 +458,20 @@ void SkeletonEditorSaveMetadata(const EditorAsset& ea, Props* meta)
     }
 }
 
+static bool EditorSkeletonOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
+{
+    return Contains(ea.skeleton->bounds + position, overlap_point);
+}
+
+static bool EditorSkeletonOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
+{
+    return Intersects(ea.skeleton->bounds + ea.position, overlap_bounds);
+}
+
+extern void SkeletonViewInit(EditorAsset& ea);
+extern void SkeletonViewDraw();
+extern void SkeletonViewUpdate();
+
 EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton)
 {
     if (!skeleton)
@@ -470,8 +481,12 @@ EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, Editor
     ea->skeleton = skeleton;
     ea->vtable = {
         .post_load = PostLoadEditorSkeleton,
-        .init_editor = InitSkeletonEditor,
-        .save_metadata = SkeletonEditorSaveMetadata
+        .init_editor = SkeletonViewInit,
+        .update_editor = SkeletonViewUpdate,
+        .draw_editor = SkeletonViewDraw,
+        .save_metadata = SkeletonEditorSaveMetadata,
+        .overlap_point = EditorSkeletonOverlapPoint,
+        .overlap_bounds = EditorSkeletonOverlapBounds
     };
     return ea;
 }

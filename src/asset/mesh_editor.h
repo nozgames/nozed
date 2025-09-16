@@ -54,16 +54,16 @@ struct EditorMesh
 };
 
 // @editor_mesh
-extern EditorMesh* CreateEditableMesh(Allocator* allocator);
+extern EditorAsset* NewEditorMesh(const std::filesystem::path& path);
 extern EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path, EditorMesh* em);
-extern bool HitTest(const EditorMesh& mesh, const Vec2& position, const Bounds2& hit_bounds);
-extern bool HitTestTriangle(const EditorMesh& em, const EditorFace& et, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
-extern int HitTestTriangle(const EditorMesh& mesh, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
-extern int HitTestVertex(const EditorMesh& em, const Vec2& world_pos);
-extern int HitTestEdge(const EditorMesh& em, const Vec2& hit_pos, float* where=nullptr);
+extern EditorMesh* Clone(Allocator* allocator, const EditorMesh& em);
+extern EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path);
 extern Mesh* ToMesh(EditorMesh& em, bool upload=true);
-extern Bounds2 GetSelectedBounds(const EditorMesh& emesh);
-extern void MarkDirty(EditorMesh& emesh);
+extern int HitTestFace(EditorMesh& em, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
+extern int HitTestVertex(EditorMesh& em, const Vec2& world_pos);
+extern int HitTestEdge(EditorMesh& em, const Vec2& hit_pos, float* where=nullptr);
+extern Bounds2 GetSelectedBounds(const EditorMesh& em);
+extern void MarkDirty(EditorMesh& em);
 extern void SetSelectedTrianglesColor(EditorMesh& em, const Vec2Int& color);
 extern void MergeSelectedVerticies(EditorMesh& em);
 extern void DissolveSelectedVertices(EditorMesh& em);
@@ -78,9 +78,5 @@ extern void ToggleSelection(EditorMesh& em, int vertex_index);
 extern void ClearSelection(EditorMesh& em);
 extern void SelectAll(EditorMesh& em);
 extern int RotateEdge(EditorMesh& em, int edge_index);
-extern EditorMesh* Clone(Allocator* allocator, const EditorMesh& em);
 extern void Copy(EditorMesh& dst, const EditorMesh& src);
-extern EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path);
 extern void SaveEditorMesh(const EditorMesh& em, const std::filesystem::path& path);
-extern EditorAsset* NewEditorMesh(const std::filesystem::path& path);
-extern void DrawEditorMesh(EditorAsset& ea);

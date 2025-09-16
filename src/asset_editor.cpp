@@ -132,66 +132,43 @@ void SaveEditorAssets()
         AddNotification("Saved %d asset(s)", count);
 }
 
-bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos)
+bool OverlapPoint(EditorAsset& ea, const Vec2& overlap_point)
 {
-    return HitTestAsset(ea, ea.position, hit_pos);
-}
-
-bool HitTestAsset(const EditorAsset& ea, const Vec2& position, const Vec2& hit_pos)
-{
-    switch (ea.type)
-    {
-    case EDITOR_ASSET_TYPE_MESH:
-        return -1 != HitTestTriangle(*ea.mesh, position, hit_pos);
-
-    case EDITOR_ASSET_TYPE_VFX:
-        return Contains(GetBounds(ea.vfx->vfx) + position, hit_pos);
-
-    case EDITOR_ASSET_TYPE_SKELETON:
-        return Contains(ea.skeleton->bounds + position, hit_pos);
-
-    case EDITOR_ASSET_TYPE_ANIMATION:
-        return Contains(ea.anim->bounds + position, hit_pos);
-
-    default:
+    if (!ea.vtable.overlap_point)
         return false;
-    }
+
+    return ea.vtable.overlap_point(ea, ea.position, overlap_point);
 }
 
-int HitTestAssets(const Vec2& hit_pos)
+bool OverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
+{
+    if (!ea.vtable.overlap_point)
+        return false;
+
+    return ea.vtable.overlap_point(ea, position, overlap_point);
+}
+
+bool OverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
+{
+    if (!ea.vtable.overlap_bounds)
+        return false;
+
+    return ea.vtable.overlap_bounds(ea, overlap_bounds);
+}
+
+int HitTestAssets(const Vec2& overlap_point)
 {
     for (int i=0, c=g_view.asset_count; i<c; i++)
-        if (HitTestAsset(*g_view.assets[i], hit_pos))
+        if (OverlapPoint(*g_view.assets[i], overlap_point))
             return i;
 
     return -1;
 }
 
-bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds)
-{
-    switch (ea.type)
-    {
-    case EDITOR_ASSET_TYPE_MESH:
-        return HitTest(*ea.mesh, ea.position, hit_bounds);
-
-    case EDITOR_ASSET_TYPE_VFX:
-        return Intersects(GetBounds(ea.vfx->vfx) + ea.position, hit_bounds);
-
-    case EDITOR_ASSET_TYPE_SKELETON:
-        return Intersects(ea.skeleton->bounds + ea.position, hit_bounds);
-
-    case EDITOR_ASSET_TYPE_ANIMATION:
-        return Intersects(ea.anim->bounds + ea.position, hit_bounds);
-
-    default:
-        return false;
-    }
-}
-
 int HitTestAssets(const Bounds2& hit_bounds)
 {
     for (int i=0, c=g_view.asset_count; i<c; i++)
-        if (HitTestAsset(*g_view.assets[i], hit_bounds))
+        if (OverlapBounds(*g_view.assets[i], hit_bounds))
             return i;
 
     return -1;
@@ -204,9 +181,6 @@ void DrawAsset(EditorAsset& ea)
 
     switch (ea.type)
     {
-    case EDITOR_ASSET_TYPE_MESH:
-        DrawEditorMesh(ea);
-        break;
 
     case EDITOR_ASSET_TYPE_VFX:
         DrawEditorVfx(ea);

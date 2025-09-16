@@ -49,7 +49,6 @@ struct View
     float dpi;
     InputSet* input;
     InputSet* command_input;
-    int edit_asset_index;
     bool clear_selection_on_release;
     Vec2 pan_position_camera;
     Vec2 pan_position;
@@ -76,6 +75,8 @@ struct View
     Vec2 light_dir;
 
     ViewVtable* vtable;
+
+    int edit_asset_index;
 };
 
 extern View g_view;
@@ -99,6 +100,7 @@ extern void PushState(ViewState state);
 extern void PopState();
 extern void FocusAsset(int asset_index);
 extern void HandleRename(const Name* name);
+extern EditorAsset& GetEditingAsset();
 
 // @grid
 extern void InitGrid(Allocator* allocator);
@@ -116,51 +118,13 @@ extern bool Undo();
 extern bool Redo();
 extern void CancelUndo();
 
-// @editable_asset
-extern EditorAsset* LoadEditorMeshAsset(const std::filesystem::path& path);
-extern EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path);
-extern void LoadEditorAssets();
-extern void SaveEditorAssets();
-extern bool HitTestAsset(const EditorAsset& ea, const Vec2& hit_pos);
-extern bool HitTestAsset(const EditorAsset& ea, const Vec2& position, const Vec2& hit_pos);
-extern bool HitTestAsset(const EditorAsset& ea, const Bounds2& hit_bounds);
-extern int HitTestAssets(const Vec2& hit_pos);
-extern int HitTestAssets(const Bounds2& bit_bounds);
-extern void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color);
-extern void DrawAsset(EditorAsset& ea);
-extern Bounds2 GetBounds(const EditorAsset& ea);
-extern int GetFirstSelectedAsset();
-extern Bounds2 GetSelectedBounds(const EditorAsset& ea);
-extern void MoveTo(EditorAsset& asset, const Vec2& position);
-extern void ClearAssetSelection();
-extern void SetAssetSelection(int asset_index);
-extern void AddAssetSelection(int asset_index);
-extern int FindEditorAssetByName(const Name* name);
-extern EditorAsset* Clone(Allocator* allocator, const EditorAsset& ea);
-extern void Copy(EditorAsset& dst, const EditorAsset& src);
-extern EditorAsset* GetEditorAsset(i32 index);
-
 // @notifications
 extern void InitNotifications();
 extern void UpdateNotifications();
 extern void AddNotification(const char* format, ...);
 
 // @mesh_editor
-extern void UpdateMeshEditor(EditorAsset& ea);
-extern void InitMeshEditor(EditorAsset& ea);
-extern void DrawMeshEditor(EditorAsset& ea);
 extern void HandleBoxSelect(const Bounds2& bounds);
-
-// @skeleton_editor
-extern void InitSkeletonEditor(EditorAsset& ea);
-extern void UpdateSkeletonEditor();
-extern void DrawSkeletonEditor();
-
-// @animation_editor
-extern void InitAnimationEditor(EditorAsset& ea);
-extern void ShutdownAnimationEditor();
-extern void DrawAnimationEditor();
-extern void UpdateAnimationEditor();
 
 // @draw
 extern void DrawLine(const Vec2& v0, const Vec2& v1);

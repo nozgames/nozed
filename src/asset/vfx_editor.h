@@ -24,6 +24,7 @@ struct EditorVfx
     Vfx* vfx;
 };
 
+extern EditorAsset* CreateEditableVfxAsset(const std::filesystem::path& path, EditorVfx* evfx);
 extern EditorVfx* LoadEditorVfx(Allocator* allocator, const std::filesystem::path& path);
 extern Vfx* ToVfx(Allocator* allocator, const EditorVfx& evfx, const Name* name);
 extern void Serialize(const EditorVfx& evfx, Stream* stream);
