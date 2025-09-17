@@ -26,8 +26,13 @@ void UpdateTransforms(EditorAnimation& en)
 void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& position)
 {
     EditorSkeleton& es = GetEditorSkeleton(en);
-    const Mat3& eb = en.animator.bones[bone_index];
-    const Mat3& ep = en.animator.bones[es.bones[bone_index].parent_index];
+    int parent_index = es.bones[bone_index].parent_index;
+    if (parent_index < 0)
+        parent_index = bone_index;
+
+    Mat3 eb = en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation);
+    Mat3 ep = en.animator.bones[parent_index];
+
     Vec2 p0 = TransformPoint(eb);
     Vec2 p1 = TransformPoint(eb, Vec2 {1, 0});
     Vec2 pp = TransformPoint(ep);
@@ -54,7 +59,7 @@ static void DrawEditorAnimation(EditorAsset& ea)
         DrawMesh(ToMesh(skinned_mesh_asset->mesh));
     }
 
-    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
         DrawEditorAnimationBone(en, bone_index, ea.position);
 }
 
@@ -351,13 +356,13 @@ static void EditorAnimationSave(EditorAsset& ea, const std::filesystem::path& pa
             WriteCSTR(stream, "b %d", bone_index);
 
             if (has_pos)
-                WriteCSTR(stream, " p %g %g", bt.position.x, bt.position.y);
+                WriteCSTR(stream, " p %f %f", bt.position.x, bt.position.y);
 
             if (has_rot)
-                WriteCSTR(stream, " r %g", bt.rotation);
+                WriteCSTR(stream, " r %f", bt.rotation);
 
             // if (has_scale)
-            //     WriteCSTR(stream, " s %g", bt.scale);
+            //     WriteCSTR(stream, " s %f", bt.scale);
 
             WriteCSTR(stream, "\n");
         }
@@ -420,7 +425,7 @@ int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
     int best_bone_index = -1;
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
-        Vec2 b0 = TransformPoint(en.animator.bones[bone_index]);
+        Vec2 b0 = TransformPoint(en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation));
         float dist = Length(b0 - world_pos);
         if (dist < size && dist < best_dist)
         {
@@ -436,13 +441,14 @@ int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
     best_dist = F32_MAX;
     for (int bone_index=1; bone_index<es.bone_count; bone_index++)
     {
-        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Inverse(en.animator.bones[bone_index]), world_pos)))
+        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(-es.bones[bone_index].transform.rotation), TransformPoint(Inverse(en.animator.bones[bone_index]), world_pos))))
             continue;
 
-        Vec2 b0 = TransformPoint(en.animator.bones[bone_index]);
-        Vec2 b1 = TransformPoint(en.animator.bones[bone_index], {1, 0});
+        Mat3 local_to_world = en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation);
+        Vec2 b0 = TransformPoint(local_to_world);
+        Vec2 b1 = TransformPoint(local_to_world, {1, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
-        if (dist < size && dist < best_dist)
+        if (dist < best_dist)
         {
             best_dist = dist;
             best_bone_index = bone_index;

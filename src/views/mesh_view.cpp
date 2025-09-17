@@ -456,9 +456,9 @@ void MeshViewUpdate()
 {
     EditorAsset& ea = GetEditingAsset();
 
+    SetStyleSheet(STYLESHEET_MESH_EDITOR);
     BeginCanvas();
-    SetStyleSheet(g_assets.ui.mesh_editor);
-    Image(g_mesh_editor.color_material, g_names.color_picker_image);
+    Image(g_mesh_editor.color_material, NAME_COLOR_PICKER_IMAGE);
     SetInputHandler(HandleColorPickerInput, &ea);
     EndCanvas();
 
@@ -674,8 +674,8 @@ void MeshViewInit()
 
     if (!g_mesh_editor.color_material)
     {
-        g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, g_core_assets.shaders.ui);
-        SetTexture(g_mesh_editor.color_material, g_assets.textures.palette, 0);
+        g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
+        SetTexture(g_mesh_editor.color_material, TEXTURE_PALETTE, 0);
     }
 
     if (!g_mesh_editor.shortcuts)

@@ -23,7 +23,6 @@ static const char* g_skeleton_extensions[] = {
 };
 
 static AssetImporterTraits g_skeleton_importer_traits = {
-    .type_name = "Skeleton",
     .signature = ASSET_SIGNATURE_SKELETON,
     .ext = ".skel",
     .import_func = ImportSkeleton

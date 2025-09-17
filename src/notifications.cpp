@@ -17,12 +17,6 @@ struct Notification
 struct NotificationSystem
 {
     RingBuffer* buffer;
-    struct
-    {
-        const Name* notification_container;
-        const Name* notification;
-        const Name* notification_text;
-    } names;
 };
 
 static NotificationSystem g_notifications = {};
@@ -48,8 +42,8 @@ void AddNotification(const char* format, ...)
 void UpdateNotifications()
 {
     BeginCanvas();
-    SetStyleSheet(g_assets.ui.notifications);
-    BeginElement(g_notifications.names.notification_container);
+    SetStyleSheet(STYLESHEET_NOTIFICATIONS);
+    BeginElement(NAME_NOTIFICATION_CONTAINER);
         for (int i=0, c=g_notifications.buffer->count; i<c; i++)
         {
             Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
@@ -62,8 +56,8 @@ void UpdateNotifications()
                 continue;
             }
 
-            BeginElement(g_notifications.names.notification);
-                Label(n->text, g_notifications.names.notification_text);
+            BeginElement(NAME_NOTIFICATION);
+                Label(n->text, NAME_NOTIFICATION_TEXT);
             EndElement();
         }
     EndElement();
@@ -73,7 +67,4 @@ void UpdateNotifications()
 void InitNotifications()
 {
     g_notifications.buffer = CreateRingBuffer(ALLOCATOR_DEFAULT, sizeof(Notification), MAX_NOTIFICATIONS);
-    g_notifications.names.notification = g_names.notification;
-    g_notifications.names.notification_container = g_names.notification_container;
-    g_notifications.names.notification_text = g_names.notification_text;
 }

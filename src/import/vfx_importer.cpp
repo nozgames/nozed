@@ -18,7 +18,6 @@ void ImportVfx(const fs::path& source_path, Stream* output_stream, Props* config
 }
 
 static AssetImporterTraits g_vfx_importer_traits = {
-    .type_name = "Vfx",
     .signature = ASSET_SIGNATURE_VFX,
     .ext = ".vfx",
     .import_func = ImportVfx

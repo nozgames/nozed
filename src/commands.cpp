@@ -66,11 +66,11 @@ static void HandleNew(const Command& command)
     const Name* asset_name = GetName(command.args[1]);
 
     EditorAsset* ea = nullptr;
-    if (type == g_names.mesh)
+    if (type == NAME_MESH || type == NAME_M)
         ea = NewEditorMesh(asset_name->value);
-    else if (type == g_names.skeleton)
+    else if (type == NAME_SKELETON || type == NAME_S)
         ea = NewEditorSkeleton(asset_name->value);
-    else if (type == g_names.animation)
+    else if (type == NAME_ANIMATION || type == NAME_A)
         ea = NewEditorAnimation(asset_name->value);
 
     if (ea == nullptr)
@@ -132,10 +132,10 @@ bool ParseCommand(const char* str, Command& command)
 void InitCommands()
 {
     static CommandHandler commands[] = {
-        { g_names.s, g_names.save, HandleSave },
-        { g_names.e, g_names.edit, HandleEdit },
-        { g_names.n, g_names._new, HandleNew },
-        { g_names.r, g_names.rename, HandleRename },
+        { NAME_S, NAME_SAVE, HandleSave },
+        { NAME_E, NAME_EDIT, HandleEdit },
+        { NAME_N, NAME_NEW, HandleNew },
+        { NAME_R, NAME_RENAME, HandleRename },
         { nullptr, nullptr, nullptr }
     };
 

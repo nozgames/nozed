@@ -32,18 +32,8 @@ static ViewState GetState() { return g_view.state_stack[g_view.state_stack_count
 
 View g_view = {};
 
-static void HandleFrame();
-static void HandleUIZoomIn();
-static void HandleUIZoomOut();
-
 EditorAsset& GetEditingAsset() { return *g_view.assets[g_view.edit_asset_index]; }
 
-static Shortcut g_common_shortcuts[] = {
-    { KEY_F, false, false, false, HandleFrame },
-    { KEY_EQUALS, false, true, false, HandleUIZoomIn },
-    { KEY_MINUS, false, true, false, HandleUIZoomOut },
-    { INPUT_CODE_NONE }
-};
 
 static void UpdateCamera()
 {
@@ -339,7 +329,7 @@ static void UpdateMouse()
 
 static void UpdateCommon()
 {
-    CheckShortcuts(g_common_shortcuts);
+    CheckShortcuts(g_view.shortcuts);
 
     UpdatePanState();
 
@@ -448,6 +438,10 @@ void RenderView()
     // Grid
     DrawGrid(g_view.camera);
 
+    if (g_view.show_names || IsAltDown(g_view.input))
+        for (u32 i=0; i<g_view.asset_count; i++)
+            DrawBounds(*g_view.assets[i]);
+
     // Draw assets
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.material);
@@ -537,16 +531,16 @@ void UpdateCommandPalette()
         return;
     }
 
+    SetStyleSheet(STYLESHEET_COMMAND_PALETTE);
     BeginCanvas();
-    SetStyleSheet(g_assets.ui.command_palette);
-    BeginElement(g_names.command_palette);
-        BeginElement(g_names.command_input);
-            Label(":", g_names.command_colon);
-            Label(input.value, g_names.command_text);
+    BeginElement(NAME_COMMAND_PALETTE);
+        BeginElement(NAME_COMMAND_INPUT);
+            Label(":", NAME_COMMAND_COLON);
+            Label(input.value, NAME_COMMAND_TEXT);
             if (g_view.command_preview)
-                Label(g_view.command_preview->value, g_names.command_text_preview);
+                Label(g_view.command_preview->value, NAME_COMMAND_TEXT_PREVIEW);
             else
-                EmptyElement(g_names.command_text_cursor);
+                EmptyElement(NAME_COMMAND_TEXT_CURSOR);
         EndElement();
     EndElement();
     EndCanvas();
@@ -557,17 +551,17 @@ static void UpdateAssetNames()
     if (GetState() != VIEW_STATE_DEFAULT)
         return;
 
-    if (!IsAltDown(g_view.input))
+    if (!IsAltDown(g_view.input) && !g_view.show_names)
         return;
 
     for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
 
-        BeginWorldCanvas(g_view.camera, ea.position, Vec2{6, 0});
-            SetStyleSheet(g_assets.ui.view);
-            BeginElement(g_names.asset_name_container);
-                Label(ea.name->value, g_names.asset_name);
+        BeginWorldCanvas(g_view.camera, ea.position + Vec2{0, GetBounds(ea).min.y}, Vec2{6, 0});
+            SetStyleSheet(STYLESHEET_VIEW);
+            BeginElement(NAME_ASSET_NAME_CONTAINER);
+                Label(ea.name->value, NAME_ASSET_NAME);
             EndElement();
         EndCanvas();
     }
@@ -623,7 +617,7 @@ static void HandleTextInputChanged(EventId event_id, const void* event_data)
     if (!ParseCommand(input->value, g_view.command))
         return;
 
-    if (g_view.command.name == g_names.r || g_view.command.name == g_names.rename)
+    if (g_view.command.name == NAME_R || g_view.command.name == NAME_RENAME)
         if (g_view.vtable.preview_command)
             g_view.command_preview = g_view.vtable.preview_command(g_view.command);
 }
@@ -638,23 +632,27 @@ void SaveViewUserConfig(Props* user_config)
     user_config->SetVec2("view", "light_direction", g_view.light_dir);
 }
 
+static void HandleToggleNames()
+{
+    g_view.show_names = !g_view.show_names;
+}
+
 void InitView()
 {
     InitUndo();
 
     g_view.camera = CreateCamera(ALLOCATOR_DEFAULT);
-    g_view.material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.lit);
-    g_view.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, g_assets.shaders.ui);
+    g_view.material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
+    g_view.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
     g_view.zoom = ZOOM_DEFAULT;
     g_view.ui_scale = 1.0f;
     g_view.dpi = 72.0f;
     g_view.edit_asset_index = -1;
     g_view.light_dir = { -1, 0 };
     UpdateCamera();
-    SetTexture(g_view.material, g_assets.textures.palette, 0);
+    SetTexture(g_view.material, TEXTURE_PALETTE, 0);
 
     g_view.input = CreateInputSet(ALLOCATOR_DEFAULT);
-    EnableShortcuts(g_common_shortcuts);
     EnableButton(g_view.input, KEY_LEFT_CTRL);
     EnableButton(g_view.input, KEY_LEFT_SHIFT);
     EnableButton(g_view.input, KEY_LEFT_ALT);
@@ -726,7 +724,19 @@ void InitView()
     g_view.state_stack_count = 1;
 
     Listen(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
+
+    static Shortcut shortcuts[] = {
+        { KEY_F, false, false, false, HandleFrame },
+        { KEY_EQUALS, false, true, false, HandleUIZoomIn },
+        { KEY_MINUS, false, true, false, HandleUIZoomOut },
+        { KEY_N, true, false, false, HandleToggleNames },
+        { INPUT_CODE_NONE }
+    };
+
+    g_view.shortcuts = shortcuts;
+    EnableShortcuts(shortcuts);
 }
+
 
 void ShutdownView()
 {

@@ -132,7 +132,7 @@ void DrawGrid(Camera* camera)
 
 void InitGrid(Allocator* allocator)
 {
-    g_grid.material = CreateMaterial(allocator, g_assets.shaders.ui);
+    g_grid.material = CreateMaterial(allocator, SHADER_UI);
     g_grid.grid_spacing = GRID_SPACING;
 
     // Create a simple quad mesh for grid lines

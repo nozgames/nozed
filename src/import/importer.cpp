@@ -77,11 +77,14 @@ static void QueueImport(const fs::path& source_path, const fs::path& assets_path
     if (!importer)
         return;
 
+    std::string type_name_lower = GetTypeNameFromSignature(importer->signature);
+    Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
+
     fs::path source_relative_path = fs::relative(source_path, assets_path);
-    fs::path target_path = g_importer.output_dir / source_relative_path;
+    fs::path target_path = g_importer.output_dir / type_name_lower / GetSafeFilename(source_relative_path.filename().string().c_str());
     fs::path source_meta_path = source_path;
     source_meta_path += ".meta";
-    target_path.replace_extension(GetExtensionFromSignature(importer->signature));
+    target_path.replace_extension("");
 
     bool target_exists = fs::exists(target_path);
     bool meta_changed = !target_exists || (fs::exists(source_meta_path) && CompareModifiedTime(source_meta_path, target_path) > 0);
@@ -173,7 +176,7 @@ static void PostImportJob(void *data)
 {
     (void)data;
 
-    GenerateAssetManifest(g_importer.output_dir, g_importer.manifest_path, g_importer.importers, g_config);
+    GenerateAssetManifest(g_importer.output_dir, g_importer.manifest_path, g_config);
     CleanupOrphanedAssets();
 }
 

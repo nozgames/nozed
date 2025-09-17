@@ -206,7 +206,6 @@ void ImportFont(const fs::path& source_path, Stream* output_stream, Props* confi
 }
 
 static AssetImporterTraits g_font_importer_traits = {
-    .type_name = "Font",
     .signature = ASSET_SIGNATURE_FONT,
     .ext = ".ttf",
     .import_func = ImportFont

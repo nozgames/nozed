@@ -206,10 +206,10 @@ static void UpdateAssetNames()
              TransformPoint(en.animator.bones[bone_index], {1,0})) * 0.5f;
 
 
-        SetStyleSheet(g_assets.ui.view);
+        SetStyleSheet(STYLESHEET_VIEW);
         BeginWorldCanvas(g_view.camera, ea.position + p, Vec2{2, 2});
-            BeginElement(g_names.asset_name_container);
-                Label(es.bones[bone_index].name->value, g_names.asset_name);
+            BeginElement(NAME_ASSET_NAME_CONTAINER);
+                Label(es.bones[bone_index].name->value, NAME_ASSET_NAME);
             EndElement();
         EndCanvas();
     }
@@ -298,14 +298,16 @@ static void DrawSkeleton()
     EditorAnimation& en = GetEditingAnimation();
 
     BindColor(COLOR_WHITE);
-    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         if (!IsBoneSelected(bone_index))
             continue;
 
         DrawBone(
-            en.animator.bones[bone_index],
-            en.animator.bones[es.bones[bone_index].parent_index],
+            en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation),
+            es.bones[bone_index].parent_index < 0
+                ? en.animator.bones[bone_index]
+                : en.animator.bones[es.bones[bone_index].parent_index],
             ea.position);
     }
 }

@@ -96,3 +96,11 @@ int CompareModifiedTime(const fs::path& a, const fs::path& b)
 
     return -1;
 }
+
+fs::path GetSafeFilename(const char* name)
+{
+    std::string result = name;
+    Replace(result.data(), (u32)result.size(), ' ', '_');
+    Replace(result.data(), (u32)result.size(), '-', '_');
+    return std::move(result);
+}

@@ -80,6 +80,7 @@ static void UpdateAllAnimations(EditorAsset& ea)
         {
             RecordUndo(*other);
             UpdateSkeleton(en);
+            MarkModified(*other);
         }
     }
 }
@@ -89,7 +90,7 @@ static void UpdateAssetNames()
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
         return;
 
-    if (!IsAltDown(g_view.input))
+    if (!IsAltDown(g_view.input) && !g_view.show_names)
         return;
 
     EditorAsset& ea = GetEditingAsset();
@@ -97,14 +98,11 @@ static void UpdateAssetNames()
     for (u16 i=0; i<es.bone_count; i++)
     {
         Mat3 transform = es.bones[i].local_to_world * Rotate(es.bones[i].transform.rotation);
-
-        Vec2 p =
-            (TransformPoint(transform) +
-             TransformPoint(transform, {1,0})) * 0.5f;
-        BeginWorldCanvas(g_view.camera, ea.position + p, Vec2{6, 0});
-        SetStyleSheet(g_assets.ui.view);
-            BeginElement(g_names.asset_name_container);
-                Label(es.bones[i].name->value, g_names.asset_name);
+        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, VEC2_RIGHT)) * 0.5f + ea.position;
+        SetStyleSheet(STYLESHEET_VIEW);
+        BeginWorldCanvas(g_view.camera, p, Vec2{6, 6});
+            BeginElement(NAME_ASSET_NAME_CONTAINER);
+                Label(es.bones[i].name->value, NAME_ASSET_NAME);
             EndElement();
         EndCanvas();
     }
@@ -510,7 +508,11 @@ static void RenameBone(const Name* name)
         return;
     }
 
+    BeginUndoGroup();
+    RecordUndo();
     GetEditingSkeleton().bones[GetFirstSelectedBoneIndex()].name = name;
+    UpdateAllAnimations(GetEditingAsset());
+    EndUndoGroup();
 }
 
 static const Name* SkeletonViewCommandPreview(const Command& command)
@@ -518,7 +520,7 @@ static const Name* SkeletonViewCommandPreview(const Command& command)
     if (g_skeleton_view.selected_bone_count != 1)
         return NAME_NONE;
 
-    if (command.name != g_names.rename && command.name != g_names.r)
+    if (command.name != NAME_RENAME && command.name != NAME_R)
         return NAME_NONE;
 
     if (command.arg_count <= 0)

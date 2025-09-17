@@ -30,6 +30,8 @@ struct ViewVtable
     PreviewCommandFunc preview_command;
 };
 
+struct Shortcut;
+
 struct View
 {
     ViewState state_stack[STATE_STACK_SIZE];
@@ -75,6 +77,9 @@ struct View
     ViewVtable vtable;
 
     int edit_asset_index;
+
+    Shortcut* shortcuts;
+    bool show_names;
 };
 
 extern View g_view;

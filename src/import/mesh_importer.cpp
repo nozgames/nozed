@@ -46,7 +46,6 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
 }
 
 static AssetImporterTraits g_mesh_importer_traits = {
-    .type_name = "Mesh",
     .signature = ASSET_SIGNATURE_MESH,
     .ext = ".mesh",
     .import_func = ImportMesh

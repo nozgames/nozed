@@ -47,7 +47,6 @@ static bool DoesAnimationDependOn(const std::filesystem::path& path, const std::
 }
 
 static AssetImporterTraits g_animation_importer_traits = {
-    .type_name = "Animation",
     .signature = ASSET_SIGNATURE_ANIMATION,
     .ext = ".anim",
     .import_func = ImportAnimation,

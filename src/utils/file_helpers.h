@@ -11,3 +11,6 @@ std::filesystem::path FixSlashes(const std::filesystem::path& path);
 std::string ReadAllText(Allocator* allocator, const std::filesystem::path& path);
 int CompareModifiedTime(const std::filesystem::file_time_type& a, const std::filesystem::file_time_type& b);
 int CompareModifiedTime(const std::filesystem::path& a, const std::filesystem::path& b);
+
+std::filesystem::path GetSafeFilename(const char* name);
+std::filesystem::path GetImportTargetPath(const std::filesystem::path& source_path);

@@ -10,7 +10,6 @@ class Props;
 
 struct AssetImporterTraits
 {
-    const char* type_name;
     AssetSignature signature;
     const char* ext;
     void (*import_func) (const std::filesystem::path& source_path, Stream* output_stream, Props* config, Props* meta_props);

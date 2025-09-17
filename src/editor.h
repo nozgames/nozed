@@ -51,4 +51,8 @@ struct Command
 extern void InitCommands();
 extern bool ParseCommand(const char* str, Command& command);
 
+
+
 #include "view.h"
+
+

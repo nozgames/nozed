@@ -180,7 +180,6 @@ void ImportSound(const fs::path& source_path, Stream* output_stream, Props* conf
 }
 
 static AssetImporterTraits g_sound_importer_traits = {
-    .type_name = "Sound",
     .signature = ASSET_SIGNATURE_SOUND,
     .ext = ".wav",
     .import_func = ImportSound

@@ -426,7 +426,6 @@ static std::string ProcessIncludes(const std::string& source, const fs::path& ba
 }
 
 static AssetImporterTraits g_shader_importer_traits = {
-    .type_name = "Shader",
     .signature = ASSET_SIGNATURE_SHADER,
     .ext = ".glsl",
     .import_func = ImportShader,
