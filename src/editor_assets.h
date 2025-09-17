@@ -17,10 +17,10 @@ extern Shader* SHADER_TEXT;
 extern Shader* SHADER_LIT;
 
 // @Style
-extern StyleSheet* STYLESHEET_VIEW;
-extern StyleSheet* STYLESHEET_NOTIFICATIONS;
-extern StyleSheet* STYLESHEET_MESH_EDITOR;
-extern StyleSheet* STYLESHEET_COMMAND_PALETTE;
+extern StyleSheet* STYLE_VIEW;
+extern StyleSheet* STYLE_NOTIFICATIONS;
+extern StyleSheet* STYLE_MESH_EDITOR;
+extern StyleSheet* STYLE_COMMAND_PALETTE;
 
 // @Texture
 extern Texture* TEXTURE_PALETTE;

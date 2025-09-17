@@ -17,10 +17,10 @@ Shader* SHADER_TEXT = nullptr;
 Shader* SHADER_LIT = nullptr;
 
 // @Style
-StyleSheet* STYLESHEET_VIEW = nullptr;
-StyleSheet* STYLESHEET_NOTIFICATIONS = nullptr;
-StyleSheet* STYLESHEET_MESH_EDITOR = nullptr;
-StyleSheet* STYLESHEET_COMMAND_PALETTE = nullptr;
+StyleSheet* STYLE_VIEW = nullptr;
+StyleSheet* STYLE_NOTIFICATIONS = nullptr;
+StyleSheet* STYLE_MESH_EDITOR = nullptr;
+StyleSheet* STYLE_COMMAND_PALETTE = nullptr;
 
 // @Texture
 Texture* TEXTURE_PALETTE = nullptr;
@@ -54,10 +54,10 @@ const Name* NAME_ANIMATION = nullptr;
 
 // @path
 const Name* PATH_TEXTURE_PALETTE = nullptr;
-const Name* PATH_STYLESHEET_VIEW = nullptr;
-const Name* PATH_STYLESHEET_NOTIFICATIONS = nullptr;
-const Name* PATH_STYLESHEET_MESH_EDITOR = nullptr;
-const Name* PATH_STYLESHEET_COMMAND_PALETTE = nullptr;
+const Name* PATH_STYLE_VIEW = nullptr;
+const Name* PATH_STYLE_NOTIFICATIONS = nullptr;
+const Name* PATH_STYLE_MESH_EDITOR = nullptr;
+const Name* PATH_STYLE_COMMAND_PALETTE = nullptr;
 const Name* PATH_SHADER_VFX = nullptr;
 const Name* PATH_SHADER_UI = nullptr;
 const Name* PATH_SHADER_TEXT = nullptr;
@@ -67,6 +67,8 @@ const Name* PATH_FONT_SEGUISB = nullptr;
 // @load
 bool LoadAssets(Allocator* allocator)
 {
+
+    // @name
     NAME_COLOR_PICKER_IMAGE = GetName("color_picker_image");
     NAME_COMMAND_PALETTE = GetName("command_palette");
     NAME_COMMAND_INPUT = GetName("command_input");
@@ -92,11 +94,13 @@ bool LoadAssets(Allocator* allocator)
     NAME_MESH = GetName("mesh");
     NAME_SKELETON = GetName("skeleton");
     NAME_ANIMATION = GetName("animation");
+
+    // @path
     PATH_TEXTURE_PALETTE = GetName("texture/palette");
-    PATH_STYLESHEET_VIEW = GetName("stylesheet/view");
-    PATH_STYLESHEET_NOTIFICATIONS = GetName("stylesheet/notifications");
-    PATH_STYLESHEET_MESH_EDITOR = GetName("stylesheet/mesh_editor");
-    PATH_STYLESHEET_COMMAND_PALETTE = GetName("stylesheet/command_palette");
+    PATH_STYLE_VIEW = GetName("style/view");
+    PATH_STYLE_NOTIFICATIONS = GetName("style/notifications");
+    PATH_STYLE_MESH_EDITOR = GetName("style/mesh_editor");
+    PATH_STYLE_COMMAND_PALETTE = GetName("style/command_palette");
     PATH_SHADER_VFX = GetName("shader/vfx");
     PATH_SHADER_UI = GetName("shader/ui");
     PATH_SHADER_TEXT = GetName("shader/text");
@@ -113,10 +117,10 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_LIT, SHADER_LIT);
 
     // @Style
-    NOZ_LOAD_STYLE(allocator, PATH_STYLESHEET_VIEW, STYLESHEET_VIEW);
-    NOZ_LOAD_STYLE(allocator, PATH_STYLESHEET_NOTIFICATIONS, STYLESHEET_NOTIFICATIONS);
-    NOZ_LOAD_STYLE(allocator, PATH_STYLESHEET_MESH_EDITOR, STYLESHEET_MESH_EDITOR);
-    NOZ_LOAD_STYLE(allocator, PATH_STYLESHEET_COMMAND_PALETTE, STYLESHEET_COMMAND_PALETTE);
+    NOZ_LOAD_STYLE(allocator, PATH_STYLE_VIEW, STYLE_VIEW);
+    NOZ_LOAD_STYLE(allocator, PATH_STYLE_NOTIFICATIONS, STYLE_NOTIFICATIONS);
+    NOZ_LOAD_STYLE(allocator, PATH_STYLE_MESH_EDITOR, STYLE_MESH_EDITOR);
+    NOZ_LOAD_STYLE(allocator, PATH_STYLE_COMMAND_PALETTE, STYLE_COMMAND_PALETTE);
 
     // @Texture
     NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
@@ -137,10 +141,10 @@ void UnloadAssets()
     Free(SHADER_LIT);
 
     // @Style
-    Free(STYLESHEET_VIEW);
-    Free(STYLESHEET_NOTIFICATIONS);
-    Free(STYLESHEET_MESH_EDITOR);
-    Free(STYLESHEET_COMMAND_PALETTE);
+    Free(STYLE_VIEW);
+    Free(STYLE_NOTIFICATIONS);
+    Free(STYLE_MESH_EDITOR);
+    Free(STYLE_COMMAND_PALETTE);
 
     // @Texture
     Free(TEXTURE_PALETTE);
@@ -160,10 +164,10 @@ void HotloadAsset(const Name* incoming_name)
     NOZ_RELOAD_SHADER(PATH_SHADER_LIT, SHADER_LIT);
 
     // @Style
-    NOZ_RELOAD_STYLE(PATH_STYLESHEET_VIEW, STYLESHEET_VIEW);
-    NOZ_RELOAD_STYLE(PATH_STYLESHEET_NOTIFICATIONS, STYLESHEET_NOTIFICATIONS);
-    NOZ_RELOAD_STYLE(PATH_STYLESHEET_MESH_EDITOR, STYLESHEET_MESH_EDITOR);
-    NOZ_RELOAD_STYLE(PATH_STYLESHEET_COMMAND_PALETTE, STYLESHEET_COMMAND_PALETTE);
+    NOZ_RELOAD_STYLE(PATH_STYLE_VIEW, STYLE_VIEW);
+    NOZ_RELOAD_STYLE(PATH_STYLE_NOTIFICATIONS, STYLE_NOTIFICATIONS);
+    NOZ_RELOAD_STYLE(PATH_STYLE_MESH_EDITOR, STYLE_MESH_EDITOR);
+    NOZ_RELOAD_STYLE(PATH_STYLE_COMMAND_PALETTE, STYLE_COMMAND_PALETTE);
 
     // @Texture
     NOZ_RELOAD_TEXTURE(PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);

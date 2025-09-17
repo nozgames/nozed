@@ -68,6 +68,15 @@ static const AssetImporterTraits* FindImporter(AssetSignature signature)
 }
 #endif
 
+const char* GetVarTypeNameFromSignature(AssetSignature signature)
+{
+    switch (signature)
+    {
+    case ASSET_SIGNATURE_STYLE_SHEET: return "Style";
+    default: return GetTypeNameFromSignature(signature);
+    }
+}
+
 static void QueueImport(const fs::path& source_path, const fs::path& assets_path, bool force)
 {
     if (!fs::exists(source_path))
@@ -77,7 +86,7 @@ static void QueueImport(const fs::path& source_path, const fs::path& assets_path
     if (!importer)
         return;
 
-    std::string type_name_lower = GetTypeNameFromSignature(importer->signature);
+    std::string type_name_lower = GetVarTypeNameFromSignature(importer->signature);
     Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
 
     fs::path source_relative_path = fs::relative(source_path, assets_path);

@@ -153,10 +153,9 @@ static void ReadAssetFile(ManifestGenerator& generator, const fs::path& asset_pa
     Uppercase(var_name.data(), (u32)var_name.size());
     Replace(var_name.data(), (u32)var_name.size(), '/', '_');
 
-    const Name* asset_name = GetName(asset_name_str.c_str());
     generator.assets.push_back({
         .source_path = asset_path,
-        .name = asset_name,
+        .name = GetName(asset_name_str.c_str()),
         .var_name = var_name,
         .signature = signature
     });
@@ -166,15 +165,6 @@ static void SortAssets(ManifestGenerator& generator) {
     std::ranges::sort(generator.assets.begin(), generator.assets.end(), [](const AssetEntry& a, const AssetEntry& b) {
         return Compare(a.name->value, b.name->value);
     });
-}
-
-static const char* GetVarTypeName(AssetSignature signature)
-{
-    switch (signature)
-    {
-    case ASSET_SIGNATURE_STYLE_SHEET: return "Style";
-    default: return GetTypeNameFromSignature(signature);
-    }
 }
 
 static void GenerateSource(ManifestGenerator& generator)
@@ -191,7 +181,7 @@ static void GenerateSource(ManifestGenerator& generator)
     for (AssetSignature sig : generator.signatures)
     {
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "// @%s\n", GetVarTypeName(sig));
+        WriteCSTR(stream, "// @%s\n", GetVarTypeNameFromSignature(sig));
 
         for (AssetEntry& asset : generator.assets)
         {
@@ -220,23 +210,26 @@ static void GenerateSource(ManifestGenerator& generator)
         "bool LoadAssets(Allocator* allocator)\n"
         "{\n");
 
+    WriteCSTR(stream, "    // @name\n");
     for (auto& kv : generator.names)
         WriteCSTR(stream, "    NAME_%s = GetName(\"%s\");\n", kv.second.c_str(), kv.first->value);
 
+    WriteCSTR(stream, "\n");
+    WriteCSTR(stream, "    // @path\n");
     for (AssetEntry& asset : generator.assets)
         WriteCSTR(stream, "    PATH_%s = GetName(\"%s\");\n", asset.var_name.c_str(), asset.name->value);
 
     for (AssetSignature sig : generator.signatures)
     {
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "    // @%s\n", GetVarTypeName(sig));
+        WriteCSTR(stream, "    // @%s\n", GetVarTypeNameFromSignature(sig));
 
         for (AssetEntry& asset : generator.assets)
         {
             if (asset.signature != sig)
                 continue;
 
-            std::string type_name_upper = GetVarTypeName(asset.signature);
+            std::string type_name_upper = GetVarTypeNameFromSignature(asset.signature);
             Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
 
             WriteCSTR(stream, "    NOZ_LOAD_%s(allocator, PATH_%s, %s);\n", type_name_upper.c_str(), asset.var_name.c_str(), asset.var_name.c_str());
@@ -255,7 +248,7 @@ static void GenerateSource(ManifestGenerator& generator)
     for (AssetSignature sig : generator.signatures)
     {
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "    // @%s\n", GetVarTypeName(sig));
+        WriteCSTR(stream, "    // @%s\n", GetVarTypeNameFromSignature(sig));
 
         for (AssetEntry& asset : generator.assets)
         {
@@ -276,14 +269,14 @@ static void GenerateSource(ManifestGenerator& generator)
     for (AssetSignature sig : generator.signatures)
     {
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "    // @%s\n", GetVarTypeName(sig));
+        WriteCSTR(stream, "    // @%s\n", GetVarTypeNameFromSignature(sig));
 
         for (AssetEntry& asset : generator.assets)
         {
             if (asset.signature != sig)
                 continue;
 
-            std::string type_name_upper = GetVarTypeName(asset.signature);
+            std::string type_name_upper = GetVarTypeNameFromSignature(asset.signature);
             Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
 
             WriteCSTR(stream, "    NOZ_RELOAD_%s(PATH_%s, %s);\n", type_name_upper.c_str(), asset.var_name.c_str(), asset.var_name.c_str());
@@ -310,7 +303,7 @@ static void GenerateHeader(ManifestGenerator& generator)
     for (AssetSignature sig : generator.signatures)
     {
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "// @%s\n", GetVarTypeName(sig));
+        WriteCSTR(stream, "// @%s\n", GetVarTypeNameFromSignature(sig));
 
         for (AssetEntry& asset : generator.assets)
         {
