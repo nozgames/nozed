@@ -276,7 +276,7 @@ static void SetState(MeshEditorState state)
     case MESH_EDITOR_STATE_SCALE:
     case MESH_EDITOR_STATE_HEIGHT:
     case MESH_EDITOR_STATE_EDGE:
-        RecordUndo(ea);
+        RecordUndo();
         break;
 
     default:
@@ -488,6 +488,8 @@ bool HandleColorPickerInput(const ElementInput& input)
 
     i32 col = (i32)(x * 16.0f);
     i32 row = (i32)(y * 16.0f);
+
+    RecordUndo();
 
     EditorAsset& ea = *(EditorAsset*)input.user_data;
     if (IsCtrlDown(g_view.input))

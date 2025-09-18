@@ -1020,6 +1020,19 @@ static void ParseVertex(EditorMesh& em, Tokenizer& tk)
     }
 }
 
+static void ParseEdgeColor(EditorMesh& em, Tokenizer& tk)
+{
+    int cx;
+    if (!ExpectInt(tk, &cx))
+        ThrowError("missing edge color x value");
+
+    int cy;
+    if (!ExpectInt(tk, &cy))
+        ThrowError("missing edge color y value");
+
+    em.edge_color = {(u8)cx, (u8)cy};
+}
+
 static void ParseFaceColor(EditorFace& ef, Tokenizer& tk)
 {
     int cx;
@@ -1091,6 +1104,8 @@ EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& pa
                 ParseVertex(*em, tk);
             else if (ExpectIdentifier(tk, "f"))
                 ParseFace(*em, tk);
+            else if (ExpectIdentifier(tk, "e"))
+                ParseEdgeColor(*em, tk);
             else
             {
                 char error[1024];
@@ -1129,6 +1144,9 @@ static void EditorMeshSave(EditorAsset& ea, const std::filesystem::path& path)
 {
     EditorMesh& em = ea.mesh;
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+
+    WriteCSTR(stream, "e %d %d\n", em.edge_color.x, em.edge_color.y);
+    WriteCSTR(stream, "\n");
 
     for (int i=0; i<em.vertex_count; i++)
     {
