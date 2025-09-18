@@ -7,28 +7,26 @@
 
 #include <noz/core_assets.h>
 
-// @Font;
+// @Font
 extern Font* FONT_SEGUISB;
 
-// @Shader;
+// @Shader
 extern Shader* SHADER_VFX;
 extern Shader* SHADER_UI;
 extern Shader* SHADER_TEXT;
 extern Shader* SHADER_LIT;
 
-// @StyleSheet;
+// @StyleSheet
 extern StyleSheet* STYLESHEET_VIEW;
 extern StyleSheet* STYLESHEET_NOTIFICATIONS;
 extern StyleSheet* STYLESHEET_MESH_EDITOR;
 extern StyleSheet* STYLESHEET_COMMAND_PALETTE;
 
-// @Texture;
+// @Texture
 extern Texture* TEXTURE_PALETTE;
 
 // @name
 extern const Name* NAME_COLOR_PICKER_IMAGE;
-extern const Name* NAME_ASSET_NAME_CONTAINER;
-extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_COMMAND_PALETTE;
 extern const Name* NAME_COMMAND_INPUT;
 extern const Name* NAME_COMMAND_COLON;
@@ -38,6 +36,8 @@ extern const Name* NAME_COMMAND_TEXT_PREVIEW;
 extern const Name* NAME_NOTIFICATION_CONTAINER;
 extern const Name* NAME_NOTIFICATION;
 extern const Name* NAME_NOTIFICATION_TEXT;
+extern const Name* NAME_ASSET_NAME_CONTAINER;
+extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_A;
 extern const Name* NAME_E;
 extern const Name* NAME_M;
@@ -52,6 +52,25 @@ extern const Name* NAME_MESH;
 extern const Name* NAME_SKELETON;
 extern const Name* NAME_ANIMATION;
 
+// @STYLE_VIEW
+constexpr StyleId STYLE_VIEW_ASSET_NAME_CONTAINER = {0,0};
+constexpr StyleId STYLE_VIEW_ASSET_NAME = {0,1};
+
+// @STYLE_NOTIFICATIONS
+constexpr StyleId STYLE_NOTIFICATIONS_NOTIFICATION_CONTAINER = {1,0};
+constexpr StyleId STYLE_NOTIFICATIONS_NOTIFICATION = {1,1};
+constexpr StyleId STYLE_NOTIFICATIONS_NOTIFICATION_TEXT = {1,2};
+
+// @STYLE_MESH_EDITOR
+constexpr StyleId STYLE_MESH_EDITOR_COLOR_PICKER_IMAGE = {2,0};
+
+// @STYLE_COMMAND_PALETTE
+constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_PALETTE = {3,0};
+constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_INPUT = {3,1};
+constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_COLON = {3,2};
+constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_TEXT = {3,3};
+constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_TEXT_CURSOR = {3,4};
+constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_TEXT_PREVIEW = {3,5};
 
 
 extern bool LoadAssets(Allocator* allocator);

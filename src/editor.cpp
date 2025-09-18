@@ -103,6 +103,7 @@ void HandleImported(EventId event_id, const void* event_data)
 static void SaveUserConfig(Props* user_config)
 {
     SaveViewUserConfig(user_config);
+    SaveProps(user_config, "./.noz/user.cfg");
 }
 
 static void SaveUserConfig()
@@ -174,7 +175,6 @@ void InitEditor()
 
 void ShutdownEditor()
 {
-    SaveUserConfig();
     ShutdownEditorServer();
     ShutdownImporter();
 }
@@ -219,6 +219,8 @@ int main(int argc, const char* argv[])
         UpdateEditor();
         UpdateView();
     }
+
+    SaveUserConfig();
 
     if (IsWindowCreated())
         ShutdownView();

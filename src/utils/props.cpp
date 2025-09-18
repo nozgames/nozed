@@ -45,7 +45,7 @@ void Props::SetFloat(const char* group, const char* key, float value)
 void Props::SetVec2(const char* group, const char* key, const Vec2& value)
 {
     char value_str[128];
-    snprintf(value_str, sizeof(value_str), "(%.6f,%.6f)", value.x, value.y);
+    Format(value_str, sizeof(value_str), "(%.6f,%.6f)", value.x, value.y);
     SetString(group, key, value_str);
 }
 

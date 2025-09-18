@@ -99,9 +99,9 @@ static void UpdateAssetNames()
     {
         Mat3 transform = es.bones[i].local_to_world * Rotate(es.bones[i].transform.rotation);
         Vec2 p = (TransformPoint(transform) + TransformPoint(transform, VEC2_RIGHT)) * 0.5f + ea.position;
-        BeginWorldCanvas(g_view.camera, p, Vec2{6, 6}, nullptr, STYLESHEET_VIEW);
-            BeginElement(NAME_ASSET_NAME_CONTAINER);
-                Label(es.bones[i].name->value, NAME_ASSET_NAME);
+        BeginWorldCanvas(g_view.camera, p, Vec2{6, 6});
+            BeginElement(STYLE_VIEW_ASSET_NAME_CONTAINER);
+                Label(es.bones[i].name->value, STYLE_VIEW_ASSET_NAME);
             EndElement();
         EndCanvas();
     }

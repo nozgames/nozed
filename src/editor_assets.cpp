@@ -27,8 +27,6 @@ Texture* TEXTURE_PALETTE = nullptr;
 
 // @name
 const Name* NAME_COLOR_PICKER_IMAGE = nullptr;
-const Name* NAME_ASSET_NAME_CONTAINER = nullptr;
-const Name* NAME_ASSET_NAME = nullptr;
 const Name* NAME_COMMAND_PALETTE = nullptr;
 const Name* NAME_COMMAND_INPUT = nullptr;
 const Name* NAME_COMMAND_COLON = nullptr;
@@ -38,6 +36,8 @@ const Name* NAME_COMMAND_TEXT_PREVIEW = nullptr;
 const Name* NAME_NOTIFICATION_CONTAINER = nullptr;
 const Name* NAME_NOTIFICATION = nullptr;
 const Name* NAME_NOTIFICATION_TEXT = nullptr;
+const Name* NAME_ASSET_NAME_CONTAINER = nullptr;
+const Name* NAME_ASSET_NAME = nullptr;
 const Name* NAME_A = nullptr;
 const Name* NAME_E = nullptr;
 const Name* NAME_M = nullptr;
@@ -69,8 +69,6 @@ bool LoadAssets(Allocator* allocator)
 {
     // @name
     NAME_COLOR_PICKER_IMAGE = GetName("color_picker_image");
-    NAME_ASSET_NAME_CONTAINER = GetName("asset_name_container");
-    NAME_ASSET_NAME = GetName("asset_name");
     NAME_COMMAND_PALETTE = GetName("command_palette");
     NAME_COMMAND_INPUT = GetName("command_input");
     NAME_COMMAND_COLON = GetName("command_colon");
@@ -80,6 +78,8 @@ bool LoadAssets(Allocator* allocator)
     NAME_NOTIFICATION_CONTAINER = GetName("notification_container");
     NAME_NOTIFICATION = GetName("notification");
     NAME_NOTIFICATION_TEXT = GetName("notification_text");
+    NAME_ASSET_NAME_CONTAINER = GetName("asset_name_container");
+    NAME_ASSET_NAME = GetName("asset_name");
     NAME_A = GetName("a");
     NAME_E = GetName("e");
     NAME_M = GetName("m");

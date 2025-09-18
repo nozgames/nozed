@@ -20,6 +20,7 @@ struct AssetEntry
     const Name* name;
     std::string var_name;
     uint32_t signature;
+    std::vector<const Name*> names;
 };
 
 struct BoneIndex
@@ -90,7 +91,7 @@ bool GenerateAssetManifest(const fs::path& source_path, const fs::path& target_p
     return true;
 }
 
-static AssetSignature ReadAssetHeader(ManifestGenerator& generator, const fs::path& path)
+static AssetSignature ReadAssetHeader(ManifestGenerator& generator, const fs::path& path, std::vector<const Name*>& out_names)
 {
     Stream* stream = LoadStream(nullptr, path);
     if (!stream)
@@ -106,7 +107,10 @@ static AssetSignature ReadAssetHeader(ManifestGenerator& generator, const fs::pa
         if (name_table)
         {
             for (uint32_t i = 0; i < header.names; i++)
+            {
                 generator.names[name_table[i]] = GetNameVar(name_table[i]);
+                out_names.push_back(name_table[i]);
+            }
 
             if (header.signature == ASSET_SIGNATURE_SKELETON)
             {
@@ -137,7 +141,8 @@ static AssetSignature ReadAssetHeader(ManifestGenerator& generator, const fs::pa
 
 static void ReadAssetFile(ManifestGenerator& generator, const fs::path& asset_path)
 {
-    AssetSignature signature = ReadAssetHeader(generator, asset_path);
+    std::vector<const Name*> names;
+    AssetSignature signature = ReadAssetHeader(generator, asset_path, names);
     if (signature == ASSET_SIGNATURE_UNKNOWN)
         return;
 
@@ -157,7 +162,8 @@ static void ReadAssetFile(ManifestGenerator& generator, const fs::path& asset_pa
         .source_path = asset_path,
         .name = GetName(asset_name_str.c_str()),
         .var_name = var_name,
-        .signature = signature
+        .signature = signature,
+        .names = std::move(names)
     });
 }
 
@@ -328,7 +334,7 @@ static void GenerateHeader(ManifestGenerator& generator)
         Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
 
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "// @%s;\n", type_name);
+        WriteCSTR(stream, "// @%s\n", type_name);
 
         for (AssetEntry& asset : generator.assets)
         {
@@ -344,13 +350,41 @@ static void GenerateHeader(ManifestGenerator& generator)
     for (auto& kv : generator.names)
         WriteCSTR(stream, "extern const Name* NAME_%s;\n", kv.second.c_str());
 
-    WriteCSTR(stream, "\n");
-    for (BoneIndex& bone_index : generator.bones)
+    if (!generator.bones.empty())
     {
-        if (bone_index.index == 0)
-            WriteCSTR(stream, "\n// @BONE_%s\n", bone_index.skeleton_name.c_str());
+        WriteCSTR(stream, "\n");
+        for (BoneIndex& bone_index : generator.bones)
+        {
+            if (bone_index.index == 0)
+                WriteCSTR(stream, "\n// @BONE_%s\n", bone_index.skeleton_name.c_str());
 
-        WriteCSTR(stream, "constexpr int BONE_%s_%s = %d;\n", bone_index.skeleton_name.c_str(), bone_index.name.c_str(), bone_index.index);
+            WriteCSTR(stream, "constexpr int BONE_%s_%s = %d;\n", bone_index.skeleton_name.c_str(), bone_index.name.c_str(), bone_index.index);
+        }
+    }
+
+    int style_index = 0;
+    for (AssetEntry& asset : generator.assets)
+    {
+        if (asset.signature != ASSET_SIGNATURE_STYLE_SHEET)
+            continue;
+
+        char prefix[MAX_NAME_LENGTH];
+        Format(prefix, MAX_NAME_LENGTH, "STYLE_%s", asset.source_path.filename().replace_extension("").string().c_str());
+        Uppercase(prefix, MAX_NAME_LENGTH);
+
+        WriteCSTR(stream, "\n");
+        WriteCSTR(stream, "// @%s\n", prefix);
+
+        int name_index = 0;
+        for (const Name* name : asset.names)
+        {
+            char style_name[MAX_NAME_LENGTH];
+            Format(style_name, MAX_NAME_LENGTH, "%s_%s", prefix, name->value);
+            Uppercase(style_name, MAX_NAME_LENGTH);
+            WriteCSTR(stream, "constexpr StyleId %s = {%d,%d};\n", style_name, style_index, name_index++);
+        }
+
+        style_index++;
     }
 
     WriteCSTR(stream, "\n");

@@ -531,15 +531,15 @@ void UpdateCommandPalette()
         return;
     }
 
-    BeginCanvas(nullptr, STYLESHEET_COMMAND_PALETTE);
-    BeginElement(NAME_COMMAND_PALETTE);
-        BeginElement(NAME_COMMAND_INPUT);
-            Label(":", NAME_COMMAND_COLON);
-            Label(input.value, NAME_COMMAND_TEXT);
+    BeginCanvas();
+    BeginElement(STYLE_COMMAND_PALETTE_COMMAND_PALETTE);
+        BeginElement(STYLE_COMMAND_PALETTE_COMMAND_INPUT);
+            Label(":", STYLE_COMMAND_PALETTE_COMMAND_COLON);
+            Label(input.value, STYLE_COMMAND_PALETTE_COMMAND_TEXT);
             if (g_view.command_preview)
-                Label(g_view.command_preview->value, NAME_COMMAND_TEXT_PREVIEW);
+                Label(g_view.command_preview->value, STYLE_COMMAND_PALETTE_COMMAND_TEXT_PREVIEW);
             else
-                EmptyElement(NAME_COMMAND_TEXT_CURSOR);
+                EmptyElement(STYLE_COMMAND_PALETTE_COMMAND_TEXT_CURSOR);
         EndElement();
     EndElement();
     EndCanvas();
@@ -561,12 +561,10 @@ static void UpdateAssetNames()
         BeginWorldCanvas(
             g_view.camera,
             ea.position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(ea).min.y},
-            Vec2{6, 0},
-            nullptr,
-            STYLESHEET_VIEW);
+            Vec2{6, 0});
 
-            BeginElement(NAME_ASSET_NAME_CONTAINER);
-                Label(ea.name->value, NAME_ASSET_NAME);
+            BeginElement(STYLE_VIEW_ASSET_NAME_CONTAINER);
+                Label(ea.name->value, STYLE_VIEW_ASSET_NAME);
             EndElement();
         EndCanvas();
     }
@@ -629,12 +627,17 @@ static void HandleTextInputChanged(EventId event_id, const void* event_data)
 
 void InitViewUserConfig(Props* user_config)
 {
-    g_view.light_dir = user_config->GetVec2("view", "light_direction""view.light_dir", g_view.light_dir);
+    g_view.light_dir = user_config->GetVec2("view", "light_direction", g_view.light_dir);
+    SetPosition(g_view.camera, user_config->GetVec2("view", "camera_position", VEC2_ZERO));
+    g_view.zoom = user_config->GetFloat("view", "camera_zoom", ZOOM_DEFAULT);
+    UpdateCamera();
 }
 
 void SaveViewUserConfig(Props* user_config)
 {
     user_config->SetVec2("view", "light_direction", g_view.light_dir);
+    user_config->SetVec2("view", "camera_position", GetPosition(g_view.camera));
+    user_config->SetFloat("view", "camera_zoom", g_view.zoom);
 }
 
 static void HandleToggleNames()

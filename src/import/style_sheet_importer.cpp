@@ -8,32 +8,7 @@ using namespace noz;
 
 namespace fs = filesystem;
 
-struct StyleKeyHash
-{
-    template <class T1, class T2>
-    std::size_t operator () (const std::pair<T1, T2>& p) const
-    {
-        auto h1 = std::hash<T1>{}(p.first);
-        auto h2 = std::hash<T2>{}(p.second);
-        return h1 ^ (h2 << 1);
-    }
-};
-
-using StyleKey = pair<string, PseudoState>;
-using StyleDictionary = unordered_map<StyleKey, Style, StyleKeyHash>;
-
-static PseudoState ParsePseudoState(const string& str)
-{
-    if (str == "selected:hover") return PSEUDO_STATE_HOVER | PSEUDO_STATE_SELECTED;
-    if (str == "hover")    return PSEUDO_STATE_HOVER;
-    if (str == "active")   return PSEUDO_STATE_ACTIVE;
-    if (str == "selected") return PSEUDO_STATE_SELECTED;
-    if (str == "disabled") return PSEUDO_STATE_DISABLED;
-    if (str == "focused")  return PSEUDO_STATE_FOCUSED;
-    if (str == "pressed")  return PSEUDO_STATE_PRESSED;
-    if (str == "checked")  return PSEUDO_STATE_CHECKED;
-    return PSEUDO_STATE_NONE;
-}
+using StyleDictionary = unordered_map<string, Style>;
 
 static StyleColor ParseStyleColor(const string& value)
 {
@@ -83,12 +58,12 @@ static StyleFont ParseFont(const string& value)
     return font;
 }
 
-static void WriteStyleSheetData(Stream* stream, const StyleDictionary& styles)
+static void SerializeStyles(Stream* stream, const StyleDictionary& styles)
 {
     // Create a name table of all the style names
     set<const Name*> name_set;
-    for (const auto& [style_key, style] : styles)
-        name_set.insert(GetName(style_key.first.c_str()));
+    for (const auto& [style_name, style] : styles)
+        name_set.insert(GetName(style_name.c_str()));
 
     const Name** name_table = (const Name**)Alloc(ALLOCATOR_DEFAULT, (u32)sizeof(const Name*) * (u32)name_set.size());
     u32 name_index = 0;
@@ -107,22 +82,8 @@ static void WriteStyleSheetData(Stream* stream, const StyleDictionary& styles)
     WriteU32(stream, static_cast<uint32_t>(styles.size()));
 
     // Write the styles
-    for (const auto& [class_name, style_data] : styles)
-        SerializeStyle(style_data, stream);
-
-    // Write the style names / states
-    for (const auto& [style_key, style] : styles)
-    {
-        const Name* style_name = GetName(style_key.first.c_str());
-        for (u32 i=0; i<header.names; i++)
-            if (name_table[i] == style_name)
-            {
-                WriteU32(stream, i);
-                break;
-            }
-
-        WriteU32(stream, style_key.second);
-    }
+    for (const auto& [style_name, style] : styles)
+        SerializeStyle(style, stream);
 
     Free(name_table);
 }
@@ -175,22 +136,9 @@ static bool ParseParameter(const string& group, const string& key, Props* source
     return true;
 }
 
-static StyleKey ParseStyleKey(const string& value)
-{
-    auto colon_pos = value.find(':');
-    if (colon_pos == string::npos)
-        return StyleKey{ value, PSEUDO_STATE_NONE };
-
-    auto class_name = value.substr(0, colon_pos);
-    auto state_name = value.substr(colon_pos + 1);
-    auto state = ParsePseudoState(state_name);
-    return { class_name, state };
-}
-
 static void ParseStyle(Props* source, const std::string& group_name, StyleDictionary& styles)
 {
-    auto style_key = ParseStyleKey(group_name);
-    if (styles.contains(style_key))
+    if (styles.contains(group_name))
         return;
 
     std::string inherit = source->GetString(group_name.c_str(), "inherit", "");
@@ -198,10 +146,9 @@ static void ParseStyle(Props* source, const std::string& group_name, StyleDictio
     {
         ParseStyle(source, inherit, styles);
 
-        auto inherit_key = ParseStyleKey(inherit);
-        auto inherit_it = styles.find(inherit_key);
+        auto inherit_it = styles.find(inherit);
         if (inherit_it != styles.end())
-            styles[style_key] = inherit_it->second;
+            styles[group_name] = inherit_it->second;
     }
 
     Style style = GetDefaultStyle();
@@ -209,11 +156,11 @@ static void ParseStyle(Props* source, const std::string& group_name, StyleDictio
     for (const auto& key_name : style_keys)
         ParseParameter(group_name, key_name, source, style);
 
-    auto it = styles.find(style_key);
+    auto it = styles.find(group_name);
     if (it != styles.end())
         MergeStyles(it->second, style);
     else
-        styles[style_key] = style;
+        styles[group_name] = style;
 }
 
 static void ParseStyles(Props* source, Props* meta, StyleDictionary& styles)
@@ -253,7 +200,7 @@ void ImportStyleSheet(const fs::path& source_path, Stream* output_stream, Props*
     auto styles = ParseStyles(style_props, meta);
     
     // Write stylesheet data using Stream API
-    WriteStyleSheetData(output_stream, styles);
+    SerializeStyles(output_stream, styles);
 }
 
 static AssetImporterTraits g_stylesheet_importer_traits = {
