@@ -164,7 +164,7 @@ void InitUndo()
     assert(!g_undo.undo);
     g_undo.undo = CreateRingBuffer(ALLOCATOR_DEFAULT, sizeof(UndoItem), MAX_UNDO);
     g_undo.redo = CreateRingBuffer(ALLOCATOR_DEFAULT, sizeof(UndoItem), MAX_UNDO);
-    g_undo.current_group_id = 1;
+    g_undo.current_group_id = -1;
     g_undo.next_group_id = 1;
 }
 

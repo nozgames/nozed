@@ -28,13 +28,11 @@ enum AnimationViewState
 struct AnimationViewBone
 {
     Transform transform;
-    bool selected;
 };
 
 struct AnimationView
 {
     AnimationViewState state;
-    int selected_bone_count;
     bool clear_selection_on_up;
     bool ignore_up;
     void (*state_update)();
@@ -51,13 +49,15 @@ static Shortcut* g_animation_editor_shortcuts;
 
 static EditorAnimation& GetEditingAnimation() { return GetEditingAsset().animation; }
 static EditorSkeleton& GetEditingSkeleton() { return GetEditorAsset(GetEditingAnimation().skeleton_asset_index)->skeleton; }
-static bool IsBoneSelected(int bone_index) { return g_animation_view.bones[bone_index].selected; }
+static bool IsBoneSelected(int bone_index) { return GetEditingAnimation().bones[bone_index].selected; }
 static void SetBoneSelected(int bone_index, bool selected)
 {
     if (IsBoneSelected(bone_index) == selected)
         return;
-    g_animation_view.bones[bone_index].selected = selected;
-    g_animation_view.selected_bone_count += selected ? 1 : -1;
+
+    EditorAnimation& en = GetEditingAnimation();
+    en.bones[bone_index].selected = selected;
+    en.selected_bone_count += selected ? 1 : -1;
 }
 
 static void UpdateSelectionCenter()
@@ -393,7 +393,7 @@ static void HandleMoveCommand()
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    if (g_animation_view.selected_bone_count <= 0)
+    if (GetEditingAnimation().selected_bone_count <= 0)
         return;
 
     RecordUndo(GetEditingAsset());
@@ -407,7 +407,7 @@ static void HandleRotate()
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    if (g_animation_view.selected_bone_count <= 0)
+    if (GetEditingAnimation().selected_bone_count <= 0)
         return;
 
     RecordUndo(GetEditingAsset());
@@ -490,20 +490,26 @@ static void HandleSelectAll()
 
 static void HandleInsertBeforeFrame()
 {
+    RecordUndo();
     EditorAnimation& en = GetEditingAnimation();
     en.current_frame = InsertFrame(en, en.current_frame);
+    UpdateTransforms(en);
 }
 
 static void HandleInsertAfterFrame()
 {
+    RecordUndo();
     EditorAnimation& en = GetEditingAnimation();
     en.current_frame = InsertFrame(en, en.current_frame + 1);
+    UpdateTransforms(en);
 }
 
 static void HandleDeleteFrame()
 {
+    RecordUndo();
     EditorAnimation& en = GetEditingAnimation();
     en.current_frame = DeleteFrame(en, en.current_frame);
+    UpdateTransforms(en);
 }
 
 void AnimationViewInit()

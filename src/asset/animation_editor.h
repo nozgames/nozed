@@ -11,6 +11,7 @@ struct EditorAnimationBone
 {
     const Name* name;
     int index;
+    bool selected;
 };
 
 struct EditorAnimation
@@ -25,6 +26,7 @@ struct EditorAnimation
     int skeleton_asset_index;
     Animation* animation;
     Animator animator;
+    int selected_bone_count;
 };
 
 extern EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path);

@@ -26,7 +26,6 @@ struct SkeletonViewBone
     BoneTransform transform;
     Mat3 local_to_world;
     Mat3 world_to_local;
-    bool selected;
 };
 
 struct SkeletonView
@@ -36,7 +35,6 @@ struct SkeletonView
     void (*state_draw)();
     bool clear_selection_on_up;
     bool ignore_up;
-    int selected_bone_count;
     Vec2 command_world_position;
     SkeletonViewBone bones[MAX_BONES];
     Vec2 selection_center;
@@ -47,13 +45,14 @@ struct SkeletonView
 static SkeletonView g_skeleton_view = {};
 
 static EditorSkeleton& GetEditingSkeleton() { return GetEditingAsset().skeleton; }
-static bool IsBoneSelected(int bone_index) { return g_skeleton_view.bones[bone_index].selected; }
+static bool IsBoneSelected(int bone_index) { return GetEditingSkeleton().bones[bone_index].selected; }
 static void SetBoneSelected(int bone_index, bool selected)
 {
     if (IsBoneSelected(bone_index) == selected)
         return;
-    g_skeleton_view.bones[bone_index].selected = selected;
-    g_skeleton_view.selected_bone_count += selected ? 1 : -1;
+    EditorSkeleton& es = GetEditingSkeleton();
+    es.bones[bone_index].selected = selected;
+    es.selected_bone_count += selected ? 1 : -1;
 }
 
 static int GetFirstSelectedBoneIndex()
@@ -117,7 +116,7 @@ static void UpdateSelectionCenter()
     for (int i=0; i<es.bone_count; i++)
     {
         EditorBone& eb = es.bones[i];
-        if (!g_skeleton_view.bones[i].selected)
+        if (!IsBoneSelected(i))
             continue;
         center += TransformPoint(eb.local_to_world);
         center_count += 1.0f;
@@ -406,7 +405,7 @@ static void HandleMoveCommand()
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
         return;
 
-    if (g_skeleton_view.selected_bone_count <= 0)
+    if (GetEditingSkeleton().selected_bone_count <= 0)
         return;
 
     RecordUndo();
@@ -420,7 +419,7 @@ static void HandleRotate()
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
         return;
 
-    if (g_skeleton_view.selected_bone_count <= 0)
+    if (GetEditingSkeleton().selected_bone_count <= 0)
         return;
 
     RecordUndo();
@@ -433,14 +432,14 @@ static void HandleRemove()
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
         return;
 
-    if (g_skeleton_view.selected_bone_count <= 0)
+    EditorSkeleton& es = GetEditingSkeleton();
+    if (es.selected_bone_count <= 0)
         return;
 
     EditorAsset& ea = GetEditingAsset();
     BeginUndoGroup();
     RecordUndo(ea);
 
-    EditorSkeleton& es = GetEditingSkeleton();
     for (int i=es.bone_count - 1; i >=0; i--)
     {
         if (!IsBoneSelected(i))
@@ -469,10 +468,10 @@ static void HandleUnparentCommand()
 
 static void HandleExtrudeCommand()
 {
-    if (g_skeleton_view.selected_bone_count != 1)
+    EditorSkeleton& es = GetEditingSkeleton();
+    if (es.selected_bone_count != 1)
         return;
 
-    EditorSkeleton& es = GetEditingSkeleton();
     if (es.bone_count >= MAX_BONES)
         return;
 
@@ -501,7 +500,7 @@ static void RenameBone(const Name* name)
     assert(name);
     assert(name != NAME_NONE);
 
-    if (g_skeleton_view.selected_bone_count != 1)
+    if (GetEditingSkeleton().selected_bone_count != 1)
     {
         LogError("can only rename a single selected bone");
         return;
@@ -516,14 +515,15 @@ static void RenameBone(const Name* name)
 
 static const Name* SkeletonViewCommandPreview(const Command& command)
 {
-    if (g_skeleton_view.selected_bone_count != 1)
+    EditorSkeleton& es = GetEditingSkeleton();
+    if (es.selected_bone_count != 1)
         return NAME_NONE;
 
     if (command.name != NAME_RENAME && command.name != NAME_R)
         return NAME_NONE;
 
     if (command.arg_count <= 0)
-        return GetEditingSkeleton().bones[GetFirstSelectedBoneIndex()].name;
+        return es.bones[GetFirstSelectedBoneIndex()].name;
 
     return NAME_NONE;
 }

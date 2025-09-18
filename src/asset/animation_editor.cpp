@@ -132,7 +132,7 @@ static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
     en.bone_count = es->bone_count;
 
     for (int frame_index=0; frame_index<MAX_ANIMATION_FRAMES; frame_index++)
-        for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+        for (int bone_index=0; bone_index<MAX_BONES; bone_index++)
             SetIdentity(en.frames[frame_index * MAX_BONES + bone_index]);
 
     int bone_index = 0;
@@ -383,11 +383,11 @@ int InsertFrame(EditorAnimation& en, int frame_index)
         for (int j=0; j<es.bone_count; j++)
             GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i - 1);
 
+    en.frame_count++;
+
     if (copy_frame > 0)
         for (int j=0; j<es.bone_count; j++)
             GetFrameTransform(en, j, frame_index) = GetFrameTransform(en, j, copy_frame);
-
-    en.frame_count++;
 
     return frame_index;
 }
@@ -397,9 +397,8 @@ int DeleteFrame(EditorAnimation& en, int frame_index)
     if (en.frame_count <= 1)
         return frame_index;
 
-    EditorSkeleton& es = GetEditorSkeleton(en);
     for (int i=frame_index; i<en.frame_count - 1; i++)
-        for (int j=0; j<es.bone_count; j++)
+        for (int j=0; j<MAX_BONES; j++)
             GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i + 1);
 
     en.frame_count--;

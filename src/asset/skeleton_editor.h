@@ -22,6 +22,7 @@ struct EditorBone
     Mat3 local_to_world;
     Mat3 world_to_local;
     float length;
+    bool selected;
 };
 
 struct EditorSkeleton
@@ -31,6 +32,7 @@ struct EditorSkeleton
     Bounds2 bounds;
     EditorSkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
     int skinned_mesh_count;
+    int selected_bone_count;
 };
 
 extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
