@@ -556,8 +556,15 @@ static void UpdateAssetNames()
     for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = *g_view.assets[i];
+        Bounds2 bounds = GetBounds(ea);
 
-        BeginWorldCanvas(g_view.camera, ea.position + Vec2{0, GetBounds(ea).min.y}, Vec2{6, 0}, nullptr, STYLESHEET_VIEW);
+        BeginWorldCanvas(
+            g_view.camera,
+            ea.position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(ea).min.y},
+            Vec2{6, 0},
+            nullptr,
+            STYLESHEET_VIEW);
+
             BeginElement(NAME_ASSET_NAME_CONTAINER);
                 Label(ea.name->value, NAME_ASSET_NAME);
             EndElement();
