@@ -2,6 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "editor_assets.h"
+
 #include <editor.h>
 
 constexpr float CENTER_SIZE = 0.2f;
@@ -532,6 +534,8 @@ void SkeletonViewInit()
 {
     g_skeleton_view.state = SKELETON_EDITOR_STATE_DEFAULT;
     g_view.vtable = {
+        .update = SkeletonViewUpdate,
+        .draw = SkeletonViewDraw,
         .rename = RenameBone,
         .preview_command = SkeletonViewCommandPreview
     };

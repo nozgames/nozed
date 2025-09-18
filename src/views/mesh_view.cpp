@@ -2,6 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "editor_assets.h"
+
 #include <editor.h>
 
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
@@ -665,6 +667,12 @@ static void HandleSelectAllCommand()
 void MeshViewInit()
 {
     EditorMesh& em = GetEditingMesh();
+
+    g_view.vtable = {
+        .update = MeshViewUpdate,
+        .draw = MeshViewDraw,
+        .bounds = MeshViewBounds,
+    };
 
     g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
 

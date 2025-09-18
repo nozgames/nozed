@@ -3,6 +3,7 @@
 //
 
 #include "editor.h"
+#include "editor_assets.h"
 
 constexpr int MAX_COMMAND_LENGTH = 1024;
 constexpr float SELECT_SIZE = 20.0f;
@@ -47,6 +48,14 @@ static void UpdateCamera()
 
     g_view.zoom_ref_scale = 1.0f / g_view.zoom;
     g_view.select_size = Abs((ScreenToWorld(g_view.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_view.camera, VEC2_ZERO)).y);
+}
+
+Bounds2 GetViewBounds(EditorAsset& ea)
+{
+    if (g_view.edit_asset_index == ea.index)
+        return g_view.vtable.bounds();
+
+    return GetBounds(ea);
 }
 
 static void FrameView()
@@ -362,20 +371,18 @@ static void UpdateViewInternal()
     {
     case VIEW_STATE_EDIT:
     {
-        EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
-
         if (WasButtonPressed(g_view.input, KEY_TAB) && !IsAltDown(g_view.input))
         {
-            if (ea.vtable.view_shutdown)
-                ea.vtable.view_shutdown();
+            if (g_view.vtable.shutdown)
+                g_view.vtable.shutdown();
 
             SetCursor(SYSTEM_CURSOR_DEFAULT);
             PopState();
             return;
         }
 
-        if (ea.vtable.view_update)
-            ea.vtable.view_update();
+        if (g_view.vtable.update)
+            g_view.vtable.update();
 
         break;
     }
@@ -448,15 +455,11 @@ void RenderView()
     for (u32 i=0; i<g_view.asset_count; i++)
         DrawAsset(*g_view.assets[i]);
 
-
-
-
     // Draw edges
     if (g_view.edit_asset_index != -1)
     {
-        EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
-        if (ea.vtable.view_draw)
-            ea.vtable.view_draw();
+        if (g_view.vtable.draw)
+            g_view.vtable.draw();
     }
     else
     {

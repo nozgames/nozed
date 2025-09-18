@@ -1193,9 +1193,6 @@ static void EditorClone(EditorAsset& ea)
 }
 
 extern void MeshViewInit();
-extern void MeshViewDraw();
-extern void MeshViewUpdate();
-extern Bounds2 MeshViewBounds();
 
 EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path, EditorMesh* em)
 {
@@ -1205,9 +1202,6 @@ EditorAsset* CreateEditableMeshAsset(const std::filesystem::path& path, EditorMe
         .bounds = EditorMeshBounds,
         .draw = EditorMeshDraw,
         .view_init = MeshViewInit,
-        .view_update = MeshViewUpdate,
-        .view_draw = MeshViewDraw,
-        .view_bounds = MeshViewBounds,
         .overlap_point = EditorMeshOverlapPoint,
         .overlap_bounds = EditorMeshOverlapBounds,
         .save = EditorMeshSave,

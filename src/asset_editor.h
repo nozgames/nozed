@@ -27,10 +27,6 @@ struct EditorAssetVtable
     void (*post_load)(EditorAsset& ea);
     void (*draw)(EditorAsset& ea);
     void (*view_init)();
-    void (*view_update)();
-    void (*view_draw)();
-    Bounds2 (*view_bounds)();
-    void (*view_shutdown)();
     void (*load_metadata)(EditorAsset& ea, Props* meta);
     void (*save_metadata)(const EditorAsset& ea, Props* meta);
     bool (*overlap_point)(EditorAsset& ea, const Vec2& position, const Vec2& hit_pos);

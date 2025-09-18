@@ -11,7 +11,6 @@ constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
 
 #include <asset_editor.h>
-#include <editor_assets.h>
 
 enum ViewState
 {
@@ -21,13 +20,16 @@ enum ViewState
     VIEW_STATE_BOX_SELECT
 };
 
-typedef void (*ViewRenameFunc)(const Name* new_name);
 typedef const Name* (*PreviewCommandFunc)(const Command& command);
 
 struct ViewVtable
 {
-    ViewRenameFunc rename;
-    PreviewCommandFunc preview_command;
+    void (*update)();
+    void (*draw)();
+    Bounds2 (*bounds)();
+    void (*shutdown)();
+    void (*rename)(const Name* new_name);
+    const Name* (*preview_command)(const Command& command);
 };
 
 struct Shortcut;

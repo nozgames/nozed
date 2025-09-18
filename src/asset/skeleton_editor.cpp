@@ -508,8 +508,6 @@ EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, Editor
         .bounds = EditorSkeletonBounds,
         .post_load = PostLoadEditorSkeleton,
         .view_init = SkeletonViewInit,
-        .view_update = SkeletonViewUpdate,
-        .view_draw = SkeletonViewDraw,
         .load_metadata = EditorSkeletonLoadMetadata,
         .save_metadata = SkeletonEditorSaveMetadata,
         .overlap_point = EditorSkeletonOverlapPoint,

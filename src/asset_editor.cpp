@@ -189,17 +189,6 @@ Bounds2 GetBounds(EditorAsset& ea)
     return BOUNDS2_ZERO;
 }
 
-Bounds2 GetViewBounds(EditorAsset& ea)
-{
-    if (g_view.edit_asset_index == ea.index && ea.vtable.view_bounds)
-        return ea.vtable.view_bounds();
-
-    if (ea.vtable.bounds)
-        return ea.vtable.bounds(ea);
-
-    return BOUNDS2_ZERO;
-}
-
 int GetFirstSelectedAsset()
 {
     for (u32 i=0; i<g_view.asset_count; i++)

@@ -2,6 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "editor_assets.h"
+
 #include <editor.h>
 
 constexpr float FRAME_LINE_SIZE = 0.5f;
@@ -41,6 +43,7 @@ struct AnimationView
     Vec2 selection_center;
     Vec2 selection_center_world;
     AnimationViewBone bones[MAX_BONES];
+    bool onion_skin;
 };
 
 static AnimationView g_animation_view = {};
@@ -289,6 +292,49 @@ void AnimationViewUpdate()
         UpdateDefaultState();
 }
 
+static void DrawOnionSkin()
+{
+    EditorAsset& ea = GetEditingAsset();
+    EditorSkeleton& es = GetEditingSkeleton();
+    EditorAnimation& en = GetEditingAnimation();
+
+    if (!g_animation_view.onion_skin || en.frame_count <= 1)
+        return;
+
+    int frame = en.current_frame;
+
+    en.current_frame = (frame - 1 + en.frame_count) % en.frame_count;
+    UpdateTransforms(en);
+
+    BindColor(SetAlpha(COLOR_RED, 0.25f));
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+    {
+        DrawBone(
+            en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation),
+            es.bones[bone_index].parent_index < 0
+                ? en.animator.bones[bone_index]
+                : en.animator.bones[es.bones[bone_index].parent_index],
+            ea.position);
+    }
+
+    en.current_frame = (frame + 1 + en.frame_count) % en.frame_count;
+    UpdateTransforms(en);
+
+    BindColor(SetAlpha(COLOR_GREEN, 0.25f));
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+    {
+        DrawBone(
+            en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation),
+            es.bones[bone_index].parent_index < 0
+                ? en.animator.bones[bone_index]
+                : en.animator.bones[es.bones[bone_index].parent_index],
+            ea.position);
+    }
+
+    en.current_frame = frame;
+    UpdateTransforms(en);
+}
+
 static void DrawSkeleton()
 {
     EditorAsset& ea = GetEditingAsset();
@@ -367,6 +413,7 @@ static void DrawTimeline()
 
 void AnimationViewDraw()
 {
+    DrawOnionSkin();
     DrawSkeleton();
     DrawTimeline();
 
@@ -512,8 +559,26 @@ static void HandleDeleteFrame()
     UpdateTransforms(en);
 }
 
+static void HandleToggleOnionSkin()
+{
+    g_animation_view.onion_skin = !g_animation_view.onion_skin;
+}
+
+void AnimationViewShutdown()
+{
+    EditorAnimation& en = GetEditingAnimation();
+    Stop(en.animator);
+    UpdateTransforms(en);
+}
+
 void AnimationViewInit()
 {
+    g_view.vtable = {
+        .update = AnimationViewUpdate,
+        .draw = AnimationViewDraw,
+        .shutdown = AnimationViewShutdown,
+    };
+
     g_animation_view.state = ANIMATION_VIEW_STATE_DEFAULT;
     g_animation_view.state_update = nullptr;
     g_animation_view.state_draw = nullptr;
@@ -531,6 +596,7 @@ void AnimationViewInit()
             { KEY_SPACE, false, false, false, HandlePlayCommand },
             { KEY_I, false, false, false, HandleInsertBeforeFrame },
             { KEY_O, false, false, false, HandleInsertAfterFrame },
+            { KEY_O, true, false, false, HandleToggleOnionSkin },
             { KEY_X, false, false, false, HandleDeleteFrame },
             { INPUT_CODE_NONE }
         };
@@ -538,11 +604,4 @@ void AnimationViewInit()
         g_animation_editor_shortcuts = shortcuts;
         EnableShortcuts(g_animation_editor_shortcuts);
     }
-}
-
-void AnimationViewShutdown()
-{
-    EditorAnimation& en = GetEditingAnimation();
-    Stop(en.animator);
-    UpdateTransforms(en);
 }
