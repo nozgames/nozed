@@ -306,6 +306,7 @@ static void DrawOnionSkin()
     en.current_frame = (frame - 1 + en.frame_count) % en.frame_count;
     UpdateTransforms(en);
 
+    BindMaterial(g_view.vertex_material);
     BindColor(SetAlpha(COLOR_RED, 0.25f));
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
@@ -335,27 +336,6 @@ static void DrawOnionSkin()
     UpdateTransforms(en);
 }
 
-static void DrawSkeleton()
-{
-    EditorAsset& ea = GetEditingAsset();
-    EditorSkeleton& es = GetEditingSkeleton();
-    EditorAnimation& en = GetEditingAnimation();
-
-    BindColor(COLOR_WHITE);
-    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
-    {
-        if (!IsBoneSelected(bone_index))
-            continue;
-
-        DrawBone(
-            en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation),
-            es.bones[bone_index].parent_index < 0
-                ? en.animator.bones[bone_index]
-                : en.animator.bones[es.bones[bone_index].parent_index],
-            ea.position);
-    }
-}
-
 static void DrawRotateState()
 {
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
@@ -382,6 +362,7 @@ static void DrawTimeline()
     BindColor(COLOR_BLACK);
     DrawLine(pos - left, pos + left);
 
+    BindMaterial(g_view.vertex_material);
     for (int i=0; i<en.frame_count; i++)
         DrawVertex({pos.x - left.x + h1.x * i, pos.y}, FRAME_SIZE);
 
@@ -413,8 +394,36 @@ static void DrawTimeline()
 
 void AnimationViewDraw()
 {
+    EditorAsset& ea = GetEditingAsset();
+    EditorSkeleton& es = GetEditingSkeleton();
+    EditorAnimation& en = GetEditingAnimation();
+
+    BindColor(COLOR_WHITE);
+    for (int i=0; i<es.skinned_mesh_count; i++)
+    {
+        EditorAsset* skinned_mesh_asset = GetEditorAsset(es.skinned_meshes[i].asset_index);
+        if (!skinned_mesh_asset || skinned_mesh_asset->type != EDITOR_ASSET_TYPE_MESH)
+            continue;
+
+        DrawMesh(skinned_mesh_asset->mesh, Translate(ea.position) * en.animator.bones[es.skinned_meshes[i].bone_index]);
+    }
+
     DrawOnionSkin();
-    DrawSkeleton();
+
+    BindMaterial(g_view.vertex_material);
+    BindColor(COLOR_EDGE);
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+        DrawEditorAnimationBone(en, bone_index, ea.position);
+
+    BindColor(COLOR_EDGE_SELECTED);
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+    {
+        if (!IsBoneSelected(bone_index))
+            continue;
+
+        DrawEditorAnimationBone(en, bone_index, ea.position);
+    }
+
     DrawTimeline();
 
     if (g_animation_view.state_draw)

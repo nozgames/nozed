@@ -77,3 +77,4 @@ extern void ToggleSelection(EditorMesh& em, int vertex_index);
 extern void ClearSelection(EditorMesh& em);
 extern void SelectAll(EditorMesh& em);
 extern int RotateEdge(EditorMesh& em, int edge_index);
+extern void DrawMesh(EditorMesh& em, const Mat3& transform);

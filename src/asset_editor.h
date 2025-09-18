@@ -73,7 +73,7 @@ extern bool OverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& over
 extern bool OverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds);
 extern int HitTestAssets(const Vec2& overlap_point);
 extern int HitTestAssets(const Bounds2& bit_bounds);
-extern void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color);
+extern void DrawEdges(const EditorMesh& em, const Vec2& position, bool selected);
 extern void DrawAsset(EditorAsset& ea);
 extern Bounds2 GetBounds(EditorAsset& ea);
 extern Bounds2 GetViewBounds(EditorAsset& ea);

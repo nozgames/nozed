@@ -14,6 +14,7 @@ extern Font* FONT_SEGUISB;
 extern Shader* SHADER_VFX;
 extern Shader* SHADER_UI;
 extern Shader* SHADER_TEXT;
+extern Shader* SHADER_SOLID;
 extern Shader* SHADER_LIT;
 
 // @StyleSheet
@@ -23,6 +24,7 @@ extern StyleSheet* STYLESHEET_MESH_EDITOR;
 extern StyleSheet* STYLESHEET_COMMAND_PALETTE;
 
 // @Texture
+extern Texture* TEXTURE_SOLID_PALETTE;
 extern Texture* TEXTURE_PALETTE;
 
 // @name

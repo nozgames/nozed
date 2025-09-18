@@ -20,6 +20,13 @@ enum ViewState
     VIEW_STATE_BOX_SELECT
 };
 
+enum ViewDrawMode
+{
+    VIEW_DRAW_MODE_WIREFRAME,
+    VIEW_DRAW_MODE_SOLID,
+    VIEW_DRAW_MODE_SHADED
+};
+
 typedef const Name* (*PreviewCommandFunc)(const Command& command);
 
 struct ViewVtable
@@ -39,9 +46,12 @@ struct View
     ViewState state_stack[STATE_STACK_SIZE];
     int state_stack_count;
     Camera* camera;
-    Material* material;
+    Material* shaded_material;
+    Material* solid_material;
     Material* vertex_material;
     Mesh* vertex_mesh;
+    Mesh* circle_mesh;
+    Mesh* arc_mesh[101];
     Mesh* edge_mesh;
     Collider* bone_collider;
     float zoom;
@@ -82,16 +92,10 @@ struct View
 
     Shortcut* shortcuts;
     bool show_names;
+    ViewDrawMode draw_mode;
 };
 
 extern View g_view;
-
-constexpr Color COLOR_SELECTED = { 1,1,1,1 };
-constexpr Color COLOR_EDGE = { 0,0,0, 0.5f };
-constexpr Color COLOR_VERTEX = { 0,0,0,1 };
-constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
-constexpr Color COLOR_ORIGIN = { 1.0f, 159.0f / 255.0f, 44.0f / 255.0f, 1};
-constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 
 // @view
 extern void InitView();
@@ -139,7 +143,6 @@ extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v);
 extern void DrawVertex(const Vec2& v, f32 size);
 extern void DrawOrigin(const EditorAsset& ea);
-extern void DrawOrigin(const Vec2& position);
 extern void DrawBounds(EditorAsset& ea, float expand=0);
 extern void DrawBone(const Vec2& a, const Vec2& b);
 extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position);
@@ -158,3 +161,14 @@ struct Shortcut
 
 extern void EnableShortcuts(const Shortcut* shortcuts);
 extern void CheckShortcuts(const Shortcut* shortcuts);
+
+
+constexpr Color COLOR_VERTEX_SELECTED = Color32ToColor(255, 121, 0, 255);
+constexpr Color COLOR_VERTEX = COLOR_BLACK;
+constexpr Color COLOR_EDGE = COLOR_BLACK;
+constexpr Color COLOR_EDGE_SELECTED = Color32ToColor(253, 151, 11, 255);
+constexpr Color COLOR_ORIGIN = Color32ToColor(255, 159, 44, 255);
+constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
+
+constexpr Color COLOR_SELECTED = { 1,1,1,1 };
+constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};

@@ -11,10 +11,25 @@ constexpr float OUTLINE_WIDTH = 0.05f;
 
 static void EditorMeshDraw(EditorAsset& ea)
 {
-    BindColor(COLOR_WHITE);
-    BindMaterial(g_view.material);
-    BindTransform(TRS(ea.position, 0, VEC2_ONE));
-    DrawMesh(ToMesh(ea.mesh));
+    if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME)
+    {
+        BindColor(COLOR_EDGE);
+        DrawEdges(ea.mesh, ea.position, false);
+    }
+    else
+    {
+        BindColor(COLOR_WHITE);
+        DrawMesh(ea.mesh, Translate(ea.position));
+    }
+}
+
+void DrawMesh(EditorMesh& em, const Mat3& transform)
+{
+    if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME)
+        return;
+
+    BindMaterial(g_view.draw_mode == VIEW_DRAW_MODE_SHADED ? g_view.shaded_material : g_view.solid_material);
+    DrawMesh(ToMesh(em), transform);
 }
 
 static int GetOrAddEdge(EditorMesh& em, int v0, int v1)
@@ -166,11 +181,11 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
         const EditorVertex& v1 = em.vertices[ee.v1];
         Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
         Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
-        u16 base = (u16)GetVertexCount(builder);
-        AddVertex(builder, ToVec2(p0), VEC3_FORWARD, edge_uv);
-        AddVertex(builder, ToVec2(p0) + v0.edge_normal * OUTLINE_WIDTH, VEC3_FORWARD, edge_uv);
-        AddVertex(builder, ToVec2(p1) + v1.edge_normal * OUTLINE_WIDTH, VEC3_FORWARD, edge_uv);
-        AddVertex(builder, ToVec2(p1), VEC3_FORWARD, edge_uv);
+        u16 base = GetVertexCount(builder);
+        AddVertex(builder, ToVec2(p0), VEC3_BACKWARD, edge_uv);
+        AddVertex(builder, ToVec2(p0) + v0.edge_normal * OUTLINE_WIDTH, VEC3_BACKWARD, edge_uv);
+        AddVertex(builder, ToVec2(p1) + v1.edge_normal * OUTLINE_WIDTH, VEC3_BACKWARD, edge_uv);
+        AddVertex(builder, ToVec2(p1), VEC3_BACKWARD, edge_uv);
         AddTriangle(builder, base+0, base+1, base+3);
         AddTriangle(builder, base+1, base+2, base+3);
     }

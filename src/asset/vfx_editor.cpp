@@ -9,8 +9,6 @@ void DrawEditorVfx(EditorAsset& ea)
 {
     if (!IsPlaying(ea.vfx.handle) && ea.vfx.vfx)
         ea.vfx.handle = Play(ea.vfx.vfx, ea.position);
-
-    DrawOrigin(ea);
 }
 
 static bool ParseCurveType(Tokenizer& tk, VfxCurveType* curve_type)

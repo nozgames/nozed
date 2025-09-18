@@ -375,8 +375,12 @@ static void DrawSkeleton()
     EditorAsset& ea = GetEditingAsset();
     EditorSkeleton& es = GetEditingSkeleton();
 
+    UpdateTransforms(es);
+
+    DrawEditorSkeleton(ea, ea.position, false);
+
     BindMaterial(g_view.vertex_material);
-    BindColor(COLOR_WHITE);
+    BindColor(COLOR_SELECTED);
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         if (!IsBoneSelected(bone_index))

@@ -13,6 +13,8 @@ constexpr float HEIGHT_MAX = 1.0f;
 constexpr float HEIGHT_SLIDER_SIZE = 2.0f;
 constexpr float VERTEX_SIZE = 0.08f;
 constexpr float VERTEX_HIT_SIZE = 20.0f;
+constexpr float CIRCLE_CONTROL_OUTLINE_SIZE = 0.13f;
+constexpr float CIRCLE_CONTROL_SIZE = 0.12f;
 constexpr float CENTER_SIZE = 0.2f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
@@ -514,7 +516,10 @@ static void DrawScaleState()
 
 static void DrawHeightState()
 {
+    EditorAsset& ea = GetEditingAsset();
     EditorMesh& em = GetEditingMesh();
+
+#if 0
     Vec2 h1 =
         ScreenToWorld(g_view.camera, {0, g_view.dpi * HEIGHT_SLIDER_SIZE}) -
         ScreenToWorld(g_view.camera, VEC2_ZERO);
@@ -540,23 +545,60 @@ static void DrawHeightState()
     DrawLine(g_mesh_editor.world_drag_start + h1, g_mesh_editor.world_drag_start - h1, ROTATE_TOOL_WIDTH);
     BindColor(COLOR_ORIGIN);
     DrawVertex(g_mesh_editor.world_drag_start + Mix(h1, -h1, height_ratio), CENTER_SIZE);
+#endif
+
+    for (int i=0; i<em.vertex_count; i++)
+    {
+        EditorVertex& ev = em.vertices[i];
+        if (!ev.selected)
+            continue;
+
+        BindColor(COLOR_VERTEX_SELECTED);
+        DrawMesh(g_view.circle_mesh, TRS(ev.position + ea.position, 0, VEC2_ONE * CIRCLE_CONTROL_OUTLINE_SIZE * g_view.zoom_ref_scale));
+    }
+
+    for (int i=0; i<em.vertex_count; i++)
+    {
+        EditorVertex& ev = em.vertices[i];
+        if (!ev.selected)
+            continue;
+
+        f32 h = (ev.height - HEIGHT_MIN) / (HEIGHT_MAX - HEIGHT_MIN);
+        i32 arc = Clamp((i32)(100 * h), 0, 100);
+
+        BindColor(COLOR_BLACK);
+        DrawMesh(g_view.circle_mesh, TRS(ev.position + ea.position, 0, VEC2_ONE * CIRCLE_CONTROL_SIZE * g_view.zoom_ref_scale));
+        BindColor(COLOR_VERTEX_SELECTED);
+        DrawMesh(g_view.arc_mesh[arc], TRS(ev.position + ea.position, 0, VEC2_ONE * CIRCLE_CONTROL_SIZE * g_view.zoom_ref_scale));
+    }
 }
 
 void MeshViewDraw()
 {
     EditorAsset& ea = GetEditingAsset();
-    DrawEdges(ea, 10000, COLOR_EDGE);
+    EditorMesh& em = GetEditingMesh();
+
+    // Mesh
+    BindColor(COLOR_WHITE);
+    DrawMesh(em, Translate(ea.position));
+
+    // Edges
+    BindColor(COLOR_EDGE);
+    DrawEdges(em, ea.position, false);
+
+    // Selected edges
+    BindColor(COLOR_EDGE_SELECTED);
+    DrawEdges(em, ea.position, true);
+
+    // verts
     BindColor(COLOR_VERTEX);
     DrawVertices(false);
 
-    BindColor(COLOR_SELECTED);
+    // Selected verts
+    BindColor(COLOR_VERTEX_SELECTED);
     DrawVertices(true);
 
-    DrawOrigin(ea);
-
-    BindTransform(TRS(ea.position, 0, VEC2_ONE * g_view.zoom_ref_scale * ORIGIN_SIZE));
-    DrawMesh(g_view.vertex_mesh);
-
+    // Tools
     switch (g_mesh_editor.state)
     {
     case MESH_EDITOR_STATE_SCALE:
@@ -590,6 +632,9 @@ Bounds2 MeshViewBounds()
 
         first = false;
     }
+
+    if (first)
+        return GetBounds(GetEditingAsset());
 
     return bounds;
 }

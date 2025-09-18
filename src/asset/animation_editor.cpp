@@ -42,21 +42,20 @@ void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& po
     DrawBone(p0 + position, p1 + position);
 }
 
-static void DrawEditorAnimation(EditorAsset& ea)
+void DrawEditorAnimation(EditorAsset& ea)
 {
     EditorAnimation& en = ea.animation;
     EditorSkeleton& es = GetEditorSkeleton(en);
 
     BindColor(COLOR_WHITE);
-    BindMaterial(g_view.material);
+    BindMaterial(g_view.shaded_material);
     for (int i=0; i<es.skinned_mesh_count; i++)
     {
         EditorAsset* skinned_mesh_asset = GetEditorAsset(es.skinned_meshes[i].asset_index);
         if (!skinned_mesh_asset || skinned_mesh_asset->type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
-        BindTransform(Translate(ea.position) * en.animator.bones[es.skinned_meshes[i].bone_index]);
-        DrawMesh(ToMesh(skinned_mesh_asset->mesh));
+        DrawMesh(skinned_mesh_asset->mesh, Translate(ea.position) * en.animator.bones[es.skinned_meshes[i].bone_index]);
     }
 
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
@@ -438,7 +437,7 @@ int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
 
     best_bone_index = -1;
     best_dist = F32_MAX;
-    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
     {
         if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(-es.bones[bone_index].transform.rotation), TransformPoint(Inverse(en.animator.bones[bone_index]), world_pos))))
             continue;

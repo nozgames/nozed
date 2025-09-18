@@ -42,3 +42,5 @@ extern Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int fra
 extern int HitTestBone(EditorAnimation& en, const Vec2& world_pos);
 extern void UpdateTransforms(EditorAnimation& en);
 extern void UpdateSkeleton(EditorAnimation& en);
+extern void DrawEditorAnimation(EditorAsset& ea);
+extern void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& position);

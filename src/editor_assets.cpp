@@ -14,6 +14,7 @@ Font* FONT_SEGUISB = nullptr;
 Shader* SHADER_VFX = nullptr;
 Shader* SHADER_UI = nullptr;
 Shader* SHADER_TEXT = nullptr;
+Shader* SHADER_SOLID = nullptr;
 Shader* SHADER_LIT = nullptr;
 
 // @StyleSheet
@@ -23,6 +24,7 @@ StyleSheet* STYLESHEET_MESH_EDITOR = nullptr;
 StyleSheet* STYLESHEET_COMMAND_PALETTE = nullptr;
 
 // @Texture
+Texture* TEXTURE_SOLID_PALETTE = nullptr;
 Texture* TEXTURE_PALETTE = nullptr;
 
 // @name
@@ -52,6 +54,7 @@ const Name* NAME_SKELETON = nullptr;
 const Name* NAME_ANIMATION = nullptr;
 
 // @path
+const Name* PATH_TEXTURE_SOLID_PALETTE = nullptr;
 const Name* PATH_TEXTURE_PALETTE = nullptr;
 const Name* PATH_STYLESHEET_VIEW = nullptr;
 const Name* PATH_STYLESHEET_NOTIFICATIONS = nullptr;
@@ -60,6 +63,7 @@ const Name* PATH_STYLESHEET_COMMAND_PALETTE = nullptr;
 const Name* PATH_SHADER_VFX = nullptr;
 const Name* PATH_SHADER_UI = nullptr;
 const Name* PATH_SHADER_TEXT = nullptr;
+const Name* PATH_SHADER_SOLID = nullptr;
 const Name* PATH_SHADER_LIT = nullptr;
 const Name* PATH_FONT_SEGUISB = nullptr;
 
@@ -93,6 +97,7 @@ bool LoadAssets(Allocator* allocator)
     NAME_ANIMATION = GetName("animation");
 
     // @path
+    PATH_TEXTURE_SOLID_PALETTE = GetName("texture/solid_palette");
     PATH_TEXTURE_PALETTE = GetName("texture/palette");
     PATH_STYLESHEET_VIEW = GetName("stylesheet/view");
     PATH_STYLESHEET_NOTIFICATIONS = GetName("stylesheet/notifications");
@@ -101,6 +106,7 @@ bool LoadAssets(Allocator* allocator)
     PATH_SHADER_VFX = GetName("shader/vfx");
     PATH_SHADER_UI = GetName("shader/ui");
     PATH_SHADER_TEXT = GetName("shader/text");
+    PATH_SHADER_SOLID = GetName("shader/solid");
     PATH_SHADER_LIT = GetName("shader/lit");
     PATH_FONT_SEGUISB = GetName("font/seguisb");
 
@@ -118,12 +124,14 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_VFX, SHADER_VFX);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_UI, SHADER_UI);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_TEXT, SHADER_TEXT);
+    NOZ_LOAD_SHADER(allocator, PATH_SHADER_SOLID, SHADER_SOLID);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_LIT, SHADER_LIT);
 
     static Shader* _SHADER[] = {
         SHADER_VFX,
         SHADER_UI,
         SHADER_TEXT,
+        SHADER_SOLID,
         SHADER_LIT,
         nullptr
     };
@@ -147,9 +155,11 @@ bool LoadAssets(Allocator* allocator)
     STYLESHEET = _STYLESHEET;
 
     // @Texture
+    NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_SOLID_PALETTE, TEXTURE_SOLID_PALETTE);
     NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
 
     static Texture* _TEXTURE[] = {
+        TEXTURE_SOLID_PALETTE,
         TEXTURE_PALETTE,
         nullptr
     };
@@ -169,6 +179,7 @@ void UnloadAssets()
     Free(SHADER_VFX);
     Free(SHADER_UI);
     Free(SHADER_TEXT);
+    Free(SHADER_SOLID);
     Free(SHADER_LIT);
 
     // @StyleSheet
@@ -178,6 +189,7 @@ void UnloadAssets()
     Free(STYLESHEET_COMMAND_PALETTE);
 
     // @Texture
+    Free(TEXTURE_SOLID_PALETTE);
     Free(TEXTURE_PALETTE);
 }
 
@@ -192,6 +204,7 @@ void HotloadAsset(const Name* incoming_name)
     NOZ_RELOAD_SHADER(PATH_SHADER_VFX, SHADER_VFX);
     NOZ_RELOAD_SHADER(PATH_SHADER_UI, SHADER_UI);
     NOZ_RELOAD_SHADER(PATH_SHADER_TEXT, SHADER_TEXT);
+    NOZ_RELOAD_SHADER(PATH_SHADER_SOLID, SHADER_SOLID);
     NOZ_RELOAD_SHADER(PATH_SHADER_LIT, SHADER_LIT);
 
     // @StyleSheet
@@ -201,6 +214,7 @@ void HotloadAsset(const Name* incoming_name)
     NOZ_RELOAD_STYLESHEET(PATH_STYLESHEET_COMMAND_PALETTE, STYLESHEET_COMMAND_PALETTE);
 
     // @Texture
+    NOZ_RELOAD_TEXTURE(PATH_TEXTURE_SOLID_PALETTE, TEXTURE_SOLID_PALETTE);
     NOZ_RELOAD_TEXTURE(PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
 }
 

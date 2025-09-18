@@ -54,18 +54,13 @@ void DrawVertex(const Vec2& v, f32 size)
     DrawMesh(g_view.vertex_mesh);
 }
 
-void DrawOrigin(const Vec2& position)
+void DrawOrigin(const EditorAsset& ea)
 {
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_ORIGIN_BORDER);
-    DrawVertex(position, ORIGIN_BORDER_SIZE);
+    DrawVertex(ea.position, ORIGIN_BORDER_SIZE);
     BindColor(COLOR_ORIGIN);
-    DrawVertex(position, ORIGIN_SIZE);
-}
-
-void DrawOrigin(const EditorAsset& ea)
-{
-    DrawOrigin(ea.position);
+    DrawVertex(ea.position, ORIGIN_SIZE);
 }
 
 void DrawBounds(EditorAsset& ea, float expand)

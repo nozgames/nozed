@@ -26,25 +26,24 @@ void DrawEditorSkeleton(EditorAsset& ea, const Vec2& position, bool selected)
 
     UpdateTransforms(es);
 
-    BindColor(COLOR_WHITE);
-    BindMaterial(g_view.material);
-    for (int i=0; i<es.skinned_mesh_count; i++)
+    if (g_view.draw_mode != VIEW_DRAW_MODE_WIREFRAME)
     {
-        EditorBone& bone = es.bones[es.skinned_meshes[i].bone_index];
-        EditorAsset* skinned_mesh_asset = GetEditorAsset(es.skinned_meshes[i].asset_index);
-        if (!skinned_mesh_asset || skinned_mesh_asset->type != EDITOR_ASSET_TYPE_MESH)
-            continue;
+        BindColor(COLOR_WHITE);
+        for (int i=0; i<es.skinned_mesh_count; i++)
+        {
+            EditorBone& bone = es.bones[es.skinned_meshes[i].bone_index];
+            EditorAsset* skinned_mesh_asset = GetEditorAsset(es.skinned_meshes[i].asset_index);
+            if (!skinned_mesh_asset || skinned_mesh_asset->type != EDITOR_ASSET_TYPE_MESH)
+                continue;
 
-        BindTransform(Translate(ea.position) * bone.local_to_world);
-        DrawMesh(ToMesh(skinned_mesh_asset->mesh));
+            DrawMesh(skinned_mesh_asset->mesh, Translate(ea.position) * bone.local_to_world);
+        }
     }
 
     BindMaterial(g_view.vertex_material);
     BindColor(selected ? COLOR_SELECTED : COLOR_BLACK);
     for (int bone_index=0; bone_index<es.bone_count; bone_index++)
         DrawEditorSkeletonBone(es, bone_index, position);
-
-    DrawOrigin(position);
 }
 
 void DrawEditorSkeleton(EditorAsset& ea, bool selected)

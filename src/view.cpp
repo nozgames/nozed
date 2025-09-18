@@ -52,7 +52,7 @@ static void UpdateCamera()
 
 Bounds2 GetViewBounds(EditorAsset& ea)
 {
-    if (g_view.edit_asset_index == ea.index)
+    if (g_view.edit_asset_index == ea.index && g_view.vtable.bounds)
         return g_view.vtable.bounds();
 
     return GetBounds(ea);
@@ -442,45 +442,25 @@ void RenderView()
     BindCamera(g_view.camera);
     BindLight(Normalize(Vec3{g_view.light_dir.x, g_view.light_dir.y, 1.0f}), COLOR_WHITE, COLOR_BLACK);
 
-    // Grid
     DrawGrid(g_view.camera);
 
-    if (g_view.show_names || IsAltDown(g_view.input))
-        for (u32 i=0; i<g_view.asset_count; i++)
-            DrawBounds(*g_view.assets[i]);
-
-    // Draw assets
-    BindColor(COLOR_WHITE);
-    BindMaterial(g_view.material);
+    bool show_names = g_view.show_names || IsAltDown(g_view.input);
     for (u32 i=0; i<g_view.asset_count; i++)
-        DrawAsset(*g_view.assets[i]);
+        if (show_names || g_view.assets[i]->selected)
+            DrawBounds(*g_view.assets[i], 0.05f);
 
-    // Draw edges
+    BindColor(COLOR_WHITE);
+    BindMaterial(g_view.shaded_material);
+    for (u32 i=0; i<g_view.asset_count; i++)
+        if (g_view.edit_asset_index != (int)i || g_view.vtable.draw == nullptr)
+            DrawAsset(*g_view.assets[i]);
+
     if (g_view.edit_asset_index != -1)
-    {
         if (g_view.vtable.draw)
             g_view.vtable.draw();
-    }
-    else
-    {
-        for (u32 i=0; i<g_view.asset_count; i++)
-        {
-            const EditorAsset& ea = *g_view.assets[i];
-            if (!ea.selected)
-                continue;
 
-            DrawEdges(ea, 1, COLOR_SELECTED);
-        }
-    }
-
-    // Draw origins and bounds
     for (u32 i=0; i<g_view.asset_count; i++)
-        if (g_view.assets[i]->selected)
-        {
-            EditorAsset& ea = *g_view.assets[i];
-            DrawOrigin(ea);
-            DrawBounds(ea, 0.05f);
-        }
+        DrawOrigin(*g_view.assets[i]);
 
     DrawBoxSelect();
 }
@@ -648,20 +628,39 @@ static void HandleToggleNames()
     g_view.show_names = !g_view.show_names;
 }
 
+static void HandleSetDrawModeShaded()
+{
+    g_view.draw_mode = VIEW_DRAW_MODE_SHADED;
+}
+
+static void HandleSetDrawModeWireframe()
+{
+    g_view.draw_mode = VIEW_DRAW_MODE_WIREFRAME;
+}
+
+static void HandleSetDrawModeSolid()
+{
+    g_view.draw_mode = VIEW_DRAW_MODE_SOLID;
+}
+
 void InitView()
 {
     InitUndo();
 
     g_view.camera = CreateCamera(ALLOCATOR_DEFAULT);
-    g_view.material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
+    g_view.shaded_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
+    g_view.solid_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_SOLID);
     g_view.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
     g_view.zoom = ZOOM_DEFAULT;
     g_view.ui_scale = 1.0f;
     g_view.dpi = 72.0f;
     g_view.edit_asset_index = -1;
     g_view.light_dir = { -1, 0 };
+    g_view.draw_mode = VIEW_DRAW_MODE_SHADED;
+
     UpdateCamera();
-    SetTexture(g_view.material, TEXTURE_PALETTE, 0);
+    SetTexture(g_view.shaded_material, TEXTURE_PALETTE, 0);
+    SetTexture(g_view.solid_material, TEXTURE_PALETTE, 0);
 
     g_view.input = CreateInputSet(ALLOCATOR_DEFAULT);
     EnableButton(g_view.input, KEY_LEFT_CTRL);
@@ -700,14 +699,20 @@ void InitView()
     EnableButton(g_view.command_input, KEY_ESCAPE);
     EnableButton(g_view.command_input, KEY_ENTER);
 
-    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 4, 6);
-    AddVertex(builder, {   0, -0.5f}, {0,0,1}, VEC2_ZERO);
-    AddVertex(builder, { 0.5f, 0.0f}, {0,0,1}, VEC2_ZERO);
-    AddVertex(builder, {   0,  0.5f}, {0,0,1}, VEC2_ZERO);
-    AddVertex(builder, {-0.5f, 0.0f}, {0,0,1}, VEC2_ZERO);
-    AddTriangle(builder, 0, 1, 2);
-    AddTriangle(builder, 2, 3, 0);
+    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
+    AddCircle(builder, VEC2_ZERO, 0.5f, 8, VEC2_ZERO);
     g_view.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+
+    Clear(builder);
+    AddCircle(builder, VEC2_ZERO, 2.0f, 32, VEC2_ZERO);
+    g_view.circle_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+
+    for (int i=0; i<=100; i++)
+    {
+        Clear(builder);
+        AddArc(builder, VEC2_ZERO, 2.0f, -270, -270 + 360.0f * (i / 100.0f), 32, VEC2_ZERO);
+        g_view.arc_mesh[i] = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+    }
 
     Clear(builder);
     AddVertex(builder, { -1, -1});
@@ -741,6 +746,9 @@ void InitView()
         { KEY_EQUALS, false, true, false, HandleUIZoomIn },
         { KEY_MINUS, false, true, false, HandleUIZoomOut },
         { KEY_N, true, false, false, HandleToggleNames },
+        { KEY_1, true, false, false, HandleSetDrawModeWireframe },
+        { KEY_2, true, false, false, HandleSetDrawModeSolid },
+        { KEY_3, true, false, false, HandleSetDrawModeShaded },
         { INPUT_CODE_NONE }
     };
 

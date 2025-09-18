@@ -72,24 +72,21 @@ void MoveTo(EditorAsset& asset, const Vec2& position)
     asset.meta_modified = true;
 }
 
-void DrawEdges(const EditorAsset& ea, int min_edge_count, Color color)
+void DrawEdges(const EditorMesh& em, const Vec2& position, bool selected)
 {
-    if (ea.type != EDITOR_ASSET_TYPE_MESH)
-        return;
-
-    BindColor(color);
     BindMaterial(g_view.vertex_material);
 
-    const EditorMesh& em = ea.mesh;
     for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
     {
         const EditorEdge& ee = em.edges[edge_index];
-        if (ee.triangle_count > min_edge_count)
+
+        bool edge_selected = em.vertices[ee.v0].selected && em.vertices[ee.v1].selected;
+        if (!edge_selected == selected)
             continue;
 
         const Vec2& v0 = em.vertices[ee.v0].position;
         const Vec2& v1 = em.vertices[ee.v1].position;
-        DrawLine(v0 + ea.position, v1 + ea.position, 0.01f);
+        DrawLine(v0 + position, v1 + position);
     }
 }
 
