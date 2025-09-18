@@ -42,7 +42,7 @@ void AddNotification(const char* format, ...)
 void UpdateNotifications()
 {
     BeginCanvas();
-    BeginElement(STYLE_NOTIFICATIONS_NOTIFICATION_CONTAINER);
+    BeginElement(STYLE_NOTIFICATIONS_CONTAINER);
         for (int i=0, c=g_notifications.buffer->count; i<c; i++)
         {
             Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
@@ -55,8 +55,8 @@ void UpdateNotifications()
                 continue;
             }
 
-            BeginElement(STYLE_NOTIFICATIONS_NOTIFICATION);
-                Label(n->text, STYLE_NOTIFICATIONS_NOTIFICATION_TEXT);
+            BeginElement(STYLE_NOTIFICATIONS_ITEM);
+                Label(n->text, STYLE_NOTIFICATIONS_ITEM_TEXT);
             EndElement();
         }
     EndElement();

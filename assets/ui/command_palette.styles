@@ -1,4 +1,4 @@
-[command_palette]
+[container]
 background-color=#555558
 margin-left = auto
 margin-top = auto
@@ -7,29 +7,29 @@ margin-bottom = 40
 padding=4
 height = 48
 
-[command_input]
+[input]
 flex-direction = column
 width = 600
 
-[command_colon]
+[colon]
 font=seguisb
 font-size=30
 color = #222222
 margin-left=4
 
-[command_text]
+[text]
 font=seguisb
 font-size=30
 color=black
 margin-left=6
 
-[command_text_cursor]
+[cursor]
 background-color = white
 width = 16
 margin-left=6
 margin-top=2
 
-[command_text_preview]
+[preview]
 font=seguisb
 font-size=30
 background-color = white

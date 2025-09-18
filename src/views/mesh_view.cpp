@@ -457,7 +457,7 @@ void MeshViewUpdate()
     EditorAsset& ea = GetEditingAsset();
 
     BeginCanvas();
-    Image(g_mesh_editor.color_material, STYLE_MESH_EDITOR_COLOR_PICKER_IMAGE);
+    Image(g_mesh_editor.color_material, STYLE_MESH_EDITOR_COLORS);
     SetInputHandler(HandleColorPickerInput, &ea);
     EndCanvas();
 

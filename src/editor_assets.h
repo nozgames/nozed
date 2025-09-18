@@ -26,16 +26,15 @@ extern StyleSheet* STYLESHEET_COMMAND_PALETTE;
 extern Texture* TEXTURE_PALETTE;
 
 // @name
-extern const Name* NAME_COLOR_PICKER_IMAGE;
-extern const Name* NAME_COMMAND_PALETTE;
-extern const Name* NAME_COMMAND_INPUT;
-extern const Name* NAME_COMMAND_COLON;
-extern const Name* NAME_COMMAND_TEXT;
-extern const Name* NAME_COMMAND_TEXT_CURSOR;
-extern const Name* NAME_COMMAND_TEXT_PREVIEW;
-extern const Name* NAME_NOTIFICATION_CONTAINER;
-extern const Name* NAME_NOTIFICATION;
-extern const Name* NAME_NOTIFICATION_TEXT;
+extern const Name* NAME_CONTAINER;
+extern const Name* NAME_INPUT;
+extern const Name* NAME_COLON;
+extern const Name* NAME_TEXT;
+extern const Name* NAME_CURSOR;
+extern const Name* NAME_PREVIEW;
+extern const Name* NAME_COLORS;
+extern const Name* NAME_ITEM;
+extern const Name* NAME_ITEM_TEXT;
 extern const Name* NAME_ASSET_NAME_CONTAINER;
 extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_A;
@@ -57,20 +56,20 @@ constexpr StyleId STYLE_VIEW_ASSET_NAME_CONTAINER = {0,0};
 constexpr StyleId STYLE_VIEW_ASSET_NAME = {0,1};
 
 // @STYLE_NOTIFICATIONS
-constexpr StyleId STYLE_NOTIFICATIONS_NOTIFICATION_CONTAINER = {1,0};
-constexpr StyleId STYLE_NOTIFICATIONS_NOTIFICATION = {1,1};
-constexpr StyleId STYLE_NOTIFICATIONS_NOTIFICATION_TEXT = {1,2};
+constexpr StyleId STYLE_NOTIFICATIONS_CONTAINER = {1,0};
+constexpr StyleId STYLE_NOTIFICATIONS_ITEM = {1,1};
+constexpr StyleId STYLE_NOTIFICATIONS_ITEM_TEXT = {1,2};
 
 // @STYLE_MESH_EDITOR
-constexpr StyleId STYLE_MESH_EDITOR_COLOR_PICKER_IMAGE = {2,0};
+constexpr StyleId STYLE_MESH_EDITOR_COLORS = {2,0};
 
 // @STYLE_COMMAND_PALETTE
-constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_PALETTE = {3,0};
-constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_INPUT = {3,1};
-constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_COLON = {3,2};
-constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_TEXT = {3,3};
-constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_TEXT_CURSOR = {3,4};
-constexpr StyleId STYLE_COMMAND_PALETTE_COMMAND_TEXT_PREVIEW = {3,5};
+constexpr StyleId STYLE_COMMAND_PALETTE_CONTAINER = {3,0};
+constexpr StyleId STYLE_COMMAND_PALETTE_INPUT = {3,1};
+constexpr StyleId STYLE_COMMAND_PALETTE_COLON = {3,2};
+constexpr StyleId STYLE_COMMAND_PALETTE_TEXT = {3,3};
+constexpr StyleId STYLE_COMMAND_PALETTE_CURSOR = {3,4};
+constexpr StyleId STYLE_COMMAND_PALETTE_PREVIEW = {3,5};
 
 
 extern bool LoadAssets(Allocator* allocator);

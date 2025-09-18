@@ -532,14 +532,14 @@ void UpdateCommandPalette()
     }
 
     BeginCanvas();
-    BeginElement(STYLE_COMMAND_PALETTE_COMMAND_PALETTE);
-        BeginElement(STYLE_COMMAND_PALETTE_COMMAND_INPUT);
-            Label(":", STYLE_COMMAND_PALETTE_COMMAND_COLON);
-            Label(input.value, STYLE_COMMAND_PALETTE_COMMAND_TEXT);
+    BeginElement(STYLE_COMMAND_PALETTE_CONTAINER);
+        BeginElement(STYLE_COMMAND_PALETTE_INPUT);
+            Label(":", STYLE_COMMAND_PALETTE_COLON);
+            Label(input.value, STYLE_COMMAND_PALETTE_TEXT);
             if (g_view.command_preview)
-                Label(g_view.command_preview->value, STYLE_COMMAND_PALETTE_COMMAND_TEXT_PREVIEW);
+                Label(g_view.command_preview->value, STYLE_COMMAND_PALETTE_PREVIEW);
             else
-                EmptyElement(STYLE_COMMAND_PALETTE_COMMAND_TEXT_CURSOR);
+                EmptyElement(STYLE_COMMAND_PALETTE_CURSOR);
         EndElement();
     EndElement();
     EndCanvas();
