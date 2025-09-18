@@ -187,44 +187,41 @@ static StyleKey ParseStyleKey(const string& value)
     return { class_name, state };
 }
 
+static void ParseStyle(Props* source, const std::string& group_name, StyleDictionary& styles)
+{
+    auto style_key = ParseStyleKey(group_name);
+    if (styles.contains(style_key))
+        return;
+
+    std::string inherit = source->GetString(group_name.c_str(), "inherit", "");
+    if (!inherit.empty())
+    {
+        ParseStyle(source, inherit, styles);
+
+        auto inherit_key = ParseStyleKey(inherit);
+        auto inherit_it = styles.find(inherit_key);
+        if (inherit_it != styles.end())
+            styles[style_key] = inherit_it->second;
+    }
+
+    Style style = GetDefaultStyle();
+    auto style_keys = source->GetKeys(group_name.c_str());
+    for (const auto& key_name : style_keys)
+        ParseParameter(group_name, key_name, source, style);
+
+    auto it = styles.find(style_key);
+    if (it != styles.end())
+        MergeStyles(it->second, style);
+    else
+        styles[style_key] = style;
+}
+
 static void ParseStyles(Props* source, Props* meta, StyleDictionary& styles)
 {
     (void)meta;
 
-    for (const auto& inherit : source->GetKeys("inherit"))
-    {
-        (void)inherit;
-    }
-
     for (auto& group_name : source->GetGroups())
-    {
-        if (group_name == "inherit")
-            continue;
-
-        auto style_key = ParseStyleKey(group_name);
-
-        Style style = GetDefaultStyle();
-        auto style_keys = source->GetKeys(group_name.c_str());
-        for (const auto& key_name : style_keys)
-            ParseParameter(group_name, key_name, source, style);
-
-        auto it = styles.find(style_key);
-        if (it != styles.end())
-            MergeStyles(it->second, style);
-        else
-            styles[style_key] = style;
-    }
-
-    for (const auto& [style_key, style] : styles)
-    {
-        auto base_style_it = styles.find({style_key.first, PSEUDO_STATE_NONE});
-        if (base_style_it == styles.end())
-            continue;
-
-        auto resolved_style = base_style_it->second;
-        MergeStyles(resolved_style, style);
-        styles[style_key] = resolved_style;
-    }
+        ParseStyle(source, group_name, styles);
 }
 
 static StyleDictionary ParseStyles(Props* source, Props* meta)

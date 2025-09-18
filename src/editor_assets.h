@@ -27,6 +27,8 @@ extern Texture* TEXTURE_PALETTE;
 
 // @name
 extern const Name* NAME_COLOR_PICKER_IMAGE;
+extern const Name* NAME_ASSET_NAME_CONTAINER;
+extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_COMMAND_PALETTE;
 extern const Name* NAME_COMMAND_INPUT;
 extern const Name* NAME_COMMAND_COLON;
@@ -36,8 +38,6 @@ extern const Name* NAME_COMMAND_TEXT_PREVIEW;
 extern const Name* NAME_NOTIFICATION_CONTAINER;
 extern const Name* NAME_NOTIFICATION;
 extern const Name* NAME_NOTIFICATION_TEXT;
-extern const Name* NAME_ASSET_NAME_CONTAINER;
-extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_A;
 extern const Name* NAME_E;
 extern const Name* NAME_M;
