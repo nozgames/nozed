@@ -170,7 +170,7 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
     }
 
     // Generate outline
-    Vec2 edge_uv = ColorUV(0,0);
+    Vec2 edge_uv = ColorUV(em.edge_color.x, em.edge_color.y);
     for (int i=0; i < em.edge_count; i++)
     {
         const EditorEdge& ee = em.edges[i];
@@ -198,6 +198,12 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
     Free(builder);
 
     return em.mesh;
+}
+
+void SetEdgeColor(EditorMesh& em, const Vec2Int& color)
+{
+    em.edge_color = color;
+    MarkDirty(em);
 }
 
 void SetSelectedTrianglesColor(EditorMesh& em, const Vec2Int& color)

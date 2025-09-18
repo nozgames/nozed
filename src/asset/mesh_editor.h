@@ -48,6 +48,7 @@ struct EditorMesh
     Bounds2 bounds;
     int selected_vertex_count;
     Mesh* mesh;
+    Vec2Int edge_color;
 };
 
 // @editor_mesh
@@ -62,6 +63,7 @@ extern int HitTestEdge(EditorMesh& em, const Vec2& hit_pos, float* where=nullptr
 extern Bounds2 GetSelectedBounds(const EditorMesh& em);
 extern void MarkDirty(EditorMesh& em);
 extern void SetSelectedTrianglesColor(EditorMesh& em, const Vec2Int& color);
+extern void SetEdgeColor(EditorMesh& em, const Vec2Int& color);
 extern void MergeSelectedVerticies(EditorMesh& em);
 extern void DissolveSelectedVertices(EditorMesh& em);
 extern void SetHeight(EditorMesh& em, int index, float height);

@@ -490,7 +490,11 @@ bool HandleColorPickerInput(const ElementInput& input)
     i32 row = (i32)(y * 16.0f);
 
     EditorAsset& ea = *(EditorAsset*)input.user_data;
-    SetSelectedTrianglesColor(GetEditingMesh(), { col, row });
+    if (IsCtrlDown(g_view.input))
+        SetEdgeColor(GetEditingMesh(), { col, row });
+    else
+        SetSelectedTrianglesColor(GetEditingMesh(), { col, row });
+
     MarkModified(ea);
     return true;
 }
