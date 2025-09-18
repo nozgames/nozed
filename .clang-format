@@ -1,13 +1,13 @@
 BasedOnStyle: LLVM
 BraceWrapping:
-  AfterFunction: true
-  AfterClass: true
-  AfterEnum: true
-  AfterStruct: true
-  AfterNamespace: true
-  AfterControlStatement: true
-  BeforeCatch: true
-  BeforeElse: true
+  AfterFunction: false
+  AfterClass: false
+  AfterEnum: false
+  AfterStruct: false
+  AfterNamespace: false
+  AfterControlStatement: false
+  BeforeCatch: false
+  BeforeElse: false
   IndentBraces: false
 ColumnLimit: 120
 IndentWidth: 4

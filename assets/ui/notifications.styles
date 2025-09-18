@@ -12,5 +12,6 @@ padding=10
 background-color=#555558
 
 [notification_text]
+font=seguisb
 color=black
 font-size=18

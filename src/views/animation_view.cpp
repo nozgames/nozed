@@ -205,9 +205,7 @@ static void UpdateAssetNames()
             (TransformPoint(en.animator.bones[bone_index]) +
              TransformPoint(en.animator.bones[bone_index], {1,0})) * 0.5f;
 
-
-        SetStyleSheet(STYLE_VIEW);
-        BeginWorldCanvas(g_view.camera, ea.position + p, Vec2{2, 2});
+        BeginWorldCanvas(g_view.camera, ea.position + p, Vec2{2, 2}, nullptr, STYLESHEET_VIEW);
             BeginElement(NAME_ASSET_NAME_CONTAINER);
                 Label(es.bones[bone_index].name->value, NAME_ASSET_NAME);
             EndElement();

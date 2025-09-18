@@ -76,6 +76,13 @@ static StyleTextAlign ParseTextAlign(const string& value)
     return StyleTextAlign{ STYLE_KEYWORD_INHERIT, TEXT_ALIGN_MIN };
 }
 
+static StyleFont ParseFont(const string& value)
+{
+    StyleFont font = { .parameter = {.keyword = STYLE_KEYWORD_OVERWRITE}, .id = 0 };
+    Copy(font.name, MAX_NAME_LENGTH, value.c_str());
+    return font;
+}
+
 static void WriteStyleSheetData(Stream* stream, const StyleDictionary& styles)
 {
     // Create a name table of all the style names
@@ -136,6 +143,8 @@ static bool ParseParameter(const string& group, const string& key, Props* source
         style.color = ParseStyleColor(value);
     else if (key == "font-size")
         style.font_size = ParseStyleInt(value);
+    else if (key == "font")
+        style.font = ParseFont(value);
     else if (key == "margin")
         style.margin_top = style.margin_left = style.margin_right = style.margin_bottom = ParseStyleLength(value);
     else if (key == "margin-top")

@@ -41,8 +41,7 @@ void AddNotification(const char* format, ...)
 
 void UpdateNotifications()
 {
-    BeginCanvas();
-    SetStyleSheet(STYLE_NOTIFICATIONS);
+    BeginCanvas(nullptr, STYLESHEET_NOTIFICATIONS);
     BeginElement(NAME_NOTIFICATION_CONTAINER);
         for (int i=0, c=g_notifications.buffer->count; i<c; i++)
         {

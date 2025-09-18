@@ -70,11 +70,7 @@ static const AssetImporterTraits* FindImporter(AssetSignature signature)
 
 const char* GetVarTypeNameFromSignature(AssetSignature signature)
 {
-    switch (signature)
-    {
-    case ASSET_SIGNATURE_STYLE_SHEET: return "Style";
-    default: return GetTypeNameFromSignature(signature);
-    }
+    return GetTypeNameFromSignature(signature);
 }
 
 static void QueueImport(const fs::path& source_path, const fs::path& assets_path, bool force)

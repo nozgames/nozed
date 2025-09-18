@@ -180,15 +180,19 @@ static void GenerateSource(ManifestGenerator& generator)
 
     for (AssetSignature sig : generator.signatures)
     {
+        const char* type_name = GetVarTypeNameFromSignature(sig);
+        std::string type_name_upper = type_name;
+        Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
+
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "// @%s\n", GetVarTypeNameFromSignature(sig));
+        WriteCSTR(stream, "// @%s\n", type_name);
 
         for (AssetEntry& asset : generator.assets)
         {
             if (asset.signature != sig)
                 continue;
 
-            WriteCSTR(stream, "%s* %s = nullptr;\n", GetTypeNameFromSignature(asset.signature), asset.var_name.c_str());
+            WriteCSTR(stream, "%s* %s = nullptr;\n", type_name, asset.var_name.c_str());
         }
     }
 
@@ -221,19 +225,36 @@ static void GenerateSource(ManifestGenerator& generator)
 
     for (AssetSignature sig : generator.signatures)
     {
+        const char* type_name = GetVarTypeNameFromSignature(sig);
+        std::string type_name_upper = type_name;
+        Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
+
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "    // @%s\n", GetVarTypeNameFromSignature(sig));
+        WriteCSTR(stream, "    // @%s\n", type_name);
 
         for (AssetEntry& asset : generator.assets)
         {
             if (asset.signature != sig)
                 continue;
 
-            std::string type_name_upper = GetVarTypeNameFromSignature(asset.signature);
-            Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
-
             WriteCSTR(stream, "    NOZ_LOAD_%s(allocator, PATH_%s, %s);\n", type_name_upper.c_str(), asset.var_name.c_str(), asset.var_name.c_str());
         }
+
+        WriteCSTR(stream, "\n");
+        WriteCSTR(stream, "    static %s* _%s[] = {\n", type_name, type_name_upper.c_str());
+
+        for (AssetEntry& asset : generator.assets)
+        {
+            if (asset.signature != sig)
+                continue;
+
+            WriteCSTR(stream, "        %s,\n", asset.var_name.c_str());
+        }
+
+        WriteCSTR(stream, "        nullptr\n");
+        WriteCSTR(stream, "    };\n");
+        WriteCSTR(stream, "\n");
+        WriteCSTR(stream, "    %s = _%s;\n", type_name_upper.c_str(), type_name_upper.c_str());
     }
 
     WriteCSTR(stream, "\n");
@@ -302,15 +323,19 @@ static void GenerateHeader(ManifestGenerator& generator)
 
     for (AssetSignature sig : generator.signatures)
     {
+        const char* type_name = GetVarTypeNameFromSignature(sig);
+        std::string type_name_upper = type_name;
+        Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
+
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "// @%s\n", GetVarTypeNameFromSignature(sig));
+        WriteCSTR(stream, "// @%s;\n", type_name);
 
         for (AssetEntry& asset : generator.assets)
         {
             if (asset.signature != sig)
                 continue;
 
-            WriteCSTR(stream, "extern %s* %s;\n", GetTypeNameFromSignature(asset.signature), asset.var_name.c_str());
+            WriteCSTR(stream, "extern %s* %s;\n", type_name, asset.var_name.c_str());
         }
     }
 

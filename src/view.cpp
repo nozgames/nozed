@@ -531,8 +531,7 @@ void UpdateCommandPalette()
         return;
     }
 
-    SetStyleSheet(STYLE_COMMAND_PALETTE);
-    BeginCanvas();
+    BeginCanvas(nullptr, STYLESHEET_COMMAND_PALETTE);
     BeginElement(NAME_COMMAND_PALETTE);
         BeginElement(NAME_COMMAND_INPUT);
             Label(":", NAME_COMMAND_COLON);
@@ -558,8 +557,7 @@ static void UpdateAssetNames()
     {
         EditorAsset& ea = *g_view.assets[i];
 
-        BeginWorldCanvas(g_view.camera, ea.position + Vec2{0, GetBounds(ea).min.y}, Vec2{6, 0});
-            SetStyleSheet(STYLE_VIEW);
+        BeginWorldCanvas(g_view.camera, ea.position + Vec2{0, GetBounds(ea).min.y}, Vec2{6, 0}, nullptr, STYLESHEET_VIEW);
             BeginElement(NAME_ASSET_NAME_CONTAINER);
                 Label(ea.name->value, NAME_ASSET_NAME);
             EndElement();

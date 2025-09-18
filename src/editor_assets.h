@@ -7,22 +7,22 @@
 
 #include <noz/core_assets.h>
 
-// @Font
+// @Font;
 extern Font* FONT_SEGUISB;
 
-// @Shader
+// @Shader;
 extern Shader* SHADER_VFX;
 extern Shader* SHADER_UI;
 extern Shader* SHADER_TEXT;
 extern Shader* SHADER_LIT;
 
-// @Style
-extern StyleSheet* STYLE_VIEW;
-extern StyleSheet* STYLE_NOTIFICATIONS;
-extern StyleSheet* STYLE_MESH_EDITOR;
-extern StyleSheet* STYLE_COMMAND_PALETTE;
+// @StyleSheet;
+extern StyleSheet* STYLESHEET_VIEW;
+extern StyleSheet* STYLESHEET_NOTIFICATIONS;
+extern StyleSheet* STYLESHEET_MESH_EDITOR;
+extern StyleSheet* STYLESHEET_COMMAND_PALETTE;
 
-// @Texture
+// @Texture;
 extern Texture* TEXTURE_PALETTE;
 
 // @name
@@ -33,11 +33,11 @@ extern const Name* NAME_COMMAND_COLON;
 extern const Name* NAME_COMMAND_TEXT;
 extern const Name* NAME_COMMAND_TEXT_CURSOR;
 extern const Name* NAME_COMMAND_TEXT_PREVIEW;
-extern const Name* NAME_ASSET_NAME_CONTAINER;
-extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_NOTIFICATION_CONTAINER;
 extern const Name* NAME_NOTIFICATION;
 extern const Name* NAME_NOTIFICATION_TEXT;
+extern const Name* NAME_ASSET_NAME_CONTAINER;
+extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_A;
 extern const Name* NAME_E;
 extern const Name* NAME_M;
