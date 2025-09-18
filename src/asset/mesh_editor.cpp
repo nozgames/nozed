@@ -179,12 +179,16 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
 
         const EditorVertex& v0 = em.vertices[ee.v0];
         const EditorVertex& v1 = em.vertices[ee.v1];
+
+        if (v0.edge_size < 0.01f && v1.edge_size < 0.01f)
+            continue;
+
         Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
         Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
         u16 base = GetVertexCount(builder);
         AddVertex(builder, ToVec2(p0), VEC3_BACKWARD, edge_uv);
-        AddVertex(builder, ToVec2(p0) + v0.edge_normal * OUTLINE_WIDTH, VEC3_BACKWARD, edge_uv);
-        AddVertex(builder, ToVec2(p1) + v1.edge_normal * OUTLINE_WIDTH, VEC3_BACKWARD, edge_uv);
+        AddVertex(builder, ToVec2(p0) + v0.edge_normal * v0.edge_size * OUTLINE_WIDTH, VEC3_BACKWARD, edge_uv);
+        AddVertex(builder, ToVec2(p1) + v1.edge_normal * v1.edge_size * OUTLINE_WIDTH, VEC3_BACKWARD, edge_uv);
         AddVertex(builder, ToVec2(p1), VEC3_BACKWARD, edge_uv);
         AddTriangle(builder, base+0, base+1, base+3);
         AddTriangle(builder, base+1, base+2, base+3);
@@ -685,7 +689,6 @@ int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& position)
     EditorVertex& new_vertex = em.vertices[new_vertex_index];
     new_vertex.position = position;
     new_vertex.height = 0.0f;
-    new_vertex.saved_height = 0.0f;
     new_vertex.selected = false;
 
     // Create two new triangles
@@ -916,7 +919,6 @@ int AddVertex(EditorMesh& em, const Vec2& position)
         EditorVertex& new_vertex = em.vertices[new_vertex_index];
         new_vertex.position = position;
         new_vertex.height = 0.0f;
-        new_vertex.saved_height = 0.0f;
         new_vertex.selected = false;
 
         MarkDirty(em);
@@ -935,7 +937,6 @@ int AddVertex(EditorMesh& em, const Vec2& position)
     EditorVertex& new_vertex = em.vertices[new_vertex_index];
     new_vertex.position = position;
     new_vertex.height = 0.0f;
-    new_vertex.saved_height = 0.0f;
     new_vertex.selected = false;
 
     // Create triangle with the closest edge

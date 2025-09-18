@@ -14,12 +14,10 @@ constexpr int MAX_EDGES = MAX_VERTICES * 2;
 struct EditorVertex
 {
     Vec2 position;
-    Vec2 saved_position;
     float height;
-    float saved_height;
-    bool selected;
     Vec2 edge_normal;
     float edge_size;
+    bool selected;
 };
 
 struct EditorEdge
