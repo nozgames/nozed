@@ -9,6 +9,22 @@ constexpr float OUTLINE_WIDTH = 0.05f;
 #include <editor.h>
 #include <utils/file_helpers.h>
 
+static int GetTriangleEdgeIndex(const EditorFace& et, const EditorEdge& ee)
+{
+    // Return 0, 1, or 2 if the edge matches one of the triangle's edges
+    if ((et.v0 == ee.v0 && et.v1 == ee.v1) || (et.v0 == ee.v1 && et.v1 == ee.v0))
+        return 0;
+
+    if ((et.v1 == ee.v0 && et.v2 == ee.v1) || (et.v1 == ee.v1 && et.v2 == ee.v0))
+        return 1;
+
+    if ((et.v2 == ee.v0 && et.v0 == ee.v1) || (et.v2 == ee.v1 && et.v0 == ee.v0))
+        return 2;
+
+    return -1;
+}
+
+
 static void EditorMeshDraw(EditorAsset& ea)
 {
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME)
@@ -68,14 +84,14 @@ static int GetOrAddEdge(EditorMesh& em, int v0, int v1)
     return edge_index;
 }
 
-static Vec3 TriangleNormal(const Vec3& p0, const Vec3& p1, const Vec3& p2)
-{
-    Vec3 u = p1 - p0;
-    Vec3 v = p2 - p0;
-    Vec3 n = Cross(u, v);
-    if (n.z < 0) n.z *= -1.0f;
-    return Normalize(n);
-}
+// static Vec3 TriangleNormal(const Vec3& p0, const Vec3& p1, const Vec3& p2)
+// {
+//     Vec3 u = p1 - p0;
+//     Vec3 v = p2 - p0;
+//     Vec3 n = Cross(u, v);
+//     if (n.z < 0) n.z *= -1.0f;
+//     return Normalize(n);
+// }
 
 static int TriangleWinding(const Vec2& p0, const Vec2& p1, const Vec2& p2)
 {
@@ -101,19 +117,19 @@ static bool FixWinding(const EditorMesh& em, EditorFace& ef)
     return true;
 }
 
-static void UpdateNormals(EditorMesh& em)
-{
-    for (int i=0; i<em.face_count; i++)
-    {
-        const EditorVertex& v0 = em.vertices[em.faces[i].v0];
-        const EditorVertex& v1 = em.vertices[em.faces[i].v1];
-        const EditorVertex& v2 = em.vertices[em.faces[i].v2];
-        Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
-        Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
-        Vec3 p2 = Vec3{v2.position.x, v2.position.y, v2.height};
-        em.faces[i].normal = TriangleNormal(p0, p1, p2);
-    }
-}
+// static void UpdateNormals(EditorMesh& em)
+// {
+//     for (int i=0; i<em.face_count; i++)
+//     {
+//         const EditorVertex& v0 = em.vertices[em.faces[i].v0];
+//         const EditorVertex& v1 = em.vertices[em.faces[i].v1];
+//         const EditorVertex& v2 = em.vertices[em.faces[i].v2];
+//         Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
+//         Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
+//         Vec3 p2 = Vec3{v2.position.x, v2.position.y, v2.height};
+//         em.faces[i].normal = TriangleNormal(p0, p1, p2);
+//     }
+// }
 
 static void UpdateEdges(EditorMesh& em)
 {
@@ -148,7 +164,7 @@ void MarkDirty(EditorMesh& em)
     Free(em.mesh);
     em.mesh = nullptr;
     UpdateEdges(em);
-    UpdateNormals(em);
+    //UpdateNormals(em);
 }
 
 Mesh* ToMesh(EditorMesh& em, bool upload)
@@ -183,13 +199,25 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
         if (v0.edge_size < 0.01f && v1.edge_size < 0.01f)
             continue;
 
+        Vec3 en = {v0.edge_normal.x, v0.edge_normal.y, 0};
+        for (int face_index=0; face_index < em.face_count; face_index++)
+        {
+            EditorFace& ef = em.faces[face_index];
+            if (-1 != GetTriangleEdgeIndex(ef, ee))
+            {
+                // This edge is part of a face - use the face normal
+                en = Vec3{ef.normal.x, ef.normal.y, 0.1f};
+                break;
+            }
+        }
+
         Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
         Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
         u16 base = GetVertexCount(builder);
-        AddVertex(builder, ToVec2(p0), VEC3_BACKWARD, edge_uv);
-        AddVertex(builder, ToVec2(p0) + v0.edge_normal * v0.edge_size * OUTLINE_WIDTH, VEC3_BACKWARD, edge_uv);
-        AddVertex(builder, ToVec2(p1) + v1.edge_normal * v1.edge_size * OUTLINE_WIDTH, VEC3_BACKWARD, edge_uv);
-        AddVertex(builder, ToVec2(p1), VEC3_BACKWARD, edge_uv);
+        AddVertex(builder, ToVec2(p0), en, edge_uv);
+        AddVertex(builder, ToVec2(p0) + v0.edge_normal * v0.edge_size * OUTLINE_WIDTH, en, edge_uv);
+        AddVertex(builder, ToVec2(p1) + v1.edge_normal * v1.edge_size * OUTLINE_WIDTH, en, edge_uv);
+        AddVertex(builder, ToVec2(p1), en, edge_uv);
         AddTriangle(builder, base+0, base+1, base+3);
         AddTriangle(builder, base+1, base+2, base+3);
     }
@@ -506,21 +534,6 @@ void DeleteVertex(EditorMesh* em, int vertex_index)
     }
 
     MarkDirty(*em);
-}
-
-static int GetTriangleEdgeIndex(const EditorFace& et, const EditorEdge& ee)
-{
-    // Return 0, 1, or 2 if the edge matches one of the triangle's edges
-    if ((et.v0 == ee.v0 && et.v1 == ee.v1) || (et.v0 == ee.v1 && et.v1 == ee.v0))
-        return 0;
-
-    if ((et.v1 == ee.v0 && et.v2 == ee.v1) || (et.v1 == ee.v1 && et.v2 == ee.v0))
-        return 1;
-
-    if ((et.v2 == ee.v0 && et.v0 == ee.v1) || (et.v2 == ee.v1 && et.v0 == ee.v0))
-        return 2;
-
-    return -1;
 }
 
 static float CalculateTriangleArea(const Vec2& v0, const Vec2& v1, const Vec2& v2)
@@ -1036,6 +1049,23 @@ static void ParseFaceColor(EditorFace& ef, Tokenizer& tk)
     ef.color = {(u8)cx, (u8)cy};
 }
 
+static void ParseFaceNormal(EditorFace& ef, Tokenizer& tk)
+{
+    f32 nx;
+    if (!ExpectFloat(tk, &nx))
+        ThrowError("missing face normal x value");
+
+    f32 ny;
+    if (!ExpectFloat(tk, &ny))
+        ThrowError("missing face normal y value");
+
+    f32 nz;
+    if (!ExpectFloat(tk, &nz))
+        ThrowError("missing face normal z value");
+
+    ef.normal = {nx, ny, nz};
+}
+
 static void ParseFace(EditorMesh& em, Tokenizer& tk)
 {
     if (em.face_count >= MAX_TRIANGLES)
@@ -1066,6 +1096,8 @@ static void ParseFace(EditorMesh& em, Tokenizer& tk)
     {
         if (ExpectIdentifier(tk, "c"))
             ParseFaceColor(ef, tk);
+        else if (ExpectIdentifier(tk, "n"))
+            ParseFaceNormal(ef, tk);
         else
             break;
     }
@@ -1149,7 +1181,7 @@ static void EditorMeshSave(EditorAsset& ea, const std::filesystem::path& path)
     for (int i=0; i<em.face_count; i++)
     {
         const EditorFace& ef = em.faces[i];
-        WriteCSTR(stream, "f %d %d %d c %d %d\n", ef.v0, ef.v1, ef.v2, ef.color.x, ef.color.y);
+        WriteCSTR(stream, "f %d %d %d c %d %d n %f %f %f\n", ef.v0, ef.v1, ef.v2, ef.color.x, ef.color.y, ef.normal.x, ef.normal.y, ef.normal.z);
     }
 
     SaveStream(stream, path);

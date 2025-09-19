@@ -440,7 +440,7 @@ static void DrawBoxSelect()
 void RenderView()
 {
     BindCamera(g_view.camera);
-    BindLight(Normalize(Vec3{g_view.light_dir.x, g_view.light_dir.y, 1.0f}), COLOR_WHITE, COLOR_BLACK);
+    BindLight(Normalize(Vec3{g_view.light_dir.x, g_view.light_dir.y, 0.0f}), COLOR_WHITE, COLOR_BLACK);
 
     DrawGrid(g_view.camera);
 

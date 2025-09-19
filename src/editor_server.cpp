@@ -119,18 +119,14 @@ void UpdateEditorServer()
 }
 
 // @broadcast
-void BroadcastAssetChange(const std::filesystem::path& path)
+void BroadcastAssetChange(const Name* name)
 {
     if (!HasConnectedClient())
         return;
 
-    char path_str[MAX_NAME_LENGTH];
-    Copy(path_str, MAX_NAME_LENGTH, path.string().c_str());
-    Replace(path_str, MAX_NAME_LENGTH, '\\', '/');
-
     auto msg = CreateEditorMessage(EDITOR_MESSAGE_HOTLOAD);
 
-    WriteString(msg, path_str);
+    WriteString(msg, name->value);
     SendEditorMessage(msg);
 }
 

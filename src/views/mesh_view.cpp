@@ -40,6 +40,11 @@ struct MeshViewVertex
     Vec2 saved_position;
 };
 
+struct MeshViewFace
+{
+    Vec3 saved_normal;
+};
+
 struct MeshView
 {
     MeshEditorState state;
@@ -54,6 +59,7 @@ struct MeshView
     float fixed_value;
     Shortcut* shortcuts;
     MeshViewVertex vertices[MAX_VERTICES];
+    MeshViewFace faces[MAX_TRIANGLES];
 };
 
 static MeshView g_mesh_view = {};
@@ -107,6 +113,13 @@ static void RevertSavedState()
         ev.edge_size = mvv.saved_edge_size;
     }
 
+    for (int i=0; i<em.face_count; i++)
+    {
+        EditorFace& ef = em.faces[i];
+        MeshViewFace& mvf = g_mesh_view.faces[i];
+        ef.normal = mvf.saved_normal;
+    }
+
     MarkDirty(em);
     MarkModified(ea);
     UpdateSelection();
@@ -116,7 +129,42 @@ static void UpdateHeightState()
 {
     EditorAsset& ea = GetEditingAsset();
     EditorMesh& em = GetEditingMesh();
+
+    Vec2 dir = Normalize(g_view.mouse_world_position - g_mesh_view.selection_drag_start);
+    f32 len = Clamp(Length(g_view.mouse_world_position - g_mesh_view.selection_drag_start), 0.0f, 1.0f);
+
+    LogInfo("%g,%g / %g", dir.x, dir.y, len);
+
+    // Vec2 dir_start = Normalize(g_mesh_view.world_drag_start - g_mesh_view.selection_drag_start);
+    // Vec2 dir_current = Normalize(g_view.mouse_world_position - g_mesh_view.selection_drag_start);
+    // float angle = SignedAngleDelta(dir_start, dir_current);
+    // if (fabsf(angle) < F32_EPSILON)
+    //     return;
+
+    // float delta =
+    //     Length(g_view.mouse_world_position - g_mesh_view.selection_drag_start) -
+    //     Length(g_mesh_view.world_drag_start - g_mesh_view.selection_drag_start);
+
+    for (int i=0; i<em.face_count; i++)
+    {
+        EditorFace& ef = em.faces[i];
+        const EditorVertex& v0 = em.vertices[ef.v0];
+        const EditorVertex& v1 = em.vertices[ef.v1];
+        const EditorVertex& v2 = em.vertices[ef.v2];
+
+        if (!v0.selected || !v1.selected || !v2.selected)
+            continue;
+
+        Vec2 xy = dir;
+        ef.normal = {xy.x, xy.y, 1.0f};
+    }
+
+    MarkDirty(em);
+    MarkModified(ea);
+
+#if 0
     float delta = (g_view.mouse_position.y - g_mesh_view.state_mouse.y) / (g_view.dpi * HEIGHT_SLIDER_SIZE);
+
 
     for (i32 i=0; i<em.vertex_count; i++)
     {
@@ -143,6 +191,7 @@ static void UpdateHeightState()
         RevertSavedState();
         g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
     }
+#endif
 }
 
 static void UpdateEdgeState()
@@ -232,6 +281,13 @@ static void SetState(MeshEditorState state)
         mvv.saved_position = ev.position;
         mvv.saved_edge_size = ev.edge_size;
         mvv.saved_height = ev.height;
+    }
+
+    for (int i=0; i<em.face_count; i++)
+    {
+        MeshViewFace& mvf = g_mesh_view.faces[i];
+        EditorFace& ef = em.faces[i];
+        mvf.saved_normal = ef.normal;
     }
 
     ClearTextInput();
@@ -569,14 +625,20 @@ static void DrawCircleControls(float (*value_func)(const EditorVertex& ev))
     }
 }
 
-static float GetHeightValue(const EditorVertex& ev)
-{
-    return (ev.height - HEIGHT_MIN) / (HEIGHT_MAX - HEIGHT_MIN);
-}
+// static float GetHeightValue(const EditorVertex& ev)
+// {
+//     return (ev.height - HEIGHT_MIN) / (HEIGHT_MAX - HEIGHT_MIN);
+// }
 
 static void DrawHeightState()
 {
-    DrawCircleControls(GetHeightValue);
+    //DrawCircleControls(GetHeightValue);
+    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
+    DrawVertex(g_mesh_view.selection_drag_start, CENTER_SIZE * 0.75f);
+    BindColor(COLOR_CENTER);
+    DrawDashedLine(g_view.mouse_world_position, g_mesh_view.selection_drag_start);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
 
 static float GetEdgeSizeValue(const EditorVertex& ev)

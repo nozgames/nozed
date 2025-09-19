@@ -96,13 +96,21 @@ void HandleStatsEvents(EventId event_id, const void* event_data)
 void HandleImported(EventId event_id, const void* event_data)
 {
     (void)event_id;
+
     ImportEvent* import_event = (ImportEvent*)event_data;
-    HotloadEvent event = { (const Name*)import_event->name };
+
+    char target_name_str[MAX_NAME_LENGTH];
+    Copy(target_name_str, MAX_NAME_LENGTH, import_event->target_path.string().c_str());
+    Replace(target_name_str, MAX_NAME_LENGTH, '\\', '/');
+
+    const Name* target_name = GetName(target_name_str);
+
+    HotloadEvent event = { target_name };
     Send(EVENT_HOTLOAD, &event);
 
     AddNotification("imported '%s'", import_event->name->value);
 
-    BroadcastAssetChange(import_event->target_path);
+    BroadcastAssetChange(target_name);
 }
 
 static void SaveUserConfig(Props* user_config)
