@@ -4,6 +4,7 @@
 
 #include <editor.h>
 #include "editor_assets.h"
+#include "server.h"
 
 extern void InitEvent(ApplicationTraits* traits);
 extern void RequestStats();
@@ -95,9 +96,13 @@ void HandleStatsEvents(EventId event_id, const void* event_data)
 void HandleImported(EventId event_id, const void* event_data)
 {
     (void)event_id;
-    HotloadEvent event = { (const Name*)event_data };
+    ImportEvent* import_event = (ImportEvent*)event_data;
+    HotloadEvent event = { (const Name*)import_event->name };
     Send(EVENT_HOTLOAD, &event);
-    AddNotification("imported '%s'", event.asset_name->value);
+
+    AddNotification("imported '%s'", import_event->name->value);
+
+    BroadcastAssetChange(import_event->target_path);
 }
 
 static void SaveUserConfig(Props* user_config)

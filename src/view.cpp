@@ -492,6 +492,22 @@ void UpdateCommandPalette()
             SetTextInput(clipped);
             PushInputSet(g_view.command_input);
         }
+        else if (g_view.vtable.allow_text_input && g_view.vtable.allow_text_input())
+        {
+            if (input.length > 0)
+            {
+                BeginCanvas();
+                BeginElement(STYLE_COMMAND_PALETTE_CONTAINER);
+                    BeginElement(STYLE_COMMAND_PALETTE_INPUT_SMALL);
+                        Label(input.value, STYLE_COMMAND_PALETTE_TEXT);
+                        EmptyElement(STYLE_COMMAND_PALETTE_CURSOR);
+                    EndElement();
+                EndElement();
+                EndCanvas();
+            }
+
+            return;
+        }
         else
         {
             ClearTextInput();

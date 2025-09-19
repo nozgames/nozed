@@ -37,6 +37,7 @@ struct ViewVtable
     void (*shutdown)();
     void (*rename)(const Name* new_name);
     const Name* (*preview_command)(const Command& command);
+    bool (*allow_text_input)();
 };
 
 struct Shortcut;

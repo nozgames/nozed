@@ -636,6 +636,7 @@ int SplitEdge(EditorMesh& em, int edge_index, float edge_pos)
 
     int new_vertex_index = em.vertex_count++;
     EditorVertex& new_vertex = em.vertices[new_vertex_index];
+    new_vertex.edge_size = (v0.edge_size + v1.edge_size) * 0.5f;
     new_vertex.position = (v0.position * (1.0f - edge_pos) + v1.position * edge_pos);
 
     int triangle_count = em.face_count;
@@ -856,6 +857,9 @@ int HitTestFace(EditorMesh& em, const Vec2& position, const Vec2& hit_pos, Vec2*
 
 int AddVertex(EditorMesh& em, const Vec2& position)
 {
+    if (em.vertex_count >= MAX_VERTICES)
+        return -1;
+
     // If on a vertex then return -1
     int vertex_index = HitTestVertex(em, position);
     if (vertex_index != -1)
@@ -915,27 +919,10 @@ int AddVertex(EditorMesh& em, const Vec2& position)
     }
 
     // If no edge found or mesh is empty, create a standalone vertex
-    if (closest_edge == -1 || em.vertex_count >= MAX_VERTICES)
-    {
-        if (em.vertex_count >= MAX_VERTICES)
-            return -1;
-
-        // Create a standalone vertex
-        int new_vertex_index = em.vertex_count++;
-        EditorVertex& new_vertex = em.vertices[new_vertex_index];
-        new_vertex.position = position;
-        new_vertex.height = 0.0f;
-        new_vertex.selected = false;
-
-        MarkDirty(em);
-        return new_vertex_index;
-    }
-
-    // Create triangle with closest edge if we have room
-    if (em.face_count >= MAX_TRIANGLES)
+    if (closest_edge == -1)
         return -1;
 
-    if (em.vertex_count >= MAX_VERTICES)
+    if (em.face_count >= MAX_TRIANGLES)
         return -1;
 
     // Create new vertex
@@ -944,6 +931,9 @@ int AddVertex(EditorMesh& em, const Vec2& position)
     new_vertex.position = position;
     new_vertex.height = 0.0f;
     new_vertex.selected = false;
+    new_vertex.edge_size =
+        (em.vertices[em.edges[closest_edge].v0].edge_size +
+         em.vertices[em.edges[closest_edge].v1].edge_size) * 0.5f;
 
     // Create triangle with the closest edge
     const EditorEdge& ee = em.edges[closest_edge];

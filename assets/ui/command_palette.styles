@@ -11,6 +11,10 @@ height = 48
 flex-direction = column
 width = 600
 
+[input_small]
+flex-direction = column
+width = 200
+
 [colon]
 font=seguisb
 font-size=30
@@ -25,9 +29,10 @@ margin-left=6
 
 [cursor]
 background-color = white
-width = 16
+width = 4
+height=30
 margin-left=6
-margin-top=2
+margin-top=8
 
 [preview]
 font=seguisb

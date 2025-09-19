@@ -30,6 +30,7 @@ extern Texture* TEXTURE_PALETTE;
 // @name
 extern const Name* NAME_CONTAINER;
 extern const Name* NAME_INPUT;
+extern const Name* NAME_INPUT_SMALL;
 extern const Name* NAME_COLON;
 extern const Name* NAME_TEXT;
 extern const Name* NAME_CURSOR;
@@ -68,10 +69,11 @@ constexpr StyleId STYLE_MESH_EDITOR_COLORS = {2,0};
 // @STYLE_COMMAND_PALETTE
 constexpr StyleId STYLE_COMMAND_PALETTE_CONTAINER = {3,0};
 constexpr StyleId STYLE_COMMAND_PALETTE_INPUT = {3,1};
-constexpr StyleId STYLE_COMMAND_PALETTE_COLON = {3,2};
-constexpr StyleId STYLE_COMMAND_PALETTE_TEXT = {3,3};
-constexpr StyleId STYLE_COMMAND_PALETTE_CURSOR = {3,4};
-constexpr StyleId STYLE_COMMAND_PALETTE_PREVIEW = {3,5};
+constexpr StyleId STYLE_COMMAND_PALETTE_INPUT_SMALL = {3,2};
+constexpr StyleId STYLE_COMMAND_PALETTE_COLON = {3,3};
+constexpr StyleId STYLE_COMMAND_PALETTE_TEXT = {3,4};
+constexpr StyleId STYLE_COMMAND_PALETTE_CURSOR = {3,5};
+constexpr StyleId STYLE_COMMAND_PALETTE_PREVIEW = {3,6};
 
 
 extern bool LoadAssets(Allocator* allocator);

@@ -30,6 +30,7 @@ Texture* TEXTURE_PALETTE = nullptr;
 // @name
 const Name* NAME_CONTAINER = nullptr;
 const Name* NAME_INPUT = nullptr;
+const Name* NAME_INPUT_SMALL = nullptr;
 const Name* NAME_COLON = nullptr;
 const Name* NAME_TEXT = nullptr;
 const Name* NAME_CURSOR = nullptr;
@@ -73,6 +74,7 @@ bool LoadAssets(Allocator* allocator)
     // @name
     NAME_CONTAINER = GetName("container");
     NAME_INPUT = GetName("input");
+    NAME_INPUT_SMALL = GetName("input_small");
     NAME_COLON = GetName("colon");
     NAME_TEXT = GetName("text");
     NAME_CURSOR = GetName("cursor");

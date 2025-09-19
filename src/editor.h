@@ -48,6 +48,12 @@ struct Command
     char args[MAX_COMMAND_ARGS][MAX_COMMAND_ARG_SIZE];
 };
 
+struct ImportEvent
+{
+    const Name* name;
+    std::filesystem::path target_path;
+};
+
 extern void InitCommands();
 extern bool ParseCommand(const char* str, Command& command);
 extern const char* GetVarTypeNameFromSignature(AssetSignature signature);

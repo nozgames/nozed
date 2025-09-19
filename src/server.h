@@ -7,7 +7,7 @@
 #include <string>
 
 // @broadcast
-void BroadcastAssetChange(const std::string& asset_name);
+void BroadcastAssetChange(const std::filesystem::path& path);
 
 // @connection
 bool HasConnectedClient();

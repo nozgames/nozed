@@ -25,6 +25,7 @@ struct ImportJob
     fs::path source_meta_path;
     const Name* source_name;
     fs::path target_path;
+    fs::path target_short_path;
     const AssetImporterTraits* importer;
     bool force;
 };
@@ -40,7 +41,7 @@ struct Importer
     std::filesystem::path manifest_path;
     std::mutex mutex;
     std::vector<JobHandle> jobs;
-    std::vector<const Name*> imported_files;
+    std::vector<ImportEvent> import_events;
     JobHandle post_import_job;
 };
 
@@ -86,10 +87,12 @@ static void QueueImport(const fs::path& source_path, const fs::path& assets_path
     Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
 
     fs::path source_relative_path = fs::relative(source_path, assets_path);
-    fs::path target_path = g_importer.output_dir / type_name_lower / GetSafeFilename(source_relative_path.filename().string().c_str());
+    fs::path target_short_path = type_name_lower / GetSafeFilename(source_relative_path.filename().string().c_str());
+    fs::path target_path = g_importer.output_dir / target_short_path;
     fs::path source_meta_path = source_path;
     source_meta_path += ".meta";
     target_path.replace_extension("");
+    target_short_path.replace_extension("");
 
     bool target_exists = fs::exists(target_path);
     bool meta_changed = !target_exists || (fs::exists(source_meta_path) && CompareModifiedTime(source_meta_path, target_path) > 0);
@@ -109,6 +112,7 @@ static void QueueImport(const fs::path& source_path, const fs::path& assets_path
         .source_meta_path = source_meta_path.make_preferred(),
         .source_name = GetName(source_name.string().c_str()),
         .target_path = target_path.make_preferred(),
+        .target_short_path = target_short_path,
         .importer = importer,
         .force = force
     }, g_importer.post_import_job));
@@ -168,7 +172,10 @@ static void ExecuteJob(void* data)
     // todo: Check if any other assets depend on this and if so requeue them
 
     g_importer.mutex.lock();
-    g_importer.imported_files.push_back(job->source_name);
+    g_importer.import_events.push_back({
+        .name =  job->source_name,
+        .target_path = job->target_short_path
+    });
     g_importer.mutex.unlock();
 }
 
@@ -266,17 +273,17 @@ void UpdateImporter()
         return;
 
     g_importer.mutex.lock();
-    if (g_importer.imported_files.empty())
+    if (g_importer.import_events.empty())
     {
         g_importer.mutex.unlock();
         return;
     }
 
-    std::vector<const Name*> names = std::move(g_importer.imported_files);
+    std::vector<ImportEvent> events = std::move(g_importer.import_events);
     g_importer.mutex.unlock();
 
-    for (const Name* name : names)
-        Send(EDITOR_EVENT_IMPORTED, name);
+    for (const ImportEvent& event : events)
+        Send(EDITOR_EVENT_IMPORTED, &event);
 }
 
 void InitImporter()

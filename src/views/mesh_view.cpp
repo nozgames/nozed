@@ -118,39 +118,6 @@ static void UpdateHeightState()
     EditorMesh& em = GetEditingMesh();
     float delta = (g_view.mouse_position.y - g_mesh_view.state_mouse.y) / (g_view.dpi * HEIGHT_SLIDER_SIZE);
 
-    if (WasButtonPressed(g_view.input, KEY_ESCAPE))
-    {
-        for (i32 i=0; i<em.vertex_count; i++)
-        {
-            EditorVertex& ev = em.vertices[i];
-            if (!ev.selected) continue;
-
-            MeshViewVertex& mvv = g_mesh_view.vertices[i];
-            ev.height = mvv.saved_height;
-        }
-
-        CancelUndo();
-        MarkDirty(em);
-        MarkModified(ea);
-        return;
-    }
-    if (WasButtonPressed(g_view.input, KEY_0))
-    {
-        g_mesh_view.use_fixed_value = true;
-        g_mesh_view.use_negative_fixed_value = false;
-        g_mesh_view.fixed_value = 0.0f;
-    }
-    else if (WasButtonPressed(g_view.input, KEY_1))
-    {
-        g_mesh_view.use_fixed_value = true;
-        if (g_mesh_view.use_negative_fixed_value)
-            g_mesh_view.fixed_value = HEIGHT_MIN;
-        else
-            g_mesh_view.fixed_value = HEIGHT_MAX;
-    }
-    else if (WasButtonPressed(g_view.input, KEY_MINUS))
-        g_mesh_view.use_negative_fixed_value = true;
-
     for (i32 i=0; i<em.vertex_count; i++)
     {
         EditorVertex& ev = em.vertices[i];
@@ -190,10 +157,7 @@ static void UpdateEdgeState()
             continue;
 
         MeshViewVertex& mvv = g_mesh_view.vertices[i];
-        if (g_mesh_view.use_fixed_value)
-            ev.edge_size = g_mesh_view.fixed_value;
-        else
-            ev.edge_size = Clamp(mvv.saved_edge_size - delta, EDGE_MIN, EDGE_MAX);
+        ev.edge_size = Clamp(g_mesh_view.use_fixed_value ? g_mesh_view.fixed_value : mvv.saved_edge_size - delta, EDGE_MIN, EDGE_MAX);
     }
 
     MarkDirty(em);
@@ -269,6 +233,8 @@ static void SetState(MeshEditorState state)
         mvv.saved_edge_size = ev.edge_size;
         mvv.saved_height = ev.height;
     }
+
+    ClearTextInput();
 
     switch (state)
     {
@@ -380,11 +346,16 @@ static void AddVertexAtMouse()
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
+    RecordUndo();
+
     EditorAsset& ea = GetEditingAsset();
     EditorMesh& em = GetEditingMesh();
     int new_vertex = AddVertex(em, g_view.mouse_world_position - ea.position);
     if (new_vertex == -1)
+    {
+        CancelUndo();
         return;
+    }
 
     SetSelection(em, new_vertex);
     UpdateSelection();
@@ -431,9 +402,13 @@ static void RotateEdges()
     if (edge_index == -1)
         return;
 
+    RecordUndo();
     edge_index = RotateEdge(em, edge_index);
     if (edge_index == -1)
+    {
+        CancelUndo();
         return;
+    }
 
     MarkDirty(em);
     ClearSelection(em);
@@ -767,14 +742,48 @@ static void HandleSelectAllCommand()
     UpdateSelection();
 }
 
+static void HandleTextInputChanged(EventId event_id, const void* event_data)
+{
+    (void) event_id;
+
+    TextInput* text_input = (TextInput*)event_data;
+    g_mesh_view.use_fixed_value = text_input->length > 0;
+    if (!g_mesh_view.use_fixed_value)
+        return;
+
+    try
+    {
+        g_mesh_view.fixed_value = std::stof(text_input->value);
+    }
+    catch (...)
+    {
+    }
+}
+
+static void MeshViewShutdown()
+{
+    Unlisten(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
+}
+
+static bool MeshViewAllowTextInput()
+{
+    return
+        g_mesh_view.state == MESH_EDITOR_STATE_HEIGHT ||
+        g_mesh_view.state == MESH_EDITOR_STATE_EDGE;
+}
+
 void MeshViewInit()
 {
     EditorMesh& em = GetEditingMesh();
+
+    Listen(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
 
     g_view.vtable = {
         .update = MeshViewUpdate,
         .draw = MeshViewDraw,
         .bounds = MeshViewBounds,
+        .shutdown = MeshViewShutdown,
+        .allow_text_input = MeshViewAllowTextInput
     };
 
     g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
