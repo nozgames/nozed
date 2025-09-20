@@ -24,21 +24,6 @@ struct ImportFontGlyph
     char ascii;
 };
 
-struct FontKerning
-{
-    u32 first;
-    u32 second;
-    float amount;
-};
-
-struct FontMetrics
-{
-    float ascent;
-    float descent;
-    float lineHeight;
-    float baseline;
-};
-
 static void WriteFontData(
     Stream* stream,
     const ttf::TrueTypeFont* ttf,
@@ -60,7 +45,7 @@ static void WriteFontData(
     WriteU32(stream, static_cast<u32>(atlas_size.y));
     WriteFloat(stream, (f32)ttf->ascent() * font_size_inv);
     WriteFloat(stream, (f32)ttf->descent() * font_size_inv);
-    WriteFloat(stream, (f32)ttf->height() * font_size_inv);
+    WriteFloat(stream, (f32)(ttf->height() + ttf->descent()) * font_size_inv);
     WriteFloat(stream, 0.0f);
 
     // Write glyph count and glyph data
@@ -124,18 +109,18 @@ void ImportFont(const fs::path& source_path, Stream* output_stream, Props* confi
     std::vector<ImportFontGlyph> glyphs;
     for (size_t i = 0; i < characters.size(); i++)
     {
-        auto ttfGlyph = ttf->glyph(characters[i]);
-        if (ttfGlyph == nullptr)
+        auto ttf_glyph = ttf->glyph(characters[i]);
+        if (ttf_glyph == nullptr)
             continue;
 
         ImportFontGlyph iglyph{};
         iglyph.ascii = characters[i];
-        iglyph.ttf = ttfGlyph;
-        iglyph.size = ttfGlyph->size + Vec2Double{sdf_range * 2, sdf_range * 2};
+        iglyph.ttf = ttf_glyph;
+        iglyph.size = ttf_glyph->size + Vec2Double{sdf_range * 2, sdf_range * 2};
         iglyph.scale = {1,1};
         iglyph.packed_size = RoundToNearest(iglyph.size + Vec2Double{padding * 2.0, padding * 2.0});
-        iglyph.bearing = ttfGlyph->bearing - Vec2Double{sdf_range, sdf_range};
-        iglyph.advance.x = (f32)ttfGlyph->advance;
+        iglyph.bearing = ttf_glyph->bearing - Vec2Double{sdf_range, sdf_range};
+        iglyph.advance.x = (f32)ttf_glyph->advance;
 
         glyphs.push_back(iglyph);
     }

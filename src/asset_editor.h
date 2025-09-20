@@ -55,6 +55,7 @@ struct EditorAsset
     bool editing;
     bool modified;
     bool meta_modified;
+    bool clipped;
     EditorAssetVtable vtable;
 };
 
@@ -73,7 +74,10 @@ extern bool OverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& over
 extern bool OverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds);
 extern int HitTestAssets(const Vec2& overlap_point);
 extern int HitTestAssets(const Bounds2& bit_bounds);
-extern void DrawEdges(const EditorMesh& em, const Vec2& position, bool selected);
+extern void DrawEdges(const EditorMesh& em, const Vec2& position);
+extern void DrawSelectedEdges(const EditorMesh& em, const Vec2& position);
+extern void DrawSelectedFaces(const EditorMesh& em, const Vec2& position);
+extern void DrawFaceCenters(EditorMesh& em, const Vec2& position);
 extern void DrawAsset(EditorAsset& ea);
 extern Bounds2 GetBounds(EditorAsset& ea);
 extern Bounds2 GetViewBounds(EditorAsset& ea);

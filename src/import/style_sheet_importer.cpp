@@ -32,9 +32,14 @@ static StyleLength ParseStyleLength(const string& value)
     return StyleLength { .parameter = {.keyword = STYLE_KEYWORD_OVERWRITE}, .unit = STYLE_LENGTH_UNIT_FIXED, .value = stof(value) };
 }
 
-static StyleInt ParseStyleInt (const string& value)
+static StyleInt ParseStyleInt(const string& value)
 {
     return StyleInt { .parameter = {.keyword = STYLE_KEYWORD_OVERWRITE}, .value = stoi(value) };
+}
+
+static StyleFloat ParseStyleFloat(const string& value)
+{
+    return StyleFloat { .parameter = {.keyword = STYLE_KEYWORD_OVERWRITE}, .value = stof(value) };
 }
 
 static StyleFlexDirection ParseStyleFlexDirection(const string& value)
@@ -42,6 +47,12 @@ static StyleFlexDirection ParseStyleFlexDirection(const string& value)
     if (value == "row") return StyleFlexDirection{ STYLE_KEYWORD_OVERWRITE, FLEX_DIRECTION_ROW };
     if (value == "column") return StyleFlexDirection{ STYLE_KEYWORD_OVERWRITE, FLEX_DIRECTION_COL };
     return StyleFlexDirection{ STYLE_KEYWORD_INHERIT, FLEX_DIRECTION_ROW };
+}
+
+static StylePosition ParsePosition(const string& value)
+{
+    if (value == "absolute") return StylePosition{ STYLE_KEYWORD_OVERWRITE, POSITION_TYPE_ABSOLUTE };
+    return StylePosition{ STYLE_KEYWORD_INHERIT, POSITION_TYPE_RELATIVE };
 }
 
 static StyleTextAlign ParseTextAlign(const string& value)
@@ -100,6 +111,12 @@ static bool ParseParameter(const string& group, const string& key, Props* source
         style.height = ParseStyleLength(value);
     else if (key == "background-color")
         style.background_color = ParseStyleColor(value);
+    else if (key == "background-vignette-color")
+        style.background_vignette_color = ParseStyleColor(value);
+    else if (key == "background-vignette-intensity")
+        style.background_vignette_intensity = ParseStyleFloat(value);
+    else if (key == "background-vignette-smoothness")
+        style.background_vignette_smoothness = ParseStyleFloat(value);
     else if (key == "color")
         style.color = ParseStyleColor(value);
     else if (key == "font-size")
@@ -128,10 +145,19 @@ static bool ParseParameter(const string& group, const string& key, Props* source
         style.padding_right = ParseStyleLength(value);
     else if (key == "flex-direction")
         style.flex_direction = ParseStyleFlexDirection(value);
+    else if (key == "position")
+        style.position = ParsePosition(value);
     else if (key == "text-align")
         style.text_align = ParseTextAlign(value);
     else if (key == "vertical-align")
         style.vertical_align = ParseTextAlign(value);
+    else if (key == "rotate")
+        style.rotate = ParseStyleFloat(value);
+    else if (key == "translate-x")
+        style.translate_x = ParseStyleFloat(value);
+    else if (key == "translate-y")
+        style.translate_y = ParseStyleFloat(value);
+
 
     return true;
 }

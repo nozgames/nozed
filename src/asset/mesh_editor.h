@@ -18,6 +18,7 @@ struct EditorVertex
     Vec2 edge_normal;
     float edge_size;
     bool selected;
+    int ref_count;
 };
 
 struct EditorEdge
@@ -26,6 +27,7 @@ struct EditorEdge
     int v1;
     int triangle_count;
     Vec2 normal;
+    bool selected;
 };
 
 struct EditorFace
@@ -35,6 +37,7 @@ struct EditorFace
     int v2;
     Vec2Int color;
     Vec3 normal;
+    bool selected;
 };
 
 struct EditorMesh
@@ -46,7 +49,7 @@ struct EditorMesh
     int edge_count;
     int face_count;
     Bounds2 bounds;
-    int selected_vertex_count;
+    int selected_count;
     Mesh* mesh;
     Vec2Int edge_color;
 };
@@ -66,15 +69,14 @@ extern void SetSelectedTrianglesColor(EditorMesh& em, const Vec2Int& color);
 extern void SetEdgeColor(EditorMesh& em, const Vec2Int& color);
 extern void MergeSelectedVerticies(EditorMesh& em);
 extern void DissolveSelectedVertices(EditorMesh& em);
+extern void DissolveSelectedFaces(EditorMesh& em);
 extern void SetHeight(EditorMesh& em, int index, float height);
 extern int SplitEdge(EditorMesh& em, int edge_index, float edge_pos);
 extern int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& position);
 extern int AddVertex(EditorMesh& em, const Vec2& position);
-extern void SetSelection(EditorMesh& em, int vertex_index);
-extern void AddSelection(EditorMesh& em, int vertex_index);
-extern void RemoveSelection(EditorMesh& em, int vertex_index);
-extern void ToggleSelection(EditorMesh& em, int vertex_index);
-extern void ClearSelection(EditorMesh& em);
-extern void SelectAll(EditorMesh& em);
 extern int RotateEdge(EditorMesh& em, int edge_index);
 extern void DrawMesh(EditorMesh& em, const Mat3& transform);
+extern bool IsVertexOnOutsideEdge(EditorMesh& em, int v0);
+extern Vec2 GetFaceCenter(EditorMesh& em, int face_index);
+extern void UpdateEdges(EditorMesh& em);
+extern void Center(EditorMesh& em);

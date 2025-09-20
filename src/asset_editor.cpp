@@ -72,16 +72,14 @@ void MoveTo(EditorAsset& asset, const Vec2& position)
     asset.meta_modified = true;
 }
 
-void DrawEdges(const EditorMesh& em, const Vec2& position, bool selected)
+void DrawSelectedEdges(const EditorMesh& em, const Vec2& position)
 {
     BindMaterial(g_view.vertex_material);
 
     for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
     {
         const EditorEdge& ee = em.edges[edge_index];
-
-        bool edge_selected = em.vertices[ee.v0].selected && em.vertices[ee.v1].selected;
-        if (!edge_selected == selected)
+        if (!ee.selected)
             continue;
 
         const Vec2& v0 = em.vertices[ee.v0].position;
@@ -89,6 +87,48 @@ void DrawEdges(const EditorMesh& em, const Vec2& position, bool selected)
         DrawLine(v0 + position, v1 + position);
     }
 }
+
+void DrawEdges(const EditorMesh& em, const Vec2& position)
+{
+    BindMaterial(g_view.vertex_material);
+
+    for (i32 edge_index=0; edge_index < em.edge_count; edge_index++)
+    {
+        const EditorEdge& ee = em.edges[edge_index];
+        DrawLine(em.vertices[ee.v0].position + position, em.vertices[ee.v1].position + position);
+    }
+}
+
+void DrawSelectedFaces(const EditorMesh& em, const Vec2& position)
+{
+    BindMaterial(g_view.vertex_material);
+
+    for (i32 face_index=0; face_index < em.face_count; face_index++)
+    {
+        const EditorFace& ef = em.faces[face_index];
+        if (!ef.selected)
+            continue;
+
+        Vec2 v0 = em.vertices[ef.v0].position + position;
+        Vec2 v1 = em.vertices[ef.v1].position + position;
+        Vec2 v2 = em.vertices[ef.v2].position + position;
+        DrawLine(v0, v1);
+        DrawLine(v1, v2);
+        DrawLine(v2, v0);
+    }
+}
+
+void DrawFaceCenters(EditorMesh& em, const Vec2& position)
+{
+    BindMaterial(g_view.vertex_material);
+    for (int i=0; i<em.face_count; i++)
+    {
+        EditorFace& ef = em.faces[i];
+        BindColor(ef.selected ? COLOR_VERTEX_SELECTED : COLOR_VERTEX);
+        DrawVertex(position + GetFaceCenter(em, i));
+    }
+}
+
 
 void SaveEditorAssets()
 {

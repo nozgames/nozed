@@ -5,8 +5,8 @@
 #include <editor.h>
 
 constexpr float DEFAULT_LINE_WIDTH = 0.01f;
-constexpr float DEFAULT_VERTEX_SIZE = 0.08f;
-constexpr float DEFAULT_DASH_LENGTH = 0.05f;
+constexpr float DEFAULT_VERTEX_SIZE = 0.1f;
+constexpr float DEFAULT_DASH_LENGTH = 0.1f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 constexpr float BONE_WIDTH = 0.10f;
@@ -29,6 +29,8 @@ void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length)
 {
     Vec2 line_dir = Normalize(v1 - v0);
     float line_len = Length(v1 - v0);
+
+    length *= g_view.zoom_ref_scale;
     float scale = length * 0.5f;
 
     int count = 0;
@@ -91,7 +93,6 @@ void DrawBone(const Vec2& a, const Vec2& b)
     DrawLine(aa, b);
     DrawLine(bb, b);
 }
-
 
 void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position)
 {

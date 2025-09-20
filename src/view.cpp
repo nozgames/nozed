@@ -6,7 +6,7 @@
 #include "editor_assets.h"
 
 constexpr int MAX_COMMAND_LENGTH = 1024;
-constexpr float SELECT_SIZE = 20.0f;
+constexpr float SELECT_SIZE = 60.0f;
 constexpr float DRAG_MIN = 5;
 constexpr float DEFAULT_DPI = 72.0f;
 constexpr float ZOOM_MIN = 0.1f;
@@ -193,7 +193,8 @@ static void UpdateMoveState()
         for (u32 i=0; i<g_view.asset_count; i++)
         {
             EditorAsset& ea = *g_view.assets[i];
-            ea.position = ea.saved_position;
+            if (ea.selected)
+                ea.position = ea.saved_position;
         }
 
         PopState();
@@ -444,15 +445,23 @@ void RenderView()
 
     DrawGrid(g_view.camera);
 
+    Bounds2 camera_bounds = GetBounds(g_view.camera);
+    for (u32 i=0; i<g_view.asset_count; i++)
+    {
+        EditorAsset& ea = *g_view.assets[i];
+        ea.clipped = !Intersects(camera_bounds, GetBounds(ea) + ea.position);
+    }
+
     bool show_names = g_view.show_names || IsAltDown(g_view.input);
     for (u32 i=0; i<g_view.asset_count; i++)
         if (show_names || g_view.assets[i]->selected)
-            DrawBounds(*g_view.assets[i], 0.05f);
+            DrawBounds(*g_view.assets[i]); // , 0.05f);
+
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
     for (u32 i=0; i<g_view.asset_count; i++)
-        if (g_view.edit_asset_index != (int)i || g_view.vtable.draw == nullptr)
+        if (!g_view.assets[i]->clipped && (g_view.edit_asset_index != (int)i || g_view.vtable.draw == nullptr))
             DrawAsset(*g_view.assets[i]);
 
     if (g_view.edit_asset_index != -1)
@@ -460,7 +469,17 @@ void RenderView()
             g_view.vtable.draw();
 
     for (u32 i=0; i<g_view.asset_count; i++)
-        DrawOrigin(*g_view.assets[i]);
+        if (!g_view.assets[i]->clipped)
+            DrawOrigin(*g_view.assets[i]);
+
+    if (IsButtonDown(g_view.input, MOUSE_MIDDLE))
+    {
+        Bounds2 bounds = GetBounds(g_view.camera);
+        DrawDashedLine(g_view.mouse_world_position, GetCenter(bounds));
+        BindColor(COLOR_VERTEX_SELECTED);
+        DrawVertex(g_view.mouse_world_position);
+        DrawVertex(GetCenter(bounds));
+    }
 
     DrawBoxSelect();
 }

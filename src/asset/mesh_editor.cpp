@@ -24,13 +24,12 @@ static int GetTriangleEdgeIndex(const EditorFace& et, const EditorEdge& ee)
     return -1;
 }
 
-
 static void EditorMeshDraw(EditorAsset& ea)
 {
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME)
     {
         BindColor(COLOR_EDGE);
-        DrawEdges(ea.mesh, ea.position, false);
+        DrawEdges(ea.mesh, ea.position);
     }
     else
     {
@@ -46,6 +45,27 @@ void DrawMesh(EditorMesh& em, const Mat3& transform)
 
     BindMaterial(g_view.draw_mode == VIEW_DRAW_MODE_SHADED ? g_view.shaded_material : g_view.solid_material);
     DrawMesh(ToMesh(em), transform);
+}
+
+Vec2 GetFaceCenter(EditorMesh& em, int face_index)
+{
+    const EditorFace& ef = em.faces[face_index];
+    const EditorVertex& v0 = em.vertices[ef.v0];
+    const EditorVertex& v1 = em.vertices[ef.v1];
+    const EditorVertex& v2 = em.vertices[ef.v2];
+    return (v0.position + v1.position + v2.position) / 3.0f;
+}
+
+bool IsVertexOnOutsideEdge(EditorMesh& em, int v0)
+{
+    for (int i = 0; i < em.edge_count; i++)
+    {
+        EditorEdge& ee = em.edges[i];
+        if (ee.triangle_count == 1 && (ee.v0 == v0 || ee.v1 == v0))
+            return true;
+    }
+
+    return false;
 }
 
 static int GetOrAddEdge(EditorMesh& em, int v0, int v1)
@@ -131,24 +151,9 @@ static bool FixWinding(const EditorMesh& em, EditorFace& ef)
 //     }
 // }
 
-static void UpdateEdges(EditorMesh& em)
+void UpdateEdges(EditorMesh& em)
 {
     em.edge_count = 0;
-
-    Vec2 min = em.vertices[0].position;
-    Vec2 max = min;
-
-    em.vertices[0].edge_normal = VEC2_ZERO;
-
-    for (int i = 1; i < em.vertex_count; i++)
-    {
-        EditorVertex& ev = em.vertices[i];
-        min = Min(ev.position, min);
-        max = Max(ev.position, max);
-        ev.edge_normal = VEC2_ZERO;
-    }
-
-    em.bounds = Expand({min, max}, OUTLINE_WIDTH * 2);
 
     for (int i = 0; i < em.face_count; i++)
     {
@@ -163,8 +168,6 @@ void MarkDirty(EditorMesh& em)
 {
     Free(em.mesh);
     em.mesh = nullptr;
-    UpdateEdges(em);
-    //UpdateNormals(em);
 }
 
 Mesh* ToMesh(EditorMesh& em, bool upload)
@@ -224,6 +227,8 @@ Mesh* ToMesh(EditorMesh& em, bool upload)
 
     em.mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
     Free(builder);
+
+    em.bounds = GetBounds(em.mesh);
 
     return em.mesh;
 }
@@ -452,15 +457,131 @@ void MergeSelectedVerticies(EditorMesh& em)
     MarkDirty(em);
 }
 
+static void UpdateRefCounts(EditorMesh& em)
+{
+    for (int i=0; i<em.vertex_count; i++)
+        em.vertices[i].ref_count = 0;
+
+    for (int i=0; i<em.face_count; i++)
+    {
+        EditorFace& ef = em.faces[i];
+        em.vertices[ef.v0].ref_count++;
+        em.vertices[ef.v1].ref_count++;
+        em.vertices[ef.v2].ref_count++;
+    }
+}
+
+static void DeleteVertex(EditorMesh& em, int vertex_index)
+{
+    assert(vertex_index >= 0 && vertex_index < em.vertex_count);
+
+    for (int edge_index=em.edge_count-1; edge_index >= 0; edge_index--)
+    {
+        EditorEdge& ee = em.edges[edge_index];
+        if (ee.v0 == vertex_index || ee.v1 == vertex_index)
+        {
+            em.edges[edge_index] = em.edges[--em.edge_count];
+            continue;
+        }
+        if (ee.v0 > vertex_index) ee.v0--;
+        if (ee.v1 > vertex_index) ee.v1--;
+    }
+
+    for (int face_index=em.face_count-1; face_index >= 0; face_index--)
+    {
+        EditorFace& ef = em.faces[face_index];
+        if (ef.v0 == vertex_index || ef.v1 == vertex_index || ef.v2 == vertex_index)
+        {
+            em.faces[face_index] = em.faces[--em.face_count];
+            continue;
+        }
+
+        if (ef.v0 > vertex_index) ef.v0--;
+        if (ef.v1 > vertex_index) ef.v1--;
+        if (ef.v2 > vertex_index) ef.v2--;
+    }
+
+    for (int i=vertex_index; i<em.vertex_count-1; i++)
+        em.vertices[i] = em.vertices[i+1];
+
+    em.vertex_count--;
+
+    UpdateRefCounts(em);
+
+    for (int i=em.vertex_count-1; i>=0; i--)
+        if (em.vertices[i].ref_count == 0)
+        {
+            DeleteVertex(em, i);
+            return;
+        }
+
+    UpdateEdges(em);
+    MarkDirty(em);
+}
+
+static void DeleteFace(EditorMesh& em, int face_index)
+{
+    assert(face_index >= 0 && face_index < em.face_count);
+
+    em.faces[face_index] = em.faces[em.face_count - 1];
+    em.face_count--;
+
+    MarkDirty(em);
+}
+
+static void DissolveFace(EditorMesh& em, int face_index)
+{
+    assert(face_index >= 0 && face_index < em.face_count);
+    char vertex_count[MAX_VERTICES] = {};
+
+    for (int i=0; i<em.face_count; i++)
+    {
+        if (i == face_index)
+            continue;
+
+        EditorFace& ef = em.faces[i];
+        vertex_count[ef.v0] = 1;
+        vertex_count[ef.v1] = 1;
+        vertex_count[ef.v2] = 1;
+    }
+
+    EditorFace& df = em.faces[face_index];
+    if (vertex_count[df.v0] && vertex_count[df.v1] && vertex_count[df.v2])
+    {
+        DeleteFace(em, face_index);
+        return;
+    }
+
+    for (int vertex_index=em.vertex_count-1; vertex_index>=0; vertex_index--)
+    {
+        if (vertex_count[vertex_index])
+            continue;
+
+        DeleteVertex(em, vertex_index);
+    }
+}
+
+void DissolveSelectedFaces(EditorMesh& em)
+{
+    for (int face_index=em.face_count - 1; face_index>=0; face_index--)
+    {
+        EditorFace& ef = em.faces[face_index];
+        if (!ef.selected)
+            continue;
+
+        DissolveFace(em, face_index);
+    }
+}
+
 void DissolveSelectedVertices(EditorMesh& em)
 {
-    for (int i=em.vertex_count - 1; i>=0; i--)
+    for (int vertex_index=em.vertex_count - 1; vertex_index>=0; vertex_index--)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em.vertices[vertex_index];
         if (!ev.selected)
             continue;
 
-        DissolveVertex(em, i);
+        DeleteVertex(em, vertex_index);
     }
 }
 
@@ -761,6 +882,9 @@ int HitTestVertex(EditorMesh& em, const Vec2& world_pos)
 int HitTestEdge(EditorMesh& em, const Vec2& hit_pos, float* where)
 {
     const float size = g_view.select_size * 0.75f;
+    float best_dist = F32_MAX;
+    int best_edge = -1;
+    float best_where = 0.0f;
     for (int i = 0; i < em.edge_count; i++)
     {
         const EditorEdge& ee = em.edges[i];
@@ -774,82 +898,36 @@ int HitTestEdge(EditorMesh& em, const Vec2& hit_pos, float* where)
         {
             Vec2 closest_point = v0 + edge_dir * proj;
             float dist = Length(hit_pos - closest_point);
-            if (dist < size)
+            if (dist < size && dist < best_dist)
             {
-                if (where)
-                    *where = proj / edge_length;
-                return i;
+                best_edge = i;
+                best_dist = dist;
+                best_where = proj / edge_length;
             }
         }
     }
 
-    return -1;
+    if (where)
+        *where = best_where;
+
+    return best_edge;
+}
+
+    void Center(EditorMesh& em)
+{
+    Vec2 size = GetSize(em.bounds);
+    Vec2 min = em.bounds.min;
+    Vec2 offset = min + size * 0.5f;
+    for (int i=0; i<em.vertex_count; i++)
+        em.vertices[i].position = em.vertices[i].position - offset;
+
+    UpdateEdges(em);
+    MarkDirty(em);
 }
 
 bool OverlapBounds(EditorMesh& mesh, const Vec2& position, const Bounds2& hit_bounds)
 {
     return Intersects(mesh.bounds + position, hit_bounds);
-}
-
-void SetSelection(EditorMesh& em, int vertex_index)
-{
-    assert(vertex_index >= 0 && vertex_index < em.vertex_count);
-    ClearSelection(em);
-    AddSelection(em, vertex_index);
-}
-
-void ClearSelection(EditorMesh& em)
-{
-    for (int i=0; i<em.vertex_count; i++)
-        em.vertices[i].selected = false;
-
-    em.selected_vertex_count = 0;
-}
-
-void AddSelection(EditorMesh& em, int vertex_index)
-{
-    assert(vertex_index >= 0 && vertex_index < em.vertex_count);
-    EditorVertex& ev = em.vertices[vertex_index];
-    if (ev.selected)
-        return;
-
-    ev.selected = true;
-    em.selected_vertex_count++;
-}
-
-void RemoveSelection(EditorMesh& em, int vertex_index)
-{
-    assert(vertex_index >= 0 && vertex_index < em.vertex_count);
-    EditorVertex& ev = em.vertices[vertex_index];
-    if (!ev.selected)
-        return;
-
-    ev.selected = false;
-    em.selected_vertex_count--;
-}
-
-void ToggleSelection(EditorMesh& em, int vertex_index)
-{
-    assert(vertex_index >= 0 && vertex_index < em.vertex_count);
-    EditorVertex& ev = em.vertices[vertex_index];
-    if (ev.selected)
-    {
-        ev.selected = false;
-        em.selected_vertex_count--;
-    }
-    else
-    {
-        ev.selected = true;
-        em.selected_vertex_count++;
-    }
-}
-
-void SelectAll(EditorMesh& em)
-{
-    for (int i=0; i<em.vertex_count; i++)
-        em.vertices[i].selected = true;
-
-    em.selected_vertex_count = em.vertex_count;
 }
 
 int HitTestFace(EditorMesh& em, const Vec2& position, const Vec2& hit_pos, Vec2* where)
@@ -886,6 +964,7 @@ int AddVertex(EditorMesh& em, const Vec2& position)
         int new_vertex = SplitEdge(em, edge_index, edge_pos);
         if (new_vertex != -1)
         {
+            UpdateEdges(em);
             MarkDirty(em);
         }
         return new_vertex;
@@ -899,6 +978,7 @@ int AddVertex(EditorMesh& em, const Vec2& position)
         int new_vertex = SplitTriangle(em, triangle_index, position);
         if (new_vertex != -1)
         {
+            UpdateEdges(em);
             MarkDirty(em);
         }
         return new_vertex;
@@ -957,6 +1037,7 @@ int AddVertex(EditorMesh& em, const Vec2& position)
     new_triangle.color = {0, 0}; // Default color
     FixWinding(em, new_triangle);
 
+    UpdateEdges(em);
     MarkDirty(em);
     return new_vertex_index;
 }
@@ -1105,9 +1186,7 @@ static void ParseFace(EditorMesh& em, Tokenizer& tk)
 
 static EditorMesh* CreateEditableMesh(Allocator* allocator)
 {
-    EditorMesh* em = (EditorMesh*)Alloc(allocator, sizeof(EditorMesh));
-    MarkDirty(*em);
-    return em;
+    return (EditorMesh*)Alloc(allocator, sizeof(EditorMesh));
 }
 
 EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path)
@@ -1155,8 +1234,7 @@ EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& pa
         FixWinding(*em, ef);
     }
 
-    em->bounds = bounds;
-
+    UpdateEdges(*em);
     MarkDirty(*em);
 
     return em;
