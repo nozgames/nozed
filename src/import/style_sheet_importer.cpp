@@ -71,22 +71,17 @@ static StyleFont ParseFont(const string& value)
 
 static void SerializeStyles(Stream* stream, const StyleDictionary& styles)
 {
-    // Create a name table of all the style names
-    set<const Name*> name_set;
-    for (const auto& [style_name, style] : styles)
-        name_set.insert(GetName(style_name.c_str()));
-
-    const Name** name_table = (const Name**)Alloc(ALLOCATOR_DEFAULT, (u32)sizeof(const Name*) * (u32)name_set.size());
+    const Name** name_table = (const Name**)Alloc(ALLOCATOR_DEFAULT, (u32)sizeof(const Name*) * (u32)styles.size());
     u32 name_index = 0;
-    for (const auto& name : name_set)
-        name_table[name_index++] = name;
+    for (const auto& kv : styles)
+        name_table[name_index++] = GetName(kv.first.c_str());
 
     // Write asset header
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_STYLE_SHEET;
     header.version = 1;
     header.flags = 0;
-    header.names = (u32)name_set.size();
+    header.names = (u32)styles.size();
     WriteAssetHeader(stream, &header, name_table);
 
     // Write number of styles
@@ -157,7 +152,12 @@ static bool ParseParameter(const string& group, const string& key, Props* source
         style.translate_x = ParseStyleFloat(value);
     else if (key == "translate-y")
         style.translate_y = ParseStyleFloat(value);
-
+    else if (key == "scale")
+        style.scale = ParseStyleFloat(value);
+    else if (key == "transform-origin-x")
+        style.translate_origin_x = ParseStyleFloat(value);
+    else if (key == "transform-origin-y")
+        style.translate_origin_y = ParseStyleFloat(value);
 
     return true;
 }

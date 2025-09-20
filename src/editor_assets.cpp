@@ -30,11 +30,11 @@ Texture* TEXTURE_PALETTE = nullptr;
 
 // @name
 const Name* NAME_COLORS = nullptr;
+const Name* NAME_ASSET_NAME_CONTAINER = nullptr;
+const Name* NAME_ASSET_NAME = nullptr;
 const Name* NAME_CONTAINER = nullptr;
 const Name* NAME_ITEM = nullptr;
 const Name* NAME_ITEM_TEXT = nullptr;
-const Name* NAME_ASSET_NAME_CONTAINER = nullptr;
-const Name* NAME_ASSET_NAME = nullptr;
 const Name* NAME_INPUT = nullptr;
 const Name* NAME_INPUT_SMALL = nullptr;
 const Name* NAME_COLON = nullptr;
@@ -75,11 +75,11 @@ bool LoadAssets(Allocator* allocator)
 {
     // @name
     NAME_COLORS = GetName("colors");
+    NAME_ASSET_NAME_CONTAINER = GetName("asset_name_container");
+    NAME_ASSET_NAME = GetName("asset_name");
     NAME_CONTAINER = GetName("container");
     NAME_ITEM = GetName("item");
     NAME_ITEM_TEXT = GetName("item_text");
-    NAME_ASSET_NAME_CONTAINER = GetName("asset_name_container");
-    NAME_ASSET_NAME = GetName("asset_name");
     NAME_INPUT = GetName("input");
     NAME_INPUT_SMALL = GetName("input_small");
     NAME_COLON = GetName("colon");

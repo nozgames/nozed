@@ -30,11 +30,11 @@ extern Texture* TEXTURE_PALETTE;
 
 // @name
 extern const Name* NAME_COLORS;
+extern const Name* NAME_ASSET_NAME_CONTAINER;
+extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_CONTAINER;
 extern const Name* NAME_ITEM;
 extern const Name* NAME_ITEM_TEXT;
-extern const Name* NAME_ASSET_NAME_CONTAINER;
-extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_INPUT;
 extern const Name* NAME_INPUT_SMALL;
 extern const Name* NAME_COLON;
