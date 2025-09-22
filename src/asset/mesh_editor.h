@@ -61,7 +61,7 @@ extern EditorMesh* Clone(Allocator* allocator, const EditorMesh& em);
 extern EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& path);
 extern Mesh* ToMesh(EditorMesh& em, bool upload=true);
 extern int HitTestFace(EditorMesh& em, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
-extern int HitTestVertex(EditorMesh& em, const Vec2& world_pos);
+extern int HitTestVertex(EditorMesh& em, const Vec2& world_pos, float size_mult=1.0f);
 extern int HitTestEdge(EditorMesh& em, const Vec2& hit_pos, float* where=nullptr);
 extern Bounds2 GetSelectedBounds(const EditorMesh& em);
 extern void MarkDirty(EditorMesh& em);

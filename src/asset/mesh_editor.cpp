@@ -848,9 +848,9 @@ int SplitTriangle(EditorMesh& em, int triangle_index, const Vec2& position)
     return new_vertex_index;
 }
 
-int HitTestVertex(EditorMesh& em, const Vec2& world_pos)
+int HitTestVertex(EditorMesh& em, const Vec2& world_pos, float size_mult)
 {
-    const float size = g_view.select_size;
+    float size = g_view.select_size * size_mult;
     float best_dist = F32_MAX;
     int best_vertex = -1;
     for (int i = 0; i < em.vertex_count; i++)
@@ -940,7 +940,7 @@ int AddVertex(EditorMesh& em, const Vec2& position)
         return -1;
 
     // If on a vertex then return -1
-    int vertex_index = HitTestVertex(em, position);
+    int vertex_index = HitTestVertex(em, position, 0.1f);
     if (vertex_index != -1)
         return -1;
 
