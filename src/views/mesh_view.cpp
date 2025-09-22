@@ -363,6 +363,52 @@ static void UpdateScaleState(EditorAsset& ea)
     }
 }
 
+static void UpdateRotateState(EditorAsset& ea)
+{
+    Vec2 start_dir = g_mesh_view.world_drag_start - g_mesh_view.selection_drag_start;
+    Vec2 current_dir = g_view.mouse_world_position - g_mesh_view.selection_drag_start;
+
+    float start_angle = atan2f(start_dir.y, start_dir.x);
+    float current_angle = atan2f(current_dir.y, current_dir.x);
+    float rotation_angle = current_angle - start_angle;
+
+    float cos_angle = cosf(rotation_angle);
+    float sin_angle = sinf(rotation_angle);
+
+    EditorMesh& em = GetEditingMesh();
+    for (i32 i=0; i<em.vertex_count; i++)
+    {
+        EditorVertex& ev = em.vertices[i];
+        if (!ev.selected)
+            continue;
+
+        MeshViewVertex& mvv = g_mesh_view.vertices[i];
+        Vec2 relative_pos = mvv.saved_position - g_mesh_view.selection_center;
+
+        // Apply rotation
+        Vec2 rotated_pos;
+        rotated_pos.x = relative_pos.x * cos_angle - relative_pos.y * sin_angle;
+        rotated_pos.y = relative_pos.x * sin_angle + relative_pos.y * cos_angle;
+
+        ev.position = g_mesh_view.selection_center + rotated_pos;
+    }
+
+    UpdateEdges(em);
+    MarkDirty(em);
+    MarkModified(ea);
+
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT))
+    {
+        UpdateSelection();
+        g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
+    }
+    else if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
+    {
+        RevertSavedState();
+        g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
+    }
+}
+
 static void UpdateMoveState()
 {
     Vec2 delta = g_view.mouse_world_position - g_mesh_view.world_drag_start;
@@ -413,6 +459,7 @@ static void SetState(MeshEditorState state)
     switch (state)
     {
     case MESH_EDITOR_STATE_MOVE:
+    case MESH_EDITOR_STATE_ROTATE:
     case MESH_EDITOR_STATE_SCALE:
     case MESH_EDITOR_STATE_NORMAL:
     case MESH_EDITOR_STATE_EDGE:
@@ -566,7 +613,7 @@ static void DissolveSelected()
     UpdateSelection();
 }
 
-static void RotateEdges()
+static void RotateEdge()
 {
     if (g_mesh_view.mode != MESH_EDITOR_MODE_EDGE)
         return;
@@ -676,6 +723,10 @@ void MeshViewUpdate()
         UpdateMoveState();
         break;
 
+    case MESH_EDITOR_STATE_ROTATE:
+        UpdateRotateState(ea);
+        break;
+
     case MESH_EDITOR_STATE_SCALE:
         UpdateScaleState(ea);
         break;
@@ -705,6 +756,17 @@ void MeshViewUpdate()
         RevertSavedState();
         g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
     }
+}
+
+static void DrawRotateState()
+{
+    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
+    DrawVertex(g_mesh_view.selection_drag_start, CENTER_SIZE * 0.75f);
+    BindColor(COLOR_CENTER);
+    DrawLine(g_view.mouse_world_position, g_mesh_view.selection_drag_start, ROTATE_TOOL_WIDTH);
+    DrawLine(g_mesh_view.world_drag_start, g_mesh_view.selection_drag_start, ROTATE_TOOL_WIDTH * 0.5f);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
 
 static void DrawScaleState()
@@ -805,6 +867,10 @@ void MeshViewDraw()
     // Tools
     switch (g_mesh_view.state)
     {
+    case MESH_EDITOR_STATE_ROTATE:
+        DrawRotateState();
+        break;
+
     case MESH_EDITOR_STATE_SCALE:
         DrawScaleState();
         break;
@@ -925,6 +991,18 @@ static void HandleMoveCommand()
         return;
 
     SetState(MESH_EDITOR_STATE_MOVE);
+}
+
+static void HandleRotateCommand()
+{
+    if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
+        return;
+
+    EditorMesh& em = GetEditingMesh();
+    if (em.selected_count == 0)
+        return;
+
+    SetState(MESH_EDITOR_STATE_ROTATE);
 }
 
 static void HandleScaleCommand()
@@ -1306,6 +1384,7 @@ void MeshViewInit()
     {
         static Shortcut shortcuts[] = {
             { KEY_G, false, false, false, HandleMoveCommand },
+            { KEY_R, false, false, false, HandleRotateCommand },
             { KEY_S, false, false, false, HandleScaleCommand },
             { KEY_Q, false, false, false, HandleNormalCommand },
             { KEY_W, false, false, false, HandleEdgeCommand },
@@ -1313,7 +1392,7 @@ void MeshViewInit()
             { KEY_X, false, false, false, DissolveSelected },
             { KEY_V, false, false, false, AddVertexAtMouse },
             { KEY_M, false, false, false, MergeVertices },
-            { KEY_R, false, false, false, RotateEdges },
+            { KEY_T, false, false, false, RotateEdge },
             { KEY_1, false, false, false, SetVertexMode },
             { KEY_2, false, false, false, SetEdgeMode },
             { KEY_3, false, false, false, SetFaceMode },
