@@ -666,8 +666,6 @@ static float CalculateTriangleArea(const Vec2& v0, const Vec2& v1, const Vec2& v
     return (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
 }
 
-
-
 int RotateEdge(EditorMesh& em, int edge_index)
 {
     assert(edge_index >= 0 && edge_index < em.edge_count);
@@ -1069,6 +1067,12 @@ void FixNormals(EditorMesh& em)
     }
 }
 
+int ExtrudeSelectedEdges(EditorMesh& em, int edge_index)
+{
+    // todo: create a new edge for each selected edge and new triangles with the correct winding and return the index of the new edge
+    // todo: note some edges may be connected to the same vertex so we need to create only one new vertex for each unique vertex
+}
+
 static void ParseVertexHeght(EditorVertex& ev, Tokenizer& tk)
 {
     if (!ExpectFloat(tk, &ev.height))
@@ -1335,6 +1339,7 @@ static void EditorClone(EditorAsset& ea)
 {
     ea.mesh.mesh = nullptr;
 }
+
 
 extern void MeshViewInit();
 

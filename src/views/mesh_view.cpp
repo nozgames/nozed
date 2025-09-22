@@ -1035,7 +1035,22 @@ static void CenterMesh()
 
 static void ExtrudeSelected()
 {
+    EditorMesh& em = GetEditingMesh();
 
+    if (g_mesh_view.mode != MESH_EDITOR_MODE_EDGE || em.selected_count != 1)
+        return;
+
+    RecordUndo();
+    int new_edge_index = ExtrudeEdge(em, GetFirstSelectedEdge());
+    if (new_edge_index == -1)
+    {
+        CancelUndo();
+        return;
+    }
+
+    ClearSelection();
+    SelectEdge(new_edge_index, true);
+    SetState(MESH_EDITOR_STATE_MOVE);
 }
 
 void MeshViewInit()
