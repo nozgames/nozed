@@ -27,6 +27,7 @@ static void LoadAssetMetadata(EditorAsset& ea, const std::filesystem::path& path
         return;
 
     ea.position = props->GetVec2("editor", "position", VEC2_ZERO);
+    ea.sort_order = props->GetInt("editor", "sort_order", 0);
 
     if (ea.vtable.load_metadata)
         ea.vtable.load_metadata(ea, props);
@@ -39,6 +40,7 @@ static void SaveAssetMetadata(const EditorAsset& ea)
     if (!props)
         props = new Props{};
     props->SetVec2("editor", "position", ea.position);
+    props->SetInt("editor", "sort_order", ea.sort_order);
 
     if (ea.vtable.save_metadata)
         ea.vtable.save_metadata(ea, props);

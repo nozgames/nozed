@@ -251,9 +251,7 @@ static void UpdateDefaultState()
     g_animation_view.ignore_up &= !WasButtonReleased(g_view.input, MOUSE_LEFT);
 
     if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_animation_view.clear_selection_on_up)
-    {
         ClearSelection();
-    }
 }
 
 void AnimationViewUpdate()

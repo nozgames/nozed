@@ -137,20 +137,6 @@ bool FixWinding(const EditorMesh& em, EditorFace& ef)
     return true;
 }
 
-// static void UpdateNormals(EditorMesh& em)
-// {
-//     for (int i=0; i<em.face_count; i++)
-//     {
-//         const EditorVertex& v0 = em.vertices[em.faces[i].v0];
-//         const EditorVertex& v1 = em.vertices[em.faces[i].v1];
-//         const EditorVertex& v2 = em.vertices[em.faces[i].v2];
-//         Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
-//         Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
-//         Vec3 p2 = Vec3{v2.position.x, v2.position.y, v2.height};
-//         em.faces[i].normal = TriangleNormal(p0, p1, p2);
-//     }
-// }
-
 void UpdateEdges(EditorMesh& em)
 {
     em.edge_count = 0;

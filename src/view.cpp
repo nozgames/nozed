@@ -693,13 +693,15 @@ static void SortAssets()
 {
     for (u32 i=0; i<g_view.asset_count; i++)
         g_view.sorted_assets[i] = i;
+
     qsort(g_view.sorted_assets, g_view.asset_count, sizeof(int), AssetSortFunc);
 
-    LogInfo("SortAssets");
     for (u32 i=0; i<g_view.asset_count; i++)
     {
         EditorAsset& ea = GetSortedEditorAsset(i);
-        LogInfo("SortAssets: %d: %d -> %d", ea.index, ea.sort_order, i * 10);
+        if (ea.sort_order != (int)i * 10)
+            ea.meta_modified = true;
+
         ea.sort_order = i * 10;
     }
 }

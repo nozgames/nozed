@@ -63,11 +63,13 @@ struct MeshView
     bool clear_selection_on_up;
     Vec2 state_mouse;
     bool use_fixed_value;
+    bool ignore_up;
     bool use_negative_fixed_value;
     float fixed_value;
     Shortcut* shortcuts;
     MeshViewVertex vertices[MAX_VERTICES];
     MeshViewFace faces[MAX_TRIANGLES];
+    Mesh* rotate_arc_mesh;
 };
 
 static MeshView g_mesh_view = {};
@@ -350,17 +352,6 @@ static void UpdateScaleState(EditorAsset& ea)
     UpdateEdges(em);
     MarkDirty(em);
     MarkModified(ea);
-
-    if (WasButtonPressed(g_view.input, MOUSE_LEFT))
-    {
-        UpdateSelection();
-        g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
-    }
-    else if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
-    {
-        RevertSavedState();
-        g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
-    }
 }
 
 static void UpdateRotateState(EditorAsset& ea)
@@ -396,17 +387,6 @@ static void UpdateRotateState(EditorAsset& ea)
     UpdateEdges(em);
     MarkDirty(em);
     MarkModified(ea);
-
-    if (WasButtonPressed(g_view.input, MOUSE_LEFT))
-    {
-        UpdateSelection();
-        g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
-    }
-    else if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
-    {
-        RevertSavedState();
-        g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
-    }
 }
 
 static void UpdateMoveState()
@@ -651,7 +631,7 @@ static void UpdateDefaultState()
     }
 
     // Select
-    if (!g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
+    if (!g_mesh_view.ignore_up && !g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
     {
         g_mesh_view.clear_selection_on_up = false;
 
@@ -675,6 +655,8 @@ static void UpdateDefaultState()
 
         g_mesh_view.clear_selection_on_up = true;
     }
+
+    g_mesh_view.ignore_up &= !WasButtonReleased(g_view.input, MOUSE_LEFT);
 
     if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_mesh_view.clear_selection_on_up)
         ClearSelection();
@@ -747,6 +729,7 @@ void MeshViewUpdate()
     if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
     {
         UpdateSelection();
+        g_mesh_view.ignore_up = true;
         g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
     }
     // Cancel the tool
@@ -760,11 +743,52 @@ void MeshViewUpdate()
 
 static void DrawRotateState()
 {
+    Vec2 center = g_mesh_view.selection_drag_start;
+    Vec2 start_dir = g_mesh_view.world_drag_start - center;
+    Vec2 current_dir = g_view.mouse_world_position - center;
+
+    float current_radius = Length(current_dir);
+    float start_angle = atan2f(start_dir.y, start_dir.x);
+    float current_angle = atan2f(current_dir.y, current_dir.x);
+    float rotation_angle = current_angle - start_angle;
+
+    // Normalize rotation angle to [-π, π] to avoid full circle jumps
+    while (rotation_angle > noz::PI) rotation_angle -= noz::TWO_PI;
+    while (rotation_angle < -noz::PI) rotation_angle += noz::TWO_PI;
+
+    // Draw center point
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
-    DrawVertex(g_mesh_view.selection_drag_start, CENTER_SIZE * 0.75f);
+    DrawVertex(center, CENTER_SIZE * 0.75f);
+
+    // Draw start line extending to current radius
+    Vec2 start_end = center + Normalize(start_dir) * current_radius;
+    BindColor(SetAlpha(COLOR_CENTER, 0.1f));
+    DrawLine(center, start_end);
+
+    // Draw current line
     BindColor(COLOR_CENTER);
-    DrawLine(g_view.mouse_world_position, g_mesh_view.selection_drag_start, ROTATE_TOOL_WIDTH);
-    DrawLine(g_mesh_view.world_drag_start, g_mesh_view.selection_drag_start, ROTATE_TOOL_WIDTH * 0.5f);
+    DrawDashedLine(center, g_view.mouse_world_position);
+
+    Free(g_mesh_view.rotate_arc_mesh);
+    g_mesh_view.rotate_arc_mesh = nullptr;
+
+    if (fabsf(rotation_angle) > 0.01f && current_radius > 0.01f)
+    {
+        BindColor(SetAlpha(COLOR_VERTEX, 0.1f));
+
+
+        MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 128, 384);
+        float arc_degrees = -Degrees(rotation_angle);
+        if (arc_degrees < 0)
+            AddArc(builder, VEC2_ZERO, current_radius, arc_degrees, 0.0f, 32, VEC2_ZERO);
+        else
+            AddArc(builder, VEC2_ZERO, current_radius, 0.0f, arc_degrees, 32, VEC2_ZERO);
+
+        g_mesh_view.rotate_arc_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, true);
+        DrawMesh(g_mesh_view.rotate_arc_mesh, TRS(center, Degrees(start_angle), VEC2_ONE));
+        Free(builder);
+    }
+
     BindColor(COLOR_ORIGIN);
     DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
@@ -999,7 +1023,7 @@ static void HandleRotateCommand()
         return;
 
     EditorMesh& em = GetEditingMesh();
-    if (em.selected_count == 0)
+    if (em.selected_count == 0 || (g_mesh_view.mode == MESH_EDITOR_MODE_VERTEX && em.selected_count == 1))
         return;
 
     SetState(MESH_EDITOR_STATE_ROTATE);
@@ -1082,6 +1106,10 @@ static void HandleTextInputChanged(EventId event_id, const void* event_data)
 static void MeshViewShutdown()
 {
     Unlisten(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
+
+    // Clean up arc mesh
+    Free(g_mesh_view.rotate_arc_mesh);
+    g_mesh_view.rotate_arc_mesh = nullptr;
 }
 
 static bool MeshViewAllowTextInput()
