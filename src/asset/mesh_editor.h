@@ -80,4 +80,5 @@ extern bool IsVertexOnOutsideEdge(EditorMesh& em, int v0);
 extern Vec2 GetFaceCenter(EditorMesh& em, int face_index);
 extern void UpdateEdges(EditorMesh& em);
 extern void Center(EditorMesh& em);
-extern int ExtrudeEdge(EditorMesh& em, int edge_index);
+extern int GetOrAddEdge(EditorMesh& em, int v0, int v1);
+extern bool FixWinding(const EditorMesh& em, EditorFace& ef);

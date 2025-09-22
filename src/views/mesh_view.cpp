@@ -1033,23 +1033,246 @@ static void CenterMesh()
     Center(GetEditingMesh());
 }
 
+static bool ExtrudeSelectedEdges(EditorMesh& em)
+{
+    if (em.edge_count == 0)
+        return false;
+
+    // Collect all selected edges
+    int selected_edges[MAX_EDGES];
+    int selected_edge_count = 0;
+
+    for (int i = 0; i < em.edge_count; i++)
+    {
+        if (em.edges[i].selected && selected_edge_count < MAX_EDGES)
+        {
+            selected_edges[selected_edge_count++] = i;
+        }
+    }
+
+    if (selected_edge_count == 0)
+        return false;
+
+    // Find all unique vertices that are part of selected edges
+    bool vertex_needs_extrusion[MAX_VERTICES] = {};
+    for (int i = 0; i < selected_edge_count; i++)
+    {
+        const EditorEdge& ee = em.edges[selected_edges[i]];
+        vertex_needs_extrusion[ee.v0] = true;
+        vertex_needs_extrusion[ee.v1] = true;
+    }
+
+    // Create mapping from old vertex indices to new vertex indices
+    int vertex_mapping[MAX_VERTICES];
+    for (int i = 0; i < MAX_VERTICES; i++)
+        vertex_mapping[i] = -1;
+
+    // Create new vertices for each unique vertex that needs extrusion
+    for (int i = 0; i < em.vertex_count; i++)
+    {
+        if (!vertex_needs_extrusion[i])
+            continue;
+
+        if (em.vertex_count >= MAX_VERTICES)
+            return false;
+
+        int new_vertex_index = em.vertex_count++;
+        vertex_mapping[i] = new_vertex_index;
+
+        // Copy vertex properties and offset position along edge normal
+        EditorVertex& old_vertex = em.vertices[i];
+        EditorVertex& new_vertex = em.vertices[new_vertex_index];
+
+        new_vertex = old_vertex;
+
+        // Don't offset the position - the new vertex should start at the same position
+        // The user will move it in move mode
+        new_vertex.selected = false;
+    }
+
+    // Store vertex pairs for the new edges we want to select
+    int new_edge_vertex_pairs[MAX_EDGES][2];
+    int new_edge_count = 0;
+
+    // Create new edges for the extruded geometry
+    for (int i = 0; i < selected_edge_count; i++)
+    {
+        const EditorEdge& original_edge = em.edges[selected_edges[i]];
+        int old_v0 = original_edge.v0;
+        int old_v1 = original_edge.v1;
+        int new_v0 = vertex_mapping[old_v0];
+        int new_v1 = vertex_mapping[old_v1];
+
+        if (new_v0 == -1 || new_v1 == -1)
+            continue;
+
+        // Create connecting edges between old and new vertices
+        if (em.edge_count + 3 >= MAX_EDGES)
+            return false;
+
+        if (em.face_count + 2 >= MAX_TRIANGLES)
+            return false;
+
+        // Add edge connecting old_v0 to new_v0
+        GetOrAddEdge(em, old_v0, new_v0);
+
+        // Add edge connecting old_v1 to new_v1
+        GetOrAddEdge(em, old_v1, new_v1);
+
+        // Add new edge connecting new_v0 to new_v1
+        GetOrAddEdge(em, new_v0, new_v1);
+
+        // Store the vertex pair for the new edge we want to select
+        if (new_edge_count < MAX_EDGES)
+        {
+            new_edge_vertex_pairs[new_edge_count][0] = new_v0;
+            new_edge_vertex_pairs[new_edge_count][1] = new_v1;
+            new_edge_count++;
+        }
+
+        // Find the face that contains this edge to inherit its color and determine orientation
+        Vec2Int face_color = {1, 0}; // Default color
+        Vec3 face_normal = {0, 0, 1}; // Default normal
+        bool edge_reversed = false; // Track if edge direction is reversed in the face
+
+        for (int face_idx = 0; face_idx < em.face_count; face_idx++)
+        {
+            const EditorFace& ef = em.faces[face_idx];
+            // Check if this face uses the original edge and determine orientation
+            if (ef.v0 == old_v0 && ef.v1 == old_v1)
+            {
+                face_color = ef.color;
+                face_normal = ef.normal;
+                edge_reversed = false;
+                break;
+            }
+            else if (ef.v0 == old_v1 && ef.v1 == old_v0)
+            {
+                face_color = ef.color;
+                face_normal = ef.normal;
+                edge_reversed = true;
+                break;
+            }
+            else if (ef.v1 == old_v0 && ef.v2 == old_v1)
+            {
+                face_color = ef.color;
+                face_normal = ef.normal;
+                edge_reversed = false;
+                break;
+            }
+            else if (ef.v1 == old_v1 && ef.v2 == old_v0)
+            {
+                face_color = ef.color;
+                face_normal = ef.normal;
+                edge_reversed = true;
+                break;
+            }
+            else if (ef.v2 == old_v0 && ef.v0 == old_v1)
+            {
+                face_color = ef.color;
+                face_normal = ef.normal;
+                edge_reversed = false;
+                break;
+            }
+            else if (ef.v2 == old_v1 && ef.v0 == old_v0)
+            {
+                face_color = ef.color;
+                face_normal = ef.normal;
+                edge_reversed = true;
+                break;
+            }
+        }
+
+        // Create two triangles to form the extruded quad with correct winding (outward facing)
+        if (!edge_reversed)
+        {
+            // Normal orientation: edge goes from old_v0 to old_v1 in the face
+            // Triangle 1: old_v0, new_v0, old_v1 (flipped to face outward)
+            EditorFace& tri1 = em.faces[em.face_count++];
+            tri1.v0 = old_v0;
+            tri1.v1 = new_v0;
+            tri1.v2 = old_v1;
+            tri1.color = face_color;
+            tri1.normal = face_normal;
+            tri1.selected = false;
+            FixWinding(em, tri1);
+
+            // Triangle 2: old_v1, new_v0, new_v1 (flipped to face outward)
+            EditorFace& tri2 = em.faces[em.face_count++];
+            tri2.v0 = old_v1;
+            tri2.v1 = new_v0;
+            tri2.v2 = new_v1;
+            tri2.color = face_color;
+            tri2.normal = face_normal;
+            tri2.selected = false;
+            FixWinding(em, tri2);
+        }
+        else
+        {
+            // Reversed orientation: edge goes from old_v1 to old_v0 in the face
+            // Triangle 1: old_v1, new_v1, old_v0 (flipped to face outward)
+            EditorFace& tri1 = em.faces[em.face_count++];
+            tri1.v0 = old_v1;
+            tri1.v1 = new_v1;
+            tri1.v2 = old_v0;
+            tri1.color = face_color;
+            tri1.normal = face_normal;
+            tri1.selected = false;
+            FixWinding(em, tri1);
+
+            // Triangle 2: old_v0, new_v1, new_v0 (flipped to face outward)
+            EditorFace& tri2 = em.faces[em.face_count++];
+            tri2.v0 = old_v0;
+            tri2.v1 = new_v1;
+            tri2.v2 = new_v0;
+            tri2.color = face_color;
+            tri2.normal = face_normal;
+            tri2.selected = false;
+            FixWinding(em, tri2);
+        }
+    }
+
+    UpdateEdges(em);
+    MarkDirty(em);
+
+    // Clear all selections first
+    ClearSelection();
+
+    // Find and select the new edges by their vertex pairs
+    for (int i = 0; i < new_edge_count; i++)
+    {
+        int v0 = new_edge_vertex_pairs[i][0];
+        int v1 = new_edge_vertex_pairs[i][1];
+
+        // Find the edge with these vertices
+        for (int edge_idx = 0; edge_idx < em.edge_count; edge_idx++)
+        {
+            const EditorEdge& ee = em.edges[edge_idx];
+            if ((ee.v0 == v0 && ee.v1 == v1) || (ee.v0 == v1 && ee.v1 == v0))
+            {
+                SelectEdge(edge_idx, true);
+                break;
+            }
+        }
+    }
+    return true;
+}
+
+
 static void ExtrudeSelected()
 {
     EditorMesh& em = GetEditingMesh();
 
-    if (g_mesh_view.mode != MESH_EDITOR_MODE_EDGE || em.selected_count != 1)
+    if (g_mesh_view.mode != MESH_EDITOR_MODE_EDGE || em.selected_count <= 0)
         return;
 
     RecordUndo();
-    int new_edge_index = ExtrudeEdge(em, GetFirstSelectedEdge());
-    if (new_edge_index == -1)
+    if (!ExtrudeSelectedEdges(em))
     {
         CancelUndo();
         return;
     }
 
-    ClearSelection();
-    SelectEdge(new_edge_index, true);
     SetState(MESH_EDITOR_STATE_MOVE);
 }
 

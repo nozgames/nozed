@@ -68,7 +68,7 @@ bool IsVertexOnOutsideEdge(EditorMesh& em, int v0)
     return false;
 }
 
-static int GetOrAddEdge(EditorMesh& em, int v0, int v1)
+int GetOrAddEdge(EditorMesh& em, int v0, int v1)
 {
     int fv0 = Min(v0, v1);
     int fv1 = Max(v0, v1);
@@ -125,7 +125,7 @@ static int TriangleWinding(const Vec2& p0, const Vec2& p1, const Vec2& p2)
     return 0; // Degenerate
 }
 
-static bool FixWinding(const EditorMesh& em, EditorFace& ef)
+bool FixWinding(const EditorMesh& em, EditorFace& ef)
 {
     if (TriangleWinding(em.vertices[ef.v0].position, em.vertices[ef.v1].position, em.vertices[ef.v2].position) >= 0)
         return false;
@@ -1065,12 +1065,6 @@ void FixNormals(EditorMesh& em)
             et.v2 = temp;
         }
     }
-}
-
-int ExtrudeSelectedEdges(EditorMesh& em, int edge_index)
-{
-    // todo: create a new edge for each selected edge and new triangles with the correct winding and return the index of the new edge
-    // todo: note some edges may be connected to the same vertex so we need to create only one new vertex for each unique vertex
 }
 
 static void ParseVertexHeght(EditorVertex& ev, Tokenizer& tk)
