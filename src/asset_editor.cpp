@@ -5,12 +5,6 @@
 #include <editor.h>
 #include <utils/file_helpers.h>
 
-void AddEditorAsset(EditorAsset* ea)
-{
-    ea->index = g_view.asset_count;
-    g_view.assets[g_view.asset_count++] = ea;
-}
-
 EditorAsset* CreateEditorAsset(Allocator* allocator, const std::filesystem::path& path, EditorAssetType type)
 {
     std::error_code ec;

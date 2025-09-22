@@ -78,6 +78,9 @@ static void HandleNew(const Command& command)
     if (ea == nullptr)
         return;
 
+    ea->position = GetCenter(GetBounds(g_view.camera));
+    ea->meta_modified = true;
+
     AddEditorAsset(ea);
 
     if (ea->vtable.post_load)

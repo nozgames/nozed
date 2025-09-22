@@ -155,6 +155,9 @@ void UpdateEdges(EditorMesh& em)
 {
     em.edge_count = 0;
 
+    for (int i = 0; i < em.vertex_count; i++)
+        em.vertices[i].edge_normal = VEC2_ZERO;
+
     for (int i = 0; i < em.face_count; i++)
     {
         EditorFace& et = em.faces[i];
@@ -741,6 +744,7 @@ int RotateEdge(EditorMesh& em, int edge_index)
     f2.v1 = f2n.v1;
     f2.v2 = f2n.v2;
 
+    UpdateEdges(em);
     MarkDirty(em);
 
     // find the new edge index

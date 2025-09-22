@@ -155,9 +155,9 @@ static bool ParseParameter(const string& group, const string& key, Props* source
     else if (key == "scale")
         style.scale = ParseStyleFloat(value);
     else if (key == "transform-origin-x")
-        style.translate_origin_x = ParseStyleFloat(value);
+        style.transform_origin_x = ParseStyleFloat(value);
     else if (key == "transform-origin-y")
-        style.translate_origin_y = ParseStyleFloat(value);
+        style.transform_origin_y = ParseStyleFloat(value);
 
     return true;
 }

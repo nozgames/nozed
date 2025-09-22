@@ -72,6 +72,7 @@ struct View
     EditorAsset* assets[MAX_ASSETS];
     u32 asset_count;
     u32 selected_asset_count;
+    int sorted_assets[MAX_ASSETS];
 
     Bounds2 box_selection;
     void (*box_select_callback)(const Bounds2& bounds);
@@ -112,6 +113,7 @@ extern void FocusAsset(int asset_index);
 extern void HandleRename(const Name* name);
 extern EditorAsset& GetEditingAsset();
 extern void AddEditorAsset(EditorAsset* ea);
+inline EditorAsset& GetSortedEditorAsset(int index) { return *g_view.assets[g_view.sorted_assets[index]]; }
 
 // @grid
 extern void InitGrid(Allocator* allocator);

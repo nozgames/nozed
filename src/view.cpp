@@ -22,19 +22,10 @@ constexpr Color BOX_SELECT_OUTLINE_COLOR = Color {0.2f, 0.6f, 1.0f, 0.2f};
 constexpr float FRAME_VIEW_PERCENTAGE = 1.0f / 0.75f;
 constexpr float BONE_WIDTH = 0.10f;
 
-extern void SetPosition(EditorMesh* em, int index, const Vec2& position);
-extern int SplitEdge(EditorMesh* em, int edge_index, float edge_pos);
-extern void DeleteVertex(EditorMesh* em, int vertex_index);
-extern void RotateEdge(EditorMesh* em, int edge_index);
-extern void SetTriangleColor(EditorMesh* em, int index, const Vec2Int& color);
-extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
-
-static ViewState GetState() { return g_view.state_stack[g_view.state_stack_count-1]; }
-
 View g_view = {};
 
-EditorAsset& GetEditingAsset() { return *g_view.assets[g_view.edit_asset_index]; }
-
+inline ViewState GetState() { return g_view.state_stack[g_view.state_stack_count-1]; }
+inline EditorAsset& GetEditingAsset() { return *GetEditorAsset(g_view.edit_asset_index); }
 
 static void UpdateCamera()
 {
@@ -50,7 +41,7 @@ static void UpdateCamera()
     g_view.select_size = Abs((ScreenToWorld(g_view.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_view.camera, VEC2_ZERO)).y);
 }
 
-Bounds2 GetViewBounds(EditorAsset& ea)
+static Bounds2 GetViewBounds(EditorAsset& ea)
 {
     if (g_view.edit_asset_index == ea.index && g_view.vtable.bounds)
         return g_view.vtable.bounds();
@@ -461,8 +452,11 @@ void RenderView()
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
     for (u32 i=0; i<g_view.asset_count; i++)
-        if (!g_view.assets[i]->clipped && (g_view.edit_asset_index != (int)i || g_view.vtable.draw == nullptr))
-            DrawAsset(*g_view.assets[i]);
+    {
+        EditorAsset& ea = GetSortedEditorAsset(i);
+        if (!ea.clipped && (g_view.edit_asset_index != (int)i || g_view.vtable.draw == nullptr))
+            DrawAsset(ea);
+    }
 
     if (g_view.edit_asset_index != -1)
         if (g_view.vtable.draw)
@@ -678,6 +672,116 @@ static void HandleSetDrawModeSolid()
     g_view.draw_mode = VIEW_DRAW_MODE_SOLID;
 }
 
+static int AssetSortFunc(const void* a, const void* b)
+{
+    int index_a = *(int*)a;
+    int index_b = *(int*)b;
+
+    EditorAsset& ea_a = *g_view.assets[index_a];
+    EditorAsset& ea_b = *g_view.assets[index_b];
+
+    if (ea_a.sort_order != ea_b.sort_order)
+        return ea_a.sort_order - ea_b.sort_order;
+
+    if (ea_a.type != ea_b.type)
+        return ea_a.type - ea_b.type;
+
+    return index_a - index_b;
+}
+
+static void SortAssets()
+{
+    for (u32 i=0; i<g_view.asset_count; i++)
+        g_view.sorted_assets[i] = i;
+    qsort(g_view.sorted_assets, g_view.asset_count, sizeof(int), AssetSortFunc);
+
+    LogInfo("SortAssets");
+    for (u32 i=0; i<g_view.asset_count; i++)
+    {
+        EditorAsset& ea = GetSortedEditorAsset(i);
+        LogInfo("SortAssets: %d: %d -> %d", ea.index, ea.sort_order, i * 10);
+        ea.sort_order = i * 10;
+    }
+}
+
+void DeleteSelectedAssets()
+{
+
+}
+
+void AddEditorAsset(EditorAsset* ea)
+{
+    ea->index = g_view.asset_count;
+    g_view.assets[g_view.asset_count++] = ea;
+    SortAssets();
+}
+
+static void HandleSendBack()
+{
+    if (g_view.selected_asset_count == 0)
+        return;
+
+    for (u32 i=0;i<g_view.asset_count;i++)
+        if (g_view.assets[i]->selected)
+            g_view.assets[i]->sort_order-=11;
+
+    SortAssets();
+}
+
+static void HandleBringForward()
+{
+    if (g_view.selected_asset_count == 0)
+        return;
+
+    for (u32 i=0;i<g_view.asset_count;i++)
+    {
+        EditorAsset& ea = *g_view.assets[i];
+        if (ea.selected)
+        {
+            ea.sort_order += 11;
+            ea.meta_modified = true;
+        }
+    }
+
+    SortAssets();
+}
+
+static void HandleBringToFront()
+{
+    if (g_view.selected_asset_count == 0)
+        return;
+
+    for (u32 i=0;i<g_view.asset_count;i++)
+    {
+        EditorAsset& ea = *g_view.assets[i];
+        if (ea.selected)
+        {
+            ea.sort_order = 100000;
+            ea.meta_modified = true;
+        }
+    }
+
+    SortAssets();
+}
+
+static void HandleSendToBack()
+{
+    if (g_view.selected_asset_count == 0)
+        return;
+
+    for (u32 i=0;i<g_view.asset_count;i++)
+    {
+        EditorAsset& ea = *g_view.assets[i];
+        if (ea.selected)
+        {
+            ea.sort_order = -100000;
+            ea.meta_modified = true;
+        }
+    }
+
+    SortAssets();
+}
+
 void InitView()
 {
     InitUndo();
@@ -771,6 +875,7 @@ void InitView()
     InitGrid(ALLOCATOR_DEFAULT);
     InitNotifications();
     LoadEditorAssets();
+    SortAssets();
     g_view.state_stack[0] = VIEW_STATE_DEFAULT;
     g_view.state_stack_count = 1;
 
@@ -784,6 +889,10 @@ void InitView()
         { KEY_1, true, false, false, HandleSetDrawModeWireframe },
         { KEY_2, true, false, false, HandleSetDrawModeSolid },
         { KEY_3, true, false, false, HandleSetDrawModeShaded },
+        { KEY_LEFT_BRACKET, false, false, false, HandleSendBack },
+        { KEY_RIGHT_BRACKET, false, false, false, HandleBringForward },
+        { KEY_RIGHT_BRACKET, false, true, false, HandleBringToFront },
+        { KEY_LEFT_BRACKET, false, true, false, HandleSendToBack },
         { INPUT_CODE_NONE }
     };
 

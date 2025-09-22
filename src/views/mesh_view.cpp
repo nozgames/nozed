@@ -125,7 +125,6 @@ static void UpdateSelection()
             EditorVertex& v0 = em.vertices[ee.v0];
             EditorVertex& v1 = em.vertices[ee.v1];
             center += (v0.position + v1.position) * 0.5f;
-            em.selected_count++;
             v0.selected = true;
             v1.selected = true;
 
@@ -859,19 +858,60 @@ void HandleBoxSelect(const Bounds2& bounds)
     if (!shift && !ctrl)
         ClearSelection();
 
-    for (int i=0; i<em.vertex_count; i++)
+    switch (g_mesh_view.mode)
     {
-        EditorVertex& ev = em.vertices[i];
-        Vec2 vpos = ev.position + ea.position;
-
-        if (vpos.x >= bounds.min.x && vpos.x <= bounds.max.x &&
-            vpos.y >= bounds.min.y && vpos.y <= bounds.max.y)
+    case MESH_EDITOR_MODE_VERTEX:
+        for (int i=0; i<em.vertex_count; i++)
         {
-            if (!ctrl)
-                SelectVertex(i, true);
-            else
-                SelectVertex(i, false);
+            EditorVertex& ev = em.vertices[i];
+            Vec2 vpos = ev.position + ea.position;
+
+            if (vpos.x >= bounds.min.x && vpos.x <= bounds.max.x &&
+                vpos.y >= bounds.min.y && vpos.y <= bounds.max.y)
+            {
+                if (!ctrl)
+                    SelectVertex(i, true);
+                else
+                    SelectVertex(i, false);
+            }
         }
+        break;
+
+    case MESH_EDITOR_MODE_EDGE:
+        for (int edge_index=0; edge_index<em.edge_count; edge_index++)
+        {
+            EditorEdge& ee = em.edges[edge_index];
+            Vec2 ev0 = em.vertices[ee.v0].position + ea.position;
+            Vec2 ev1 = em.vertices[ee.v1].position + ea.position;
+            if (Intersects(bounds, ev0, ev1))
+            {
+                if (!ctrl)
+                    SelectEdge(edge_index, true);
+                else
+                    SelectEdge(edge_index, false);
+            }
+        }
+        break;
+
+    case MESH_EDITOR_MODE_FACE:
+        for (int face_index=0; face_index<em.face_count; face_index++)
+        {
+            EditorFace& ef = em.faces[face_index];
+            Vec2 ev0 = em.vertices[ef.v0].position + ea.position;
+            Vec2 ev1 = em.vertices[ef.v1].position + ea.position;
+            Vec2 ev2 = em.vertices[ef.v2].position + ea.position;
+            if (Intersects(bounds, ev0, ev1, ev2))
+            {
+                if (!ctrl)
+                    SelectFace(face_index, true);
+                else
+                    SelectFace(face_index, false);
+            }
+        }
+        break;
+
+    default:
+        break;
     }
 }
 
@@ -993,6 +1033,11 @@ static void CenterMesh()
     Center(GetEditingMesh());
 }
 
+static void ExtrudeSelected()
+{
+
+}
+
 void MeshViewInit()
 {
     EditorMesh& em = GetEditingMesh();
@@ -1035,6 +1080,7 @@ void MeshViewInit()
             { KEY_2, false, false, false, SetEdgeMode },
             { KEY_3, false, false, false, SetFaceMode },
             { KEY_C, false, false, false, CenterMesh },
+            { KEY_E, false, false, false, ExtrudeSelected },
             { INPUT_CODE_NONE }
         };
 

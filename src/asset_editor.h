@@ -57,6 +57,7 @@ struct EditorAsset
     bool meta_modified;
     bool clipped;
     EditorAssetVtable vtable;
+    int sort_order;
 };
 
 extern void HotloadEditorAsset(const Name* name);
@@ -80,7 +81,6 @@ extern void DrawSelectedFaces(const EditorMesh& em, const Vec2& position);
 extern void DrawFaceCenters(EditorMesh& em, const Vec2& position);
 extern void DrawAsset(EditorAsset& ea);
 extern Bounds2 GetBounds(EditorAsset& ea);
-extern Bounds2 GetViewBounds(EditorAsset& ea);
 extern int GetFirstSelectedAsset();
 extern void MoveTo(EditorAsset& asset, const Vec2& position);
 extern void ClearAssetSelection();
