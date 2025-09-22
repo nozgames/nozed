@@ -561,6 +561,7 @@ static void MergeVertices()
     if (em.selected_count < 2)
         return;
 
+    RecordUndo();
     MergeSelectedVerticies(em);
     MarkDirty(em);
     MarkModified(ea);

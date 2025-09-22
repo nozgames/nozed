@@ -247,154 +247,8 @@ void SetSelectedTrianglesColor(EditorMesh& em, const Vec2Int& color)
     MarkDirty(em);
 }
 
-static void DissolveVertex(EditorMesh& em, int vertex_index)
+static void RemoveVertex(EditorMesh& em, int vertex_index)
 {
-    assert(vertex_index >= 0 && vertex_index < em.vertex_count);
-
-    // Build ordered list of boundary edges around the vertex
-    int boundary_edges[64][2]; // [edge_index][v0,v1]
-    int boundary_count = 0;
-
-    // Find all triangles using this vertex and collect their edges
-    for (int i = 0; i < em.face_count; i++)
-    {
-        EditorFace& et = em.faces[i];
-        if (et.v0 == vertex_index || et.v1 == vertex_index || et.v2 == vertex_index)
-        {
-            // Get the edge opposite to the vertex being dissolved
-            // This edge will become part of the boundary of the hole
-            if (et.v0 == vertex_index)
-            {
-                // Opposite edge is v1->v2
-                if (boundary_count < 64)
-                {
-                    boundary_edges[boundary_count][0] = et.v1;
-                    boundary_edges[boundary_count][1] = et.v2;
-                    boundary_count++;
-                }
-            }
-            else if (et.v1 == vertex_index)
-            {
-                // Opposite edge is v2->v0
-                if (boundary_count < 64)
-                {
-                    boundary_edges[boundary_count][0] = et.v2;
-                    boundary_edges[boundary_count][1] = et.v0;
-                    boundary_count++;
-                }
-            }
-            else
-            { // et.v2 == vertex_index
-                // Opposite edge is v0->v1
-                if (boundary_count < 64)
-                {
-                    boundary_edges[boundary_count][0] = et.v0;
-                    boundary_edges[boundary_count][1] = et.v1;
-                    boundary_count++;
-                }
-            }
-        }
-    }
-
-    // Remove all triangles that reference this vertex
-    for (int i = em.face_count - 1; i >= 0; i--)
-    {
-        EditorFace& et = em.faces[i];
-        if (et.v0 == vertex_index || et.v1 == vertex_index || et.v2 == vertex_index)
-        {
-            // Remove triangle by swapping with last and reducing count
-            em.faces[i] = em.faces[em.face_count - 1];
-            em.face_count--;
-        }
-    }
-
-    // Remove duplicate edges (edges that appear twice are internal, not boundary)
-    int filtered_edges[64][2];
-    int filtered_count = 0;
-
-    for (int i = 0; i < boundary_count; i++)
-    {
-        bool is_duplicate = false;
-        for (int j = i + 1; j < boundary_count; j++)
-        {
-            // Check if edge i and j are the same (in either direction)
-            if ((boundary_edges[i][0] == boundary_edges[j][0] && boundary_edges[i][1] == boundary_edges[j][1]) ||
-                (boundary_edges[i][0] == boundary_edges[j][1] && boundary_edges[i][1] == boundary_edges[j][0]))
-            {
-                is_duplicate = true;
-                break;
-            }
-        }
-
-        if (!is_duplicate)
-        {
-            filtered_edges[filtered_count][0] = boundary_edges[i][0];
-            filtered_edges[filtered_count][1] = boundary_edges[i][1];
-            filtered_count++;
-        }
-    }
-
-    // Order the boundary edges to form a continuous loop
-    int ordered_vertices[64];
-    int ordered_count = 0;
-
-    if (filtered_count >= 2)
-    {
-        // Start with first edge
-        ordered_vertices[ordered_count++] = filtered_edges[0][0];
-        ordered_vertices[ordered_count++] = filtered_edges[0][1];
-        bool used[64] = {true}; // Mark first edge as used
-        for (int i = 1; i < filtered_count; i++)
-            used[i] = false;
-
-        // Find connecting edges
-        while (ordered_count < filtered_count + 1)
-        {
-            int last_vertex = ordered_vertices[ordered_count - 1];
-            bool found = false;
-
-            for (int i = 1; i < filtered_count; i++)
-            {
-                if (used[i])
-                    continue;
-
-                if (filtered_edges[i][0] == last_vertex)
-                {
-                    ordered_vertices[ordered_count++] = filtered_edges[i][1];
-                    used[i] = true;
-                    found = true;
-                    break;
-                }
-                else if (filtered_edges[i][1] == last_vertex)
-                {
-                    ordered_vertices[ordered_count++] = filtered_edges[i][0];
-                    used[i] = true;
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found)
-                break;
-        }
-
-        // Remove duplicate last vertex if it connects back to first
-        if (ordered_count > 2 && ordered_vertices[ordered_count - 1] == ordered_vertices[0])
-            ordered_count--;
-
-        // Triangulate the ordered polygon using fan triangulation
-        for (int i = 1; i < ordered_count - 1; i++)
-        {
-            if (em.face_count < MAX_TRIANGLES)
-            {
-                EditorFace& new_tri = em.faces[em.face_count++];
-                new_tri.v0 = ordered_vertices[0];
-                new_tri.v1 = ordered_vertices[i];
-                new_tri.v2 = ordered_vertices[i + 1];
-            }
-        }
-    }
-
     // Shift all vertices down as long as it wasn't the last vertex
     for (int i = vertex_index; i < em.vertex_count - 1; i++)
         em.vertices[i] = em.vertices[i + 1];
@@ -412,8 +266,6 @@ static void DissolveVertex(EditorMesh& em, int vertex_index)
         if (et.v2 > vertex_index)
             et.v2--;
     }
-
-    MarkDirty(em);
 }
 
 void MergeSelectedVerticies(EditorMesh& em)
@@ -428,7 +280,8 @@ void MergeSelectedVerticies(EditorMesh& em)
             continue;
 
         center += em.vertices[i].position;
-        selected_indices[selected_count++] = i;
+        if (selected_count < MAX_VERTICES)
+            selected_indices[selected_count++] = i;
     }
 
     if (selected_count <= 1)
@@ -436,13 +289,102 @@ void MergeSelectedVerticies(EditorMesh& em)
 
     center = center * (1.0f / selected_count);
 
+    // Use the first selected vertex as the merge target
     int merged_vertex_index = selected_indices[0];
+
+    // Store original winding for each triangle before redirecting
+    bool original_winding[MAX_TRIANGLES];
+    for (int i = 0; i < em.face_count; i++)
+    {
+        EditorFace& ef = em.faces[i];
+        original_winding[i] = (TriangleWinding(em.vertices[ef.v0].position, em.vertices[ef.v1].position, em.vertices[ef.v2].position) >= 0);
+    }
+
+    // Redirect all triangles that use the other selected vertices to use the merged vertex
+    for (int i = 1; i < selected_count; i++)
+    {
+        int old_vertex_index = selected_indices[i];
+
+        for (int face_idx = 0; face_idx < em.face_count; face_idx++)
+        {
+            EditorFace& ef = em.faces[face_idx];
+            if (ef.v0 == old_vertex_index)
+                ef.v0 = merged_vertex_index;
+            if (ef.v1 == old_vertex_index)
+                ef.v1 = merged_vertex_index;
+            if (ef.v2 == old_vertex_index)
+                ef.v2 = merged_vertex_index;
+        }
+    }
+
+    // Remove duplicate/degenerate triangles and restore winding
+    for (int i = em.face_count - 1; i >= 0; i--)
+    {
+        EditorFace& ef = em.faces[i];
+        if (ef.v0 == ef.v1 || ef.v1 == ef.v2 || ef.v2 == ef.v0)
+        {
+            // Remove degenerate triangle
+            em.faces[i] = em.faces[em.face_count - 1];
+            em.face_count--;
+            // Move the original winding info too
+            if (i < em.face_count)
+                original_winding[i] = original_winding[em.face_count];
+        }
+        else
+        {
+            // Check if winding changed and restore it if needed
+            bool current_winding = (TriangleWinding(em.vertices[ef.v0].position, em.vertices[ef.v1].position, em.vertices[ef.v2].position) >= 0);
+            if (current_winding != original_winding[i])
+            {
+                // Winding changed, fix it by swapping v1 and v2
+                int temp = ef.v1;
+                ef.v1 = ef.v2;
+                ef.v2 = temp;
+            }
+        }
+    }
+
+    // Sort indices in descending order to remove from highest to lowest
+    for (int i = 0; i < selected_count - 1; i++)
+    {
+        for (int j = i + 1; j < selected_count; j++)
+        {
+            if (selected_indices[i] < selected_indices[j])
+            {
+                int temp = selected_indices[i];
+                selected_indices[i] = selected_indices[j];
+                selected_indices[j] = temp;
+            }
+        }
+    }
+
+    // Remove the now-unused vertices (skip the first one which is our merged vertex)
+    for (int i = 0; i < selected_count; i++)
+    {
+        if (selected_indices[i] != merged_vertex_index)
+        {
+            RemoveVertex(em, selected_indices[i]);
+
+            // Adjust remaining indices since we just removed a vertex
+            for (int j = i + 1; j < selected_count; j++)
+            {
+                if (selected_indices[j] > selected_indices[i])
+                    selected_indices[j]--;
+            }
+
+            // Adjust merged vertex index if it was affected
+            if (merged_vertex_index > selected_indices[i])
+                merged_vertex_index--;
+        }
+    }
+
+    // Now move the merged vertex to the center position
     em.vertices[merged_vertex_index].position = center;
 
-    // Now dissolve all other vertices
-    for (int i = selected_count - 1; i > 0; i--)
-        DissolveVertex(em, selected_indices[i]);
+    // Clear any accumulated edge normal for the merged vertex
+    em.vertices[merged_vertex_index].edge_normal = VEC2_ZERO;
 
+    UpdateEdges(em);
     MarkDirty(em);
 }
 
@@ -1222,6 +1164,7 @@ EditorMesh* LoadEditorMesh(Allocator* allocator, const std::filesystem::path& pa
         FixWinding(*em, ef);
     }
 
+    ToMesh(*em);
     UpdateEdges(*em);
     MarkDirty(*em);
 
