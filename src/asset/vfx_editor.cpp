@@ -335,9 +335,13 @@ Vfx* ToVfx(Allocator* allocator, EditorVfx* evfx, const Name* name)
     return vfx;
 }
 
-EditorVfx* LoadEditorVfx(const std::filesystem::path& path)
+static void EditorVfxLoad(EditorAsset* ea)
 {
-    Stream* input_stream = LoadStream(ALLOCATOR_DEFAULT, path);
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_VFX);
+    EditorVfx* evfx = (EditorVfx*)ea;
+
+    Stream* input_stream = LoadStream(ALLOCATOR_DEFAULT, ea->path);
     if (!input_stream)
         throw std::runtime_error("could not read file");
 
@@ -348,12 +352,8 @@ EditorVfx* LoadEditorVfx(const std::filesystem::path& path)
         throw std::runtime_error("could not load source file");
     }
 
-    EditorVfx* ex = (EditorVfx*)CreateEditorAsset(EDITOR_ASSET_TYPE_VFX, path);
-    assert(ex);
-    Init(ex);
-
-    ex->duration = ParseFloat(source->GetString("VFX", "duration", "5.0"), {5,5});
-    ex->loop = source->GetBool("vfx", "loop", false);
+    evfx->duration = ParseFloat(source->GetString("VFX", "duration", "5.0"), {5,5});
+    evfx->loop = source->GetBool("vfx", "loop", false);
 
     auto emitter_names = source->GetKeys("emitters");
     for (const auto& emitter_name : emitter_names)
@@ -366,7 +366,7 @@ EditorVfx* LoadEditorVfx(const std::filesystem::path& path)
             throw std::exception((std::string("missing particle ") + particle_section).c_str());
 
         // Emitter
-        EditorVfxEmitter& emitter = ex->emitters[ex->emitter_count++];;
+        EditorVfxEmitter& emitter = evfx->emitters[evfx->emitter_count++];;
         emitter.name = GetName(emitter_name.c_str());
         emitter.def.rate = ParseInt(source->GetString(emitter_name.c_str(), "rate", "0"), VFX_INT_ZERO);
         emitter.def.burst = ParseInt(source->GetString(emitter_name.c_str(), "burst", "0"), VFX_INT_ZERO);
@@ -386,7 +386,8 @@ EditorVfx* LoadEditorVfx(const std::filesystem::path& path)
         emitter.def.particle_def.rotation = ParseFloatCurve(source->GetString(particle_section.c_str(), "rotation", "0.0"), VFX_FLOAT_CURVE_ZERO);
     }
 
-    return ex;
+    evfx->vfx = ToVfx(ALLOCATOR_DEFAULT, evfx, evfx->name);
+    evfx->bounds = GetBounds(evfx->vfx);
 }
 
 static bool EditorVfxOverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)
@@ -405,14 +406,6 @@ static bool EditorVfxOverlapBounds(EditorAsset* ea, const Bounds2& overlap_bound
     return Intersects(GetBounds(evfx->vfx) + ea->position, overlap_bounds);
 }
 
-static Bounds2 EditorVfxBounds(EditorAsset* ea)
-{
-    EditorVfx* evfx = (EditorVfx*)ea;
-    assert(evfx);
-    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
-    return GetBounds(evfx->vfx);
-}
-
 static void EditorVfxClone(EditorAsset* ea)
 {
     EditorVfx* evfx = (EditorVfx*)ea;
@@ -424,10 +417,10 @@ static void EditorVfxClone(EditorAsset* ea)
 
 static void Init(EditorVfx* evfx)
 {
-    evfx->vfx = ToVfx(ALLOCATOR_DEFAULT, evfx, evfx->name);
+    evfx->vfx = nullptr;
     evfx->handle = INVALID_VFX_HANDLE;
     evfx->vtable = {
-        .bounds = EditorVfxBounds,
+        .load = EditorVfxLoad,
         .draw = EditorVfxDraw,
         .overlap_point = EditorVfxOverlapPoint,
         .overlap_bounds = EditorVfxOverlapBounds,

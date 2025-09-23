@@ -254,10 +254,10 @@ int main(int argc, const char* argv[])
     InitLog(HandleLog);
 
     InitEditorAssets();
+    LoadEditorAssets();
     InitImporter();
     InitWindow();
     InitView();
-    LoadEditorAssets();
     InitCommands();
     InitUserConfig();
     InitEditorServer(g_config);

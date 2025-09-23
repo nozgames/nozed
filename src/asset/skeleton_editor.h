@@ -30,7 +30,6 @@ struct EditorSkeleton : EditorAsset
 {
     int bone_count;
     EditorBone bones[MAX_BONES];
-    Bounds2 bounds;
     EditorSkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
     int skinned_mesh_count;
     int selected_bone_count;

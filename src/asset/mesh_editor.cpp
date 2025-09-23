@@ -1216,12 +1216,6 @@ static bool EditorMeshOverlapBounds(EditorAsset* ea, const Bounds2& overlap_boun
     return OverlapBounds((EditorMesh*)ea, ea->position, overlap_bounds);
 }
 
-static Bounds2 EditorMeshBounds(EditorAsset* ea)
-{
-    assert(ea->type == EDITOR_ASSET_TYPE_MESH);
-    return ((EditorMesh*)ea)->bounds;
-}
-
 static void EditorClone(EditorAsset* ea)
 {
     assert(ea->type == EDITOR_ASSET_TYPE_MESH);
@@ -1235,7 +1229,6 @@ static void Init(EditorMesh* em)
     em->vtable = {
         .load = EditorMeshLoad,
         .save = EditorMeshSave,
-        .bounds = EditorMeshBounds,
         .draw = EditorMeshDraw,
         .view_init = MeshViewInit,
         .overlap_point = EditorMeshOverlapPoint,

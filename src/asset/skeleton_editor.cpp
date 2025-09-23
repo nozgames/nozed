@@ -146,7 +146,7 @@ static void ParseBone(EditorSkeleton* es, Tokenizer& tk)
     }
 }
 
-void EditorSkeletonLoad(EditorAsset* ea)
+static void EditorSkeletonLoad(EditorAsset* ea)
 {
     assert(ea);
     assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
@@ -496,14 +496,6 @@ static bool EditorSkeletonOverlapBounds(EditorAsset* ea, const Bounds2& overlap_
     return Intersects(es->bounds + ea->position, overlap_bounds);
 }
 
-static Bounds2 EditorSkeletonBounds(EditorAsset* ea)
-{
-    assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
-    return es->bounds;
-}
-
 static void EditorSkeletonUndoRedo(EditorAsset* ea)
 {
     assert(ea);
@@ -526,7 +518,6 @@ static void Init(EditorSkeleton* es)
         .save = EditorSkeletonSave,
         .load_metadata = EditorSkeletonLoadMetadata,
         .save_metadata = EditorSkeletonSaveMetadata,
-        .bounds = EditorSkeletonBounds,
         .draw = EditorSkeletonDraw,
         .view_init = SkeletonViewInit,
         .overlap_point = EditorSkeletonOverlapPoint,

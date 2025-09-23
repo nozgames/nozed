@@ -21,7 +21,6 @@ struct EditorAnimation : EditorAsset
     EditorAnimationBone bones[MAX_BONES];
     int bone_count;
     Transform frames[MAX_BONES * MAX_ANIMATION_FRAMES];
-    Bounds2 bounds;
     int skeleton_asset_index;
     Animation* animation;
     Animator animator;

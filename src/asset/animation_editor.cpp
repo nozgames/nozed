@@ -120,6 +120,9 @@ static void ParseSkeleton(EditorAnimation* en, Tokenizer& tk, int* bone_map)
     EditorSkeleton* es = skeleton_index == -1 ? nullptr : (EditorSkeleton*)GetEditorAsset(skeleton_index);
     assert(es);
 
+    if (!es->loaded)
+        LoadEditorAsset(es);
+
     for (int i=0; i<es->bone_count; i++)
     {
         EditorAnimationBone& enb = en->bones[i];
@@ -236,6 +239,7 @@ static void EditorAnimationLoad(EditorAsset* ea)
     assert(ea);
     assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
+    en->frame_count = 0;
 
     std::filesystem::path path = ea->path;
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
@@ -497,13 +501,6 @@ static bool EditorAnimationOverlapBounds(EditorAsset* ea, const Bounds2& overlap
     return Intersects(en->bounds + ea->position, overlap_bounds);
 }
 
-static Bounds2 EditorAnimationBounds(EditorAsset* ea)
-{
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
-    EditorAnimation* en = (EditorAnimation*)ea;
-    return en->bounds;
-}
-
 static void EditorAnimationClone(EditorAsset* ea)
 {
     assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
@@ -533,7 +530,6 @@ static void Init(EditorAnimation* ea)
         .load = EditorAnimationLoad,
         .post_load = EditorAnimationPostLoad,
         .save = EditorAnimationSave,
-        .bounds = EditorAnimationBounds,
         .draw = DrawEditorAnimation,
         .view_init = AnimationViewInit,
         .overlap_point = EditorAnimationOverlapPoint,

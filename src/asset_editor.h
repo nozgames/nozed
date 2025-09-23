@@ -30,7 +30,6 @@ struct EditorAssetVtable
     void (*save)(EditorAsset* ea, const std::filesystem::path& path);
     void (*load_metadata)(EditorAsset* ea, Props* meta);
     void (*save_metadata)(EditorAsset* ea, Props* meta);
-    Bounds2 (*bounds)(EditorAsset* ea);
     void (*draw)(EditorAsset* ea);
     void (*view_init)();
     bool (*overlap_point)(EditorAsset* ea, const Vec2& position, const Vec2& hit_pos);
@@ -53,6 +52,7 @@ struct EditorAsset
     bool modified;
     bool meta_modified;
     bool clipped;
+    bool loaded;
     EditorAssetVtable vtable;
     Bounds2 bounds;
     int sort_order;
@@ -70,6 +70,7 @@ inline EditorAsset* GetEditorAsset(int index, EditorAssetType type=EDITOR_ASSET_
 
 extern EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name);
 
+extern void LoadEditorAsset(EditorAsset* ea);
 extern void HotloadEditorAsset(const Name* name);
 extern void MarkModified();
 extern void MarkModified(EditorAsset* ea);

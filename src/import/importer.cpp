@@ -91,7 +91,7 @@ static void QueueImport(EditorAsset* ea, bool force)
     bool target_exists = fs::exists(target_path);
     bool meta_changed = !target_exists || (fs::exists(source_meta_path) && CompareModifiedTime(source_meta_path, target_path) > 0);
     bool source_changed = !target_exists || CompareModifiedTime(path, target_path) > 0;
-    bool config_changed = CompareModifiedTime(g_editor.config_timestamp, fs::last_write_time(target_path)) > 0;
+    bool config_changed = !target_exists || CompareModifiedTime(g_editor.config_timestamp, fs::last_write_time(target_path)) > 0;
 
     if (!force && !meta_changed && !source_changed && !config_changed)
         return;

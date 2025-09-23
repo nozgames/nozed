@@ -185,8 +185,11 @@ void SaveEditorAssets()
 
 bool OverlapPoint(EditorAsset* ea, const Vec2& overlap_point)
 {
+    if (!Contains(ea->bounds + ea->position, overlap_point))
+        return false;
+
     if (!ea->vtable.overlap_point)
-        return Contains(ea->bounds + ea->position, overlap_point);
+        return true;
 
     return ea->vtable.overlap_point(ea, ea->position, overlap_point);
 }
@@ -209,9 +212,9 @@ bool OverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
 
 int HitTestAssets(const Vec2& overlap_point)
 {
-    for (int i=0; i<MAX_ASSETS; i++)
+    for (int i=MAX_ASSETS-1; i>=0; i--)
     {
-        EditorAsset* ea = GetEditorAsset(i);
+        EditorAsset* ea = GetSortedEditorAsset(i);
         if (!ea)
             continue;
 
@@ -347,6 +350,20 @@ void InitEditorAssets()
     }
 }
 
+void LoadEditorAsset(EditorAsset* ea)
+{
+    assert(ea);
+
+    if (ea->loaded)
+        return;
+
+    if (!ea->vtable.load)
+        return;
+
+    ea->loaded = true;
+    ea->vtable.load(ea);
+}
+
 void LoadEditorAssets()
 {
     for (int asset_index=0; asset_index<MAX_ASSETS; asset_index++)
@@ -355,10 +372,7 @@ void LoadEditorAssets()
         if (!ea)
             continue;
 
-        if (!ea->vtable.load)
-            continue;
-
-        ea->vtable.load(ea);
+        LoadEditorAsset(ea);
     }
 
     for (u32 i=0; i<MAX_ASSETS; i++)
