@@ -28,7 +28,7 @@ struct EditorAnimation : EditorAsset
     int selected_bone_count;
 };
 
-extern EditorAnimation* LoadEditorAnimation(const std::filesystem::path& path);
+extern void InitEditorAnimation(EditorAsset* ea);
 extern EditorAsset* NewEditorAnimation(const std::filesystem::path& path);
 extern void PostLoadEditorAssets(EditorAnimation* en);
 extern void UpdateBounds(EditorAnimation* en);

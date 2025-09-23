@@ -71,12 +71,12 @@ bool ValidateWavDataChunk(const WavDataChunk* data)
     );
 }
 
-void ImportSound(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+static void ImportSound(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
     (void)meta;
 
-    std::ifstream input_file(source_path, std::ios::binary);
+    std::ifstream input_file(ea->path, std::ios::binary);
     if (!input_file.is_open())
     {
         throw std::runtime_error("Failed to open WAV file");
@@ -179,13 +179,12 @@ void ImportSound(const fs::path& source_path, Stream* output_stream, Props* conf
     WriteBytes(output_stream, audio_data.data(), data_chunk.sub_chunk2_size);
 }
 
-static AssetImporterTraits g_sound_importer_traits = {
-    .signature = ASSET_SIGNATURE_SOUND,
-    .ext = ".wav",
-    .import_func = ImportSound
-};
-
-AssetImporterTraits* GetSoundImporterTraits()
+AssetImporter GetSoundImporter()
 {
-    return &g_sound_importer_traits;
+    return {
+        .type = EDITOR_ASSET_TYPE_SOUND,
+        .signature = ASSET_SIGNATURE_SOUND,
+        .ext = ".wav",
+        .import_func = ImportSound
+    };
 }

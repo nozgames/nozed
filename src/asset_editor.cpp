@@ -5,6 +5,8 @@
 #include <editor.h>
 #include <utils/file_helpers.h>
 
+namespace fs = std::filesystem;
+
 EditorAsset* CreateEditorAsset(EditorAssetType type, const std::filesystem::path& path)
 {
     std::error_code ec;
@@ -16,12 +18,44 @@ EditorAsset* CreateEditorAsset(EditorAssetType type, const std::filesystem::path
     Copy(ea->path, sizeof(ea->path), path.string().c_str());
     ea->name = GetName(relative_path.filename().string().c_str());
     ea->type = type;
+    ea->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
+    ea->asset_path_index = -1;
+
+    for (int i=0; i<g_editor.asset_path_count; i++) {
+        fs::path relative = path.lexically_relative(g_editor.asset_paths[i]);
+        if (!relative.empty() && relative.string().find("..") == std::string::npos) {
+            ea->asset_path_index = i;
+            break;
+        }
+    }
+
+    assert(ea->asset_path_index != -1);
+
+    switch (type) {
+    case EDITOR_ASSET_TYPE_MESH:
+        InitEditorMesh(ea);
+        break;
+
+    case EDITOR_ASSET_TYPE_VFX:
+        InitEditorVfx(ea);
+        break;
+
+    case EDITOR_ASSET_TYPE_ANIMATION:
+        InitEditorAnimation(ea);
+        break;
+
+    case EDITOR_ASSET_TYPE_SKELETON:
+        InitEditorSkeleton(ea);
+        break;
+
+    default:
+        break;
+    }
 
     return ea;
 }
 
-static void LoadAssetMetadata(EditorAsset* ea, const std::filesystem::path& path)
-{
+static void LoadAssetMetadata(EditorAsset* ea, const std::filesystem::path& path) {
     Props* props = LoadProps(std::filesystem::path(path.string() + ".meta"));
     if (!props)
         return;
@@ -33,8 +67,7 @@ static void LoadAssetMetadata(EditorAsset* ea, const std::filesystem::path& path
         ea->vtable.load_metadata(ea, props);
 }
 
-static void SaveAssetMetadata(EditorAsset* ea)
-{
+static void SaveAssetMetadata(EditorAsset* ea) {
     std::filesystem::path meta_path = std::filesystem::path(std::string(ea->path) + ".meta");
     Props* props = LoadProps(meta_path);
     if (!props)
@@ -153,7 +186,7 @@ void SaveEditorAssets()
 bool OverlapPoint(EditorAsset* ea, const Vec2& overlap_point)
 {
     if (!ea->vtable.overlap_point)
-        return false;
+        return Contains(ea->bounds + ea->position, overlap_point);
 
     return ea->vtable.overlap_point(ea, ea->position, overlap_point);
 }
@@ -169,7 +202,7 @@ bool OverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_poi
 bool OverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
 {
     if (!ea->vtable.overlap_bounds)
-        return false;
+        return Intersects(ea->bounds + ea->position, overlap_bounds);
 
     return ea->vtable.overlap_bounds(ea, overlap_bounds);
 }
@@ -212,10 +245,7 @@ void DrawAsset(EditorAsset* ea)
 
 Bounds2 GetBounds(EditorAsset* ea)
 {
-    if (ea->vtable.bounds)
-        return ea->vtable.bounds(ea);
-
-    return BOUNDS2_ZERO;
+    return ea->bounds;
 }
 
 int GetFirstSelectedAsset()
@@ -289,24 +319,46 @@ EditorAsset* Clone(Allocator* allocator, EditorAsset* ea)
     return clone;
 }
 
+void InitEditorAssets()
+{
+    for (int i=0; i<g_editor.asset_path_count; i++)
+    {
+        std::vector<fs::path> asset_paths;
+        GetFilesInDirectory(g_editor.asset_paths[i], asset_paths);
+
+        for (auto& asset_path : asset_paths)
+        {
+            std::filesystem::path ext = asset_path.extension();
+            EditorAsset* ea = nullptr;
+
+            for (int asset_type=0; asset_type<EDITOR_ASSET_TYPE_COUNT; asset_type++)
+            {
+                AssetImporter* importer = &g_editor.importers[asset_type];
+                assert(importer->type != EDITOR_ASSET_TYPE_UNKNOWN);
+                if (importer->ext != ext)
+                    continue;
+
+                ea = CreateEditorAsset(importer->type, asset_path);
+            }
+
+            if (ea)
+                LoadAssetMetadata(ea, asset_path);
+        }
+    }
+}
+
 void LoadEditorAssets()
 {
-    for (auto& asset_path : GetFilesInDirectory("assets"))
+    for (int asset_index=0; asset_index<MAX_ASSETS; asset_index++)
     {
-        std::filesystem::path ext = asset_path.extension();
-        EditorAsset* ea = nullptr;
+        EditorAsset* ea = GetEditorAsset(asset_index);
+        if (!ea)
+            continue;
 
-        if (ext == ".mesh")
-            ea = LoadEditorMesh(asset_path);
-        else if (ext == ".vfx")
-            ea = LoadEditorVfx(asset_path);
-        else if (ext == ".skel")
-            ea = LoadEditorSkeleton(asset_path);
-        else if (ext == ".anim")
-            ea = LoadEditorAnimation(asset_path);
+        if (!ea->vtable.load)
+            continue;
 
-        if (ea)
-            LoadAssetMetadata(ea, asset_path);
+        ea->vtable.load(ea);
     }
 
     for (u32 i=0; i<MAX_ASSETS; i++)
@@ -365,4 +417,13 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
     }
 
     return path;
+}
+
+EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name)
+{
+    int index = FindEditorAssetByName(type, name);
+    if (index == -1)
+        return nullptr;
+
+    return GetEditorAsset(index);
 }

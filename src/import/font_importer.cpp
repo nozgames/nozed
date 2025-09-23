@@ -76,7 +76,7 @@ static void WriteFontData(
     WriteBytes(stream, atlas_data.data(), (u32)atlas_data.size());
 }
 
-void ImportFont(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+static void ImportFont(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
 
@@ -87,7 +87,7 @@ void ImportFont(const fs::path& source_path, Stream* output_stream, Props* confi
     int padding = meta->GetInt("font", "padding", 1);
 
     // Load font file
-    std::ifstream file(source_path, std::ios::binary);
+    std::ifstream file(ea->path, std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error("Failed to open font file");
 
@@ -190,13 +190,12 @@ void ImportFont(const fs::path& source_path, Stream* output_stream, Props* confi
     WriteFontData(output_stream, ttf.get(), image, imageSize, glyphs, font_size);
 }
 
-static AssetImporterTraits g_font_importer_traits = {
-    .signature = ASSET_SIGNATURE_FONT,
-    .ext = ".ttf",
-    .import_func = ImportFont
-};
-
-AssetImporterTraits* GetFontImporterTraits()
+AssetImporter GetFontImporter()
 {
-    return &g_font_importer_traits;
+    return {
+        .type = EDITOR_ASSET_TYPE_FONT,
+        .signature = ASSET_SIGNATURE_FONT,
+        .ext = ".ttf",
+        .import_func = ImportFont
+    };
 }

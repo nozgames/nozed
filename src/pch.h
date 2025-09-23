@@ -60,7 +60,6 @@ enum EditorEvent
     EDITOR_EVENT_IMPORTED
 };
 
-#include <import/asset_importer.h>
 #include <utils/props.h>
 #include <utils/tokenizer.h>
 #include <utils/file_helpers.h>

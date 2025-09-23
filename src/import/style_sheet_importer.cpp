@@ -204,12 +204,12 @@ static StyleDictionary ParseStyles(Props* source, Props* meta)
     return styles;
 }
 
-void ImportStyleSheet(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+static void ImportStyleSheet(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
 
     // Read source file
-    std::ifstream file(source_path, std::ios::binary);
+    std::ifstream file(ea->path, std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error("could not read file");
 
@@ -229,13 +229,12 @@ void ImportStyleSheet(const fs::path& source_path, Stream* output_stream, Props*
     SerializeStyles(output_stream, styles);
 }
 
-static AssetImporterTraits g_stylesheet_importer_traits = {
-    .signature = ASSET_SIGNATURE_STYLE_SHEET,
-    .ext = ".styles",
-    .import_func = ImportStyleSheet
-};
-
-AssetImporterTraits* GetStyleSheetImporterTraits()
+AssetImporter GetStyleSheetImporter()
 {
-    return &g_stylesheet_importer_traits;
+    return {
+        .type = EDITOR_ASSET_TYPE_STYLE_SHEET,
+        .signature = ASSET_SIGNATURE_STYLE_SHEET,
+        .ext = ".styles",
+        .import_func = ImportStyleSheet
+    };
 }

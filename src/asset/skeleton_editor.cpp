@@ -146,15 +146,16 @@ static void ParseBone(EditorSkeleton* es, Tokenizer& tk)
     }
 }
 
-EditorSkeleton* LoadEditorSkeleton(const std::filesystem::path& path)
+void EditorSkeletonLoad(EditorAsset* ea)
 {
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    EditorSkeleton* es = (EditorSkeleton*)ea;
+
+    std::filesystem::path path = ea->path;
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
-
-    EditorSkeleton* es = (EditorSkeleton*)CreateEditorAsset(EDITOR_ASSET_TYPE_SKELETON, path);
-    assert(es);
-    Init(es);
 
     while (!IsEOF(tk))
     {
@@ -169,8 +170,6 @@ EditorSkeleton* LoadEditorSkeleton(const std::filesystem::path& path)
     }
 
     UpdateTransforms(es);
-
-    return es;
 }
 
 static void EditorSkeletonSave(EditorAsset* ea, const std::filesystem::path& path)
@@ -207,7 +206,8 @@ EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
     SaveStream(stream, full_path);
     Free(stream);
 
-    return LoadEditorSkeleton(full_path);
+    //return LoadEditorSkeleton(full_path);
+    return nullptr;
 }
 
 void UpdateTransforms(EditorSkeleton* es)
@@ -418,7 +418,7 @@ const Name* GetUniqueBoneName(EditorSkeleton* es)
     return bone_name;
 }
 
-void Serialize(EditorSkeleton* es, Stream* output_stream)
+void Serialize(EditorSkeleton* es, Stream* stream)
 {
     const Name* bone_names[MAX_BONES];
     for (int i=0; i<es->bone_count; i++)
@@ -429,19 +429,19 @@ void Serialize(EditorSkeleton* es, Stream* output_stream)
     header.version = 1;
     header.flags = 0;
     header.names = es->bone_count;
-    WriteAssetHeader(output_stream, &header, bone_names);
+    WriteAssetHeader(stream, &header, bone_names);
 
-    WriteU8(output_stream, (u8)es->bone_count);
+    WriteU8(stream, (u8)es->bone_count);
 
     for (int i=0; i<es->bone_count; i++)
     {
         EditorBone& eb = es->bones[i];
-        WriteI8(output_stream, (char)eb.parent_index);
-        WriteStruct(output_stream, eb.local_to_world);
-        WriteStruct(output_stream, eb.world_to_local);
-        WriteStruct(output_stream, eb.transform.position);
-        WriteFloat(output_stream, eb.transform.rotation);
-        WriteStruct(output_stream, eb.transform.scale);
+        WriteI8(stream, (char)eb.parent_index);
+        WriteStruct(stream, eb.local_to_world);
+        WriteStruct(stream, eb.world_to_local);
+        WriteStruct(stream, eb.transform.position);
+        WriteFloat(stream, eb.transform.rotation);
+        WriteStruct(stream, eb.transform.scale);
     }
 }
 
@@ -518,19 +518,27 @@ static void Init(EditorSkeleton* es)
     extern void SkeletonViewDraw();
     extern void SkeletonViewUpdate();
 
-    if (!es)
-        return;
+    assert(es);
 
     es->vtable = {
-        .bounds = EditorSkeletonBounds,
+        .load = EditorSkeletonLoad,
         .post_load = EditorSkeletonPostLoad,
-        .draw = EditorSkeletonDraw,
-        .view_init = SkeletonViewInit,
+        .save = EditorSkeletonSave,
         .load_metadata = EditorSkeletonLoadMetadata,
         .save_metadata = EditorSkeletonSaveMetadata,
+        .bounds = EditorSkeletonBounds,
+        .draw = EditorSkeletonDraw,
+        .view_init = SkeletonViewInit,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds,
-        .save = EditorSkeletonSave,
         .undo_redo = EditorSkeletonUndoRedo
     };
+}
+
+void InitEditorSkeleton(EditorAsset* ea)
+{
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    EditorSkeleton* es = (EditorSkeleton*)ea;
+    Init(es);
 }

@@ -48,7 +48,6 @@ struct EditorMesh : EditorAsset
     int vertex_count;
     int edge_count;
     int face_count;
-    Bounds2 bounds;
     int selected_count;
     Mesh* mesh;
     Vec2Int edge_color;
@@ -65,6 +64,7 @@ inline EditorMesh* GetEditorMesh(int index)
     return (EditorMesh*)ea;
 }
 
+extern void InitEditorMesh(EditorAsset* ea);
 extern EditorAsset* NewEditorMesh(const std::filesystem::path& path);
 extern EditorMesh* Clone(Allocator* allocator, EditorMesh* em);
 extern EditorMesh* LoadEditorMesh(const std::filesystem::path& path);

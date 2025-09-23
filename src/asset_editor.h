@@ -11,6 +11,11 @@ enum EditorAssetType
     EDITOR_ASSET_TYPE_VFX,
     EDITOR_ASSET_TYPE_SKELETON,
     EDITOR_ASSET_TYPE_ANIMATION,
+    EDITOR_ASSET_TYPE_SOUND,
+    EDITOR_ASSET_TYPE_TEXTURE,
+    EDITOR_ASSET_TYPE_FONT,
+    EDITOR_ASSET_TYPE_STYLE_SHEET,
+    EDITOR_ASSET_TYPE_SHADER,
     EDITOR_ASSET_TYPE_COUNT,
 };
 
@@ -20,15 +25,16 @@ struct EditorAsset;
 
 struct EditorAssetVtable
 {
-    Bounds2 (*bounds)(EditorAsset* ea);
+    void (*load)(EditorAsset* ea);
     void (*post_load)(EditorAsset* ea);
-    void (*draw)(EditorAsset* ea);
-    void (*view_init)();
+    void (*save)(EditorAsset* ea, const std::filesystem::path& path);
     void (*load_metadata)(EditorAsset* ea, Props* meta);
     void (*save_metadata)(EditorAsset* ea, Props* meta);
+    Bounds2 (*bounds)(EditorAsset* ea);
+    void (*draw)(EditorAsset* ea);
+    void (*view_init)();
     bool (*overlap_point)(EditorAsset* ea, const Vec2& position, const Vec2& hit_pos);
     bool (*overlap_bounds)(EditorAsset* ea, const Bounds2& hit_bounds);
-    void (*save)(EditorAsset* ea, const std::filesystem::path& path);
     void (*clone)(EditorAsset* ea);
     void (*undo_redo)(EditorAsset* ea);
 };
@@ -36,6 +42,7 @@ struct EditorAssetVtable
 struct EditorAsset
 {
     EditorAssetType type;
+    int asset_path_index;
     int index;
     const Name* name;
     char path[1024];
@@ -47,6 +54,7 @@ struct EditorAsset
     bool meta_modified;
     bool clipped;
     EditorAssetVtable vtable;
+    Bounds2 bounds;
     int sort_order;
 };
 
@@ -59,6 +67,8 @@ inline EditorAsset* GetEditorAsset(int index, EditorAssetType type=EDITOR_ASSET_
     assert(type == EDITOR_ASSET_TYPE_UNKNOWN || (ea && ea->type == type));
     return ea;
 }
+
+extern EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name);
 
 extern void HotloadEditorAsset(const Name* name);
 extern void MarkModified();

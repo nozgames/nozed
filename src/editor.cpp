@@ -177,11 +177,45 @@ static void InitConfig()
         Copy(g_editor.asset_paths[g_editor.asset_path_count++], 4096, path.c_str());
 }
 
+extern AssetImporter GetShaderImporter();
+extern AssetImporter GetTextureImporter();
+extern AssetImporter GetFontImporter();
+extern AssetImporter GetMeshImporter();
+extern AssetImporter GetStyleSheetImporter();
+extern AssetImporter GetVfxImporter();
+extern AssetImporter GetSoundImporter();
+extern AssetImporter GetSkeletonImporter();
+extern AssetImporter GetAnimationImporter();
+
+static void InitImporters()
+{
+    g_editor.importers = (AssetImporter*)Alloc(ALLOCATOR_DEFAULT, sizeof(AssetImporter) * EDITOR_ASSET_TYPE_COUNT);
+    g_editor.importers[EDITOR_ASSET_TYPE_ANIMATION] = GetAnimationImporter();
+    g_editor.importers[EDITOR_ASSET_TYPE_FONT] = GetFontImporter();
+    g_editor.importers[EDITOR_ASSET_TYPE_MESH] = GetMeshImporter();
+    g_editor.importers[EDITOR_ASSET_TYPE_SHADER] = GetShaderImporter();
+    g_editor.importers[EDITOR_ASSET_TYPE_SOUND] = GetSoundImporter();
+    g_editor.importers[EDITOR_ASSET_TYPE_STYLE_SHEET] = GetStyleSheetImporter();
+    g_editor.importers[EDITOR_ASSET_TYPE_TEXTURE] = GetTextureImporter();
+    g_editor.importers[EDITOR_ASSET_TYPE_VFX] = GetVfxImporter();
+    g_editor.importers[EDITOR_ASSET_TYPE_SKELETON] = GetSkeletonImporter();
+
+#ifdef _DEBUG
+    for (int i=0; i<EDITOR_ASSET_TYPE_COUNT; i++)
+    {
+        assert(g_editor.importers[i].type == (EditorAssetType)i);
+        assert(g_editor.importers[i].import_func);
+        assert(g_editor.importers[i].ext);
+    }
+#endif
+}
+
 void InitEditor()
 {
     g_main_thread_id = std::this_thread::get_id();
     g_editor.asset_allocator = CreatePoolAllocator(sizeof(EditorAssetData), MAX_ASSETS);
 
+    InitImporters();
     InitLog(HandleLog);
     Listen(EDITOR_EVENT_STATS, HandleStatsEvents);
     Listen(EDITOR_EVENT_IMPORTED, HandleImported);
@@ -219,9 +253,11 @@ int main(int argc, const char* argv[])
     InitEditor();
     InitLog(HandleLog);
 
+    InitEditorAssets();
     InitImporter();
     InitWindow();
     InitView();
+    LoadEditorAssets();
     InitCommands();
     InitUserConfig();
     InitEditorServer(g_config);

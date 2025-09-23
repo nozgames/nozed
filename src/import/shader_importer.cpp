@@ -126,12 +126,12 @@ static void WriteCompiledShader(
     WriteU8(output_stream, (u8)flags);
 }
 
-void ImportShader(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+static void ImportShader(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
 
     // Read source file
-    std::ifstream file(source_path, std::ios::binary);
+    std::ifstream file(ea->path, std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error("could not read file");
 
@@ -144,52 +144,9 @@ void ImportShader(const fs::path& source_path, Stream* output_stream, Props* con
     std::string vertex_shader = ExtractStage(source, "VERTEX_SHADER");
     std::string geometry_shader = ExtractStage(source, "GEOMETRY_SHADER");
     std::string fragment_shader = ExtractStage(source, "FRAGMENT_SHADER");
-    fs::path include_dir = source_path.parent_path();
+    fs::path include_dir = fs::path(ea->path).parent_path();
 
-    WriteCompiledShader(vertex_shader, geometry_shader, fragment_shader, *meta, output_stream, include_dir, source_path.string());
-}
-
-bool DoesShaderDependOn(const fs::path& source_path, const fs::path& dependency_path)
-{
-    std::string ext = dependency_path.extension().string();
-    if (ext != ".glsl")
-        return false;
-
-    try
-    {
-        // Read source file
-        std::ifstream file(source_path);
-        if (!file.is_open())
-            return false;
-            
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        std::string source = buffer.str();
-        file.close();
-        
-        // Simple check for #include references to the dependency file
-        std::string dependency_name = dependency_path.filename().string();
-        std::string include_pattern = "#include";
-        
-        size_t pos = 0;
-        while ((pos = source.find(include_pattern, pos)) != std::string::npos)
-        {
-            size_t line_end = source.find('\n', pos);
-            if (line_end != std::string::npos)
-            {
-                std::string line = source.substr(pos, line_end - pos);
-                if (line.find(dependency_name) != std::string::npos)
-                    return true;
-            }
-            pos += include_pattern.length();
-        }
-        
-        return false;
-    }
-    catch (...)
-    {
-        return false;
-    }
+    WriteCompiledShader(vertex_shader, geometry_shader, fragment_shader, *meta, output_stream, include_dir, ea->path);
 }
 
 static std::vector<u32> CompileGLSLToSPIRV(const std::string& source, glslang_stage_t stage, const std::string& filename)
@@ -425,14 +382,12 @@ static std::string ProcessIncludes(const std::string& source, const fs::path& ba
     return result;
 }
 
-static AssetImporterTraits g_shader_importer_traits = {
-    .signature = ASSET_SIGNATURE_SHADER,
-    .ext = ".glsl",
-    .import_func = ImportShader,
-    .does_depend_on = DoesShaderDependOn
-};
-
-AssetImporterTraits* GetShaderImporterTraits()
+AssetImporter GetShaderImporter()
 {
-    return &g_shader_importer_traits;
+    return {
+        .type = EDITOR_ASSET_TYPE_SHADER,
+        .signature = ASSET_SIGNATURE_SHADER,
+        .ext = ".glsl",
+        .import_func = ImportShader
+    };
 }

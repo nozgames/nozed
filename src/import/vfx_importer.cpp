@@ -4,26 +4,23 @@
 
 namespace fs = std::filesystem;
 
-void ImportVfx(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+void ImportVfx(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
     (void)meta;
 
-    EditorVfx* evfx = LoadEditorVfx(source_path);
-    if (!evfx)
-        throw std::exception("failed to load vfx");
-
-    Serialize(*evfx, output_stream);
-    Free(evfx);
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_VFX);
+    EditorVfx* evfx = (EditorVfx*)ea;
+    Serialize(evfx, output_stream);
 }
 
-static AssetImporterTraits g_vfx_importer_traits = {
-    .signature = ASSET_SIGNATURE_VFX,
-    .ext = ".vfx",
-    .import_func = ImportVfx
-};
-
-AssetImporterTraits* GetVfxImporterTraits()
+AssetImporter GetVfxImporter()
 {
-    return &g_vfx_importer_traits;
+    return {
+        .type = EDITOR_ASSET_TYPE_VFX,
+        .signature = ASSET_SIGNATURE_VFX,
+        .ext = ".vfx",
+        .import_func = ImportVfx
+    };
 }

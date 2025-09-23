@@ -76,7 +76,7 @@ constexpr StyleId STYLE_COMMAND_PALETTE_TEXT = {3,4};
 constexpr StyleId STYLE_COMMAND_PALETTE_CURSOR = {3,5};
 constexpr StyleId STYLE_COMMAND_PALETTE_PREVIEW = {3,6};
 
-
+extern void InitEditorAssets();
 extern bool LoadAssets(Allocator* allocator);
 extern void UnloadAssets();
 

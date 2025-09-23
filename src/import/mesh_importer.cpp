@@ -4,7 +4,6 @@
 // @STL
 
 #include "../../../src/internal.h"
-#include "../asset/mesh_editor.h"
 
 namespace fs = std::filesystem;
 using namespace noz;
@@ -18,14 +17,14 @@ struct OutlineConfig
     float boundary_taper;
 };
 
-void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+static void ImportMesh(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
     (void)meta;
 
-    EditorMesh* em = LoadEditorMesh(source_path);
-    if (!em)
-        throw std::runtime_error("invalid mesh");
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_MESH);
+    EditorMesh* em = (EditorMesh*)ea;
 
     Mesh* m = ToMesh(em, false);
 
@@ -45,14 +44,13 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
     WriteBytes(output_stream, i, sizeof(u16) * GetIndexCount(m));
 }
 
-static AssetImporterTraits g_mesh_importer_traits = {
-    .signature = ASSET_SIGNATURE_MESH,
-    .ext = ".mesh",
-    .import_func = ImportMesh
-};
-
-AssetImporterTraits* GetMeshImporterTraits()
+AssetImporter GetMeshImporter()
 {
-    return &g_mesh_importer_traits;
+    return {
+        .type = EDITOR_ASSET_TYPE_MESH,
+        .signature = ASSET_SIGNATURE_MESH,
+        .ext = ".mesh",
+        .import_func = ImportMesh
+    };
 }
 

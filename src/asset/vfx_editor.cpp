@@ -259,12 +259,12 @@ static VfxColorCurve ParseColorCurve(const std::string& str, const VfxColorCurve
     return value;
 }
 
-static Bounds2 CalculateBounds(const EditorVfx& evfx)
+static Bounds2 CalculateBounds(EditorVfx* evfx)
 {
     Bounds2 bounds;
-    for (int i=0, c=evfx.emitter_count; i<c; i++)
+    for (int i=0, c=evfx->emitter_count; i<c; i++)
     {
-        const VfxEmitterDef& e = evfx.emitters[i].def;
+        const VfxEmitterDef& e = evfx->emitters[i].def;
         const VfxParticleDef& p = e.particle_def;
         Bounds2 eb = { e.spawn.min, e.spawn.max };
         float ssmax = Max(p.size.start.min,p.size.start.max);
@@ -285,7 +285,7 @@ static Bounds2 CalculateBounds(const EditorVfx& evfx)
     return bounds;
 }
 
-void Serialize(const EditorVfx& evfx, Stream* stream)
+void Serialize(EditorVfx* evfx, Stream* stream)
 {
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_VFX;
@@ -295,13 +295,13 @@ void Serialize(const EditorVfx& evfx, Stream* stream)
 
     WriteStruct<Bounds2>(stream, CalculateBounds(evfx));
 
-    WriteStruct(stream, evfx.duration);
-    WriteBool(stream, evfx.loop);
+    WriteStruct(stream, evfx->duration);
+    WriteBool(stream, evfx->loop);
 
-    WriteU32(stream, evfx.emitter_count);
-    for (int i=0, c=evfx.emitter_count; i<c; i++)
+    WriteU32(stream, evfx->emitter_count);
+    for (int i=0, c=evfx->emitter_count; i<c; i++)
     {
-        const EditorVfxEmitter& emitter = evfx.emitters[i];
+        const EditorVfxEmitter& emitter = evfx->emitters[i];
         WriteStruct(stream, emitter.def.rate);
         WriteStruct(stream, emitter.def.burst);
         WriteStruct(stream, emitter.def.duration);
@@ -321,7 +321,7 @@ void Serialize(const EditorVfx& evfx, Stream* stream)
     }
 }
 
-Vfx* ToVfx(Allocator* allocator, const EditorVfx& evfx, const Name* name)
+Vfx* ToVfx(Allocator* allocator, EditorVfx* evfx, const Name* name)
 {
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
@@ -424,7 +424,7 @@ static void EditorVfxClone(EditorAsset* ea)
 
 static void Init(EditorVfx* evfx)
 {
-    evfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *evfx, evfx->name);
+    evfx->vfx = ToVfx(ALLOCATOR_DEFAULT, evfx, evfx->name);
     evfx->handle = INVALID_VFX_HANDLE;
     evfx->vtable = {
         .bounds = EditorVfxBounds,
@@ -433,4 +433,12 @@ static void Init(EditorVfx* evfx)
         .overlap_bounds = EditorVfxOverlapBounds,
         .clone = EditorVfxClone
     };
+}
+
+void InitEditorVfx(EditorAsset* ea)
+{
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_VFX);
+    EditorVfx* evfx = (EditorVfx*)ea;
+    Init(evfx);
 }

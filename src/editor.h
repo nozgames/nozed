@@ -11,6 +11,7 @@ constexpr int MAX_ASSET_PATHS = 8;
 struct LogView;
 struct View;
 struct TextInputBox;
+struct AssetImporter;
 
 struct Editor
 {
@@ -27,6 +28,7 @@ struct Editor
     const char* exe;
     char asset_paths[MAX_ASSET_PATHS][4096];
     int asset_path_count;
+    AssetImporter* importers;
     std::filesystem::file_time_type config_timestamp;
 
     PoolAllocator* asset_allocator;
@@ -61,6 +63,8 @@ extern void InitCommands();
 extern bool ParseCommand(const char* str, Command& command);
 extern const char* GetVarTypeNameFromSignature(AssetSignature signature);
 
+#include "asset_editor.h"
 #include "view.h"
+#include "import/asset_importer.h"
 
 

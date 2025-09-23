@@ -8,25 +8,16 @@
 
 namespace fs = std::filesystem;
 
-extern AssetImporterTraits* GetShaderImporterTraits();
-extern AssetImporterTraits* GetTextureImporterTraits();
-extern AssetImporterTraits* GetFontImporterTraits();
-extern AssetImporterTraits* GetMeshImporterTraits();
-extern AssetImporterTraits* GetStyleSheetImporterTraits();
-extern AssetImporterTraits* GetVfxImporterTraits();
-extern AssetImporterTraits* GetSoundImporterTraits();
-extern AssetImporterTraits* GetSkeletonImporterTraits();
-extern AssetImporterTraits* GetAnimationImporterTraits();
-
 struct ImportJob
 {
+    EditorAsset* ea;
     fs::path source_path;
     fs::path source_relative_path;
     fs::path source_meta_path;
     const Name* source_name;
     fs::path target_path;
     fs::path target_short_path;
-    const AssetImporterTraits* importer;
+    const AssetImporter* importer;
     bool force;
 };
 
@@ -36,7 +27,6 @@ struct Importer
     std::atomic<bool> thread_running;
     std::queue<ImportJob> queue;
     std::unique_ptr<std::thread> thread;
-    std::vector<AssetImporterTraits*> importers;
     std::filesystem::path output_dir;
     std::filesystem::path manifest_path;
     std::mutex mutex;
@@ -49,17 +39,20 @@ static Importer g_importer = {};
 
 static void ExecuteJob(void* data);
 
-static const AssetImporterTraits* FindImporter(const fs::path& ext)
+static const AssetImporter* FindImporter(const fs::path& ext)
 {
-    for (auto* importer : g_importer.importers)
+    for (int i=0; i<EDITOR_ASSET_TYPE_COUNT; i++)
+    {
+        AssetImporter* importer = &g_editor.importers[i];
         if (ext == importer->ext)
             return importer;
+    }
 
     return nullptr;
 }
 
 #if 0
-static const AssetImporterTraits* FindImporter(AssetSignature signature)
+static const AssetImporter* FindImporter(AssetSignature signature)
 {
     for (const auto* importer : g_importer.importers)
         if (importer && importer->signature == signature)
@@ -74,30 +67,31 @@ const char* GetVarTypeNameFromSignature(AssetSignature signature)
     return GetTypeNameFromSignature(signature);
 }
 
-static void QueueImport(const fs::path& source_path, const fs::path& assets_path, bool force)
+static void QueueImport(EditorAsset* ea, bool force)
 {
-    if (!fs::exists(source_path))
+    fs::path path = ea->path;
+    if (!fs::exists(path))
         return;
 
-    const AssetImporterTraits* importer = FindImporter(source_path.extension());
+    const AssetImporter* importer = FindImporter(path.extension());
     if (!importer)
         return;
 
     std::string type_name_lower = GetVarTypeNameFromSignature(importer->signature);
     Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
 
-    fs::path source_relative_path = fs::relative(source_path, assets_path);
+    fs::path source_relative_path = fs::relative(path, g_editor.asset_paths[ea->asset_path_index]);
     fs::path target_short_path = type_name_lower / GetSafeFilename(source_relative_path.filename().string().c_str());
     fs::path target_path = g_importer.output_dir / target_short_path;
-    fs::path source_meta_path = source_path;
+    fs::path source_meta_path = path;
     source_meta_path += ".meta";
     target_path.replace_extension("");
     target_short_path.replace_extension("");
 
     bool target_exists = fs::exists(target_path);
     bool meta_changed = !target_exists || (fs::exists(source_meta_path) && CompareModifiedTime(source_meta_path, target_path) > 0);
-    bool source_changed = !target_exists || CompareModifiedTime(source_path, target_path) > 0;
-    bool config_changed = CompareModifiedTime(g_editor.config_timestamp, fs::last_write_time(source_path)) > 0;
+    bool source_changed = !target_exists || CompareModifiedTime(path, target_path) > 0;
+    bool config_changed = CompareModifiedTime(g_editor.config_timestamp, fs::last_write_time(target_path)) > 0;
 
     if (!force && !meta_changed && !source_changed && !config_changed)
         return;
@@ -107,7 +101,8 @@ static void QueueImport(const fs::path& source_path, const fs::path& assets_path
 
     std::lock_guard lock(g_importer.mutex);
     g_importer.jobs.push_back(CreateJob(ExecuteJob, new ImportJob{
-        .source_path = fs::path(source_path).make_preferred(),
+        .ea = ea,
+        .source_path = fs::path(path).make_preferred(),
         .source_relative_path = source_relative_path.make_preferred(),
         .source_meta_path = source_meta_path.make_preferred(),
         .source_name = GetName(source_name.string().c_str()),
@@ -123,6 +118,7 @@ static void HandleFileChangeEvent(const FileChangeEvent& event)
     if (event.type == FILE_CHANGE_TYPE_DELETED)
         return;
 
+#if 0
     fs::path source_path = event.path;
     fs::path source_ext = source_path.extension();
     if (source_ext == ".meta")
@@ -133,6 +129,7 @@ static void HandleFileChangeEvent(const FileChangeEvent& event)
     }
     else
         QueueImport(event.path, event.watch_path, false);
+#endif
 }
 
 static void ExecuteJob(void* data)
@@ -161,7 +158,7 @@ static void ExecuteJob(void* data)
 
     std::unique_ptr<Props> meta_guard(meta);
 
-    job->importer->import_func(job->source_path, target_stream, g_config, meta);
+    job->importer->import_func(job->ea, target_stream, g_config, meta);
 
     bool result = SaveStream(target_stream, job->target_path);
     Free(target_stream);
@@ -227,17 +224,13 @@ static void WaitForJobs()
 
 static void InitialImport()
 {
-    std::error_code ec;
-    for (int i=0; i<g_editor.asset_path_count; i++)
+    for (int i=0; i<MAX_ASSETS; i++)
     {
-        fs::path assets_path(g_editor.asset_paths[i]);
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(assets_path, ec))
-        {
-            if (!entry.is_regular_file(ec) || ec)
-                continue;
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea)
+            continue;
 
-            QueueImport(entry.path(), assets_path, false);
-        }
+        QueueImport(ea, false);
     }
 
     WaitForJobs();
@@ -292,18 +285,6 @@ void InitImporter()
 
     g_importer.running = true;
     g_importer.thread_running = true;
-    g_importer.importers = {
-        GetShaderImporterTraits(),
-        GetTextureImporterTraits(),
-        GetFontImporterTraits(),
-        GetMeshImporterTraits(),
-        GetStyleSheetImporterTraits(),
-        GetVfxImporterTraits(),
-        GetSoundImporterTraits(),
-        GetSkeletonImporterTraits(),
-        GetAnimationImporterTraits()
-    };
-
     g_importer.output_dir = fs::absolute(fs::path(g_config->GetString("output", "directory", "assets")));
     g_importer.manifest_path = g_config->GetString("manifest", "output_file", "src/assets.cpp");
 

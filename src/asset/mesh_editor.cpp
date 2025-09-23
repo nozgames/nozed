@@ -1096,6 +1096,50 @@ EditorMesh* LoadEditorMesh(const std::filesystem::path& path)
     return em;
 }
 
+void EditorMeshLoad(EditorAsset* ea)
+{
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_MESH);
+    EditorMesh* em = (EditorMesh*)ea;
+
+    std::string contents = ReadAllText(ALLOCATOR_DEFAULT, ea->path);
+    Tokenizer tk;
+    Init(tk, contents.c_str());
+
+    while (!IsEOF(tk))
+    {
+        if (ExpectIdentifier(tk, "v"))
+            ParseVertex(em, tk);
+        else if (ExpectIdentifier(tk, "f"))
+            ParseFace(em, tk);
+        else if (ExpectIdentifier(tk, "e"))
+            ParseEdgeColor(em, tk);
+        else
+        {
+            char error[1024];
+            GetString(tk, error, sizeof(error) - 1);
+            ThrowError("invalid token '%s' in mesh", error);
+        }
+    }
+
+    Bounds2 bounds = { em->vertices[0].position, em->vertices[0].position };
+    for (int i=0; i<em->vertex_count; i++)
+    {
+        bounds.min = Min(bounds.min, em->vertices[i].position);
+        bounds.max = Max(bounds.max, em->vertices[i].position);
+    }
+
+    for (int i = 0; i<em->face_count; i++)
+    {
+        EditorFace& ef = em->faces[i];
+        FixWinding(em, ef);
+    }
+
+    ToMesh(em, false);
+    UpdateEdges(em);
+    MarkDirty(em);
+}
+
 static void EditorMeshSave(EditorAsset* ea, const std::filesystem::path& path)
 {
     assert(ea->type == EDITOR_ASSET_TYPE_MESH);
@@ -1189,12 +1233,21 @@ static void Init(EditorMesh* em)
     extern void MeshViewInit();
 
     em->vtable = {
+        .load = EditorMeshLoad,
+        .save = EditorMeshSave,
         .bounds = EditorMeshBounds,
         .draw = EditorMeshDraw,
         .view_init = MeshViewInit,
         .overlap_point = EditorMeshOverlapPoint,
         .overlap_bounds = EditorMeshOverlapBounds,
-        .save = EditorMeshSave,
         .clone = EditorClone
     };
+}
+
+void InitEditorMesh(EditorAsset* ea)
+{
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_MESH);
+    EditorMesh* em = (EditorMesh*)ea;
+    Init(em);
 }

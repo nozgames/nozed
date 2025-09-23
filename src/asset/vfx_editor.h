@@ -25,8 +25,9 @@ struct EditorVfx : EditorAsset
     VfxHandle handle;
 };
 
+extern void InitEditorVfx(EditorAsset* ea);
 extern EditorVfx* LoadEditorVfx(const std::filesystem::path& path);
-extern Vfx* ToVfx(Allocator* allocator, const EditorVfx& evfx, const Name* name);
-extern void Serialize(const EditorVfx& evfx, Stream* stream);
-extern EditorVfx* Clone(Allocator* allocator, const EditorVfx& evfx);
+extern Vfx* ToVfx(Allocator* allocator, EditorVfx* evfx, const Name* name);
+extern void Serialize(EditorVfx* evfx, Stream* stream);
+extern EditorVfx* Clone(Allocator* allocator, EditorVfx* evfx);
 extern void DrawEditorVfx(EditorAsset* ea);

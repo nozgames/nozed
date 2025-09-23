@@ -4,27 +4,24 @@
 
 namespace fs = std::filesystem;
 
-void ImportSkeleton(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+static void ImportSkeleton(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
     (void)meta;
 
-    EditorSkeleton* es = LoadEditorSkeleton(source_path);
-    if (!es)
-        ThrowError("failed to load skeleton");
-
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    EditorSkeleton* es = (EditorSkeleton*)ea;
     Serialize(es, output_stream);
-    Free(es);
 }
 
-static AssetImporterTraits g_skeleton_importer_traits = {
-    .signature = ASSET_SIGNATURE_SKELETON,
-    .ext = ".skel",
-    .import_func = ImportSkeleton
-};
-
-AssetImporterTraits* GetSkeletonImporterTraits()
+AssetImporter GetSkeletonImporter()
 {
-    return &g_skeleton_importer_traits;
+    return {
+        .type = EDITOR_ASSET_TYPE_SKELETON,
+        .signature = ASSET_SIGNATURE_SKELETON,
+        .ext = ".skel",
+        .import_func = ImportSkeleton
+    };
 }
 

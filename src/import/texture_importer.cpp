@@ -71,11 +71,11 @@ static void WriteTextureData(
     WriteBytes(stream, data, data_size);
 }
 
-void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* config, Props* meta)
+static void ImportTexture(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
 
-    fs::path src_path = source_path;
+    fs::path src_path = ea->path;
     
     // Load image using stb_image
     int width, height, channels;
@@ -127,13 +127,12 @@ void ImportTexture(const fs::path& source_path, Stream* output_stream, Props* co
     );
 }
 
-static AssetImporterTraits g_texture_importer_traits = {
-    .signature = ASSET_SIGNATURE_TEXTURE,
-    .ext = ".png",
-    .import_func = ImportTexture
-};
-
-AssetImporterTraits* GetTextureImporterTraits()
+AssetImporter GetTextureImporter()
 {
-    return &g_texture_importer_traits;
+    return {
+        .type = EDITOR_ASSET_TYPE_TEXTURE,
+        .signature = ASSET_SIGNATURE_TEXTURE,
+        .ext = ".png",
+        .import_func = ImportTexture
+    };
 }

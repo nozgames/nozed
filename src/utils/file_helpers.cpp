@@ -7,11 +7,8 @@
 
 namespace fs = std::filesystem;
 
-std::vector<fs::path> GetFilesInDirectory(const fs::path& directory)
+void GetFilesInDirectory(const fs::path& directory, std::vector<fs::path>& results)
 {
-    std::vector<fs::path> results;
-    results.reserve(128);
-
     try
     {
         for (const auto& entry : fs::recursive_directory_iterator(directory))
@@ -21,8 +18,6 @@ std::vector<fs::path> GetFilesInDirectory(const fs::path& directory)
     catch (const fs::filesystem_error&)
     {
     }
-
-    return results;
 }
 
 static AssetSignature GetAssetSignatureInternal(Stream* stream)

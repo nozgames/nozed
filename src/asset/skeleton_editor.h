@@ -43,9 +43,9 @@ inline EditorSkeleton* GetEditorSkeleton(int index)
     return (EditorSkeleton*)ea;
 }
 
+extern void InitEditorSkeleton(EditorAsset* ea);
 extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
 extern EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton);
-extern EditorSkeleton* LoadEditorSkeleton(const std::filesystem::path& path);
 extern void DrawEditorSkeleton(EditorSkeleton* es, bool selected);
 extern void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool selected);
 extern void DrawEditorSkeletonBone(EditorSkeleton* es, int bone_index, const Vec2& position);

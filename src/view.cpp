@@ -166,7 +166,6 @@ static void UpdateZoom()
     SetPosition(g_view.camera, current_center + world_offset);
 }
 
-
 static void UpdateMoveState()
 {
     // Move all selected assets
