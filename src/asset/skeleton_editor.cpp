@@ -35,7 +35,7 @@ void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool selected)
             if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
                 continue;
 
-            DrawMesh(skinned_mesh->mesh, Translate(es->position) * bone.local_to_world);
+            DrawMesh(skinned_mesh, Translate(es->position) * bone.local_to_world);
         }
     }
 

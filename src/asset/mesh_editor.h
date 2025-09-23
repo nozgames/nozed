@@ -6,7 +6,7 @@
 
 struct EditorAsset;
 
-constexpr int MAX_VERTICES = 4096;
+constexpr int MAX_VERTICES = 1024;
 constexpr int MAX_TRIANGLES = MAX_VERTICES / 3;
 constexpr int MAX_INDICES = MAX_TRIANGLES * 3;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;

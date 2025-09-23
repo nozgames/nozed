@@ -34,7 +34,7 @@ static void EditorMeshDraw(EditorAsset* ea)
     else
     {
         BindColor(COLOR_WHITE);
-        DrawMesh(ToMesh(em), Translate(ea->position));
+        DrawMesh(em, Translate(ea->position));
     }
 }
 
@@ -1158,7 +1158,7 @@ EditorAsset* NewEditorMesh(const std::filesystem::path& path)
 static bool EditorMeshOverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)
 {
     assert(ea->type == EDITOR_ASSET_TYPE_MESH);
-    EditorMesh* em = (EditorMesh*)&ea;
+    EditorMesh* em = (EditorMesh*)ea;
     Mesh* mesh = ToMesh(em, false);
     if (!mesh)
         return false;
