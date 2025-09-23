@@ -25,7 +25,6 @@ constexpr float BONE_WIDTH = 0.10f;
 View g_view = {};
 
 inline ViewState GetState() { return g_view.state_stack[g_view.state_stack_count-1]; }
-inline EditorAsset& GetEditingAsset() { return *GetEditorAsset(g_view.edit_asset_index); }
 
 static void UpdateCamera()
 {
@@ -41,9 +40,9 @@ static void UpdateCamera()
     g_view.select_size = Abs((ScreenToWorld(g_view.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_view.camera, VEC2_ZERO)).y);
 }
 
-static Bounds2 GetViewBounds(EditorAsset& ea)
+static Bounds2 GetViewBounds(EditorAsset* ea)
 {
-    if (g_view.edit_asset_index == ea.index && g_view.vtable.bounds)
+    if (g_view.edit_asset_index == ea->index && g_view.vtable.bounds)
         return g_view.vtable.bounds();
 
     return GetBounds(ea);
@@ -56,16 +55,16 @@ static void FrameView()
 
     if (first)
     {
-        for (u32 i=0; i<g_view.asset_count; i++)
+        for (u32 i=0; i<MAX_ASSETS; i++)
         {
-            EditorAsset& ea = *g_view.assets[i];
-            if (!ea.selected)
+            EditorAsset* ea = GetEditorAsset(i);
+            if (!ea || !ea->selected)
                 continue;
 
             if (first)
-                bounds = GetViewBounds(ea) + ea.position;
+                bounds = GetViewBounds(ea) + ea->position;
             else
-                bounds = Union(bounds, GetViewBounds(ea) + ea.position);
+                bounds = Union(bounds, GetViewBounds(ea) + ea->position);
 
             first = false;
         }
@@ -104,9 +103,12 @@ static void HandleBoxSelect()
 
     ClearAssetSelection();
 
-    for (u32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset& ea = *g_view.assets[i];
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea)
+            continue;
+
         if (OverlapBounds(ea, g_view.box_selection))
             AddAssetSelection(i);
     }
@@ -169,23 +171,23 @@ static void UpdateMoveState()
 {
     // Move all selected assets
     Vec2 drag = g_view.mouse_world_position - g_view.move_world_position;
-    for (u32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset& ea = *g_view.assets[i];
-        if (!ea.selected)
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea || !ea->selected)
             continue;
 
-        MoveTo(ea, ea.saved_position + drag);
+        MoveTo(ea, ea->saved_position + drag);
     }
 
     // Cancel move?
     if (WasButtonPressed(g_view.input, KEY_ESCAPE))
     {
-        for (u32 i=0; i<g_view.asset_count; i++)
+        for (u32 i=0; i<MAX_ASSETS; i++)
         {
-            EditorAsset& ea = *g_view.assets[i];
-            if (ea.selected)
-                ea.position = ea.saved_position;
+            EditorAsset* ea = GetEditorAsset(i);
+            if (ea && ea->selected)
+                ea->position = ea->saved_position;
         }
 
         PopState();
@@ -236,13 +238,15 @@ static void UpdateDefaultState()
     {
         g_view.edit_asset_index = GetFirstSelectedAsset();
         assert(g_view.edit_asset_index != -1);
-        g_view.assets[g_view.edit_asset_index]->editing = true;
 
-        EditorAsset& ea = *g_view.assets[g_view.edit_asset_index];
-        if (ea.vtable.view_init)
+        EditorAsset* ea = GetEditingAsset();
+        assert(ea);
+        ea->editing = true;
+
+        if (ea->vtable.view_init)
         {
             PushState(VIEW_STATE_EDIT);
-            ea.vtable.view_init();
+            ea->vtable.view_init();
         }
     }
 
@@ -269,13 +273,13 @@ void PushState(ViewState state)
     case VIEW_STATE_MOVE:
         g_view.move_world_position = g_view.mouse_world_position;
         BeginUndoGroup();
-        for (u32 i=0; i<g_view.asset_count; i++)
+        for (u32 i=0; i<MAX_ASSETS; i++)
         {
-            EditorAsset& ea = *g_view.assets[i];
-            if (!ea.selected)
+            EditorAsset* ea = GetEditorAsset(i);
+            if (!ea || !ea->selected)
                 continue;
             RecordUndo(ea);
-            ea.saved_position = ea.position;
+            ea->saved_position = ea->position;
         }
         EndUndoGroup();
         break;
@@ -294,7 +298,7 @@ void PopState()
     switch (state)
     {
     case VIEW_STATE_EDIT:
-        g_view.assets[g_view.edit_asset_index]->editing = false;
+        GetEditingAsset()->editing = false;
         g_view.edit_asset_index = -1;
         g_view.vtable = {};
         break;
@@ -437,24 +441,35 @@ void RenderView()
     DrawGrid(g_view.camera);
 
     Bounds2 camera_bounds = GetBounds(g_view.camera);
-    for (u32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset& ea = *g_view.assets[i];
-        ea.clipped = !Intersects(camera_bounds, GetBounds(ea) + ea.position);
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea)
+            continue;
+
+        ea->clipped = !Intersects(camera_bounds, GetBounds(ea) + ea->position);
     }
 
     bool show_names = g_view.show_names || IsAltDown(g_view.input);
-    for (u32 i=0; i<g_view.asset_count; i++)
-        if (show_names || g_view.assets[i]->selected)
-            DrawBounds(*g_view.assets[i]); // , 0.05f);
+    for (u32 i=0; i<MAX_ASSETS; i++)
+    {
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea)
+            continue;
 
+        if (show_names || ea->selected)
+            DrawBounds(ea);
+    }
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
-    for (u32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset& ea = GetSortedEditorAsset(i);
-        if (!ea.clipped && (g_view.edit_asset_index != (int)i || g_view.vtable.draw == nullptr))
+        EditorAsset* ea = GetSortedEditorAsset(i);
+        if (!ea || ea->clipped)
+            continue;
+
+        if (g_view.edit_asset_index != (int)i || g_view.vtable.draw == nullptr)
             DrawAsset(ea);
     }
 
@@ -462,9 +477,14 @@ void RenderView()
         if (g_view.vtable.draw)
             g_view.vtable.draw();
 
-    for (u32 i=0; i<g_view.asset_count; i++)
-        if (!g_view.assets[i]->clipped)
-            DrawOrigin(*g_view.assets[i]);
+    for (u32 i=0; i<MAX_ASSETS; i++)
+    {
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea || ea->clipped)
+            continue;
+
+        DrawOrigin(ea);
+    }
 
     if (IsButtonDown(g_view.input, MOUSE_MIDDLE))
     {
@@ -565,18 +585,21 @@ static void UpdateAssetNames()
     if (!IsAltDown(g_view.input) && !g_view.show_names)
         return;
 
-    for (u32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset& ea = *g_view.assets[i];
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea || ea->clipped)
+            continue;
+
         Bounds2 bounds = GetBounds(ea);
 
         BeginWorldCanvas(
             g_view.camera,
-            ea.position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(ea).min.y},
+            ea->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(ea).min.y},
             Vec2{6, 0});
 
             BeginElement(STYLE_VIEW_ASSET_NAME_CONTAINER);
-                Label(ea.name->value, STYLE_VIEW_ASSET_NAME);
+                Label(ea->name->value, STYLE_VIEW_ASSET_NAME);
             EndElement();
         EndCanvas();
     }
@@ -677,45 +700,44 @@ static int AssetSortFunc(const void* a, const void* b)
     int index_a = *(int*)a;
     int index_b = *(int*)b;
 
-    EditorAsset& ea_a = *g_view.assets[index_a];
-    EditorAsset& ea_b = *g_view.assets[index_b];
+    EditorAsset* ea_a = GetEditorAsset(index_a);
+    EditorAsset* ea_b = GetEditorAsset(index_b);
+    if (!ea_a && !ea_b)
+        return 0;
 
-    if (ea_a.sort_order != ea_b.sort_order)
-        return ea_a.sort_order - ea_b.sort_order;
+    if (!ea_a)
+        return 1;
 
-    if (ea_a.type != ea_b.type)
-        return ea_a.type - ea_b.type;
+    if (!ea_b)
+        return 0;
+
+    if (ea_a->sort_order != ea_b->sort_order)
+        return ea_a->sort_order - ea_b->sort_order;
+
+    if (ea_a->type != ea_b->type)
+        return ea_a->type - ea_b->type;
 
     return index_a - index_b;
 }
 
 static void SortAssets()
 {
-    for (u32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<MAX_ASSETS; i++)
         g_view.sorted_assets[i] = i;
 
-    qsort(g_view.sorted_assets, g_view.asset_count, sizeof(int), AssetSortFunc);
+    qsort(g_view.sorted_assets, MAX_ASSETS, sizeof(int), AssetSortFunc);
 
-    for (u32 i=0; i<g_view.asset_count; i++)
+    for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset& ea = GetSortedEditorAsset(i);
-        if (ea.sort_order != (int)i * 10)
-            ea.meta_modified = true;
+        EditorAsset* ea = GetSortedEditorAsset(i);
+        if (!ea)
+            continue;
 
-        ea.sort_order = i * 10;
+        if (ea->sort_order != (int)i * 10)
+            ea->meta_modified = true;
+
+        ea->sort_order = i * 10;
     }
-}
-
-void DeleteSelectedAssets()
-{
-
-}
-
-void AddEditorAsset(EditorAsset* ea)
-{
-    ea->index = g_view.asset_count;
-    g_view.assets[g_view.asset_count++] = ea;
-    SortAssets();
 }
 
 static void HandleSendBack()
@@ -723,9 +745,12 @@ static void HandleSendBack()
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<g_view.asset_count;i++)
-        if (g_view.assets[i]->selected)
-            g_view.assets[i]->sort_order-=11;
+    for (u32 i=0;i<MAX_ASSETS;i++)
+    {
+        EditorAsset* ea = GetEditorAsset(i);
+        if (ea && ea->selected)
+            ea->sort_order-=11;
+    }
 
     SortAssets();
 }
@@ -735,13 +760,13 @@ static void HandleBringForward()
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<g_view.asset_count;i++)
+    for (u32 i=0;i<MAX_ASSETS;i++)
     {
-        EditorAsset& ea = *g_view.assets[i];
-        if (ea.selected)
+        EditorAsset* ea = GetEditorAsset(i);
+        if (ea && ea->selected)
         {
-            ea.sort_order += 11;
-            ea.meta_modified = true;
+            ea->sort_order += 11;
+            ea->meta_modified = true;
         }
     }
 
@@ -753,13 +778,13 @@ static void HandleBringToFront()
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<g_view.asset_count;i++)
+    for (u32 i=0;i<MAX_ASSETS;i++)
     {
-        EditorAsset& ea = *g_view.assets[i];
-        if (ea.selected)
+        EditorAsset* ea = GetEditorAsset(i);
+        if (ea && ea->selected)
         {
-            ea.sort_order = 100000;
-            ea.meta_modified = true;
+            ea->sort_order = 100000;
+            ea->meta_modified = true;
         }
     }
 
@@ -771,13 +796,13 @@ static void HandleSendToBack()
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<g_view.asset_count;i++)
+    for (u32 i=0;i<MAX_ASSETS;i++)
     {
-        EditorAsset& ea = *g_view.assets[i];
-        if (ea.selected)
+        EditorAsset* ea = GetEditorAsset(i);
+        if (ea && ea->selected)
         {
-            ea.sort_order = -100000;
-            ea.meta_modified = true;
+            ea->sort_order = -100000;
+            ea->meta_modified = true;
         }
     }
 

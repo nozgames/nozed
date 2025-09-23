@@ -5,7 +5,6 @@
 #pragma once
 
 constexpr int STATE_STACK_SIZE = 16;
-constexpr int MAX_ASSETS = 1024;
 
 constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
@@ -69,8 +68,6 @@ struct View
     bool command_palette;
     const Name* command_preview;
 
-    EditorAsset* assets[MAX_ASSETS];
-    u32 asset_count;
     u32 selected_asset_count;
     int sorted_assets[MAX_ASSETS];
 
@@ -111,9 +108,9 @@ extern void PushState(ViewState state);
 extern void PopState();
 extern void FocusAsset(int asset_index);
 extern void HandleRename(const Name* name);
-extern EditorAsset& GetEditingAsset();
 extern void AddEditorAsset(EditorAsset* ea);
-inline EditorAsset& GetSortedEditorAsset(int index) { return *g_view.assets[g_view.sorted_assets[index]]; }
+inline EditorAsset* GetSortedEditorAsset(int index) { return GetEditorAsset(g_view.sorted_assets[index]); }
+inline EditorAsset* GetEditingAsset() { return GetEditorAsset(g_view.edit_asset_index); }
 
 // @grid
 extern void InitGrid(Allocator* allocator);
@@ -124,7 +121,7 @@ extern void DrawGrid(Camera* camera);
 extern void InitUndo();
 extern void ShutdownUndo();
 extern void HandleCommand(const Command& command);
-extern void RecordUndo(EditorAsset& ea);
+extern void RecordUndo(EditorAsset* ea);
 extern void RecordUndo();
 extern void BeginUndoGroup();
 extern void EndUndoGroup();
@@ -145,8 +142,8 @@ extern void DrawLine(const Vec2& v0, const Vec2& v1);
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v);
 extern void DrawVertex(const Vec2& v, f32 size);
-extern void DrawOrigin(const EditorAsset& ea);
-extern void DrawBounds(EditorAsset& ea, float expand=0);
+extern void DrawOrigin(EditorAsset* ea);
+extern void DrawBounds(EditorAsset* ea, float expand=0);
 extern void DrawBone(const Vec2& a, const Vec2& b);
 extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);

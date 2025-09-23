@@ -9,18 +9,13 @@ void ImportSkeleton(const fs::path& source_path, Stream* output_stream, Props* c
     (void)config;
     (void)meta;
 
-    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, source_path);
+    EditorSkeleton* es = LoadEditorSkeleton(source_path);
     if (!es)
         ThrowError("failed to load skeleton");
 
-    Serialize(*es, output_stream);
+    Serialize(es, output_stream);
     Free(es);
 }
-
-static const char* g_skeleton_extensions[] = {
-    ".skel",
-    nullptr
-};
 
 static AssetImporterTraits g_skeleton_importer_traits = {
     .signature = ASSET_SIGNATURE_SKELETON,

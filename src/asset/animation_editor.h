@@ -4,7 +4,6 @@
 
 #pragma once
 
-struct EditorAsset;
 struct EditorSkeleton;
 
 struct EditorAnimationBone
@@ -14,7 +13,7 @@ struct EditorAnimationBone
     bool selected;
 };
 
-struct EditorAnimation
+struct EditorAnimation : EditorAsset
 {
     const Name* skeleton_name;
     int frame_count;
@@ -29,18 +28,17 @@ struct EditorAnimation
     int selected_bone_count;
 };
 
-extern EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path);
-extern EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path);
+extern EditorAnimation* LoadEditorAnimation(const std::filesystem::path& path);
 extern EditorAsset* NewEditorAnimation(const std::filesystem::path& path);
-extern void PostLoadEditorAssets(EditorAnimation& en);
-extern void UpdateBounds(EditorAnimation& en);
-extern void Serialize(EditorAnimation& en, Stream* output_stream, EditorSkeleton* es);
-extern Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* name);
-extern int InsertFrame(EditorAnimation& en, int frame_index);
-extern int DeleteFrame(EditorAnimation& en, int frame_index);
-extern Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_index);
-extern int HitTestBone(EditorAnimation& en, const Vec2& world_pos);
-extern void UpdateTransforms(EditorAnimation& en);
-extern void UpdateSkeleton(EditorAnimation& en);
-extern void DrawEditorAnimation(EditorAsset& ea);
-extern void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& position);
+extern void PostLoadEditorAssets(EditorAnimation* en);
+extern void UpdateBounds(EditorAnimation* en);
+extern void Serialize(EditorAnimation* en, Stream* output_stream, EditorSkeleton* es);
+extern Animation* ToAnimation(Allocator* allocator, EditorAnimation* en, const Name* name);
+extern int InsertFrame(EditorAnimation* en, int frame_index);
+extern int DeleteFrame(EditorAnimation* en, int frame_index);
+extern Transform& GetFrameTransform(EditorAnimation* en, int bone_index, int frame_index);
+extern int HitTestBone(EditorAnimation* en, const Vec2& world_pos);
+extern void UpdateTransforms(EditorAnimation* en);
+extern void UpdateSkeleton(EditorAnimation* en);
+extern void DrawEditorAnimation(EditorAsset* ea);
+extern void DrawEditorAnimationBone(EditorAnimation* en, int bone_index, const Vec2& position);

@@ -74,90 +74,95 @@ struct MeshView
 
 static MeshView g_mesh_view = {};
 
-inline EditorMesh& GetEditingMesh() { return GetEditingAsset().mesh; }
+inline EditorMesh* GetEditingMesh()
+{
+    EditorAsset* ea = GetEditingAsset();
+    assert(ea->type == EDITOR_ASSET_TYPE_MESH);
+    return (EditorMesh*)ea;
+}
 
 static void DrawVertices(bool selected)
 {
-    const EditorAsset& ea = GetEditingAsset();
-    const EditorMesh& em = GetEditingMesh();
-    for (int i=0; i<em.vertex_count; i++)
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
+    for (int i=0; i<em->vertex_count; i++)
     {
-        const EditorVertex& ev = em.vertices[i];
+        const EditorVertex& ev = em->vertices[i];
         if (ev.selected != selected)
             continue;
-        DrawVertex(ev.position + ea.position);
+        DrawVertex(ev.position + ea->position);
     }
 }
 
 static void UpdateSelection()
 {
-    EditorMesh& em = GetEditingMesh();
+    EditorMesh* em = GetEditingMesh();
     Vec2 center = VEC2_ZERO;
     Bounds2 bounds = { VEC2_ZERO, VEC2_ZERO };
 
-    em.selected_count = 0;
+    em->selected_count = 0;
     switch (g_mesh_view.mode)
     {
     case MESH_EDITOR_MODE_VERTEX:
-        for (int vertex_index=0; vertex_index<em.vertex_count; vertex_index++)
+        for (int vertex_index=0; vertex_index<em->vertex_count; vertex_index++)
         {
-            const EditorVertex& ev = em.vertices[vertex_index];
+            const EditorVertex& ev = em->vertices[vertex_index];
             if (!ev.selected)
                 continue;
 
-            if (em.selected_count == 0)
+            if (em->selected_count == 0)
                 bounds = { ev.position, ev.position };
             else
                 bounds = Union(bounds, ev.position);
 
-            em.selected_count++;
+            em->selected_count++;
         }
         break;
 
     case MESH_EDITOR_MODE_EDGE:
-        for (int vertex_index=0; vertex_index<em.vertex_count; vertex_index++)
-            em.vertices[vertex_index].selected = false;
+        for (int vertex_index=0; vertex_index<em->vertex_count; vertex_index++)
+            em->vertices[vertex_index].selected = false;
 
-        for (int edge_index=0; edge_index<em.edge_count; edge_index++)
+        for (int edge_index=0; edge_index<em->edge_count; edge_index++)
         {
-            const EditorEdge& ee = em.edges[edge_index];
+            const EditorEdge& ee = em->edges[edge_index];
             if (!ee.selected)
                 continue;
 
-            EditorVertex& v0 = em.vertices[ee.v0];
-            EditorVertex& v1 = em.vertices[ee.v1];
+            EditorVertex& v0 = em->vertices[ee.v0];
+            EditorVertex& v1 = em->vertices[ee.v1];
             center += (v0.position + v1.position) * 0.5f;
             v0.selected = true;
             v1.selected = true;
 
-            if (em.selected_count == 0)
+            if (em->selected_count == 0)
                 bounds = { v0.position, v0.position };
 
             bounds = Union(bounds, v0.position);
             bounds = Union(bounds, v1.position);
 
-            em.selected_count++;
+            em->selected_count++;
         }
         break;
 
     case MESH_EDITOR_MODE_FACE:
-        for (int face_index=0; face_index<em.face_count; face_index++)
+        for (int face_index=0; face_index<em->face_count; face_index++)
         {
-            const EditorFace& ef = em.faces[face_index];
+            const EditorFace& ef = em->faces[face_index];
             if (!ef.selected)
                 continue;
 
-            EditorVertex& v0 = em.vertices[ef.v0];
-            EditorVertex& v1 = em.vertices[ef.v1];
-            EditorVertex& v2 = em.vertices[ef.v2];
+            EditorVertex& v0 = em->vertices[ef.v0];
+            EditorVertex& v1 = em->vertices[ef.v1];
+            EditorVertex& v2 = em->vertices[ef.v2];
 
-            if (em.selected_count == 0)
+            if (em->selected_count == 0)
                 bounds = { v0.position, v0.position };
 
             bounds = Union(bounds, v0.position);
             bounds = Union(bounds, v1.position);
             bounds = Union(bounds, v2.position);
-            em.selected_count++;
+            em->selected_count++;
             v0.selected = true;
             v1.selected = true;
             v2.selected = true;
@@ -165,7 +170,7 @@ static void UpdateSelection()
         break;
     }
 
-    if (em.selected_count > 0)
+    if (em->selected_count > 0)
         center = GetCenter(bounds);
 
     g_mesh_view.selection_center = center;
@@ -173,37 +178,37 @@ static void UpdateSelection()
 
 static void ClearSelection()
 {
-    EditorMesh& em = GetEditingMesh();
+    EditorMesh* em = GetEditingMesh();
 
-    for (int vertex_index=0; vertex_index<em.vertex_count; vertex_index++)
-        em.vertices[vertex_index].selected = false;
+    for (int vertex_index=0; vertex_index<em->vertex_count; vertex_index++)
+        em->vertices[vertex_index].selected = false;
 
-    for (int edge_index=0; edge_index<em.edge_count; edge_index++)
-        em.edges[edge_index].selected = false;
+    for (int edge_index=0; edge_index<em->edge_count; edge_index++)
+        em->edges[edge_index].selected = false;
 
-    for (int face_index=0; face_index<em.face_count; face_index++)
-        em.faces[face_index].selected = false;
+    for (int face_index=0; face_index<em->face_count; face_index++)
+        em->faces[face_index].selected = false;
 
     UpdateSelection();
 }
 
-static void SelectAll(EditorMesh& em)
+static void SelectAll(EditorMesh* em)
 {
     switch (g_mesh_view.mode)
     {
     case MESH_EDITOR_MODE_VERTEX:
-        for (int i=0; i<em.vertex_count; i++)
-            em.vertices[i].selected = true;
+        for (int i=0; i<em->vertex_count; i++)
+            em->vertices[i].selected = true;
         break;
 
     case MESH_EDITOR_MODE_EDGE:
-        for (int i=0; i<em.edge_count; i++)
-            em.edges[i].selected = true;
+        for (int i=0; i<em->edge_count; i++)
+            em->edges[i].selected = true;
         break;
 
     case MESH_EDITOR_MODE_FACE:
-        for (int i=0; i<em.face_count; i++)
-            em.faces[i].selected = true;
+        for (int i=0; i<em->face_count; i++)
+            em->faces[i].selected = true;
         break;
     }
 
@@ -214,9 +219,9 @@ static void SelectVertex(int vertex_index, bool selected)
 {
     assert(g_mesh_view.mode == MESH_EDITOR_MODE_VERTEX);
 
-    EditorMesh& em = GetEditingMesh();
-    assert(vertex_index >= 0 && vertex_index < em.vertex_count);
-    EditorVertex& ev = em.vertices[vertex_index];
+    EditorMesh* em = GetEditingMesh();
+    assert(vertex_index >= 0 && vertex_index < em->vertex_count);
+    EditorVertex& ev = em->vertices[vertex_index];
     if (ev.selected == selected)
         return;
 
@@ -228,9 +233,9 @@ static void SelectEdge(int edge_index, bool selected)
 {
     assert(g_mesh_view.mode == MESH_EDITOR_MODE_EDGE);
 
-    EditorMesh& em = GetEditingMesh();
-    assert(edge_index >= 0 && edge_index < em.edge_count);
-    EditorEdge& ee = em.edges[edge_index];
+    EditorMesh* em = GetEditingMesh();
+    assert(edge_index >= 0 && edge_index < em->edge_count);
+    EditorEdge& ee = em->edges[edge_index];
     if (ee.selected == selected)
         return;
 
@@ -242,9 +247,9 @@ static void SelectFace(int face_index, bool selected)
 {
     assert(g_mesh_view.mode == MESH_EDITOR_MODE_FACE);
 
-    EditorMesh& em = GetEditingMesh();
-    assert(face_index >= 0 && face_index < em.face_count);
-    EditorFace& ef = em.faces[face_index];
+    EditorMesh* em = GetEditingMesh();
+    assert(face_index >= 0 && face_index < em->face_count);
+    EditorFace& ef = em->faces[face_index];
     if (ef.selected == selected)
         return;
 
@@ -254,9 +259,9 @@ static void SelectFace(int face_index, bool selected)
 
 static int GetFirstSelectedEdge()
 {
-    EditorMesh& em = GetEditingMesh();
-    for (int i=0; i<em.edge_count; i++)
-        if (em.edges[i].selected)
+    EditorMesh* em = GetEditingMesh();
+    for (int i=0; i<em->edge_count; i++)
+        if (em->edges[i].selected)
             return i;
 
     return -1;
@@ -264,20 +269,20 @@ static int GetFirstSelectedEdge()
 
 static void RevertSavedState()
 {
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
-    for (int i=0; i<em.vertex_count; i++)
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
+    for (int i=0; i<em->vertex_count; i++)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         MeshViewVertex& mvv = g_mesh_view.vertices[i];
         ev.position = mvv.saved_position;
         ev.height = mvv.saved_height;
         ev.edge_size = mvv.saved_edge_size;
     }
 
-    for (int i=0; i<em.face_count; i++)
+    for (int i=0; i<em->face_count; i++)
     {
-        EditorFace& ef = em.faces[i];
+        EditorFace& ef = em->faces[i];
         MeshViewFace& mvf = g_mesh_view.faces[i];
         ef.normal = mvf.saved_normal;
     }
@@ -289,17 +294,17 @@ static void RevertSavedState()
 
 static void UpdateNormalState()
 {
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
 
     Vec2 dir = Normalize(g_view.mouse_world_position - g_mesh_view.selection_drag_start);
 
-    for (int i=0; i<em.face_count; i++)
+    for (int i=0; i<em->face_count; i++)
     {
-        EditorFace& ef = em.faces[i];
-        const EditorVertex& v0 = em.vertices[ef.v0];
-        const EditorVertex& v1 = em.vertices[ef.v1];
-        const EditorVertex& v2 = em.vertices[ef.v2];
+        EditorFace& ef = em->faces[i];
+        const EditorVertex& v0 = em->vertices[ef.v0];
+        const EditorVertex& v1 = em->vertices[ef.v1];
+        const EditorVertex& v2 = em->vertices[ef.v2];
 
         if (!v0.selected || !v1.selected || !v2.selected)
             continue;
@@ -314,12 +319,12 @@ static void UpdateNormalState()
 
 static void UpdateEdgeState()
 {
-    EditorMesh& em = GetEditingMesh();
+    EditorMesh* em = GetEditingMesh();
     float delta = (g_view.mouse_position.y - g_mesh_view.state_mouse.y) / (g_view.dpi * HEIGHT_SLIDER_SIZE);
 
-    for (i32 i=0; i<em.vertex_count; i++)
+    for (i32 i=0; i<em->vertex_count; i++)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         if (!ev.selected)
             continue;
 
@@ -331,16 +336,16 @@ static void UpdateEdgeState()
     MarkModified(GetEditingAsset());
 }
 
-static void UpdateScaleState(EditorAsset& ea)
+static void UpdateScaleState(EditorAsset* ea)
 {
     float delta =
         Length(g_view.mouse_world_position - g_mesh_view.selection_drag_start) -
         Length(g_mesh_view.world_drag_start - g_mesh_view.selection_drag_start);
 
-    EditorMesh& em = GetEditingMesh();
-    for (i32 i=0; i<em.vertex_count; i++)
+    EditorMesh* em = GetEditingMesh();
+    for (i32 i=0; i<em->vertex_count; i++)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         if (!ev.selected)
             continue;
 
@@ -354,7 +359,7 @@ static void UpdateScaleState(EditorAsset& ea)
     MarkModified(ea);
 }
 
-static void UpdateRotateState(EditorAsset& ea)
+static void UpdateRotateState(EditorAsset* ea)
 {
     Vec2 start_dir = g_mesh_view.world_drag_start - g_mesh_view.selection_drag_start;
     Vec2 current_dir = g_view.mouse_world_position - g_mesh_view.selection_drag_start;
@@ -366,10 +371,10 @@ static void UpdateRotateState(EditorAsset& ea)
     float cos_angle = cosf(rotation_angle);
     float sin_angle = sinf(rotation_angle);
 
-    EditorMesh& em = GetEditingMesh();
-    for (i32 i=0; i<em.vertex_count; i++)
+    EditorMesh* em = GetEditingMesh();
+    for (i32 i=0; i<em->vertex_count; i++)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         if (!ev.selected)
             continue;
 
@@ -393,10 +398,10 @@ static void UpdateMoveState()
 {
     Vec2 delta = g_view.mouse_world_position - g_mesh_view.world_drag_start;
 
-    EditorMesh& em = GetEditingMesh();
-    for (int i=0; i<em.vertex_count; i++)
+    EditorMesh* em = GetEditingMesh();
+    for (int i=0; i<em->vertex_count; i++)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         MeshViewVertex& mvv = g_mesh_view.vertices[i];
         if (ev.selected)
             ev.position = mvv.saved_position + delta;
@@ -409,28 +414,28 @@ static void UpdateMoveState()
 
 static void SetState(MeshEditorState state)
 {
-    EditorAsset& ea = GetEditingAsset();
+    EditorAsset* ea = GetEditingAsset();
     g_mesh_view.state = state;
     g_mesh_view.world_drag_start = g_view.mouse_world_position;
     g_mesh_view.state_mouse = g_view.mouse_position;
-    g_mesh_view.selection_drag_start = ea.position + g_mesh_view.selection_center;
+    g_mesh_view.selection_drag_start = ea->position + g_mesh_view.selection_center;
     g_mesh_view.use_fixed_value = false;
     g_mesh_view.use_negative_fixed_value = false;
 
-    EditorMesh& em = GetEditingMesh();
-    for (int i=0; i<em.vertex_count; i++)
+    EditorMesh* em = GetEditingMesh();
+    for (int i=0; i<em->vertex_count; i++)
     {
         MeshViewVertex& mvv = g_mesh_view.vertices[i];
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         mvv.saved_position = ev.position;
         mvv.saved_edge_size = ev.edge_size;
         mvv.saved_height = ev.height;
     }
 
-    for (int i=0; i<em.face_count; i++)
+    for (int i=0; i<em->face_count; i++)
     {
         MeshViewFace& mvf = g_mesh_view.faces[i];
-        EditorFace& ef = em.faces[i];
+        EditorFace& ef = em->faces[i];
         mvf.saved_normal = ef.normal;
     }
 
@@ -455,14 +460,14 @@ static bool HandleSelectVertex()
 {
     assert(g_mesh_view.mode == MESH_EDITOR_MODE_VERTEX);
 
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
-    int vertex_index = HitTestVertex(em, g_view.mouse_world_position - ea.position);
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
+    int vertex_index = HitTestVertex(em, g_view.mouse_world_position - ea->position);
     if (vertex_index == -1)
         return false;
 
     if (IsCtrlDown(g_view.input) || IsShiftDown(g_view.input))
-        SelectVertex(vertex_index, !em.vertices[vertex_index].selected);
+        SelectVertex(vertex_index, !em->vertices[vertex_index].selected);
     else
     {
         ClearSelection();
@@ -476,9 +481,9 @@ static bool HandleSelectEdge()
 {
     assert(g_mesh_view.mode == MESH_EDITOR_MODE_EDGE);
 
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
-    int edge_index = HitTestEdge(em, g_view.mouse_world_position - ea.position);
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
+    int edge_index = HitTestEdge(em, g_view.mouse_world_position - ea->position);
     if (edge_index == -1)
         return false;
 
@@ -488,9 +493,9 @@ static bool HandleSelectEdge()
     if (!ctrl && !shift)
         ClearSelection();
 
-    EditorEdge& ee = em.edges[edge_index];
-    const EditorVertex& v0 = em.vertices[ee.v0];
-    const EditorVertex& v1 = em.vertices[ee.v1];
+    EditorEdge& ee = em->edges[edge_index];
+    const EditorVertex& v0 = em->vertices[ee.v0];
+    const EditorVertex& v1 = em->vertices[ee.v1];
 
     if ((!ctrl && !shift) || !v0.selected || !v1.selected)
         SelectEdge(edge_index, true);
@@ -504,11 +509,11 @@ static bool HandleSelectFace()
 {
     assert(g_mesh_view.mode == MESH_EDITOR_MODE_FACE);
 
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
     int triangle_index = HitTestFace(
         em,
-        ea.position,
+        ea->position,
         ScreenToWorld(g_view.camera, GetMousePosition()),
         nullptr);
 
@@ -521,10 +526,10 @@ static bool HandleSelectFace()
     if (!ctrl && !shift)
         ClearSelection();
 
-    EditorFace& et = em.faces[triangle_index];
-    const EditorVertex& v0 = em.vertices[et.v0];
-    const EditorVertex& v1 = em.vertices[et.v1];
-    const EditorVertex& v2 = em.vertices[et.v2];
+    EditorFace& et = em->faces[triangle_index];
+    const EditorVertex& v0 = em->vertices[et.v0];
+    const EditorVertex& v1 = em->vertices[et.v1];
+    const EditorVertex& v2 = em->vertices[et.v2];
 
     if ((!ctrl && !shift) || !v0.selected || !v1.selected || !v2.selected)
         SelectFace(triangle_index, true);
@@ -541,9 +546,9 @@ static void AddVertexAtMouse()
 
     RecordUndo();
 
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
-    int new_vertex = AddVertex(em, g_view.mouse_world_position - ea.position);
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
+    int new_vertex = AddVertex(em, g_view.mouse_world_position - ea->position);
     if (new_vertex == -1)
     {
         CancelUndo();
@@ -556,9 +561,9 @@ static void AddVertexAtMouse()
 
 static void MergeVertices()
 {
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
-    if (em.selected_count < 2)
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
+    if (em->selected_count < 2)
         return;
 
     RecordUndo();
@@ -570,10 +575,10 @@ static void MergeVertices()
 
 static void DissolveSelected()
 {
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
 
-    if (em.selected_count == 0)
+    if (em->selected_count == 0)
         return;
 
     RecordUndo();
@@ -599,10 +604,10 @@ static void RotateEdge()
     if (g_mesh_view.mode != MESH_EDITOR_MODE_EDGE)
         return;
 
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
 
-    if (em.selected_count != 1)
+    if (em->selected_count != 1)
         return;
 
     int edge_index = GetFirstSelectedEdge();
@@ -675,7 +680,7 @@ static bool HandleColorPickerInput(const ElementInput& input)
 
     RecordUndo();
 
-    EditorAsset& ea = *(EditorAsset*)input.user_data;
+    EditorAsset* ea = (EditorAsset*)input.user_data;
     if (IsCtrlDown(g_view.input))
         SetEdgeColor(GetEditingMesh(), { col, row });
     else
@@ -687,7 +692,7 @@ static bool HandleColorPickerInput(const ElementInput& input)
 
 void MeshViewUpdate()
 {
-    EditorAsset& ea = GetEditingAsset();
+    EditorAsset* ea = GetEditingAsset();
 
     BeginCanvas();
     Image(g_mesh_view.color_material, STYLE_MESH_EDITOR_COLORS);
@@ -806,22 +811,22 @@ static void DrawScaleState()
 
 static void DrawCircleControls(float (*value_func)(const EditorVertex& ev))
 {
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
 
-    for (int i=0; i<em.vertex_count; i++)
+    for (int i=0; i<em->vertex_count; i++)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         if (!ev.selected || !IsVertexOnOutsideEdge(em, i))
             continue;
 
         BindColor(COLOR_VERTEX_SELECTED);
-        DrawMesh(g_view.circle_mesh, TRS(ev.position + ea.position, 0, VEC2_ONE * CIRCLE_CONTROL_OUTLINE_SIZE * g_view.zoom_ref_scale));
+        DrawMesh(g_view.circle_mesh, TRS(ev.position + ea->position, 0, VEC2_ONE * CIRCLE_CONTROL_OUTLINE_SIZE * g_view.zoom_ref_scale));
     }
 
-    for (int i=0; i<em.vertex_count; i++)
+    for (int i=0; i<em->vertex_count; i++)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         if (!ev.selected || !IsVertexOnOutsideEdge(em, i))
             continue;
 
@@ -829,9 +834,9 @@ static void DrawCircleControls(float (*value_func)(const EditorVertex& ev))
         i32 arc = Clamp((i32)(100 * h), 0, 100);
 
         BindColor(COLOR_BLACK);
-        DrawMesh(g_view.circle_mesh, TRS(ev.position + ea.position, 0, VEC2_ONE * CIRCLE_CONTROL_SIZE * g_view.zoom_ref_scale));
+        DrawMesh(g_view.circle_mesh, TRS(ev.position + ea->position, 0, VEC2_ONE * CIRCLE_CONTROL_SIZE * g_view.zoom_ref_scale));
         BindColor(COLOR_VERTEX_SELECTED);
-        DrawMesh(g_view.arc_mesh[arc], TRS(ev.position + ea.position, 0, VEC2_ONE * CIRCLE_CONTROL_SIZE * g_view.zoom_ref_scale));
+        DrawMesh(g_view.arc_mesh[arc], TRS(ev.position + ea->position, 0, VEC2_ONE * CIRCLE_CONTROL_SIZE * g_view.zoom_ref_scale));
     }
 }
 
@@ -857,16 +862,16 @@ static void DrawEdgeState()
 
 void MeshViewDraw()
 {
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
 
     // Mesh
     BindColor(COLOR_WHITE);
-    DrawMesh(em, Translate(ea.position));
+    DrawMesh(em, Translate(ea->position));
 
     // Edges
     BindColor(COLOR_EDGE);
-    DrawEdges(em, ea.position);
+    DrawEdges(em, ea->position);
 
     switch (g_mesh_view.mode)
     {
@@ -879,13 +884,13 @@ void MeshViewDraw()
 
     case MESH_EDITOR_MODE_EDGE:
         BindColor(COLOR_EDGE_SELECTED);
-        DrawSelectedEdges(em, ea.position);
+        DrawSelectedEdges(em, ea->position);
         break;
 
     case MESH_EDITOR_MODE_FACE:
         BindColor(COLOR_VERTEX_SELECTED);
-        DrawSelectedFaces(em, ea.position);
-        DrawFaceCenters(em, ea.position);
+        DrawSelectedFaces(em, ea->position);
+        DrawFaceCenters(em, ea->position);
         break;
     }
 
@@ -915,12 +920,12 @@ void MeshViewDraw()
 
 Bounds2 MeshViewBounds()
 {
-    EditorMesh& em = GetEditingMesh();
+    EditorMesh* em = GetEditingMesh();
     Bounds2 bounds = BOUNDS2_ZERO;
     bool first = true;
-    for (int i = 0; i < em.vertex_count; i++)
+    for (int i = 0; i < em->vertex_count; i++)
     {
-        const EditorVertex& ev = em.vertices[i];
+        const EditorVertex& ev = em->vertices[i];
         if (!ev.selected)
             continue;
 
@@ -940,8 +945,8 @@ Bounds2 MeshViewBounds()
 
 void HandleBoxSelect(const Bounds2& bounds)
 {
-    EditorAsset& ea = GetEditingAsset();
-    EditorMesh& em = GetEditingMesh();
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
 
     bool shift = IsShiftDown(g_view.input);
     bool ctrl = IsCtrlDown(g_view.input);
@@ -952,10 +957,10 @@ void HandleBoxSelect(const Bounds2& bounds)
     switch (g_mesh_view.mode)
     {
     case MESH_EDITOR_MODE_VERTEX:
-        for (int i=0; i<em.vertex_count; i++)
+        for (int i=0; i<em->vertex_count; i++)
         {
-            EditorVertex& ev = em.vertices[i];
-            Vec2 vpos = ev.position + ea.position;
+            EditorVertex& ev = em->vertices[i];
+            Vec2 vpos = ev.position + ea->position;
 
             if (vpos.x >= bounds.min.x && vpos.x <= bounds.max.x &&
                 vpos.y >= bounds.min.y && vpos.y <= bounds.max.y)
@@ -969,11 +974,11 @@ void HandleBoxSelect(const Bounds2& bounds)
         break;
 
     case MESH_EDITOR_MODE_EDGE:
-        for (int edge_index=0; edge_index<em.edge_count; edge_index++)
+        for (int edge_index=0; edge_index<em->edge_count; edge_index++)
         {
-            EditorEdge& ee = em.edges[edge_index];
-            Vec2 ev0 = em.vertices[ee.v0].position + ea.position;
-            Vec2 ev1 = em.vertices[ee.v1].position + ea.position;
+            EditorEdge& ee = em->edges[edge_index];
+            Vec2 ev0 = em->vertices[ee.v0].position + ea->position;
+            Vec2 ev1 = em->vertices[ee.v1].position + ea->position;
             if (Intersects(bounds, ev0, ev1))
             {
                 if (!ctrl)
@@ -985,12 +990,12 @@ void HandleBoxSelect(const Bounds2& bounds)
         break;
 
     case MESH_EDITOR_MODE_FACE:
-        for (int face_index=0; face_index<em.face_count; face_index++)
+        for (int face_index=0; face_index<em->face_count; face_index++)
         {
-            EditorFace& ef = em.faces[face_index];
-            Vec2 ev0 = em.vertices[ef.v0].position + ea.position;
-            Vec2 ev1 = em.vertices[ef.v1].position + ea.position;
-            Vec2 ev2 = em.vertices[ef.v2].position + ea.position;
+            EditorFace& ef = em->faces[face_index];
+            Vec2 ev0 = em->vertices[ef.v0].position + ea->position;
+            Vec2 ev1 = em->vertices[ef.v1].position + ea->position;
+            Vec2 ev2 = em->vertices[ef.v2].position + ea->position;
             if (Intersects(bounds, ev0, ev1, ev2))
             {
                 if (!ctrl)
@@ -1011,8 +1016,8 @@ static void HandleMoveCommand()
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    EditorMesh& em = GetEditingMesh();
-    if (em.selected_count == 0)
+    EditorMesh* em = GetEditingMesh();
+    if (em->selected_count == 0)
         return;
 
     SetState(MESH_EDITOR_STATE_MOVE);
@@ -1023,8 +1028,8 @@ static void HandleRotateCommand()
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    EditorMesh& em = GetEditingMesh();
-    if (em.selected_count == 0 || (g_mesh_view.mode == MESH_EDITOR_MODE_VERTEX && em.selected_count == 1))
+    EditorMesh* em = GetEditingMesh();
+    if (em->selected_count == 0 || (g_mesh_view.mode == MESH_EDITOR_MODE_VERTEX && em->selected_count == 1))
         return;
 
     SetState(MESH_EDITOR_STATE_ROTATE);
@@ -1035,8 +1040,8 @@ static void HandleScaleCommand()
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    EditorMesh& em = GetEditingMesh();
-    if (em.selected_count == 0)
+    EditorMesh* em = GetEditingMesh();
+    if (em->selected_count == 0)
         return;
 
     SetState(MESH_EDITOR_STATE_SCALE);
@@ -1047,8 +1052,8 @@ static void HandleNormalCommand()
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    EditorMesh& em = GetEditingMesh();
-    if (em.selected_count == 0)
+    EditorMesh* em = GetEditingMesh();
+    if (em->selected_count == 0)
         return;
 
 
@@ -1061,14 +1066,14 @@ static void HandleEdgeCommand()
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    EditorMesh& em = GetEditingMesh();
-    if (em.selected_count == 0)
+    EditorMesh* em = GetEditingMesh();
+    if (em->selected_count == 0)
         return;
 
     bool has_outside_edge = false;
-    for (int i=0; i<em.vertex_count && !has_outside_edge; i++)
+    for (int i=0; i<em->vertex_count && !has_outside_edge; i++)
     {
-        EditorVertex& ev = em.vertices[i];
+        EditorVertex& ev = em->vertices[i];
         if (!ev.selected || !IsVertexOnOutsideEdge(em, i))
             continue;
 
@@ -1140,18 +1145,18 @@ static void CenterMesh()
     Center(GetEditingMesh());
 }
 
-static bool ExtrudeSelectedEdges(EditorMesh& em)
+static bool ExtrudeSelectedEdges(EditorMesh* em)
 {
-    if (em.edge_count == 0)
+    if (em->edge_count == 0)
         return false;
 
     // Collect all selected edges
     int selected_edges[MAX_EDGES];
     int selected_edge_count = 0;
 
-    for (int i = 0; i < em.edge_count; i++)
+    for (int i = 0; i < em->edge_count; i++)
     {
-        if (em.edges[i].selected && selected_edge_count < MAX_EDGES)
+        if (em->edges[i].selected && selected_edge_count < MAX_EDGES)
         {
             selected_edges[selected_edge_count++] = i;
         }
@@ -1164,7 +1169,7 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
     bool vertex_needs_extrusion[MAX_VERTICES] = {};
     for (int i = 0; i < selected_edge_count; i++)
     {
-        const EditorEdge& ee = em.edges[selected_edges[i]];
+        const EditorEdge& ee = em->edges[selected_edges[i]];
         vertex_needs_extrusion[ee.v0] = true;
         vertex_needs_extrusion[ee.v1] = true;
     }
@@ -1175,20 +1180,20 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
         vertex_mapping[i] = -1;
 
     // Create new vertices for each unique vertex that needs extrusion
-    for (int i = 0; i < em.vertex_count; i++)
+    for (int i = 0; i < em->vertex_count; i++)
     {
         if (!vertex_needs_extrusion[i])
             continue;
 
-        if (em.vertex_count >= MAX_VERTICES)
+        if (em->vertex_count >= MAX_VERTICES)
             return false;
 
-        int new_vertex_index = em.vertex_count++;
+        int new_vertex_index = em->vertex_count++;
         vertex_mapping[i] = new_vertex_index;
 
         // Copy vertex properties and offset position along edge normal
-        EditorVertex& old_vertex = em.vertices[i];
-        EditorVertex& new_vertex = em.vertices[new_vertex_index];
+        EditorVertex& old_vertex = em->vertices[i];
+        EditorVertex& new_vertex = em->vertices[new_vertex_index];
 
         new_vertex = old_vertex;
 
@@ -1204,7 +1209,7 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
     // Create new edges for the extruded geometry
     for (int i = 0; i < selected_edge_count; i++)
     {
-        const EditorEdge& original_edge = em.edges[selected_edges[i]];
+        const EditorEdge& original_edge = em->edges[selected_edges[i]];
         int old_v0 = original_edge.v0;
         int old_v1 = original_edge.v1;
         int new_v0 = vertex_mapping[old_v0];
@@ -1214,10 +1219,10 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
             continue;
 
         // Create connecting edges between old and new vertices
-        if (em.edge_count + 3 >= MAX_EDGES)
+        if (em->edge_count + 3 >= MAX_EDGES)
             return false;
 
-        if (em.face_count + 2 >= MAX_TRIANGLES)
+        if (em->face_count + 2 >= MAX_TRIANGLES)
             return false;
 
         // Add edge connecting old_v0 to new_v0
@@ -1242,9 +1247,9 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
         Vec3 face_normal = {0, 0, 1}; // Default normal
         bool edge_reversed = false; // Track if edge direction is reversed in the face
 
-        for (int face_idx = 0; face_idx < em.face_count; face_idx++)
+        for (int face_idx = 0; face_idx < em->face_count; face_idx++)
         {
-            const EditorFace& ef = em.faces[face_idx];
+            const EditorFace& ef = em->faces[face_idx];
             // Check if this face uses the original edge and determine orientation
             if (ef.v0 == old_v0 && ef.v1 == old_v1)
             {
@@ -1295,7 +1300,7 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
         {
             // Normal orientation: edge goes from old_v0 to old_v1 in the face
             // Triangle 1: old_v0, new_v0, old_v1 (flipped to face outward)
-            EditorFace& tri1 = em.faces[em.face_count++];
+            EditorFace& tri1 = em->faces[em->face_count++];
             tri1.v0 = old_v0;
             tri1.v1 = new_v0;
             tri1.v2 = old_v1;
@@ -1305,7 +1310,7 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
             FixWinding(em, tri1);
 
             // Triangle 2: old_v1, new_v0, new_v1 (flipped to face outward)
-            EditorFace& tri2 = em.faces[em.face_count++];
+            EditorFace& tri2 = em->faces[em->face_count++];
             tri2.v0 = old_v1;
             tri2.v1 = new_v0;
             tri2.v2 = new_v1;
@@ -1318,7 +1323,7 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
         {
             // Reversed orientation: edge goes from old_v1 to old_v0 in the face
             // Triangle 1: old_v1, new_v1, old_v0 (flipped to face outward)
-            EditorFace& tri1 = em.faces[em.face_count++];
+            EditorFace& tri1 = em->faces[em->face_count++];
             tri1.v0 = old_v1;
             tri1.v1 = new_v1;
             tri1.v2 = old_v0;
@@ -1328,7 +1333,7 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
             FixWinding(em, tri1);
 
             // Triangle 2: old_v0, new_v1, new_v0 (flipped to face outward)
-            EditorFace& tri2 = em.faces[em.face_count++];
+            EditorFace& tri2 = em->faces[em->face_count++];
             tri2.v0 = old_v0;
             tri2.v1 = new_v1;
             tri2.v2 = new_v0;
@@ -1352,9 +1357,9 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
         int v1 = new_edge_vertex_pairs[i][1];
 
         // Find the edge with these vertices
-        for (int edge_idx = 0; edge_idx < em.edge_count; edge_idx++)
+        for (int edge_idx = 0; edge_idx < em->edge_count; edge_idx++)
         {
-            const EditorEdge& ee = em.edges[edge_idx];
+            const EditorEdge& ee = em->edges[edge_idx];
             if ((ee.v0 == v0 && ee.v1 == v1) || (ee.v0 == v1 && ee.v1 == v0))
             {
                 SelectEdge(edge_idx, true);
@@ -1368,9 +1373,9 @@ static bool ExtrudeSelectedEdges(EditorMesh& em)
 
 static void ExtrudeSelected()
 {
-    EditorMesh& em = GetEditingMesh();
+    EditorMesh* em = GetEditingMesh();
 
-    if (g_mesh_view.mode != MESH_EDITOR_MODE_EDGE || em.selected_count <= 0)
+    if (g_mesh_view.mode != MESH_EDITOR_MODE_EDGE || em->selected_count <= 0)
         return;
 
     RecordUndo();
@@ -1385,7 +1390,7 @@ static void ExtrudeSelected()
 
 void MeshViewInit()
 {
-    EditorMesh& em = GetEditingMesh();
+    EditorMesh* em = GetEditingMesh();
 
     Listen(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
 
@@ -1400,8 +1405,8 @@ void MeshViewInit()
     g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
     g_mesh_view.mode = MESH_EDITOR_MODE_VERTEX;
 
-    for (int i=0; i<em.vertex_count; i++)
-        em.vertices[i].selected = false;
+    for (int i=0; i<em->vertex_count; i++)
+        em->vertices[i].selected = false;
 
     if (!g_mesh_view.color_material)
     {

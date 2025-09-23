@@ -3,35 +3,36 @@
 //
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
-static EditorSkeleton& GetEditorSkeleton(EditorAnimation& en) { return GetEditorAsset(en.skeleton_asset_index)->skeleton; }
+static void Init(EditorAnimation* ea);
 
-void UpdateTransforms(EditorAnimation& en)
-{
-    EditorSkeleton& es = GetEditorSkeleton(en);
-    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
-    {
-        EditorBone& eb = es.bones[bone_index];
-        Transform& frame = GetFrameTransform(en, bone_index, en.current_frame);
+inline EditorSkeleton* GetEditorSkeleton(EditorAnimation* en) {
+    return GetEditorSkeleton(en->skeleton_asset_index);
+}
 
-        en.animator.bones[bone_index] = TRS(
+void UpdateTransforms(EditorAnimation* en) {
+    EditorSkeleton* es = GetEditorSkeleton(en);
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        EditorBone& eb = es->bones[bone_index];
+        Transform& frame = GetFrameTransform(en, bone_index, en->current_frame);
+
+        en->animator.bones[bone_index] = TRS(
             eb.transform.position + frame.position,
             frame.rotation,
             eb.transform.scale);
     }
 
-    for (int bone_index=1; bone_index<es.bone_count; bone_index++)
-        en.animator.bones[bone_index] = en.animator.bones[es.bones[bone_index].parent_index] * en.animator.bones[bone_index];
+    for (int bone_index=1; bone_index<es->bone_count; bone_index++)
+        en->animator.bones[bone_index] = en->animator.bones[es->bones[bone_index].parent_index] * en->animator.bones[bone_index];
 }
 
-void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& position)
-{
-    EditorSkeleton& es = GetEditorSkeleton(en);
-    int parent_index = es.bones[bone_index].parent_index;
+void DrawEditorAnimationBone(EditorAnimation* en, int bone_index, const Vec2& position) {
+    EditorSkeleton* es = GetEditorSkeleton(en);
+    int parent_index = es->bones[bone_index].parent_index;
     if (parent_index < 0)
         parent_index = bone_index;
 
-    Mat3 eb = en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation);
-    Mat3 ep = en.animator.bones[parent_index];
+    Mat3 eb = en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation);
+    Mat3 ep = en->animator.bones[parent_index];
 
     Vec2 p0 = TransformPoint(eb);
     Vec2 p1 = TransformPoint(eb, Vec2 {1, 0});
@@ -42,46 +43,44 @@ void DrawEditorAnimationBone(EditorAnimation& en, int bone_index, const Vec2& po
     DrawBone(p0 + position, p1 + position);
 }
 
-void DrawEditorAnimation(EditorAsset& ea)
-{
-    EditorAnimation& en = ea.animation;
-    EditorSkeleton& es = GetEditorSkeleton(en);
+void DrawEditorAnimation(EditorAsset* ea) {
+    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    EditorAnimation* en = (EditorAnimation*)ea;
+    EditorSkeleton* es = GetEditorSkeleton(en);
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
-    for (int i=0; i<es.skinned_mesh_count; i++)
-    {
-        EditorAsset* skinned_mesh_asset = GetEditorAsset(es.skinned_meshes[i].asset_index);
-        if (!skinned_mesh_asset || skinned_mesh_asset->type != EDITOR_ASSET_TYPE_MESH)
+    for (int i=0; i<es->skinned_mesh_count; i++) {
+        EditorMesh* skinned_mesh = GetEditorMesh(es->skinned_meshes[i].asset_index);
+        if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
-        DrawMesh(skinned_mesh_asset->mesh, Translate(ea.position) * en.animator.bones[es.skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh->mesh, Translate(ea->position) * en->animator.bones[es->skinned_meshes[i].bone_index]);
     }
 
-    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
-        DrawEditorAnimationBone(en, bone_index, ea.position);
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+        DrawEditorAnimationBone(en, bone_index, ea->position);
 }
 
-static void ParseSkeletonBone(Tokenizer& tk, const EditorSkeleton& es, int bone_index, int* bone_map)
-{
+static void ParseSkeletonBone(Tokenizer& tk, EditorSkeleton* es, int bone_index, int* bone_map) {
     if (!ExpectQuotedString(tk))
         throw std::exception("missing quoted bone name");
 
     bone_map[bone_index] = FindBoneIndex(es, GetName(tk));
 }
 
-void UpdateSkeleton(EditorAnimation& en)
+void UpdateSkeleton(EditorAnimation* en)
 {
-    EditorSkeleton& es = GetEditorSkeleton(en);
+    EditorSkeleton* es = GetEditorSkeleton(en);
 
     // Create a mapping table based on the name
     int bone_map[MAX_BONES];
     for (int i=0; i<MAX_BONES; i++)
         bone_map[i] = -1;
 
-    for (int i=0; i<en.bone_count; i++)
+    for (int i=0; i<en->bone_count; i++)
     {
-        int new_bone_index = FindBoneIndex(es, en.bones[i].name);
+        int new_bone_index = FindBoneIndex(es, en->bones[i].name);
         if (new_bone_index == -1)
             continue;
         bone_map[new_bone_index] = i;
@@ -89,62 +88,63 @@ void UpdateSkeleton(EditorAnimation& en)
 
     // recreate the frames using the new bone indicies and then fix the bones
     Transform new_frames[MAX_BONES * MAX_ANIMATION_FRAMES];
-    for (int frame_index=0; frame_index<en.frame_count; frame_index++)
-        for (int bone_index=0; bone_index<es.bone_count; bone_index++)
-            new_frames[frame_index * MAX_BONES + bone_index] = en.frames[frame_index * MAX_BONES + bone_map[bone_index]];
+    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
+        for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+            new_frames[frame_index * MAX_BONES + bone_index] = en->frames[frame_index * MAX_BONES + bone_map[bone_index]];
 
     // copy the new frames back
-    memcpy(en.frames, new_frames, sizeof(new_frames));
+    memcpy(en->frames, new_frames, sizeof(new_frames));
 
     // fix the bones
-    for (int i=0; i<es.bone_count; i++)
+    for (int i=0; i<es->bone_count; i++)
     {
-        EditorAnimationBone& enb = en.bones[i];
+        EditorAnimationBone& enb = en->bones[i];
         enb.index = i;
-        enb.name = es.bones[i].name;
+        enb.name = es->bones[i].name;
     }
 
-    en.bone_count = es.bone_count;
+    en->bone_count = es->bone_count;
 
     UpdateBounds(en);
     UpdateTransforms(en);
 }
 
-static void ParseSkeleton(EditorAnimation& en, Tokenizer& tk, int* bone_map)
+static void ParseSkeleton(EditorAnimation* en, Tokenizer& tk, int* bone_map)
 {
     if (!ExpectQuotedString(tk))
         throw std::exception("missing quoted skeleton name");
 
-    en.skeleton_name = GetName(tk);
+    en->skeleton_name = GetName(tk);
 
-    std::filesystem::path skeleton_path = GetEditorAssetPath(en.skeleton_name, ".skel");
-    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, skeleton_path);
+    std::filesystem::path skeleton_path = GetEditorAssetPath(en->skeleton_name, ".skel");
+    EditorSkeleton* es = LoadEditorSkeleton(skeleton_path);
+    assert(es);
 
     for (int i=0; i<es->bone_count; i++)
     {
-        EditorAnimationBone& enb = en.bones[i];
+        EditorAnimationBone& enb = en->bones[i];
         EditorBone& eb = es->bones[i];
         enb.name = eb.name;
         enb.index = i;
     }
 
-    en.bone_count = es->bone_count;
+    en->bone_count = es->bone_count;
 
     for (int frame_index=0; frame_index<MAX_ANIMATION_FRAMES; frame_index++)
         for (int bone_index=0; bone_index<MAX_BONES; bone_index++)
-            SetIdentity(en.frames[frame_index * MAX_BONES + bone_index]);
+            SetIdentity(en->frames[frame_index * MAX_BONES + bone_index]);
 
     int bone_index = 0;
     while (!IsEOF(tk))
     {
         if (ExpectIdentifier(tk, "b"))
-            ParseSkeletonBone(tk, *es, bone_index++, bone_map);
+            ParseSkeletonBone(tk, es, bone_index++, bone_map);
         else
             break;
     }
 }
 
-static int ParseFrameBone(EditorAnimation& ea, Tokenizer& tk, int* bone_map)
+static int ParseFrameBone(EditorAnimation* ea, Tokenizer& tk, int* bone_map)
 {
     (void)ea;
     int bone_index;
@@ -154,7 +154,7 @@ static int ParseFrameBone(EditorAnimation& ea, Tokenizer& tk, int* bone_map)
     return bone_map[bone_index];
 }
 
-static void ParseFramePosition(EditorAnimation& en, Tokenizer& tk, int bone_index, int frame_index)
+static void ParseFramePosition(EditorAnimation* en, Tokenizer& tk, int bone_index, int frame_index)
 {
     float x;
     if (!ExpectFloat(tk, &x))
@@ -169,7 +169,7 @@ static void ParseFramePosition(EditorAnimation& en, Tokenizer& tk, int bone_inde
     SetPosition(GetFrameTransform(en, bone_index, frame_index), {x,y});
 }
 
-static void ParseFrameRotation(EditorAnimation& en, Tokenizer& tk, int bone_index, int frame_index)
+static void ParseFrameRotation(EditorAnimation* en, Tokenizer& tk, int bone_index, int frame_index)
 {
     float r;
     if (!ExpectFloat(tk, &r))
@@ -181,7 +181,7 @@ static void ParseFrameRotation(EditorAnimation& en, Tokenizer& tk, int bone_inde
     SetRotation(GetFrameTransform(en, bone_index, frame_index), r);
 }
 
-static void ParseFrameScale(EditorAnimation& en, Tokenizer& tk, int bone_index, int frame_index)
+static void ParseFrameScale(EditorAnimation* en, Tokenizer& tk, int bone_index, int frame_index)
 {
     float s;
     if (!ExpectFloat(tk, &s))
@@ -193,46 +193,51 @@ static void ParseFrameScale(EditorAnimation& en, Tokenizer& tk, int bone_index, 
     SetScale(GetFrameTransform(en, bone_index, frame_index), s);
 }
 
-static void ParseFrame(EditorAnimation& en, Tokenizer& tk, int* bone_map)
+static void ParseFrame(EditorAnimation* en, Tokenizer& tk, int* bone_map)
 {
     int bone_index = -1;
-    en.frame_count++;
+    en->frame_count++;
     while (!IsEOF(tk))
     {
         if (ExpectIdentifier(tk, "b"))
             bone_index = ParseFrameBone(en, tk, bone_map);
         else if (ExpectIdentifier(tk, "r"))
-            ParseFrameRotation(en, tk, bone_index, en.frame_count - 1);
+            ParseFrameRotation(en, tk, bone_index, en->frame_count - 1);
         else if (ExpectIdentifier(tk, "s"))
-            ParseFrameScale(en, tk, bone_index, en.frame_count - 1);
+            ParseFrameScale(en, tk, bone_index, en->frame_count - 1);
         else if (ExpectIdentifier(tk, "p"))
-            ParseFramePosition(en, tk, bone_index, en.frame_count - 1);
+            ParseFramePosition(en, tk, bone_index, en->frame_count - 1);
         else
             break;
     }
 }
 
-void UpdateBounds(EditorAnimation& en)
+void UpdateBounds(EditorAnimation* en)
 {
-    en.bounds = GetEditorSkeleton(en).bounds;
+    en->bounds = GetEditorSkeleton(en)->bounds;
 }
 
-static void PostLoadEditorAnimation(EditorAsset& ea)
+static void PostLoadEditorAnimation(EditorAsset* ea)
 {
-    ea.animation.skeleton_asset_index = FindEditorAssetByName(ea.animation.skeleton_name);
-    EditorAnimation& en = ea.animation;
+    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    EditorAnimation* en = (EditorAnimation*)ea;
+
+    en->skeleton_asset_index = FindEditorAssetByName(EDITOR_ASSET_TYPE_SKELETON, en->skeleton_name);
     UpdateTransforms(GetEditorSkeleton(en));
     UpdateTransforms(en);
     UpdateBounds(en);
 }
 
-EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem::path& path)
+EditorAnimation* LoadEditorAnimation(const std::filesystem::path& path)
 {
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
 
-    EditorAnimation* en = (EditorAnimation*)Alloc(allocator, sizeof(EditorAnimation));
+    EditorAnimation* en = (EditorAnimation*)CreateEditorAsset(EDITOR_ASSET_TYPE_ANIMATION, path);
+    assert(en);
+    Init(en);
+
     int bone_map[MAX_BONES];
     for (int i=0; i<MAX_BONES; i++)
         bone_map[i] = -1;
@@ -242,9 +247,9 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
         while (!IsEOF(tk))
         {
             if (ExpectIdentifier(tk, "s"))
-                ParseSkeleton(*en, tk, bone_map);
+                ParseSkeleton(en, tk, bone_map);
             else if (ExpectIdentifier(tk, "f"))
-                ParseFrame(*en, tk, bone_map);
+                ParseFrame(en, tk, bone_map);
             else
             {
                 char error[1024];
@@ -277,7 +282,7 @@ EditorAnimation* LoadEditorAnimation(Allocator* allocator, const std::filesystem
     return en;
 }
 
-void Serialize(EditorAnimation& en, Stream* output_stream, EditorSkeleton* es)
+void Serialize(EditorAnimation* en, Stream* output_stream, EditorSkeleton* es)
 {
     assert(es);
 
@@ -287,17 +292,17 @@ void Serialize(EditorAnimation& en, Stream* output_stream, EditorSkeleton* es)
     WriteAssetHeader(output_stream, &header);
 
     WriteU8(output_stream, (u8)es->bone_count);
-    WriteU8(output_stream, (u8)en.frame_count);
+    WriteU8(output_stream, (u8)en->frame_count);
 
     // todo: we could remove bones that have no actual data?
     for (int i=0; i<es->bone_count; i++)
-        WriteU8(output_stream, (u8)en.bones[i].index);
+        WriteU8(output_stream, (u8)en->bones[i].index);
 
     // Write all bone transforms
-    for (int frame_index=0; frame_index<en.frame_count; frame_index++)
+    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
         for (int bone_index=0; bone_index<es->bone_count; bone_index++)
         {
-            Transform& transform = en.frames[frame_index * MAX_BONES + bone_index];
+            Transform& transform = en->frames[frame_index * MAX_BONES + bone_index];
             BoneTransform bone_transform = {
                 .position = transform.position,
                 .scale = transform.scale,
@@ -307,14 +312,14 @@ void Serialize(EditorAnimation& en, Stream* output_stream, EditorSkeleton* es)
         }
 }
 
-Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* name)
+Animation* ToAnimation(Allocator* allocator, EditorAnimation* en, const Name* name)
 {
-    EditorSkeleton& es = GetEditorSkeleton(en);
-
+    EditorSkeleton* es = GetEditorSkeleton(en);
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
         return nullptr;
-    Serialize(en, stream, &es);
+
+    Serialize(en, stream, es);
     SeekBegin(stream, 0);
 
     Animation* animation = (Animation*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_ANIMATION, LoadAnimation, stream);
@@ -323,25 +328,26 @@ Animation* ToAnimation(Allocator* allocator, EditorAnimation& en, const Name* na
     return animation;
 }
 
-static void EditorAnimationSave(EditorAsset& ea, const std::filesystem::path& path)
+static void EditorAnimationSave(EditorAsset* ea, const std::filesystem::path& path)
 {
-    EditorAnimation& en = ea.animation;
-    EditorSkeleton& es = GetEditorSkeleton(en);
+    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    EditorAnimation* en = (EditorAnimation*)ea;
+    EditorSkeleton* es = GetEditorSkeleton(en);
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
-    WriteCSTR(stream, "s \"%s\"\n", en.skeleton_name->value);
+    WriteCSTR(stream, "s \"%s\"\n", en->skeleton_name->value);
 
-    for (int i=0; i<es.bone_count; i++)
+    for (int i=0; i<es->bone_count; i++)
     {
-        const EditorAnimationBone& eab = en.bones[i];
+        const EditorAnimationBone& eab = en->bones[i];
         WriteCSTR(stream, "b \"%s\"\n", eab.name->value);
     }
 
-    for (int frame_index=0; frame_index<en.frame_count; frame_index++)
+    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
     {
         WriteCSTR(stream, "f\n");
-        for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+        for (int bone_index=0; bone_index<es->bone_count; bone_index++)
         {
             Transform& bt = GetFrameTransform(en, bone_index, frame_index);
 
@@ -371,59 +377,57 @@ static void EditorAnimationSave(EditorAsset& ea, const std::filesystem::path& pa
     Free(stream);
 }
 
-int InsertFrame(EditorAnimation& en, int frame_index)
+int InsertFrame(EditorAnimation* en, int frame_index)
 {
-    int copy_frame = 1;
-    if (frame_index > 0)
-        copy_frame = frame_index - 1;
+    int copy_frame = Max(0,frame_index - 1);
 
-    EditorSkeleton& es = GetEditorSkeleton(en);
-    for (int i=frame_index + 1; i<en.frame_count; i++)
-        for (int j=0; j<es.bone_count; j++)
+    EditorSkeleton* es = GetEditorSkeleton(en);
+    for (int i=frame_index + 1; i<en->frame_count; i++)
+        for (int j=0; j<es->bone_count; j++)
             GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i - 1);
 
-    en.frame_count++;
+    en->frame_count++;
 
-    if (copy_frame > 0)
-        for (int j=0; j<es.bone_count; j++)
+    if (copy_frame >= 0)
+        for (int j=0; j<es->bone_count; j++)
             GetFrameTransform(en, j, frame_index) = GetFrameTransform(en, j, copy_frame);
 
     return frame_index;
 }
 
-int DeleteFrame(EditorAnimation& en, int frame_index)
+int DeleteFrame(EditorAnimation* en, int frame_index)
 {
-    if (en.frame_count <= 1)
+    if (en->frame_count <= 1)
         return frame_index;
 
-    for (int i=frame_index; i<en.frame_count - 1; i++)
+    for (int i=frame_index; i<en->frame_count - 1; i++)
         for (int j=0; j<MAX_BONES; j++)
             GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i + 1);
 
-    en.frame_count--;
+    en->frame_count--;
 
-    return Min(frame_index, en.frame_count - 1);
+    return Min(frame_index, en->frame_count - 1);
 }
 
-Transform& GetFrameTransform(EditorAnimation& en, int bone_index, int frame_index)
+Transform& GetFrameTransform(EditorAnimation* en, int bone_index, int frame_index)
 {
     assert(bone_index >= 0 && bone_index < MAX_BONES);
-    assert(frame_index >= 0 && frame_index < en.frame_count);
-    return en.frames[frame_index * MAX_BONES + bone_index];
+    assert(frame_index >= 0 && frame_index < en->frame_count);
+    return en->frames[frame_index * MAX_BONES + bone_index];
 }
 
-int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
+int HitTestBone(EditorAnimation* en, const Vec2& world_pos)
 {
-    EditorSkeleton& es = GetEditorSkeleton(en);
+    EditorSkeleton* es = GetEditorSkeleton(en);
 
     UpdateTransforms(en);
 
     const float size = g_view.select_size;
     float best_dist = F32_MAX;
     int best_bone_index = -1;
-    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
     {
-        Vec2 b0 = TransformPoint(en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation));
+        Vec2 b0 = TransformPoint(en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation));
         float dist = Length(b0 - world_pos);
         if (dist < size && dist < best_dist)
         {
@@ -437,12 +441,12 @@ int HitTestBone(EditorAnimation& en, const Vec2& world_pos)
 
     best_bone_index = -1;
     best_dist = F32_MAX;
-    for (int bone_index=0; bone_index<es.bone_count; bone_index++)
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
     {
-        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(-es.bones[bone_index].transform.rotation), TransformPoint(Inverse(en.animator.bones[bone_index]), world_pos))))
+        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(-es->bones[bone_index].transform.rotation), TransformPoint(Inverse(en->animator.bones[bone_index]), world_pos))))
             continue;
 
-        Mat3 local_to_world = en.animator.bones[bone_index] * Rotate(es.bones[bone_index].transform.rotation);
+        Mat3 local_to_world = en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation);
         Vec2 b0 = TransformPoint(local_to_world);
         Vec2 b1 = TransformPoint(local_to_world, {1, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
@@ -481,51 +485,55 @@ EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
     SaveStream(stream, full_path);
     Free(stream);
 
-    return LoadEditorAnimationAsset(full_path);
+    return LoadEditorAnimation(full_path);
 }
 
-static bool EditorAnimationOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
+static bool EditorAnimationOverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)
 {
-    return Contains(ea.animation.bounds + position, overlap_point);
+    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    EditorAnimation* en = (EditorAnimation*)ea;
+    return Contains(en->bounds + position, overlap_point);
 }
 
-static bool EditorAnimationOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
+static bool EditorAnimationOverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
 {
-    return Intersects(ea.animation.bounds + ea.position, overlap_bounds);
+    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    EditorAnimation* en = (EditorAnimation*)ea;
+    return Intersects(en->bounds + ea->position, overlap_bounds);
 }
 
-static Bounds2 EditorAnimationBounds(EditorAsset& ea)
+static Bounds2 EditorAnimationBounds(EditorAsset* ea)
 {
-    return ea.animation.bounds;
+    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    EditorAnimation* en = (EditorAnimation*)ea;
+    return en->bounds;
 }
 
-static void EditorAnimationClone(EditorAsset& ea)
+static void EditorAnimationClone(EditorAsset* ea)
 {
-    ea.animation.animation = nullptr;
-    ea.animation.animator = {};
-    UpdateTransforms(ea.animation);
-    UpdateBounds(ea.animation);
+    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    EditorAnimation* en = (EditorAnimation*)ea;
+    en->animation = nullptr;
+    en->animator = {};
+    UpdateTransforms(en);
+    UpdateBounds(en);
 }
 
-static void EditorAnimationUndoRedo(EditorAsset& ea)
+static void EditorAnimationUndoRedo(EditorAsset* ea)
 {
-    UpdateSkeleton(ea.animation);
-    UpdateTransforms(ea.animation);
+    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    EditorAnimation* en = (EditorAnimation*)ea;
+    UpdateSkeleton(en);
+    UpdateTransforms(en);
 }
 
-EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
+static void Init(EditorAnimation* ea)
 {
     extern void AnimationViewInit();
     extern void AnimationViewDraw();
     extern void AnimationViewUpdate();
     extern void AnimationViewShutdown();
 
-    EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, path);
-    if (!en)
-        return nullptr;
-
-    EditorAsset* ea = CreateEditorAsset(ALLOCATOR_DEFAULT, path, EDITOR_ASSET_TYPE_ANIMATION);
-    ea->animation = *en;
     ea->vtable = {
         .bounds = EditorAnimationBounds,
         .post_load = PostLoadEditorAnimation,
@@ -537,7 +545,4 @@ EditorAsset* LoadEditorAnimationAsset(const std::filesystem::path& path)
         .clone = EditorAnimationClone,
         .undo_redo = EditorAnimationUndoRedo
     };
-
-    Free(en);
-    return ea;
 }

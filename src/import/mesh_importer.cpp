@@ -23,11 +23,11 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
     (void)config;
     (void)meta;
 
-    EditorMesh* em = LoadEditorMesh(ALLOCATOR_DEFAULT, source_path);
+    EditorMesh* em = LoadEditorMesh(source_path);
     if (!em)
         throw std::runtime_error("invalid mesh");
 
-    Mesh* m = ToMesh(*em, false);
+    Mesh* m = ToMesh(em, false);
 
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_MESH;
@@ -35,8 +35,8 @@ void ImportMesh(const fs::path& source_path, Stream* output_stream, Props* confi
     WriteAssetHeader(output_stream, &header);
 
     WriteStruct(output_stream, em->bounds);
-    WriteU16(output_stream, (u16)GetVertexCount(m));
-    WriteU16(output_stream, (u16)GetIndexCount(m));
+    WriteU16(output_stream, GetVertexCount(m));
+    WriteU16(output_stream, GetIndexCount(m));
 
     const MeshVertex* v = GetVertices(m);
     WriteBytes(output_stream, v, sizeof(MeshVertex) * GetVertexCount(m));

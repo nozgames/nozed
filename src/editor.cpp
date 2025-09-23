@@ -180,6 +180,7 @@ static void InitConfig()
 void InitEditor()
 {
     g_main_thread_id = std::this_thread::get_id();
+    g_editor.asset_allocator = CreatePoolAllocator(sizeof(EditorAssetData), MAX_ASSETS);
 
     InitLog(HandleLog);
     Listen(EDITOR_EVENT_STATS, HandleStatsEvents);

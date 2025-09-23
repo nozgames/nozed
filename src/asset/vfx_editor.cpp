@@ -4,11 +4,15 @@
 
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
+static void Init(EditorVfx* evfx);
 
-void DrawEditorVfx(EditorAsset& ea)
+static void EditorVfxDraw(EditorAsset* ea)
 {
-    if (!IsPlaying(ea.vfx.handle) && ea.vfx.vfx)
-        ea.vfx.handle = Play(ea.vfx.vfx, ea.position);
+    EditorVfx* evfx = (EditorVfx*)ea;
+    assert(evfx);
+    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    if (!IsPlaying(evfx->handle) && evfx->vfx)
+        evfx->handle = Play(evfx->vfx, ea->position);
 }
 
 static bool ParseCurveType(Tokenizer& tk, VfxCurveType* curve_type)
@@ -331,9 +335,9 @@ Vfx* ToVfx(Allocator* allocator, const EditorVfx& evfx, const Name* name)
     return vfx;
 }
 
-EditorVfx* LoadEditorVfx(Allocator* allocator, const std::filesystem::path& source_path)
+EditorVfx* LoadEditorVfx(const std::filesystem::path& path)
 {
-    Stream* input_stream = LoadStream(ALLOCATOR_DEFAULT, source_path);
+    Stream* input_stream = LoadStream(ALLOCATOR_DEFAULT, path);
     if (!input_stream)
         throw std::runtime_error("could not read file");
 
@@ -344,7 +348,10 @@ EditorVfx* LoadEditorVfx(Allocator* allocator, const std::filesystem::path& sour
         throw std::runtime_error("could not load source file");
     }
 
-    EditorVfx* ex = (EditorVfx*)Alloc(allocator, sizeof(EditorVfx));
+    EditorVfx* ex = (EditorVfx*)CreateEditorAsset(EDITOR_ASSET_TYPE_VFX, path);
+    assert(ex);
+    Init(ex);
+
     ex->duration = ParseFloat(source->GetString("VFX", "duration", "5.0"), {5,5});
     ex->loop = source->GetBool("vfx", "loop", false);
 
@@ -382,48 +389,48 @@ EditorVfx* LoadEditorVfx(Allocator* allocator, const std::filesystem::path& sour
     return ex;
 }
 
-EditorAsset* LoadEditorVfxAsset(const std::filesystem::path& path)
+static bool EditorVfxOverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)
 {
-    EditorVfx* evfx = LoadEditorVfx(ALLOCATOR_DEFAULT, path);
-    if (!evfx)
-        return nullptr;
-
-    return CreateEditableVfxAsset(path, evfx);
+    EditorVfx* evfx = (EditorVfx*)ea;
+    assert(evfx);
+    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    return Contains(GetBounds(evfx->vfx) + position, overlap_point);
 }
 
-static bool EditorVfxOverlapPoint(EditorAsset& ea, const Vec2& position, const Vec2& overlap_point)
+static bool EditorVfxOverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
 {
-    return Contains(GetBounds(ea.vfx.vfx) + position, overlap_point);
+    EditorVfx* evfx = (EditorVfx*)ea;
+    assert(evfx);
+    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    return Intersects(GetBounds(evfx->vfx) + ea->position, overlap_bounds);
 }
 
-static bool EditorVfxOverlapBounds(EditorAsset& ea, const Bounds2& overlap_bounds)
+static Bounds2 EditorVfxBounds(EditorAsset* ea)
 {
-    return Intersects(GetBounds(ea.vfx.vfx) + ea.position, overlap_bounds);
+    EditorVfx* evfx = (EditorVfx*)ea;
+    assert(evfx);
+    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    return GetBounds(evfx->vfx);
 }
 
-static Bounds2 EditorVfxBounds(EditorAsset& ea)
+static void EditorVfxClone(EditorAsset* ea)
 {
-    return GetBounds(ea.vfx.vfx);
+    EditorVfx* evfx = (EditorVfx*)ea;
+    assert(evfx);
+    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    evfx->vfx = nullptr;
+    evfx->handle = INVALID_VFX_HANDLE;
 }
 
-static void EditorVfxClone(EditorAsset& ea)
+static void Init(EditorVfx* evfx)
 {
-    ea.vfx.vfx = nullptr;
-    ea.vfx.handle = INVALID_VFX_HANDLE;
-}
-
-EditorAsset* CreateEditableVfxAsset(const std::filesystem::path& path, EditorVfx* evfx)
-{
-    EditorAsset* ea = CreateEditorAsset(ALLOCATOR_DEFAULT, path, EDITOR_ASSET_TYPE_VFX);
-    ea->vfx = *evfx;
-    ea->vfx.vfx = ToVfx(ALLOCATOR_DEFAULT, *evfx, ea->name);
-    ea->vfx.handle = INVALID_VFX_HANDLE;
-    ea->vtable = {
+    evfx->vfx = ToVfx(ALLOCATOR_DEFAULT, *evfx, evfx->name);
+    evfx->handle = INVALID_VFX_HANDLE;
+    evfx->vtable = {
         .bounds = EditorVfxBounds,
+        .draw = EditorVfxDraw,
         .overlap_point = EditorVfxOverlapPoint,
         .overlap_bounds = EditorVfxOverlapBounds,
         .clone = EditorVfxClone
     };
-    Free(evfx);
-    return ea;
 }

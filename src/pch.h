@@ -63,9 +63,7 @@ enum EditorEvent
 #include <import/asset_importer.h>
 #include <utils/props.h>
 #include <utils/tokenizer.h>
-#include <asset_editor.h>
-#include <editor.h>
 #include <utils/file_helpers.h>
+#include <editor.h>
 
 extern Props* g_config;
-

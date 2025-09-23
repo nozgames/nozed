@@ -15,7 +15,7 @@ struct EditorVfxEmitter
     VfxEmitterDef def;
 };
 
-struct EditorVfx
+struct EditorVfx : EditorAsset
 {
     VfxFloat duration;
     bool loop;
@@ -25,9 +25,8 @@ struct EditorVfx
     VfxHandle handle;
 };
 
-extern EditorAsset* CreateEditableVfxAsset(const std::filesystem::path& path, EditorVfx* evfx);
-extern EditorVfx* LoadEditorVfx(Allocator* allocator, const std::filesystem::path& path);
+extern EditorVfx* LoadEditorVfx(const std::filesystem::path& path);
 extern Vfx* ToVfx(Allocator* allocator, const EditorVfx& evfx, const Name* name);
 extern void Serialize(const EditorVfx& evfx, Stream* stream);
 extern EditorVfx* Clone(Allocator* allocator, const EditorVfx& evfx);
-extern void DrawEditorVfx(EditorAsset& ea);
+extern void DrawEditorVfx(EditorAsset* ea);

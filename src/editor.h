@@ -4,6 +4,7 @@
 
 #pragma once
 
+constexpr int MAX_ASSETS = 1024;
 constexpr int MAX_VIEWS = 16;
 constexpr int MAX_ASSET_PATHS = 8;
 
@@ -27,6 +28,8 @@ struct Editor
     char asset_paths[MAX_ASSET_PATHS][4096];
     int asset_path_count;
     std::filesystem::file_time_type config_timestamp;
+
+    PoolAllocator* asset_allocator;
 };
 
 extern Editor g_editor;
@@ -57,7 +60,6 @@ struct ImportEvent
 extern void InitCommands();
 extern bool ParseCommand(const char* str, Command& command);
 extern const char* GetVarTypeNameFromSignature(AssetSignature signature);
-
 
 #include "view.h"
 

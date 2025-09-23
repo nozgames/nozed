@@ -38,7 +38,7 @@ static void HandleEdit(const Command& command)
         return;
     }
 
-    int asset_index = FindEditorAssetByName(name);
+    int asset_index = FindEditorAssetByName(EDITOR_ASSET_TYPE_UNKNOWN, name);
     if (asset_index == -1)
     {
         LogError("unknown asset: %s", name->value);
@@ -81,10 +81,8 @@ static void HandleNew(const Command& command)
     ea->position = GetCenter(GetBounds(g_view.camera));
     ea->meta_modified = true;
 
-    AddEditorAsset(ea);
-
     if (ea->vtable.post_load)
-        ea->vtable.post_load(*ea);
+        ea->vtable.post_load(ea);
 }
 
 // @rename

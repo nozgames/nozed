@@ -9,15 +9,15 @@ static void ImportAnimation(const fs::path& source_path, Stream* output_stream, 
     (void)config;
     (void)meta;
 
-    EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, source_path);
+    EditorAnimation* en = LoadEditorAnimation(source_path);
     if (!en)
         ThrowError("failed to load animation");
 
-    EditorSkeleton* es = LoadEditorSkeleton(ALLOCATOR_DEFAULT, GetEditorAssetPath(en->skeleton_name, ".skel"));
+    EditorSkeleton* es = LoadEditorSkeleton(GetEditorAssetPath(en->skeleton_name, ".skel"));
     if (!es)
         ThrowError("invalid skeleton");
 
-    Serialize(*en, output_stream, es);
+    Serialize(en, output_stream, es);
     Free(es);
     Free(en);
 }
@@ -27,7 +27,7 @@ static bool DoesAnimationDependOn(const std::filesystem::path& path, const std::
     if (dependency_path.extension() != ".skel")
         return false;
 
-    EditorAnimation* en = LoadEditorAnimation(ALLOCATOR_DEFAULT, path);
+    EditorAnimation* en = LoadEditorAnimation(path);
     if (!en)
         return false;
 

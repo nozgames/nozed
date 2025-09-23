@@ -9,7 +9,7 @@ void ImportVfx(const fs::path& source_path, Stream* output_stream, Props* config
     (void)config;
     (void)meta;
 
-    EditorVfx* evfx = LoadEditorVfx(ALLOCATOR_DEFAULT, source_path);
+    EditorVfx* evfx = LoadEditorVfx(source_path);
     if (!evfx)
         throw std::exception("failed to load vfx");
 

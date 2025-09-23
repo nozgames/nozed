@@ -56,21 +56,21 @@ void DrawVertex(const Vec2& v, f32 size)
     DrawMesh(g_view.vertex_mesh);
 }
 
-void DrawOrigin(const EditorAsset& ea)
+void DrawOrigin(EditorAsset* ea)
 {
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_ORIGIN_BORDER);
-    DrawVertex(ea.position, ORIGIN_BORDER_SIZE);
+    DrawVertex(ea->position, ORIGIN_BORDER_SIZE);
     BindColor(COLOR_ORIGIN);
-    DrawVertex(ea.position, ORIGIN_SIZE);
+    DrawVertex(ea->position, ORIGIN_SIZE);
 }
 
-void DrawBounds(EditorAsset& ea, float expand)
+void DrawBounds(EditorAsset* ea, float expand)
 {
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BLACK);
     Bounds2 b = Expand(GetBounds(ea), expand);
-    Vec2 center = GetCenter(b) + ea.position;
+    Vec2 center = GetCenter(b) + ea->position;
     Vec2 size = GetSize(b);
     DrawLine ({center.x - size.x * 0.5f, center.y - size.y * 0.5f}, {center.x + size.x * 0.5f, center.y - size.y * 0.5f});
     DrawLine ({center.x + size.x * 0.5f, center.y - size.y * 0.5f}, {center.x + size.x * 0.5f, center.y + size.y * 0.5f});

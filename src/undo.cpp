@@ -8,7 +8,7 @@
 
 struct UndoItem
 {
-    EditorAsset* ea;
+    EditorAssetData ea;
     int group_id;
 };
 
@@ -26,9 +26,6 @@ static UndoSystem g_undo = {};
 
 static void Free(UndoItem& item)
 {
-    if (item.ea)
-        Free(item.ea);
-    item.ea = nullptr;
     item.group_id = -1;
 }
 
@@ -38,7 +35,7 @@ static void CallUndoRedo()
     {
         EditorAsset* ea = GetEditorAsset(g_undo.temp[i]);
         if (ea->vtable.undo_redo)
-            ea->vtable.undo_redo(*ea);
+            ea->vtable.undo_redo(ea);
     }
 
     g_undo.temp_count = 0;
@@ -60,12 +57,15 @@ static bool UndoInternal(bool allow_redo)
         if (allow_redo)
         {
             UndoItem& redo = *(UndoItem*)PushBack(g_undo.redo);
-            redo.ea = GetEditorAsset(undo.ea->index);
+            redo.ea = *(EditorAssetData*)GetEditorAsset(undo.ea.asset.index);
             redo.group_id = group_id;
         }
 
-        g_view.assets[undo.ea->index] = undo.ea;
-        g_undo.temp[g_undo.temp_count++] = undo.ea->index;
+        EditorAsset* ea = GetEditorAsset(undo.ea.asset.index);
+        assert(ea);
+        *(EditorAssetData*)ea = undo.ea;
+
+        g_undo.temp[g_undo.temp_count++] = undo.ea.asset.index;
 
         PopBack(g_undo.undo);
 
@@ -97,12 +97,12 @@ bool Redo()
             break;
 
         UndoItem& undo = *(UndoItem*)PushBack(g_undo.undo);
-        undo.ea = GetEditorAsset(redo.ea->index);
+        undo.ea = *(EditorAssetData*)GetEditorAsset(redo.ea.asset.index);
         undo.group_id = group_id;
 
-        g_view.assets[redo.ea->index] = redo.ea;
+        *(EditorAssetData*)GetEditorAsset(redo.ea.asset.index) = redo.ea;
 
-        g_undo.temp[g_undo.temp_count++] = redo.ea->index;
+        g_undo.temp[g_undo.temp_count++] = redo.ea.asset.index;
 
         PopBack(g_undo.redo);
 
@@ -136,7 +136,7 @@ void RecordUndo()
     RecordUndo(GetEditingAsset());
 }
 
-void RecordUndo(EditorAsset& ea)
+void RecordUndo(EditorAsset* ea)
 {
     // Maxium undo size
     if (IsFull(g_undo.undo))
@@ -148,7 +148,7 @@ void RecordUndo(EditorAsset& ea)
 
     UndoItem& item = *(UndoItem*)PushBack(g_undo.undo);
     item.group_id = g_undo.current_group_id;
-    item.ea = Clone(ALLOCATOR_DEFAULT, ea);
+    item.ea = *(EditorAssetData*)ea;
 
     // Clear the redo
     while (!IsEmpty(g_undo.redo))
