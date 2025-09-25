@@ -1177,17 +1177,11 @@ static bool ExtrudeSelectedEdges(EditorMesh* em)
     if (em->edge_count == 0)
         return false;
 
-    // Collect all selected edges
     int selected_edges[MAX_EDGES];
     int selected_edge_count = 0;
-
     for (int i = 0; i < em->edge_count; i++)
-    {
         if (em->edges[i].selected && selected_edge_count < MAX_EDGES)
-        {
             selected_edges[selected_edge_count++] = i;
-        }
-    }
 
     if (selected_edge_count == 0)
         return false;
@@ -1252,13 +1246,8 @@ static bool ExtrudeSelectedEdges(EditorMesh* em)
         if (em->face_count + 2 >= MAX_FACES)
             return false;
 
-        // Add edge connecting old_v0 to new_v0
         GetOrAddEdge(em, old_v0, new_v0);
-
-        // Add edge connecting old_v1 to new_v1
         GetOrAddEdge(em, old_v1, new_v1);
-
-        // Add new edge connecting new_v0 to new_v1
         GetOrAddEdge(em, new_v0, new_v1);
 
         // Store the vertex pair for the new edge we want to select
@@ -1273,102 +1262,68 @@ static bool ExtrudeSelectedEdges(EditorMesh* em)
         Vec2Int face_color = {1, 0}; // Default color
         Vec3 face_normal = {0, 0, 1}; // Default normal
         bool edge_reversed = false; // Track if edge direction is reversed in the face
+        bool found_face = false;
 
-        for (int face_idx = 0; face_idx < em->face_count; face_idx++)
+        for (int face_idx = 0; !found_face && face_idx < em->face_count; face_idx++)
         {
             const EditorFace& ef = em->faces[face_idx];
-            // Check if this face uses the original edge and determine orientation
-            if (ef.v0 == old_v0 && ef.v1 == old_v1)
+
+            // Check if this face contains the edge using the face_vertices array
+            for (int vertex_index = 0; !found_face && vertex_index < ef.vertex_count; vertex_index++)
             {
-                face_color = ef.color;
-                face_normal = ef.normal;
-                edge_reversed = false;
-                break;
-            }
-            if (ef.v0 == old_v1 && ef.v1 == old_v0)
-            {
-                face_color = ef.color;
-                face_normal = ef.normal;
-                edge_reversed = true;
-                break;
-            }
-            if (ef.v1 == old_v0 && ef.v2 == old_v1)
-            {
-                face_color = ef.color;
-                face_normal = ef.normal;
-                edge_reversed = false;
-                break;
-            }
-            if (ef.v1 == old_v1 && ef.v2 == old_v0)
-            {
-                face_color = ef.color;
-                face_normal = ef.normal;
-                edge_reversed = true;
-                break;
-            }
-            if (ef.v2 == old_v0 && ef.v0 == old_v1)
-            {
-                face_color = ef.color;
-                face_normal = ef.normal;
-                edge_reversed = false;
-                break;
-            }
-            if (ef.v2 == old_v1 && ef.v0 == old_v0)
-            {
-                face_color = ef.color;
-                face_normal = ef.normal;
-                edge_reversed = true;
-                break;
+                int v0_idx = em->face_vertices[ef.vertex_offset + vertex_index];
+                int v1_idx = em->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
+
+                if (v0_idx == old_v0 && v1_idx == old_v1)
+                {
+                    face_color = ef.color;
+                    face_normal = ef.normal;
+                    edge_reversed = false;
+                    found_face = true;
+                }
+                else if (v0_idx == old_v1 && v1_idx == old_v0)
+                {
+                    face_color = ef.color;
+                    face_normal = ef.normal;
+                    edge_reversed = true;
+                    found_face = true;
+                }
             }
         }
 
-        // Create two triangles to form the extruded quad with correct winding (outward facing)
+        // Create a quad face for the extruded geometry using the new polygon structure
+        EditorFace& quad = em->faces[em->face_count++];
+        quad.color = face_color;
+        quad.normal = face_normal;
+        quad.selected = false;
+
+        // Set up quad vertices in the face_vertices array with correct winding
+        quad.vertex_offset = em->face_vertex_count;
+        quad.vertex_count = 4;
+
         if (!edge_reversed)
         {
             // Normal orientation: edge goes from old_v0 to old_v1 in the face
-            // Triangle 1: old_v0, new_v0, old_v1 (flipped to face outward)
-            EditorFace& tri1 = em->faces[em->face_count++];
-            tri1.v0 = old_v0;
-            tri1.v1 = new_v0;
-            tri1.v2 = old_v1;
-            tri1.color = face_color;
-            tri1.normal = face_normal;
-            tri1.selected = false;
-            FixWinding(em, tri1);
-
-            // Triangle 2: old_v1, new_v0, new_v1 (flipped to face outward)
-            EditorFace& tri2 = em->faces[em->face_count++];
-            tri2.v0 = old_v1;
-            tri2.v1 = new_v0;
-            tri2.v2 = new_v1;
-            tri2.color = face_color;
-            tri2.normal = face_normal;
-            tri2.selected = false;
-            FixWinding(em, tri2);
+            // Quad vertices: old_v0, old_v1, new_v1, new_v0 (counter-clockwise for outward facing)
+            em->face_vertices[em->face_vertex_count++] = old_v0;
+            em->face_vertices[em->face_vertex_count++] = old_v1;
+            em->face_vertices[em->face_vertex_count++] = new_v1;
+            em->face_vertices[em->face_vertex_count++] = new_v0;
         }
         else
         {
             // Reversed orientation: edge goes from old_v1 to old_v0 in the face
-            // Triangle 1: old_v1, new_v1, old_v0 (flipped to face outward)
-            EditorFace& tri1 = em->faces[em->face_count++];
-            tri1.v0 = old_v1;
-            tri1.v1 = new_v1;
-            tri1.v2 = old_v0;
-            tri1.color = face_color;
-            tri1.normal = face_normal;
-            tri1.selected = false;
-            FixWinding(em, tri1);
-
-            // Triangle 2: old_v0, new_v1, new_v0 (flipped to face outward)
-            EditorFace& tri2 = em->faces[em->face_count++];
-            tri2.v0 = old_v0;
-            tri2.v1 = new_v1;
-            tri2.v2 = new_v0;
-            tri2.color = face_color;
-            tri2.normal = face_normal;
-            tri2.selected = false;
-            FixWinding(em, tri2);
+            // Quad vertices: old_v1, old_v0, new_v0, new_v1 (counter-clockwise for outward facing)
+            em->face_vertices[em->face_vertex_count++] = old_v1;
+            em->face_vertices[em->face_vertex_count++] = old_v0;
+            em->face_vertices[em->face_vertex_count++] = new_v0;
+            em->face_vertices[em->face_vertex_count++] = new_v1;
         }
+
+        // Set the legacy triangle fields for backward compatibility (use first 3 vertices)
+        quad.v0 = em->face_vertices[quad.vertex_offset + 0];
+        quad.v1 = em->face_vertices[quad.vertex_offset + 1];
+        quad.v2 = em->face_vertices[quad.vertex_offset + 2];
     }
 
     UpdateEdges(em);
