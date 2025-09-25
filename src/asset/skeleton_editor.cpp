@@ -31,7 +31,7 @@ void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool selected)
         for (int i=0; i<es->skinned_mesh_count; i++)
         {
             EditorBone& bone = es->bones[es->skinned_meshes[i].bone_index];
-            EditorMesh* skinned_mesh = GetEditorMesh(es->skinned_meshes[i].asset_index);
+            EditorMesh* skinned_mesh = es->skinned_meshes[i].mesh;
             if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
                 continue;
 
@@ -252,7 +252,7 @@ static void EditorSkeletonLoadMetadata(EditorAsset* ea, Props* meta)
         {
             es->skinned_meshes[es->skinned_mesh_count++] = {
                 GetName(key.c_str()),
-                -1,
+                nullptr,
                 bone_index
             };
 
@@ -271,13 +271,7 @@ static void EditorSkeletonPostLoad(EditorAsset* ea)
     for (int i=0; i<es->skinned_mesh_count; i++)
     {
         EditorSkinnedMesh& esm = es->skinned_meshes[i];
-        esm.asset_index = FindEditorAssetByName(EDITOR_ASSET_TYPE_MESH, esm.asset_name);
-        if (esm.asset_index == -1)
-            continue;
-
-        EditorMesh* em = GetEditorMesh(esm.asset_index);
-        if (!em)
-            esm.asset_index = -1;
+        esm.mesh = (EditorMesh*)GetEditorAsset(EDITOR_ASSET_TYPE_MESH, esm.asset_name);
     }
 }
 
@@ -468,7 +462,7 @@ static void EditorSkeletonSaveMetadata(EditorAsset* ea, Props* meta)
 
     for (int i=0; i<es->skinned_mesh_count; i++)
     {
-        if (es->skinned_meshes[i].asset_index < 0)
+        if (es->skinned_meshes[i].mesh == nullptr)
             continue;
 
         const Name* mesh_name = es->skinned_meshes[i].asset_name;

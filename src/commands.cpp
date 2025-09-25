@@ -38,14 +38,14 @@ static void HandleEdit(const Command& command)
         return;
     }
 
-    int asset_index = FindEditorAssetByName(EDITOR_ASSET_TYPE_UNKNOWN, name);
-    if (asset_index == -1)
+    EditorAsset* ea = GetEditorAsset(EDITOR_ASSET_TYPE_UNKNOWN, name);
+    if (!ea)
     {
         LogError("unknown asset: %s", name->value);
         return;
     }
 
-    FocusAsset(asset_index);
+    FocusAsset(ea);
 }
 
 // @new

@@ -296,7 +296,7 @@ void AddAssetSelection(int asset_index)
     g_view.selected_asset_count++;
 }
 
-int FindEditorAssetByName(EditorAssetType type, const Name* name)
+EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name)
 {
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
@@ -305,21 +305,18 @@ int FindEditorAssetByName(EditorAssetType type, const Name* name)
             continue;
 
         if ((type == EDITOR_ASSET_TYPE_UNKNOWN || ea->type == type) && ea->name == name)
-            return i;
+            return ea;
     }
 
-    return -1;
+    return nullptr;
 }
 
-EditorAsset* Clone(Allocator* allocator, EditorAsset* ea)
+void Clone(EditorAsset* dst, EditorAsset* src)
 {
-    EditorAsset* clone = (EditorAsset*)Alloc(allocator, sizeof(EditorAssetData));
-    *clone = *ea;
+    *(EditorAssetData*)dst = *(EditorAssetData*)src;
 
-    if (clone->vtable.clone)
-        clone->vtable.clone(clone);
-
-    return clone;
+    if (dst->vtable.clone)
+        dst->vtable.clone((EditorAsset*)dst);
 }
 
 void InitEditorAssets()
@@ -433,11 +430,8 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
     return path;
 }
 
-EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name)
+int GetIndex(EditorAsset* ea)
 {
-    int index = FindEditorAssetByName(type, name);
-    if (index == -1)
-        return nullptr;
-
-    return GetEditorAsset(index);
+    assert(ea);
+    return GetIndex(g_editor.asset_allocator, ea);
 }

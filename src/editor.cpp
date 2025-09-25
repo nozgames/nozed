@@ -174,7 +174,11 @@ static void InitConfig()
 
     // Read in the source paths
     for (auto& path : g_config->GetKeys("source"))
-        Copy(g_editor.asset_paths[g_editor.asset_path_count++], 4096, path.c_str());
+    {
+        std::filesystem::path full_path = std::filesystem::current_path() / path;
+        full_path = canonical(full_path);
+        Copy(g_editor.asset_paths[g_editor.asset_path_count++], 4096, full_path.string().c_str());
+    }
 }
 
 extern AssetImporter GetShaderImporter();

@@ -49,6 +49,7 @@ struct View
     Material* shaded_material;
     Material* solid_material;
     Material* vertex_material;
+    Material* editor_material;
     Mesh* vertex_mesh;
     Mesh* circle_mesh;
     Mesh* arc_mesh[101];
@@ -106,7 +107,7 @@ extern void BeginBoxSelect(void (*callback)(const Bounds2& bounds));
 extern void ClearBoxSelect();
 extern void PushState(ViewState state);
 extern void PopState();
-extern void FocusAsset(int asset_index);
+extern void FocusAsset(EditorAsset* ea);
 extern void HandleRename(const Name* name);
 extern void AddEditorAsset(EditorAsset* ea);
 inline EditorAsset* GetSortedEditorAsset(int index) { return GetEditorAsset(g_view.sorted_assets[index]); }

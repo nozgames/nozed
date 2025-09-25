@@ -9,6 +9,7 @@
 struct UndoItem
 {
     EditorAssetData ea;
+    int asset_index;
     int group_id;
 };
 
@@ -18,7 +19,7 @@ struct UndoSystem
     RingBuffer* redo;
     int next_group_id;
     int current_group_id;
-    int temp[MAX_UNDO];
+    EditorAsset* temp[MAX_UNDO];
     int temp_count;
 };
 
@@ -33,7 +34,7 @@ static void CallUndoRedo()
 {
     for (int i=0; i<g_undo.temp_count; i++)
     {
-        EditorAsset* ea = GetEditorAsset(g_undo.temp[i]);
+        EditorAsset* ea = g_undo.temp[i];
         if (ea->vtable.undo_redo)
             ea->vtable.undo_redo(ea);
     }
@@ -50,26 +51,29 @@ static bool UndoInternal(bool allow_redo)
 
     while (!IsEmpty(g_undo.undo))
     {
-        UndoItem& undo = *(UndoItem*)GetBack(g_undo.undo);
-        if (undo.group_id != -1 && undo.group_id != group_id)
+        UndoItem& undo_item = *(UndoItem*)GetBack(g_undo.undo);
+        if (undo_item.group_id != -1 && undo_item.group_id != group_id)
             break;
+
+        EditorAsset* undo_asset = GetEditorAsset(undo_item.asset_index);
+        assert(undo_asset);
+        assert(undo_asset->type == undo_item.ea.asset.type);
 
         if (allow_redo)
         {
-            UndoItem& redo = *(UndoItem*)PushBack(g_undo.redo);
-            redo.ea = *(EditorAssetData*)GetEditorAsset(undo.ea.asset.index);
-            redo.group_id = group_id;
+            UndoItem& redo_item = *(UndoItem*)PushBack(g_undo.redo);
+            redo_item.group_id = group_id;
+            redo_item.asset_index = undo_item.asset_index;
+            Clone(&redo_item.ea.asset, undo_asset);
         }
 
-        EditorAsset* ea = GetEditorAsset(undo.ea.asset.index);
-        assert(ea);
-        *(EditorAssetData*)ea = undo.ea;
+        Clone(undo_asset, &undo_item.ea.asset);
 
-        g_undo.temp[g_undo.temp_count++] = undo.ea.asset.index;
+        g_undo.temp[g_undo.temp_count++] = undo_asset;
 
         PopBack(g_undo.undo);
 
-        if (undo.group_id == -1)
+        if (undo_item.group_id == -1)
             break;
     }
 
@@ -80,7 +84,7 @@ static bool UndoInternal(bool allow_redo)
 
 bool Undo()
 {
-    return UndoInternal(true);;
+    return UndoInternal(true);
 }
 
 bool Redo()
@@ -92,21 +96,26 @@ bool Redo()
 
     while (!IsEmpty(g_undo.redo))
     {
-        UndoItem& redo = *(UndoItem*)GetBack(g_undo.redo);
-        if (redo.group_id != -1 && redo.group_id != group_id)
+        UndoItem& redo_item = *(UndoItem*)GetBack(g_undo.redo);
+        if (redo_item.group_id != -1 && redo_item.group_id != group_id)
             break;
 
-        UndoItem& undo = *(UndoItem*)PushBack(g_undo.undo);
-        undo.ea = *(EditorAssetData*)GetEditorAsset(redo.ea.asset.index);
-        undo.group_id = group_id;
+        EditorAsset* redo_asset = GetEditorAsset(redo_item.asset_index);
+        assert(redo_asset);
+        assert(redo_asset->type == redo_item.ea.asset.type);
 
-        *(EditorAssetData*)GetEditorAsset(redo.ea.asset.index) = redo.ea;
+        UndoItem& undo_item = *(UndoItem*)PushBack(g_undo.undo);
+        undo_item.group_id = group_id;
+        undo_item.asset_index = redo_item.asset_index;
+        Clone(&undo_item.ea.asset, redo_asset);
 
-        g_undo.temp[g_undo.temp_count++] = redo.ea.asset.index;
+        Clone(redo_asset, &redo_item.ea.asset);
+
+        g_undo.temp[g_undo.temp_count++] = redo_asset;
 
         PopBack(g_undo.redo);
 
-        if (redo.group_id == -1)
+        if (redo_item.group_id == -1)
             break;
     }
 
@@ -148,7 +157,8 @@ void RecordUndo(EditorAsset* ea)
 
     UndoItem& item = *(UndoItem*)PushBack(g_undo.undo);
     item.group_id = g_undo.current_group_id;
-    item.ea = *(EditorAssetData*)ea;
+    item.asset_index = GetIndex(ea);
+    Clone(&item.ea.asset, ea);
 
     // Clear the redo
     while (!IsEmpty(g_undo.redo))

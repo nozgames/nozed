@@ -42,7 +42,7 @@ static void UpdateCamera()
 
 static Bounds2 GetViewBounds(EditorAsset* ea)
 {
-    if (g_view.edit_asset_index == ea->index && g_view.vtable.bounds)
+    if (g_view.edit_asset_index == GetIndex(ea) && g_view.vtable.bounds)
         return g_view.vtable.bounds();
 
     return GetBounds(ea);
@@ -497,13 +497,15 @@ void RenderView()
     DrawBoxSelect();
 }
 
-void FocusAsset(int asset_index)
+void FocusAsset(EditorAsset* ea)
 {
+    assert(ea);
+
     if (g_view.edit_asset_index != -1)
         return;
 
     ClearAssetSelection();
-    SetAssetSelection(asset_index);
+    SetAssetSelection(GetIndex(ea));
     FrameView();
 }
 
@@ -816,6 +818,7 @@ void InitView()
     g_view.shaded_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
     g_view.solid_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_SOLID);
     g_view.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
+    g_view.editor_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
     g_view.zoom = ZOOM_DEFAULT;
     g_view.ui_scale = 1.0f;
     g_view.dpi = 72.0f;
@@ -824,8 +827,9 @@ void InitView()
     g_view.draw_mode = VIEW_DRAW_MODE_SHADED;
 
     UpdateCamera();
-    SetTexture(g_view.shaded_material, TEXTURE_PALETTE, 0);
-    SetTexture(g_view.solid_material, TEXTURE_PALETTE, 0);
+    SetTexture(g_view.shaded_material, TEXTURE_EDITOR_PALETTE, 0);
+    SetTexture(g_view.solid_material, TEXTURE_EDITOR_PALETTE, 0);
+    SetTexture(g_view.editor_material, TEXTURE_EDITOR_PALETTE, 0);
 
     g_view.input = CreateInputSet(ALLOCATOR_DEFAULT);
     EnableButton(g_view.input, KEY_LEFT_CTRL);

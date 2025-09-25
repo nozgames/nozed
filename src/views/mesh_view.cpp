@@ -1411,7 +1411,7 @@ void MeshViewInit()
     if (!g_mesh_view.color_material)
     {
         g_mesh_view.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
-        SetTexture(g_mesh_view.color_material, TEXTURE_PALETTE, 0);
+        SetTexture(g_mesh_view.color_material, TEXTURE_EDITOR_PALETTE, 0);
     }
 
     if (!g_mesh_view.shortcuts)

@@ -58,7 +58,7 @@ static EditorAnimation* GetEditingAnimation()
     return (EditorAnimation*)ea;
 }
 
-static EditorSkeleton* GetEditingSkeleton() { return GetEditorSkeleton(GetEditingAnimation()->skeleton_asset_index); }
+static EditorSkeleton* GetEditingSkeleton() { return GetEditingAnimation()->skeleton; }
 static bool IsBoneSelected(int bone_index) { return GetEditingAnimation()->bones[bone_index].selected; }
 static void SetBoneSelected(int bone_index, bool selected)
 {
@@ -406,7 +406,7 @@ void AnimationViewDraw()
     BindColor(COLOR_WHITE);
     for (int i=0; i<es->skinned_mesh_count; i++)
     {
-        EditorMesh* skinned_mesh = GetEditorMesh(es->skinned_meshes[i].asset_index);
+        EditorMesh* skinned_mesh = es->skinned_meshes[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
             continue;
 

@@ -73,7 +73,7 @@ static int GetFirstSelectedBoneIndex()
     return -1;
 }
 
-static void UpdateAllAnimations(EditorAsset* ea)
+static void UpdateAllAnimations(EditorSkeleton* es)
 {
     extern void UpdateSkeleton(EditorAnimation* en);
 
@@ -84,12 +84,12 @@ static void UpdateAllAnimations(EditorAsset* ea)
             continue;
 
         EditorAnimation* en = (EditorAnimation*)other;
-        if (en->skeleton_asset_index == ea->index)
-        {
-            RecordUndo(other);
-            UpdateSkeleton(en);
-            MarkModified(other);
-        }
+        if (es != en->skeleton)
+            continue;
+
+        RecordUndo(other);
+        UpdateSkeleton(en);
+        MarkModified(other);
     }
 }
 
@@ -241,7 +241,6 @@ static void UpdateRotateState()
     {
         if (!IsBoneSelected(bone_index))
             continue;
-
         SkeletonViewBone& vb = g_skeleton_view.bones[bone_index];
         es->bones[bone_index].transform.rotation = vb.transform.rotation + angle;
     }
@@ -286,21 +285,24 @@ static void UpdateParentState()
         RecordUndo(ea);
         bone_index = ReparentBone(es, GetFirstSelectedBoneIndex(), bone_index);
         SelectBone(bone_index);
-        UpdateAllAnimations(ea);
+        UpdateAllAnimations(es);
         EndUndoGroup();
         return;
     }
 
     // Asset?
-    int asset_index = HitTestAssets(g_view.mouse_world_position);
-    if (asset_index == -1)
+    int hit_index = HitTestAssets(g_view.mouse_world_position);
+    if (hit_index == -1)
+        return;
+
+    EditorAsset* hit_asset = GetEditorAsset(hit_index);
+    if (!hit_asset || hit_asset->type != EDITOR_ASSET_TYPE_MESH)
         return;
 
     RecordUndo();
-    EditorAsset* ea_hit = GetEditorAsset(asset_index);
     es->skinned_meshes[es->skinned_mesh_count++] = {
-        ea_hit->name,
-        asset_index,
+        hit_asset->name,
+        (EditorMesh*)hit_asset,
         GetFirstSelectedBoneIndex()
     };
 
@@ -318,8 +320,8 @@ static void UpdateUnparentState()
     {
         EditorSkinnedMesh& esm = es->skinned_meshes[i];
         Vec2 bone_position = TransformPoint(es->bones[esm.bone_index].local_to_world) + ea->position;
-        EditorMesh* skinned_mesh = GetEditorMesh(esm.asset_index);
-        if (!skinned_mesh || !OverlapPoint(skinned_mesh, bone_position, g_view.mouse_world_position))
+
+        if (!esm.mesh || !OverlapPoint(esm.mesh, bone_position, g_view.mouse_world_position))
             continue;
 
         RecordUndo(ea);
@@ -446,7 +448,6 @@ static void HandleRemove()
     if (es->selected_bone_count <= 0)
         return;
 
-    EditorAsset* ea = GetEditingAsset();
     BeginUndoGroup();
     RecordUndo();
 
@@ -458,7 +459,7 @@ static void HandleRemove()
         RemoveBone(es, i);
     }
 
-    UpdateAllAnimations(ea);
+    UpdateAllAnimations(es);
     EndUndoGroup();
     ClearSelection();
     MarkModified();
@@ -519,7 +520,7 @@ static void RenameBone(const Name* name)
     BeginUndoGroup();
     RecordUndo();
     GetEditingSkeleton()->bones[GetFirstSelectedBoneIndex()].name = name;
-    UpdateAllAnimations(GetEditingAsset());
+    UpdateAllAnimations(GetEditingSkeleton());
     EndUndoGroup();
 }
 

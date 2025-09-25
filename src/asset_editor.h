@@ -42,7 +42,6 @@ struct EditorAsset
 {
     EditorAssetType type;
     int asset_path_index;
-    int index;
     const Name* name;
     char path[1024];
     Vec2 position;
@@ -68,15 +67,14 @@ inline EditorAsset* GetEditorAsset(int index, EditorAssetType type=EDITOR_ASSET_
     return ea;
 }
 
-extern EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name);
-
+extern void InitEditorAssets();
 extern void LoadEditorAsset(EditorAsset* ea);
 extern void HotloadEditorAsset(const Name* name);
 extern void MarkModified();
 extern void MarkModified(EditorAsset* ea);
 extern EditorAsset* CreateEditorAsset(EditorAssetType type, const std::filesystem::path& path);
 extern std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext);
-extern EditorAsset* Clone(Allocator* allocator, EditorAsset* ea);
+extern void Clone(EditorAsset* dst, EditorAsset* src);
 extern void LoadEditorAssets();
 extern void SaveEditorAssets();
 extern bool OverlapPoint(EditorAsset* ea, const Vec2& overlap_point);
@@ -91,7 +89,8 @@ extern void MoveTo(EditorAsset* ea, const Vec2& position);
 extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
 extern void AddAssetSelection(int asset_index);
-extern int FindEditorAssetByName(EditorAssetType type, const Name* name);
+extern EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name);
+extern int GetIndex(EditorAsset* ea);
 
 #include "asset/animation_editor.h"
 #include "asset/mesh_editor.h"

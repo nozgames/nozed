@@ -5,9 +5,7 @@
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 static void Init(EditorAnimation* ea);
 
-inline EditorSkeleton* GetEditorSkeleton(EditorAnimation* en) {
-    return GetEditorSkeleton(en->skeleton_asset_index);
-}
+inline EditorSkeleton* GetEditorSkeleton(EditorAnimation* en) { return en->skeleton; }
 
 void UpdateTransforms(EditorAnimation* en) {
     EditorSkeleton* es = GetEditorSkeleton(en);
@@ -51,7 +49,7 @@ void DrawEditorAnimation(EditorAsset* ea) {
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
     for (int i=0; i<es->skinned_mesh_count; i++) {
-        EditorMesh* skinned_mesh = GetEditorMesh(es->skinned_meshes[i].asset_index);
+        EditorMesh* skinned_mesh = es->skinned_meshes[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
             continue;
 
@@ -116,8 +114,7 @@ static void ParseSkeleton(EditorAnimation* en, Tokenizer& tk, int* bone_map)
 
     en->skeleton_name = GetName(tk);
 
-    int skeleton_index = FindEditorAssetByName(EDITOR_ASSET_TYPE_SKELETON, en->skeleton_name);
-    EditorSkeleton* es = skeleton_index == -1 ? nullptr : (EditorSkeleton*)GetEditorAsset(skeleton_index);
+    EditorSkeleton* es = (EditorSkeleton*)GetEditorAsset(EDITOR_ASSET_TYPE_SKELETON, en->skeleton_name);
     assert(es);
 
     if (!es->loaded)
@@ -225,8 +222,8 @@ static void EditorAnimationPostLoad(EditorAsset* ea)
     assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
 
-    en->skeleton_asset_index = FindEditorAssetByName(EDITOR_ASSET_TYPE_SKELETON, en->skeleton_name);
-    if (en->skeleton_asset_index == -1)
+    en->skeleton = (EditorSkeleton*)GetEditorAsset(EDITOR_ASSET_TYPE_SKELETON, en->skeleton_name);
+    if (!en->skeleton)
         return;
 
     UpdateTransforms(GetEditorSkeleton(en));

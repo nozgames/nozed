@@ -10,6 +10,9 @@
 // @Font
 extern Font* FONT_SEGUISB;
 
+// @Mesh
+extern Mesh* MESH_SHADER;
+
 // @Shader
 extern Shader* SHADER_VFX;
 extern Shader* SHADER_UI_VIGNETTE;
@@ -25,22 +28,21 @@ extern StyleSheet* STYLESHEET_MESH_EDITOR;
 extern StyleSheet* STYLESHEET_COMMAND_PALETTE;
 
 // @Texture
-extern Texture* TEXTURE_SOLID_PALETTE;
-extern Texture* TEXTURE_PALETTE;
+extern Texture* TEXTURE_EDITOR_PALETTE;
 
 // @name
+extern const Name* NAME_TEXT;
 extern const Name* NAME_COLORS;
-extern const Name* NAME_ASSET_NAME_CONTAINER;
-extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_CONTAINER;
-extern const Name* NAME_ITEM;
-extern const Name* NAME_ITEM_TEXT;
 extern const Name* NAME_INPUT;
 extern const Name* NAME_INPUT_SMALL;
 extern const Name* NAME_COLON;
-extern const Name* NAME_TEXT;
 extern const Name* NAME_CURSOR;
 extern const Name* NAME_PREVIEW;
+extern const Name* NAME_ITEM;
+extern const Name* NAME_ITEM_TEXT;
+extern const Name* NAME_ASSET_NAME_CONTAINER;
+extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_A;
 extern const Name* NAME_E;
 extern const Name* NAME_M;
@@ -76,7 +78,7 @@ constexpr StyleId STYLE_COMMAND_PALETTE_TEXT = {3,4};
 constexpr StyleId STYLE_COMMAND_PALETTE_CURSOR = {3,5};
 constexpr StyleId STYLE_COMMAND_PALETTE_PREVIEW = {3,6};
 
-extern void InitEditorAssets();
+
 extern bool LoadAssets(Allocator* allocator);
 extern void UnloadAssets();
 

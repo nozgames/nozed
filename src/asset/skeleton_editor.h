@@ -10,7 +10,7 @@ constexpr int MAX_SKINNED_MESHES = 64;
 struct EditorSkinnedMesh
 {
     const Name* asset_name;
-    int asset_index;
+    EditorMesh* mesh;
     int bone_index;
 };
 
