@@ -5,6 +5,7 @@
 constexpr float OUTLINE_WIDTH = 0.05f;
 
 static void Init(EditorMesh* em);
+static void DeleteFaceInternal(EditorMesh* em, int face_index);
 
 static int GetTriangleEdgeIndex(const EditorFace& et, const EditorEdge& ee)
 {
@@ -188,11 +189,13 @@ void UpdateEdges(EditorMesh* em)
         {
             int v0 = em->face_vertices[ef.vertex_offset + vertex_index];
             int v1 = em->face_vertices[ef.vertex_offset + vertex_index + 1];
+            em->vertices[v0].ref_count++;
             GetOrAddEdge(em, v0, v1);
         }
 
         int vs = em->face_vertices[ef.vertex_offset + ef.vertex_count - 1];
         int ve = em->face_vertices[ef.vertex_offset];
+        em->vertices[vs].ref_count++;
         GetOrAddEdge(em, vs, ve);
     }
 }
@@ -424,108 +427,100 @@ void MergeSelectedVerticies(EditorMesh* em)
     MarkDirty(em);
 }
 
-static void UpdateRefCounts(EditorMesh* em)
+static void DeleteUnreferencedVertices(EditorMesh* em)
 {
-    for (int i=0; i<em->vertex_count; i++)
-        em->vertices[i].ref_count = 0;
+    int vertex_mapping[MAX_VERTICES];
+    int new_vertex_count = 0;
 
-    for (int i=0; i<em->face_count; i++)
+    for (int i = 0; i < em->vertex_count; i++)
     {
-        EditorFace& ef = em->faces[i];
-        em->vertices[ef.v0].ref_count++;
-        em->vertices[ef.v1].ref_count++;
-        em->vertices[ef.v2].ref_count++;
+        if (em->vertices[i].ref_count <= 0)
+        {
+            vertex_mapping[i] = -1;
+            continue;
+        }
+
+        vertex_mapping[i] = new_vertex_count;
+        em->vertices[new_vertex_count++] = em->vertices[i];
+    }
+
+    if (em->vertex_count == new_vertex_count)
+        return;
+
+    em->vertex_count = new_vertex_count;
+
+    for (int i = 0; i < em->face_vertex_count; i++)
+    {
+        int old_vertex_index = em->face_vertices[i];
+        int new_vertex_index = vertex_mapping[old_vertex_index];
+        assert(new_vertex_index != -1);
+        em->face_vertices[i] = new_vertex_index;
+    }
+
+    UpdateEdges(em);
+}
+
+static void DeleteVertex(EditorMesh* em, int vertex_index) {
+    assert(vertex_index >= 0 && vertex_index < em->vertex_count);
+
+    for (int face_index=em->face_count-1; face_index >= 0; face_index--) {
+        EditorFace& ef = em->faces[face_index];
+        bool contains_vertex = false;
+        for (int face_vertex_index=0; face_vertex_index<ef.vertex_count; face_vertex_index++) {
+            if (em->face_vertices[ef.vertex_offset + face_vertex_index] == vertex_index) {
+                contains_vertex = true;
+                break;
+            }
+        }
+
+        if (contains_vertex)
+            DeleteFaceInternal(em, face_index);
+    }
+
+    UpdateEdges(em);
+    DeleteUnreferencedVertices(em);
+    MarkDirty(em);
+}
+
+static void RemoveFaceVertices(EditorMesh* em, int face_index, int remove_at, int remove_count)
+{
+    EditorFace& ef = em->faces[face_index];
+    if (remove_count == -1)
+        remove_count = ef.vertex_count - remove_at;
+
+    assert(remove_at >= 0 && remove_at + remove_count <= ef.vertex_count);
+
+    for (int vertex_index=ef.vertex_offset + remove_at; vertex_index< em->face_vertex_count - remove_count; vertex_index++)
+        em->face_vertices[vertex_index] = em->face_vertices[vertex_index + remove_count];
+
+    ef.vertex_count -= remove_count;
+    em->face_vertex_count -= remove_count;
+
+    // Shift all face vertex offsets down by remove_count
+    for (int face_index2=0; face_index2<em->face_count; face_index2++)
+    {
+        EditorFace& ef2 = em->faces[face_index2];
+        if (ef2.vertex_offset > ef.vertex_offset)
+            ef2.vertex_offset -= remove_count;
     }
 }
 
-static void DeleteVertex(EditorMesh* em, int vertex_index)
+static void DeleteFaceInternal(EditorMesh* em, int face_index)
 {
-    assert(vertex_index >= 0 && vertex_index < em->vertex_count);
+    assert(face_index >= 0 && face_index < em->face_count);
 
-    for (int edge_index=em->edge_count-1; edge_index >= 0; edge_index--)
-    {
-        EditorEdge& ee = em->edges[edge_index];
-        if (ee.v0 == vertex_index || ee.v1 == vertex_index)
-        {
-            em->edges[edge_index] = em->edges[--em->edge_count];
-            continue;
-        }
-        if (ee.v0 > vertex_index) ee.v0--;
-        if (ee.v1 > vertex_index) ee.v1--;
-    }
+    RemoveFaceVertices(em, face_index, 0, -1);
 
-    for (int face_index=em->face_count-1; face_index >= 0; face_index--)
-    {
-        EditorFace& ef = em->faces[face_index];
-        if (ef.v0 == vertex_index || ef.v1 == vertex_index || ef.v2 == vertex_index)
-        {
-            em->faces[face_index] = em->faces[--em->face_count];
-            continue;
-        }
-
-        if (ef.v0 > vertex_index) ef.v0--;
-        if (ef.v1 > vertex_index) ef.v1--;
-        if (ef.v2 > vertex_index) ef.v2--;
-    }
-
-    for (int i=vertex_index; i<em->vertex_count-1; i++)
-        em->vertices[i] = em->vertices[i+1];
-
-    em->vertex_count--;
-
-    UpdateRefCounts(em);
-
-    for (int i=em->vertex_count-1; i>=0; i--)
-        if (em->vertices[i].ref_count == 0)
-        {
-            DeleteVertex(em, i);
-            return;
-        }
-
-    UpdateEdges(em);
-    MarkDirty(em);
+    em->faces[face_index] = em->faces[em->face_count - 1];
+    em->face_count--;
 }
 
 static void DeleteFace(EditorMesh* em, int face_index)
 {
-    assert(face_index >= 0 && face_index < em->face_count);
-
-    em->faces[face_index] = em->faces[em->face_count - 1];
-    em->face_count--;
-
+    DeleteFaceInternal(em, face_index);
+    UpdateEdges(em);
+    DeleteUnreferencedVertices(em);
     MarkDirty(em);
-}
-
-static void DissolveFace(EditorMesh* em, int face_index)
-{
-    assert(face_index >= 0 && face_index < em->face_count);
-    char vertex_count[MAX_VERTICES] = {};
-
-    for (int i=0; i<em->face_count; i++)
-    {
-        if (i == face_index)
-            continue;
-
-        EditorFace& ef = em->faces[i];
-        vertex_count[ef.v0] = 1;
-        vertex_count[ef.v1] = 1;
-        vertex_count[ef.v2] = 1;
-    }
-
-    EditorFace& df = em->faces[face_index];
-    if (vertex_count[df.v0] && vertex_count[df.v1] && vertex_count[df.v2])
-    {
-        DeleteFace(em, face_index);
-        return;
-    }
-
-    for (int vertex_index=em->vertex_count-1; vertex_index>=0; vertex_index--)
-    {
-        if (vertex_count[vertex_index])
-            continue;
-
-        DeleteVertex(em, vertex_index);
-    }
 }
 
 void DissolveSelectedFaces(EditorMesh* em)
@@ -536,7 +531,7 @@ void DissolveSelectedFaces(EditorMesh* em)
         if (!ef.selected)
             continue;
 
-        DissolveFace(em, face_index);
+        DeleteFace(em, face_index);
     }
 }
 
@@ -671,27 +666,6 @@ static void InsertVertex(EditorMesh* em, int face_index, int insert_at, int vert
     }
 }
 
-static void RemoveVerticesFromFace(EditorMesh* em, int face_index, int remove_at, int remove_count)
-{
-    EditorFace& ef = em->faces[face_index];
-    assert(remove_at >= 0 && remove_at + remove_count <= ef.vertex_count);
-
-    for (int vertex_index=ef.vertex_offset + remove_at; vertex_index< em->face_vertex_count - remove_count; vertex_index++)
-        em->face_vertices[vertex_index] = em->face_vertices[vertex_index + remove_count];
-
-    ef.vertex_count -= remove_count;
-    em->face_vertex_count -= remove_count;
-
-    // Shift all face vertex offsets down by remove_count
-    for (int face_index2=0; face_index2<em->face_count; face_index2++)
-    {
-        EditorFace& ef2 = em->faces[face_index2];
-        if (ef2.vertex_offset > ef.vertex_offset)
-            ef2.vertex_offset -= remove_count;
-    }
-}
-
-
 int SplitFaces(EditorMesh* em, int v0, int v1)
 {
     if (em->face_count >= MAX_FACES)
@@ -750,7 +724,7 @@ int SplitFaces(EditorMesh* em, int v0, int v1)
         em->face_vertices[old_face.vertex_offset + v0_pos + vertex_index + 1] =
             em->face_vertices[old_face.vertex_offset + v1_pos + vertex_index];
 
-    RemoveVerticesFromFace(em, face_index, old_vertex_count, old_face.vertex_count - old_vertex_count);
+    RemoveFaceVertices(em, face_index, old_vertex_count, old_face.vertex_count - old_vertex_count);
 
     UpdateEdges(em);
     MarkDirty(em);

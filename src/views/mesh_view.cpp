@@ -1304,20 +1304,20 @@ static bool ExtrudeSelectedEdges(EditorMesh* em)
         if (!edge_reversed)
         {
             // Normal orientation: edge goes from old_v0 to old_v1 in the face
-            // Quad vertices: old_v0, old_v1, new_v1, new_v0 (counter-clockwise for outward facing)
+            // Quad vertices: old_v0, new_v0, new_v1, old_v1 (counter-clockwise for outward facing)
             em->face_vertices[em->face_vertex_count++] = old_v0;
-            em->face_vertices[em->face_vertex_count++] = old_v1;
-            em->face_vertices[em->face_vertex_count++] = new_v1;
             em->face_vertices[em->face_vertex_count++] = new_v0;
+            em->face_vertices[em->face_vertex_count++] = new_v1;
+            em->face_vertices[em->face_vertex_count++] = old_v1;
         }
         else
         {
             // Reversed orientation: edge goes from old_v1 to old_v0 in the face
-            // Quad vertices: old_v1, old_v0, new_v0, new_v1 (counter-clockwise for outward facing)
+            // Quad vertices: old_v1, new_v1, new_v0, old_v0 (counter-clockwise for outward facing)
             em->face_vertices[em->face_vertex_count++] = old_v1;
-            em->face_vertices[em->face_vertex_count++] = old_v0;
-            em->face_vertices[em->face_vertex_count++] = new_v0;
             em->face_vertices[em->face_vertex_count++] = new_v1;
+            em->face_vertices[em->face_vertex_count++] = new_v0;
+            em->face_vertices[em->face_vertex_count++] = old_v0;
         }
 
         // Set the legacy triangle fields for backward compatibility (use first 3 vertices)
