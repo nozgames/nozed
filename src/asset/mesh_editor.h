@@ -25,7 +25,7 @@ struct EditorEdge
 {
     int v0;
     int v1;
-    int triangle_count;
+    int face_count;
     Vec2 normal;
     bool selected;
 };
@@ -38,6 +38,9 @@ struct EditorFace
     Vec2Int color;
     Vec3 normal;
     bool selected;
+
+    int vertex_offset;
+    int vertex_count;
 };
 
 struct EditorMesh : EditorAsset
@@ -45,6 +48,8 @@ struct EditorMesh : EditorAsset
     EditorVertex vertices[MAX_VERTICES];
     EditorEdge edges[MAX_EDGES];
     EditorFace faces[MAX_TRIANGLES];
+    int face_vertices[MAX_INDICES];
+    int face_vertex_count;
     int vertex_count;
     int edge_count;
     int face_count;
@@ -95,3 +100,4 @@ extern void DrawEdges(EditorMesh* em, const Vec2& position);
 extern void DrawSelectedEdges(EditorMesh* em, const Vec2& position);
 extern void DrawSelectedFaces(EditorMesh* em, const Vec2& position);
 extern void DrawFaceCenters(EditorMesh* em, const Vec2& position);
+extern void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder);

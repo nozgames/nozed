@@ -21,6 +21,20 @@ static int GetTriangleEdgeIndex(const EditorFace& et, const EditorEdge& ee)
     return -1;
 }
 
+static int GetFaceEdgeIndex(EditorMesh* em, const EditorFace& ef, const EditorEdge& ee)
+{
+    for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++)
+    {
+        int v0 = em->face_vertices[ef.vertex_offset + vertex_index];
+        int v1 = em->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
+
+        if (ee.v0 == v0 && ee.v1 == v1 || ee.v0 == v1 && ee.v1 == v0)
+            return vertex_index;
+    }
+
+    return -1;
+}
+
 static void EditorMeshDraw(EditorAsset* ea)
 {
     assert(ea->type == EDITOR_ASSET_TYPE_MESH);
@@ -61,7 +75,7 @@ bool IsVertexOnOutsideEdge(EditorMesh* em, int v0)
     for (int i = 0; i < em->edge_count; i++)
     {
         EditorEdge& ee = em->edges[i];
-        if (ee.triangle_count == 1 && (ee.v0 == v0 || ee.v1 == v0))
+        if (ee.face_count == 1 && (ee.v0 == v0 || ee.v1 == v0))
             return true;
     }
 
@@ -86,7 +100,7 @@ int GetOrAddEdge(EditorMesh* em, int v0, int v1)
         EditorEdge& ee = em->edges[i];
         if (ee.v0 == fv0 && ee.v1 == fv1)
         {
-            ee.triangle_count++;
+            ee.face_count++;
             return i;
         }
     }
@@ -97,7 +111,7 @@ int GetOrAddEdge(EditorMesh* em, int v0, int v1)
 
     int edge_index = em->edge_count++;
     EditorEdge& ee = em->edges[edge_index];
-    ee.triangle_count = 1;
+    ee.face_count = 1;
     ee.v0 = fv0;
     ee.v1 = fv1;
 
@@ -142,14 +156,25 @@ void UpdateEdges(EditorMesh* em)
     em->edge_count = 0;
 
     for (int i = 0; i < em->vertex_count; i++)
-        em->vertices[i].edge_normal = VEC2_ZERO;
-
-    for (int i = 0; i < em->face_count; i++)
     {
-        EditorFace& et = em->faces[i];
-        GetOrAddEdge(em, et.v0, et.v1);
-        GetOrAddEdge(em, et.v1, et.v2);
-        GetOrAddEdge(em, et.v2, et.v0);
+        em->vertices[i].edge_normal = VEC2_ZERO;
+        em->vertices[i].ref_count = 0;
+    }
+
+    for (int face_index = 0; face_index < em->face_count; face_index++)
+    {
+        EditorFace& ef = em->faces[face_index];
+
+        for (int vertex_index = 0; vertex_index<ef.vertex_count - 1; vertex_index++)
+        {
+            int v0 = em->face_vertices[ef.vertex_offset + vertex_index];
+            int v1 = em->face_vertices[ef.vertex_offset + vertex_index + 1];
+            GetOrAddEdge(em, v0, v1);
+        }
+
+        int vs = em->face_vertices[ef.vertex_offset + ef.vertex_count - 1];
+        int ve = em->face_vertices[ef.vertex_offset];
+        GetOrAddEdge(em, vs, ve);
     }
 }
 
@@ -169,12 +194,15 @@ Mesh* ToMesh(EditorMesh* em, bool upload)
     // Generate the mesh body
     for (int i = 0; i < em->face_count; i++)
     {
-        const EditorFace& tri = em->faces[i];
-        Vec2 uv_color = ColorUV(tri.color.x, tri.color.y);
+        TriangulateFace(em, em->faces + i, builder);
+
+        /*
+        EditorFace& tri = em->faces[i];
         AddVertex(builder, em->vertices[tri.v0].position, tri.normal, uv_color);
         AddVertex(builder, em->vertices[tri.v1].position, tri.normal, uv_color);
         AddVertex(builder, em->vertices[tri.v2].position, tri.normal, uv_color);
         AddTriangle(builder, (u16)(i * 3), (u16)(i * 3 + 1), (u16)(i * 3 + 2));
+    */
     }
 
     // Generate outline
@@ -182,7 +210,7 @@ Mesh* ToMesh(EditorMesh* em, bool upload)
     for (int i=0; i < em->edge_count; i++)
     {
         const EditorEdge& ee = em->edges[i];
-        if (ee.triangle_count > 1)
+        if (ee.face_count > 1)
             continue;
 
         const EditorVertex& v0 = em->vertices[ee.v0];
@@ -191,18 +219,7 @@ Mesh* ToMesh(EditorMesh* em, bool upload)
         if (v0.edge_size < 0.01f && v1.edge_size < 0.01f)
             continue;
 
-        Vec3 en = {v0.edge_normal.x, v0.edge_normal.y, 0};
-        for (int face_index=0; face_index < em->face_count; face_index++)
-        {
-            EditorFace& ef = em->faces[face_index];
-            if (-1 != GetTriangleEdgeIndex(ef, ee))
-            {
-                // This edge is part of a face - use the face normal
-                en = Vec3{ef.normal.x, ef.normal.y, 0.1f};
-                break;
-            }
-        }
-
+        Vec3 en = VEC3_ZERO;
         Vec3 p0 = Vec3{v0.position.x, v0.position.y, v0.height};
         Vec3 p1 = Vec3{v1.position.x, v1.position.y, v1.height};
         u16 base = GetVertexCount(builder);
@@ -612,6 +629,29 @@ int RotateEdge(EditorMesh* em, int edge_index)
     return -1;
 }
 
+static void InsertVertex(EditorMesh* em, int face_index, int insert_at, int vertex_index)
+{
+    EditorFace& ef = em->faces[face_index];
+
+    ef.vertex_count++;
+
+    // Shift all existing face vertices up by one
+    em->face_vertex_count++;
+    for (int vertex_index2=em->face_vertex_count-1; vertex_index2>ef.vertex_offset + insert_at; vertex_index2--)
+        em->face_vertices[vertex_index2] = em->face_vertices[vertex_index2-1];
+
+    // Set the new vertex
+    em->face_vertices[ef.vertex_offset + insert_at] = vertex_index;
+
+    // Shift all face vertices after insert_at up by one
+    for (int face_index2=0; face_index2<em->face_count; face_index2++)
+    {
+        EditorFace& ef2 = em->faces[face_index2];
+        if (ef2.vertex_offset > ef.vertex_offset)
+            ef2.vertex_offset++;
+    }
+}
+
 int SplitEdge(EditorMesh* em, int edge_index, float edge_pos)
 {
     assert(edge_index >= 0 && edge_index < em->edge_count);
@@ -631,41 +671,48 @@ int SplitEdge(EditorMesh* em, int edge_index, float edge_pos)
     new_vertex.edge_size = (v0.edge_size + v1.edge_size) * 0.5f;
     new_vertex.position = (v0.position * (1.0f - edge_pos) + v1.position * edge_pos);
 
-    int triangle_count = em->face_count;
-    for (int i = 0; i < triangle_count; i++)
+    int face_count = em->face_count;
+    for (int face_index = 0; face_index < face_count; face_index++)
     {
-        EditorFace& et = em->faces[i];
+        EditorFace& ef = em->faces[face_index];
 
-        int triangle_edge = GetTriangleEdgeIndex(et, ee);
-        if (triangle_edge == -1)
+        int face_edge = GetFaceEdgeIndex(em, ef, ee);
+        if (face_edge == -1)
             continue;
 
-        EditorFace& split_tri = em->faces[em->face_count++];
-        split_tri.color = et.color;
+        InsertVertex(em, face_index, face_edge + 1, new_vertex_index);
 
-        if (triangle_edge == 0)
+#if 0
+
+
+
+        EditorFace& split_tri = em->faces[em->face_count++];
+        split_tri.color = ef.color;
+
+        if (face_edge == 0)
         {
             split_tri.v0 = new_vertex_index;
-            split_tri.v1 = et.v1;
-            split_tri.v2 = et.v2;
-            et.v1 = new_vertex_index;
+            split_tri.v1 = ef.v1;
+            split_tri.v2 = ef.v2;
+            ef.v1 = new_vertex_index;
         }
-        else if (triangle_edge == 1)
+        else if (face_edge == 1)
         {
-            split_tri.v0 = et.v0;
+            split_tri.v0 = ef.v0;
             split_tri.v1 = new_vertex_index;
-            split_tri.v2 = et.v2;
-            et.v2 = new_vertex_index;
+            split_tri.v2 = ef.v2;
+            ef.v2 = new_vertex_index;
         }
         else
         {
-            split_tri.v0 = et.v0;
-            split_tri.v1 = et.v1;
+            split_tri.v0 = ef.v0;
+            split_tri.v1 = ef.v1;
             split_tri.v2 = new_vertex_index;
-            et.v0 = new_vertex_index;
+            ef.v0 = new_vertex_index;
         }
 
         FixWinding(em, split_tri);
+#endif
     }
 
     return new_vertex_index;
@@ -1022,10 +1069,23 @@ static void ParseFace(EditorMesh* em, Tokenizer& tk)
     if (!ExpectInt(tk, &v2))
         ThrowError("missing face v2 index");
 
+    EditorFace& ef = em->faces[em->face_count++];
+
+    ef.vertex_offset = em->face_vertex_count;
+    em->face_vertices[em->face_vertex_count++] = v0;
+    em->face_vertices[em->face_vertex_count++] = v1;
+    em->face_vertices[em->face_vertex_count++] = v2;
+
+    while (ExpectInt(tk, &v2))
+    {
+        em->face_vertices[em->face_vertex_count++] = v2;
+    }
+
+    ef.vertex_count = em->face_vertex_count - ef.vertex_offset;
+
     if (v0 < 0 || v0 >= em->vertex_count || v1 < 0 || v1 >= em->vertex_count || v2 < 0 || v2 >= em->vertex_count)
         ThrowError("face vertex index out of range");
 
-    EditorFace& ef = em->faces[em->face_count++];
     ef.v0 = v0;
     ef.v1 = v1;
     ef.v2 = v2;
@@ -1174,8 +1234,7 @@ EditorAsset* NewEditorMesh(const std::filesystem::path& path)
                                "v 1 1 e 1 h 0\n"
                                "v -1 1 e 1 h 0\n"
                                "\n"
-                               "f 0 1 2 c 1 0\n"
-                               "f 0 2 3 c 1 0\n";
+                               "f 0 1 2 3 c 1 0\n";
 
     std::string text = default_mesh;
 
@@ -1243,4 +1302,25 @@ void InitEditorMesh(EditorAsset* ea)
     assert(ea->type == EDITOR_ASSET_TYPE_MESH);
     EditorMesh* em = (EditorMesh*)ea;
     Init(em);
+}
+
+void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
+{
+    if (ef->vertex_count < 3)
+        return;
+
+    Vec2 uv_color = ColorUV(ef->color.x, ef->color.y);
+
+    for (int i = 0; i < ef->vertex_count; i++)
+    {
+        int vertex_index = em->face_vertices[ef->vertex_offset + i];
+        AddVertex(builder, em->vertices[vertex_index].position, ef->normal, uv_color);
+    }
+
+    u16 base_vertex = GetVertexCount(builder) - (u16)ef->vertex_count;
+
+    for (int i = 1; i < ef->vertex_count - 1; i++)
+    {
+        AddTriangle(builder, base_vertex, base_vertex + (u16)i, base_vertex + (u16)i + 1);
+    }
 }
