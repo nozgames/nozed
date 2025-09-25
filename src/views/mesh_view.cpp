@@ -152,20 +152,16 @@ static void UpdateSelection()
             if (!ef.selected)
                 continue;
 
-            EditorVertex& v0 = em->vertices[ef.v0];
-            EditorVertex& v1 = em->vertices[ef.v1];
-            EditorVertex& v2 = em->vertices[ef.v2];
-
+            Vec2 face_center = GetFaceCenter(em, face_index);
             if (em->selected_count == 0)
-                bounds = { v0.position, v0.position };
+                bounds = {face_center, face_center};
 
-            bounds = Union(bounds, v0.position);
-            bounds = Union(bounds, v1.position);
-            bounds = Union(bounds, v2.position);
+            bounds = Union(bounds, face_center);
+
+            for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++)
+                em->vertices[ef.vertex_offset + vertex_index].selected = true;
+
             em->selected_count++;
-            v0.selected = true;
-            v1.selected = true;
-            v2.selected = true;
         }
         break;
     }
@@ -322,11 +318,7 @@ static void UpdateNormalState()
     for (int i=0; i<em->face_count; i++)
     {
         EditorFace& ef = em->faces[i];
-        const EditorVertex& v0 = em->vertices[ef.v0];
-        const EditorVertex& v1 = em->vertices[ef.v1];
-        const EditorVertex& v2 = em->vertices[ef.v2];
-
-        if (!v0.selected || !v1.selected || !v2.selected)
+        if (!ef.selected)
             continue;
 
         Vec2 xy = dir;
@@ -1093,8 +1085,6 @@ static void HandleNormalCommand()
     if (em->selected_count == 0)
         return;
 
-
-
     SetState(MESH_EDITOR_STATE_NORMAL);
 }
 
@@ -1295,35 +1285,35 @@ static bool ExtrudeSelectedEdges(EditorMesh* em)
                 edge_reversed = false;
                 break;
             }
-            else if (ef.v0 == old_v1 && ef.v1 == old_v0)
+            if (ef.v0 == old_v1 && ef.v1 == old_v0)
             {
                 face_color = ef.color;
                 face_normal = ef.normal;
                 edge_reversed = true;
                 break;
             }
-            else if (ef.v1 == old_v0 && ef.v2 == old_v1)
+            if (ef.v1 == old_v0 && ef.v2 == old_v1)
             {
                 face_color = ef.color;
                 face_normal = ef.normal;
                 edge_reversed = false;
                 break;
             }
-            else if (ef.v1 == old_v1 && ef.v2 == old_v0)
+            if (ef.v1 == old_v1 && ef.v2 == old_v0)
             {
                 face_color = ef.color;
                 face_normal = ef.normal;
                 edge_reversed = true;
                 break;
             }
-            else if (ef.v2 == old_v0 && ef.v0 == old_v1)
+            if (ef.v2 == old_v0 && ef.v0 == old_v1)
             {
                 face_color = ef.color;
                 face_normal = ef.normal;
                 edge_reversed = false;
                 break;
             }
-            else if (ef.v2 == old_v1 && ef.v0 == old_v0)
+            if (ef.v2 == old_v1 && ef.v0 == old_v0)
             {
                 face_color = ef.color;
                 face_normal = ef.normal;

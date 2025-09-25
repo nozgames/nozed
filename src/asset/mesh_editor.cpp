@@ -64,10 +64,15 @@ void DrawMesh(EditorMesh* em, const Mat3& transform)
 Vec2 GetFaceCenter(EditorMesh* em, int face_index)
 {
     const EditorFace& ef = em->faces[face_index];
-    const EditorVertex& v0 = em->vertices[ef.v0];
-    const EditorVertex& v1 = em->vertices[ef.v1];
-    const EditorVertex& v2 = em->vertices[ef.v2];
-    return (v0.position + v1.position + v2.position) / 3.0f;
+    Vec2 center = VEC2_ZERO;
+
+    for (int i = 0; i < ef.vertex_count; i++)
+    {
+        int vertex_idx = em->face_vertices[ef.vertex_offset + i];
+        center += em->vertices[vertex_idx].position;
+    }
+
+    return center / (float)ef.vertex_count;
 }
 
 bool IsVertexOnOutsideEdge(EditorMesh* em, int v0)
@@ -938,15 +943,70 @@ bool OverlapBounds(EditorMesh* em, const Vec2& position, const Bounds2& hit_boun
 
 int HitTestFace(EditorMesh* em, const Vec2& position, const Vec2& hit_pos, Vec2* where)
 {
-    for (int i=0; i<em->face_count; i++)
+    for (int i = 0; i < em->face_count; i++)
     {
-        EditorFace& et = em->faces[i];
-        Vec2 v0 = em->vertices[et.v0].position + position;
-        Vec2 v1 = em->vertices[et.v1].position + position;
-        Vec2 v2 = em->vertices[et.v2].position + position;
+        EditorFace& ef = em->faces[i];
 
-        if (OverlapPoint(v0, v1, v2, hit_pos, where))
+        // Ray casting algorithm - works for both convex and concave polygons
+        int intersections = 0;
+
+        for (int vertex_index = 0; vertex_index < ef.vertex_count; vertex_index++)
+        {
+            int v0_idx = em->face_vertices[ef.vertex_offset + vertex_index];
+            int v1_idx = em->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
+
+            Vec2 v0 = em->vertices[v0_idx].position + position;
+            Vec2 v1 = em->vertices[v1_idx].position + position;
+
+            // Cast horizontal ray to the right from hit_pos
+            // Check if this edge intersects the ray
+            float min_y = Min(v0.y, v1.y);
+            float max_y = Max(v0.y, v1.y);
+
+            // Skip horizontal edges and edges that don't cross the ray's Y level
+            if (hit_pos.y < min_y || hit_pos.y >= max_y || min_y == max_y)
+                continue;
+
+            // Calculate X intersection point
+            float t = (hit_pos.y - v0.y) / (v1.y - v0.y);
+            float x_intersect = v0.x + t * (v1.x - v0.x);
+
+            // Count intersection if it's to the right of the point
+            if (x_intersect > hit_pos.x)
+                intersections++;
+        }
+
+        // Point is inside if odd number of intersections
+        bool inside = (intersections % 2) == 1;
+
+        if (inside)
+        {
+            // Calculate barycentric coordinates for the first triangle if needed
+            if (where && ef.vertex_count >= 3)
+            {
+                Vec2 v0 = em->vertices[em->face_vertices[ef.vertex_offset + 0]].position + position;
+                Vec2 v1 = em->vertices[em->face_vertices[ef.vertex_offset + 1]].position + position;
+                Vec2 v2 = em->vertices[em->face_vertices[ef.vertex_offset + 2]].position + position;
+
+                Vec2 v0v1 = v1 - v0;
+                Vec2 v0v2 = v2 - v0;
+                Vec2 v0p = hit_pos - v0;
+
+                float dot00 = Dot(v0v2, v0v2);
+                float dot01 = Dot(v0v2, v0v1);
+                float dot02 = Dot(v0v2, v0p);
+                float dot11 = Dot(v0v1, v0v1);
+                float dot12 = Dot(v0v1, v0p);
+
+                float inv_denom = 1.0f / (dot00 * dot11 - dot01 * dot01);
+                float u = (dot11 * dot02 - dot01 * dot12) * inv_denom;
+                float v = (dot00 * dot12 - dot01 * dot02) * inv_denom;
+
+                *where = Vec2{u, v};
+            }
+
             return i;
+        }
     }
 
     return -1;

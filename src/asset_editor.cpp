@@ -138,12 +138,12 @@ void DrawSelectedFaces(EditorMesh* em, const Vec2& position)
         if (!ef.selected)
             continue;
 
-        Vec2 v0 = em->vertices[ef.v0].position + position;
-        Vec2 v1 = em->vertices[ef.v1].position + position;
-        Vec2 v2 = em->vertices[ef.v2].position + position;
-        DrawLine(v0, v1);
-        DrawLine(v1, v2);
-        DrawLine(v2, v0);
+        for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++)
+        {
+            int v0 = em->face_vertices[ef.vertex_offset + vertex_index];
+            int v1 = em->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
+            DrawLine(em->vertices[v0].position + position, em->vertices[v1].position + position);
+        }
     }
 }
 
