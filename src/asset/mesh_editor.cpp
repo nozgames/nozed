@@ -82,6 +82,20 @@ bool IsVertexOnOutsideEdge(EditorMesh* em, int v0)
     return false;
 }
 
+static int GetEdge(EditorMesh* em, int v0, int v1)
+{
+    int fv0 = Min(v0, v1);
+    int fv1 = Max(v0, v1);
+   for (int i = 0; i < em->edge_count; i++)
+    {
+        EditorEdge& ee = em->edges[i];
+        if (ee.v0 == fv0 && ee.v1 == fv1)
+            return i;
+    }
+
+    return -1;
+}
+
 int GetOrAddEdge(EditorMesh* em, int v0, int v1)
 {
     int fv0 = Min(v0, v1);
@@ -310,7 +324,7 @@ void MergeSelectedVerticies(EditorMesh* em)
     int merged_vertex_index = selected_indices[0];
 
     // Store original winding for each triangle before redirecting
-    bool original_winding[MAX_TRIANGLES];
+    bool original_winding[MAX_FACES];
     for (int i = 0; i < em->face_count; i++)
     {
         EditorFace& ef = em->faces[i];
@@ -652,6 +666,93 @@ static void InsertVertex(EditorMesh* em, int face_index, int insert_at, int vert
     }
 }
 
+static void RemoveVerticesFromFace(EditorMesh* em, int face_index, int remove_at, int remove_count)
+{
+    EditorFace& ef = em->faces[face_index];
+    assert(remove_at >= 0 && remove_at + remove_count <= ef.vertex_count);
+
+    for (int vertex_index=ef.vertex_offset + remove_at; vertex_index< em->face_vertex_count - remove_count; vertex_index++)
+        em->face_vertices[vertex_index] = em->face_vertices[vertex_index + remove_count];
+
+    ef.vertex_count -= remove_count;
+    em->face_vertex_count -= remove_count;
+
+    // Shift all face vertex offsets down by remove_count
+    for (int face_index2=0; face_index2<em->face_count; face_index2++)
+    {
+        EditorFace& ef2 = em->faces[face_index2];
+        if (ef2.vertex_offset > ef.vertex_offset)
+            ef2.vertex_offset -= remove_count;
+    }
+}
+
+
+int SplitFaces(EditorMesh* em, int v0, int v1)
+{
+    if (em->face_count >= MAX_FACES)
+        return -1;
+
+    if (GetEdge(em, v0, v1) != -1)
+        return -1;
+
+    int face_index = 0;
+    int v0_pos = -1;
+    int v1_pos = -1;
+    for (; face_index < em->face_count; face_index++)
+    {
+        EditorFace& ef = em->faces[face_index];
+
+        v0_pos = -1;
+        v1_pos = -1;
+        for (int i = 0; i < ef.vertex_count && (v0_pos == -1 || v1_pos == -1); i++)
+        {
+            int vertex_index = em->face_vertices[ef.vertex_offset + i];
+            if (vertex_index == v0) v0_pos = i;
+            if (vertex_index == v1) v1_pos = i;
+        }
+
+        if (v0_pos != -1 && v1_pos != -1)
+            break;
+    }
+
+    if (face_index >= em->face_count)
+        return -1;
+
+
+    if (v0_pos > v1_pos)
+    {
+        int temp = v0_pos;
+        v0_pos = v1_pos;
+        v1_pos = temp;
+    }
+
+    EditorFace& old_face = em->faces[face_index];
+    EditorFace& new_face = em->faces[em->face_count++];
+    new_face.color = old_face.color;
+    new_face.normal = old_face.normal;
+    new_face.selected = old_face.selected;
+
+    int old_vertex_count = old_face.vertex_count - (v1_pos - v0_pos - 1);
+    int new_vertex_count = v1_pos - v0_pos + 1;
+
+    new_face.vertex_count = new_vertex_count;
+    new_face.vertex_offset = em->face_vertex_count;
+    em->face_vertex_count += new_vertex_count;
+    for (int vertex_index=0; vertex_index<new_vertex_count; vertex_index++)
+        em->face_vertices[new_face.vertex_offset + vertex_index] = em->face_vertices[old_face.vertex_offset + v0_pos + vertex_index];
+
+    for (int vertex_index=0; v1_pos+vertex_index<old_face.vertex_count; vertex_index++)
+        em->face_vertices[old_face.vertex_offset + v0_pos + vertex_index + 1] =
+            em->face_vertices[old_face.vertex_offset + v1_pos + vertex_index];
+
+    RemoveVerticesFromFace(em, face_index, old_vertex_count, old_face.vertex_count - old_vertex_count);
+
+    UpdateEdges(em);
+    MarkDirty(em);
+
+    return em->face_count-1;
+}
+
 int SplitEdge(EditorMesh* em, int edge_index, float edge_pos)
 {
     assert(edge_index >= 0 && edge_index < em->edge_count);
@@ -659,7 +760,7 @@ int SplitEdge(EditorMesh* em, int edge_index, float edge_pos)
     if (em->vertex_count >= MAX_VERTICES)
         return -1;
 
-    if (em->face_count + 2 >= MAX_TRIANGLES)
+    if (em->face_count + 2 >= MAX_FACES)
         return -1;
 
     EditorEdge& ee = em->edges[edge_index];
@@ -725,7 +826,7 @@ int SplitTriangle(EditorMesh* em, int triangle_index, const Vec2& position)
     if (em->vertex_count >= MAX_VERTICES)
         return -1;
 
-    if (em->face_count + 2 >= MAX_TRIANGLES)
+    if (em->face_count + 2 >= MAX_FACES)
         return -1;
 
     EditorFace& et = em->faces[triangle_index];
@@ -920,7 +1021,7 @@ int AddVertex(EditorMesh* em, const Vec2& position)
     if (closest_edge == -1)
         return -1;
 
-    if (em->face_count >= MAX_TRIANGLES)
+    if (em->face_count >= MAX_FACES)
         return -1;
 
     // Create new vertex
@@ -1054,7 +1155,7 @@ static void ParseFaceNormal(EditorFace& ef, Tokenizer& tk)
 
 static void ParseFace(EditorMesh* em, Tokenizer& tk)
 {
-    if (em->face_count >= MAX_TRIANGLES)
+    if (em->face_count >= MAX_FACES)
         ThrowError("too many faces");
 
     int v0;
@@ -1220,7 +1321,15 @@ static void EditorMeshSave(EditorAsset* ea, const std::filesystem::path& path)
     for (int i=0; i<em->face_count; i++)
     {
         const EditorFace& ef = em->faces[i];
-        WriteCSTR(stream, "f %d %d %d c %d %d n %f %f %f\n", ef.v0, ef.v1, ef.v2, ef.color.x, ef.color.y, ef.normal.x, ef.normal.y, ef.normal.z);
+
+        WriteCSTR(stream, "f ");
+        for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++)
+        {
+            int v = em->face_vertices[ef.vertex_offset + vertex_index];
+            WriteCSTR(stream, " %d", v);
+        }
+
+        WriteCSTR(stream, " c %d %d n %f %f %f\n", ef.color.x, ef.color.y, ef.normal.x, ef.normal.y, ef.normal.z);
     }
 
     SaveStream(stream, path);
@@ -1304,6 +1413,51 @@ void InitEditorMesh(EditorAsset* ea)
     Init(em);
 }
 
+static bool IsEar(EditorMesh* em, int* indices, int vertex_count, int ear_index)
+{
+    int prev = (ear_index - 1 + vertex_count) % vertex_count;
+    int curr = ear_index;
+    int next = (ear_index + 1) % vertex_count;
+
+    Vec2 v0 = em->vertices[indices[prev]].position;
+    Vec2 v1 = em->vertices[indices[curr]].position;
+    Vec2 v2 = em->vertices[indices[next]].position;
+
+    // Check if triangle has correct winding (counter-clockwise)
+    float cross = (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
+    if (cross <= 0)
+        return false;
+
+    // Check if any other vertex is inside this triangle
+    for (int i = 0; i < vertex_count; i++)
+    {
+        if (i == prev || i == curr || i == next)
+            continue;
+
+        Vec2 p = em->vertices[indices[i]].position;
+
+        // Use barycentric coordinates to check if point is inside triangle
+        Vec2 v0v1 = v1 - v0;
+        Vec2 v0v2 = v2 - v0;
+        Vec2 v0p = p - v0;
+
+        float dot00 = Dot(v0v2, v0v2);
+        float dot01 = Dot(v0v2, v0v1);
+        float dot02 = Dot(v0v2, v0p);
+        float dot11 = Dot(v0v1, v0v1);
+        float dot12 = Dot(v0v1, v0p);
+
+        float inv_denom = 1.0f / (dot00 * dot11 - dot01 * dot01);
+        float u = (dot11 * dot02 - dot01 * dot12) * inv_denom;
+        float v = (dot00 * dot12 - dot01 * dot02) * inv_denom;
+
+        if (u > 0 && v > 0 && u + v < 1)
+            return false;
+    }
+
+    return true;
+}
+
 void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
 {
     if (ef->vertex_count < 3)
@@ -1311,6 +1465,7 @@ void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
 
     Vec2 uv_color = ColorUV(ef->color.x, ef->color.y);
 
+    // Add all vertices to the builder first
     for (int i = 0; i < ef->vertex_count; i++)
     {
         int vertex_index = em->face_vertices[ef->vertex_offset + i];
@@ -1319,8 +1474,101 @@ void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
 
     u16 base_vertex = GetVertexCount(builder) - (u16)ef->vertex_count;
 
-    for (int i = 1; i < ef->vertex_count - 1; i++)
+    // For triangles, just add directly
+    if (ef->vertex_count == 3)
     {
-        AddTriangle(builder, base_vertex, base_vertex + (u16)i, base_vertex + (u16)i + 1);
+        AddTriangle(builder, base_vertex, base_vertex + 1, base_vertex + 2);
+        return;
+    }
+
+    // For polygons with more than 3 vertices, use ear clipping
+    int indices[MAX_VERTICES];
+    for (int i = 0; i < ef->vertex_count; i++)
+    {
+        indices[i] = em->face_vertices[ef->vertex_offset + i];
+    }
+
+    int remaining_vertices = ef->vertex_count;
+    int current_index = 0;
+
+    while (remaining_vertices > 3)
+    {
+        bool found_ear = false;
+
+        for (int attempts = 0; attempts < remaining_vertices; attempts++)
+        {
+            if (IsEar(em, indices, remaining_vertices, current_index))
+            {
+                // Found an ear, create triangle
+                int prev = (current_index - 1 + remaining_vertices) % remaining_vertices;
+                int next = (current_index + 1) % remaining_vertices;
+
+                // Find the corresponding indices in the builder
+                u16 tri_indices[3];
+                for (u16 i = 0; i < ef->vertex_count; i++)
+                {
+                    if (em->face_vertices[ef->vertex_offset + i] == indices[prev])
+                        tri_indices[0] = base_vertex + i;
+                    if (em->face_vertices[ef->vertex_offset + i] == indices[current_index])
+                        tri_indices[1] = base_vertex + i;
+                    if (em->face_vertices[ef->vertex_offset + i] == indices[next])
+                        tri_indices[2] = base_vertex + i;
+                }
+
+                AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
+
+                // Remove the ear vertex from the polygon
+                for (int i = current_index; i < remaining_vertices - 1; i++)
+                {
+                    indices[i] = indices[i + 1];
+                }
+                remaining_vertices--;
+
+                // Adjust current index after removal
+                if (current_index >= remaining_vertices)
+                    current_index = 0;
+
+                found_ear = true;
+                break;
+            }
+
+            current_index = (current_index + 1) % remaining_vertices;
+        }
+
+        if (!found_ear)
+        {
+            // Fallback to simple fan triangulation if ear clipping fails
+            for (int i = 1; i < remaining_vertices - 1; i++)
+            {
+                u16 tri_indices[3];
+                for (u16 j = 0; j < ef->vertex_count; j++)
+                {
+                    if (em->face_vertices[ef->vertex_offset + j] == indices[0])
+                        tri_indices[0] = base_vertex + j;
+                    if (em->face_vertices[ef->vertex_offset + j] == indices[i])
+                        tri_indices[1] = base_vertex + j;
+                    if (em->face_vertices[ef->vertex_offset + j] == indices[i + 1])
+                        tri_indices[2] = base_vertex + j;
+                }
+                AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
+            }
+            break;
+        }
+    }
+
+    // Add the final triangle
+    if (remaining_vertices == 3)
+    {
+        u16 tri_indices[3];
+        for (u16 i = 0; i < ef->vertex_count; i++)
+        {
+            if (em->face_vertices[ef->vertex_offset + i] == indices[0])
+                tri_indices[0] = base_vertex + i;
+            if (em->face_vertices[ef->vertex_offset + i] == indices[1])
+                tri_indices[1] = base_vertex + i;
+            if (em->face_vertices[ef->vertex_offset + i] == indices[2])
+                tri_indices[2] = base_vertex + i;
+        }
+        AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
     }
 }

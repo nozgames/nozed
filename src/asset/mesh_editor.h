@@ -7,8 +7,8 @@
 struct EditorAsset;
 
 constexpr int MAX_VERTICES = 1024;
-constexpr int MAX_TRIANGLES = MAX_VERTICES / 3;
-constexpr int MAX_INDICES = MAX_TRIANGLES * 3;
+constexpr int MAX_FACES = MAX_VERTICES / 3;
+constexpr int MAX_INDICES = MAX_FACES * 3;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;
 
 struct EditorVertex
@@ -47,7 +47,7 @@ struct EditorMesh : EditorAsset
 {
     EditorVertex vertices[MAX_VERTICES];
     EditorEdge edges[MAX_EDGES];
-    EditorFace faces[MAX_TRIANGLES];
+    EditorFace faces[MAX_FACES];
     int face_vertices[MAX_INDICES];
     int face_vertex_count;
     int vertex_count;

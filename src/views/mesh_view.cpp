@@ -68,7 +68,7 @@ struct MeshView
     float fixed_value;
     Shortcut* shortcuts;
     MeshViewVertex vertices[MAX_VERTICES];
-    MeshViewFace faces[MAX_TRIANGLES];
+    MeshViewFace faces[MAX_FACES];
     Mesh* rotate_arc_mesh;
 };
 
@@ -262,6 +262,26 @@ static int GetFirstSelectedEdge()
     EditorMesh* em = GetEditingMesh();
     for (int i=0; i<em->edge_count; i++)
         if (em->edges[i].selected)
+            return i;
+
+    return -1;
+}
+
+static int GetFirstSelectedVertex()
+{
+    EditorMesh* em = GetEditingMesh();
+    for (int i=0; i<em->vertex_count; i++)
+        if (em->vertices[i].selected)
+            return i;
+
+    return -1;
+}
+
+static int GetNextSelectedVertex(int prev_vertex)
+{
+    EditorMesh* em = GetEditingMesh();
+    for (int i=prev_vertex+1; i<em->vertex_count; i++)
+        if (em->vertices[i].selected)
             return i;
 
     return -1;
@@ -539,15 +559,32 @@ static bool HandleSelectFace()
     return true;
 }
 
+extern int SplitFaces(EditorMesh* em, int v0, int v1);
+
 static void AddVertexAtMouse()
 {
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    RecordUndo();
-
     EditorAsset* ea = GetEditingAsset();
     EditorMesh* em = GetEditingMesh();
+
+    RecordUndo();
+
+    if (g_mesh_view.mode == MESH_EDITOR_MODE_VERTEX && em->selected_count == 2)
+    {
+        int v0 = GetFirstSelectedVertex();
+        int v1 = GetNextSelectedVertex(v0);
+        assert(v0 != -1 && v1 != -1);
+
+        if (-1 == SplitFaces(em, v0, v1))
+            CancelUndo();
+
+        return;
+    }
+
+
+
     int new_vertex = AddVertex(em, g_view.mouse_world_position - ea->position);
     if (new_vertex == -1)
     {
@@ -1222,7 +1259,7 @@ static bool ExtrudeSelectedEdges(EditorMesh* em)
         if (em->edge_count + 3 >= MAX_EDGES)
             return false;
 
-        if (em->face_count + 2 >= MAX_TRIANGLES)
+        if (em->face_count + 2 >= MAX_FACES)
             return false;
 
         // Add edge connecting old_v0 to new_v0
