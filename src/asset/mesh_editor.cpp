@@ -6,21 +6,9 @@ constexpr float OUTLINE_WIDTH = 0.05f;
 
 static void Init(EditorMesh* em);
 static void DeleteFaceInternal(EditorMesh* em, int face_index);
-
-static int GetTriangleEdgeIndex(const EditorFace& et, const EditorEdge& ee)
-{
-    // Return 0, 1, or 2 if the edge matches one of the triangle's edges
-    if ((et.v0 == ee.v0 && et.v1 == ee.v1) || (et.v0 == ee.v1 && et.v1 == ee.v0))
-        return 0;
-
-    if ((et.v1 == ee.v0 && et.v2 == ee.v1) || (et.v1 == ee.v1 && et.v2 == ee.v0))
-        return 1;
-
-    if ((et.v2 == ee.v0 && et.v0 == ee.v1) || (et.v2 == ee.v1 && et.v0 == ee.v0))
-        return 2;
-
-    return -1;
-}
+static void RemoveFaceVertices(EditorMesh* em, int face_index, int remove_at, int remove_count);
+static void InsertFaceVertices(EditorMesh* em, int face_index, int insert_at, int count);
+static void DeleteUnreferencedVertices(EditorMesh* em);
 
 static int GetFaceEdgeIndex(EditorMesh* em, const EditorFace& ef, const EditorEdge& ee)
 {
@@ -138,39 +126,6 @@ int GetOrAddEdge(EditorMesh* em, int v0, int v1)
     return edge_index;
 }
 
-// static Vec3 TriangleNormal(const Vec3& p0, const Vec3& p1, const Vec3& p2)
-// {
-//     Vec3 u = p1 - p0;
-//     Vec3 v = p2 - p0;
-//     Vec3 n = Cross(u, v);
-//     if (n.z < 0) n.z *= -1.0f;
-//     return Normalize(n);
-// }
-
-static int TriangleWinding(const Vec2& p0, const Vec2& p1, const Vec2& p2)
-{
-    float area = (p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y);
-    if (area > 0)
-        return 1; // Counter-clockwise
-
-    if (area < 0)
-        return -1; // Clockwise
-
-    return 0; // Degenerate
-}
-
-bool FixWinding(EditorMesh* em, EditorFace& ef)
-{
-    if (TriangleWinding(em->vertices[ef.v0].position, em->vertices[ef.v1].position, em->vertices[ef.v2].position) >= 0)
-        return false;
-
-    // Swap v1 and v2 to fix winding
-    int temp = ef.v1;
-    ef.v1 = ef.v2;
-    ef.v2 = temp;
-    return true;
-}
-
 void UpdateEdges(EditorMesh* em)
 {
     em->edge_count = 0;
@@ -273,7 +228,7 @@ void SetSelectedTrianglesColor(EditorMesh* em, const Vec2Int& color)
     for (i32 i = 0; i < em->face_count; i++)
     {
         EditorFace& et = em->faces[i];
-        if (em->vertices[et.v0].selected && em->vertices[et.v1].selected && em->vertices[et.v2].selected)
+        if (et.selected)
         {
             et.color = color;
             count++;
@@ -286,144 +241,93 @@ void SetSelectedTrianglesColor(EditorMesh* em, const Vec2Int& color)
     MarkDirty(em);
 }
 
-static void RemoveVertex(EditorMesh* em, int vertex_index)
-{
-    // Shift all vertices down as long as it wasn't the last vertex
-    for (int i = vertex_index; i < em->vertex_count - 1; i++)
-        em->vertices[i] = em->vertices[i + 1];
-
-    em->vertex_count--;
-
-    // Update all triangle vertex indices that are greater than vertex_index
-    for (int i = 0; i < em->face_count; i++)
-    {
-        EditorFace& et = em->faces[i];
-        if (et.v0 > vertex_index)
-            et.v0--;
-        if (et.v1 > vertex_index)
-            et.v1--;
-        if (et.v2 > vertex_index)
-            et.v2--;
-    }
-}
-
 void MergeSelectedVerticies(EditorMesh* em)
 {
-    // Find all selected vertices and calculate center
-    Vec2 center = VEC2_ZERO;
-    int selected_indices[MAX_VERTICES];
-    int selected_count = 0;
-    for (int i = 0; i < em->vertex_count; i++)
-    {
-        if (!em->vertices[i].selected)
-            continue;
-
-        center += em->vertices[i].position;
-        if (selected_count < MAX_VERTICES)
-            selected_indices[selected_count++] = i;
-    }
-
-    if (selected_count <= 1)
+    if (em->vertex_count < 2)
         return;
 
-    center = center * (1.0f / selected_count);
+    // Find all selected vertices and calculate their center position
+    Vec2 center_pos = VEC2_ZERO;
+    int selected_vertices[MAX_VERTICES];
+    int selected_count = 0;
 
-    // Use the first selected vertex as the merge target
-    int merged_vertex_index = selected_indices[0];
-
-    // Store original winding for each triangle before redirecting
-    bool original_winding[MAX_FACES];
-    for (int i = 0; i < em->face_count; i++)
+    for (int i = 0; i < em->vertex_count; i++)
     {
-        EditorFace& ef = em->faces[i];
-        original_winding[i] = (TriangleWinding(em->vertices[ef.v0].position, em->vertices[ef.v1].position, em->vertices[ef.v2].position) >= 0);
-    }
-
-    // Redirect all triangles that use the other selected vertices to use the merged vertex
-    for (int i = 1; i < selected_count; i++)
-    {
-        int old_vertex_index = selected_indices[i];
-
-        for (int face_idx = 0; face_idx < em->face_count; face_idx++)
+        if (em->vertices[i].selected && selected_count < MAX_VERTICES)
         {
-            EditorFace& ef = em->faces[face_idx];
-            if (ef.v0 == old_vertex_index)
-                ef.v0 = merged_vertex_index;
-            if (ef.v1 == old_vertex_index)
-                ef.v1 = merged_vertex_index;
-            if (ef.v2 == old_vertex_index)
-                ef.v2 = merged_vertex_index;
+            selected_vertices[selected_count++] = i;
+            center_pos += em->vertices[i].position;
         }
     }
 
-    // Remove duplicate/degenerate triangles and restore winding
-    for (int i = em->face_count - 1; i >= 0; i--)
-    {
-        EditorFace& ef = em->faces[i];
-        if (ef.v0 == ef.v1 || ef.v1 == ef.v2 || ef.v2 == ef.v0)
-        {
-            // Remove degenerate triangle
-            em->faces[i] = em->faces[em->face_count - 1];
-            em->face_count--;
-            // Move the original winding info too
-            if (i < em->face_count)
-                original_winding[i] = original_winding[em->face_count];
-        }
-        else
-        {
-            // Check if winding changed and restore it if needed
-            bool current_winding = (TriangleWinding(em->vertices[ef.v0].position, em->vertices[ef.v1].position, em->vertices[ef.v2].position) >= 0);
-            if (current_winding != original_winding[i])
-            {
-                // Winding changed, fix it by swapping v1 and v2
-                int temp = ef.v1;
-                ef.v1 = ef.v2;
-                ef.v2 = temp;
-            }
-        }
-    }
+    if (selected_count < 2)
+        return;
 
-    // Sort indices in descending order to remove from highest to lowest
-    for (int i = 0; i < selected_count - 1; i++)
-    {
-        for (int j = i + 1; j < selected_count; j++)
-        {
-            if (selected_indices[i] < selected_indices[j])
-            {
-                int temp = selected_indices[i];
-                selected_indices[i] = selected_indices[j];
-                selected_indices[j] = temp;
-            }
-        }
-    }
+    center_pos = center_pos / (float)selected_count;
 
-    // Remove the now-unused vertices (skip the first one which is our merged vertex)
+    // Find the first selected vertex to be the merge target
+    int target_vertex = selected_vertices[0];
+
+    // Update target vertex position to center and average other properties
+    EditorVertex& target = em->vertices[target_vertex];
+    target.position = center_pos;
+
+    float avg_height = 0.0f;
+    float avg_edge_size = 0.0f;
     for (int i = 0; i < selected_count; i++)
     {
-        if (selected_indices[i] != merged_vertex_index)
+        const EditorVertex& ev = em->vertices[selected_vertices[i]];
+        avg_height += ev.height;
+        avg_edge_size += ev.edge_size;
+    }
+    target.height = avg_height / (float)selected_count;
+    target.edge_size = avg_edge_size / (float)selected_count;
+
+    // Create a set for fast lookup of selected vertices to replace
+    bool vertex_to_replace[MAX_VERTICES] = {};
+    for (int i = 1; i < selected_count; i++)
+    {
+        vertex_to_replace[selected_vertices[i]] = true;
+    }
+
+    // Replace all references to other selected vertices with target vertex
+    for (int i = 0; i < em->face_vertex_count; i++)
+    {
+        int vertex_index = em->face_vertices[i];
+        if (vertex_index < MAX_VERTICES && vertex_to_replace[vertex_index])
         {
-            RemoveVertex(em, selected_indices[i]);
-
-            // Adjust remaining indices since we just removed a vertex
-            for (int j = i + 1; j < selected_count; j++)
-            {
-                if (selected_indices[j] > selected_indices[i])
-                    selected_indices[j]--;
-            }
-
-            // Adjust merged vertex index if it was affected
-            if (merged_vertex_index > selected_indices[i])
-                merged_vertex_index--;
+            em->face_vertices[i] = target_vertex;
         }
     }
 
-    // Now move the merged vertex to the center position
-    em->vertices[merged_vertex_index].position = center;
+    // Remove duplicate vertices from faces after merging
+    for (int face_index = 0; face_index < em->face_count; face_index++)
+    {
+        EditorFace& ef = em->faces[face_index];
 
-    // Clear any accumulated edge normal for the merged vertex
-    em->vertices[merged_vertex_index].edge_normal = VEC2_ZERO;
+        // Remove consecutive duplicate vertices
+        for (int i = ef.vertex_count - 1; i >= 0; i--)
+        {
+            int current_vertex = em->face_vertices[ef.vertex_offset + i];
+            int next_vertex = em->face_vertices[ef.vertex_offset + (i + 1) % ef.vertex_count];
 
+            if (current_vertex == next_vertex)
+            {
+                RemoveFaceVertices(em, face_index, i, 1);
+            }
+        }
+
+        // If face has less than 3 vertices after cleanup, delete it
+        if (ef.vertex_count < 3)
+        {
+            DeleteFaceInternal(em, face_index);
+            face_index--; // Adjust index since we deleted a face
+        }
+    }
+
+    // Clean up unreferenced vertices and update edges
     UpdateEdges(em);
+    DeleteUnreferencedVertices(em);
     MarkDirty(em);
 }
 
@@ -482,29 +386,6 @@ static void DeleteVertex(EditorMesh* em, int vertex_index) {
     MarkDirty(em);
 }
 
-static void RemoveFaceVertices(EditorMesh* em, int face_index, int remove_at, int remove_count)
-{
-    EditorFace& ef = em->faces[face_index];
-    if (remove_count == -1)
-        remove_count = ef.vertex_count - remove_at;
-
-    assert(remove_at >= 0 && remove_at + remove_count <= ef.vertex_count);
-
-    for (int vertex_index=ef.vertex_offset + remove_at; vertex_index< em->face_vertex_count - remove_count; vertex_index++)
-        em->face_vertices[vertex_index] = em->face_vertices[vertex_index + remove_count];
-
-    ef.vertex_count -= remove_count;
-    em->face_vertex_count -= remove_count;
-
-    // Shift all face vertex offsets down by remove_count
-    for (int face_index2=0; face_index2<em->face_count; face_index2++)
-    {
-        EditorFace& ef2 = em->faces[face_index2];
-        if (ef2.vertex_offset > ef.vertex_offset)
-            ef2.vertex_offset -= remove_count;
-    }
-}
-
 static void DeleteFaceInternal(EditorMesh* em, int face_index)
 {
     assert(face_index >= 0 && face_index < em->face_count);
@@ -535,6 +416,80 @@ void DissolveSelectedFaces(EditorMesh* em)
     }
 }
 
+static int FindFacesForEdge(EditorMesh* em, const EditorEdge& edge, int face_indices[2])
+{
+    int found_count = 0;
+
+    for (int face_index = 0; face_index < em->face_count; face_index++)
+    {
+        const EditorFace& ef = em->faces[face_index];
+
+        if (GetFaceEdgeIndex(em, ef, edge) != -1)
+        {
+            if (found_count < 2)
+                face_indices[found_count] = face_index;
+            found_count++;
+        }
+    }
+
+    return found_count;
+}
+
+static void MergeFaces(EditorMesh* em, int face0_index, int face1_index, const EditorEdge& shared_edge)
+{
+    assert(face0_index >= 0 && face0_index < em->face_count);
+    assert(face1_index >= 0 && face1_index < em->face_count);
+    assert(face1_index > face0_index);
+
+    EditorFace& face0 = em->faces[face0_index];
+    EditorFace& face1 = em->faces[face1_index];
+
+    int edge_pos0 = GetFaceEdgeIndex(em, face0, shared_edge);
+    int edge_pos1 = GetFaceEdgeIndex(em, face1, shared_edge);
+    assert(edge_pos0 != -1);
+    assert(edge_pos1 != -1);
+
+    int insert_pos = (edge_pos0 + 1) % face0.vertex_count;
+    InsertFaceVertices(em, face0_index, insert_pos, face1.vertex_count - 2);
+
+    for (int i=0; i<face1.vertex_count - 2; i++)
+        em->face_vertices[face0.vertex_offset + insert_pos + i] =
+            em->face_vertices[face1.vertex_offset + ((edge_pos1 + 2 + i) % face1.vertex_count)];
+
+    DeleteFaceInternal(em, face1_index);
+    UpdateEdges(em);
+    MarkDirty(em);
+}
+
+void DissolveSelectedEdges(EditorMesh* em)
+{
+    for (int edge_index=em->edge_count - 1; edge_index>=0; edge_index--)
+    {
+        EditorEdge& ee = em->edges[edge_index];
+        if (!ee.selected)
+            continue;
+
+        int face_indices[2];
+        int face_count = FindFacesForEdge(em, ee, face_indices);
+
+        if (face_count == 1)
+        {
+            DeleteFaceInternal(em, face_indices[0]);
+            continue;
+        }
+
+        if (face_count == 2)
+        {
+            MergeFaces(em, Min(face_indices[0], face_indices[1]), Max(face_indices[0], face_indices[1]), ee);
+            continue;
+        }
+    }
+
+    UpdateEdges(em);
+    DeleteUnreferencedVertices(em);
+    MarkDirty(em);
+}
+
 void DissolveSelectedVertices(EditorMesh* em)
 {
     for (int vertex_index=em->vertex_count - 1; vertex_index>=0; vertex_index--)
@@ -547,122 +502,48 @@ void DissolveSelectedVertices(EditorMesh* em)
     }
 }
 
-static float CalculateTriangleArea(const Vec2& v0, const Vec2& v1, const Vec2& v2)
-{
-    // Calculate signed area using cross product
-    return (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
-}
-
-int RotateEdge(EditorMesh* em, int edge_index)
-{
-    assert(edge_index >= 0 && edge_index < em->edge_count);
-
-    EditorEdge& edge = em->edges[edge_index];
-
-    // Find the two triangles that share this edge
-    int triangle_indices[2];
-    int triangle_count = 0;
-
-    for (int i = 0; i < em->face_count; i++)
-    {
-        EditorFace& et = em->faces[i];
-        if (GetTriangleEdgeIndex(et, edge) != -1)
-        {
-            if (triangle_count < 2)
-            {
-                triangle_indices[triangle_count] = i;
-                triangle_count++;
-            }
-        }
-    }
-
-    // Edge rotation only works if exactly 2 triangles share the edge
-    if (triangle_count != 2)
-        return -1;
-
-    EditorFace& f1 = em->faces[triangle_indices[0]];
-    EditorFace& f2 = em->faces[triangle_indices[1]];
-
-    int opposite1 = -1;
-    int opposite2 = -1;
-
-    // Find opposite vertex in first triangle
-    if (f1.v0 != edge.v0 && f1.v0 != edge.v1)
-        opposite1 = f1.v0;
-    else if (f1.v1 != edge.v0 && f1.v1 != edge.v1)
-        opposite1 = f1.v1;
-    else if (f1.v2 != edge.v0 && f1.v2 != edge.v1)
-        opposite1 = f1.v2;
-
-    // Find opposite vertex in second triangle
-    if (f2.v0 != edge.v0 && f2.v0 != edge.v1)
-        opposite2 = f2.v0;
-    else if (f2.v1 != edge.v0 && f2.v1 != edge.v1)
-        opposite2 = f2.v1;
-    else if (f2.v2 != edge.v0 && f2.v2 != edge.v1)
-        opposite2 = f2.v2;
-
-    if (opposite1 == -1 || opposite2 == -1)
-        return - 1;
-
-    EditorFace f1n { opposite1, opposite2, edge.v0 };
-    EditorFace f2n { opposite1, edge.v1, opposite2 };
-    bool f1w = FixWinding(em, f1n);
-    bool f2w = FixWinding(em, f2n);
-    if (f1w != f2w)
-        return -1;
-
-    float f1a = fabsf(CalculateTriangleArea(em->vertices[f1n.v0].position, em->vertices[f1n.v1].position, em->vertices[f1n.v2].position));
-    float f2a = fabsf(CalculateTriangleArea(em->vertices[f2n.v0].position, em->vertices[f2n.v1].position, em->vertices[f2n.v2].position));
-    float a = f1a + f2a;
-    if (a <= 1e-6f)
-        return -1;
-
-    constexpr float MIN_AREA_RATIO = 0.05f;
-    if (Min(f1a,f2a) / a < MIN_AREA_RATIO)
-        return -1;
-
-    f1.v0 = f1n.v0;
-    f1.v1 = f1n.v1;
-    f1.v2 = f1n.v2;
-    f2.v0 = f2n.v0;
-    f2.v1 = f2n.v1;
-    f2.v2 = f2n.v2;
-
-    UpdateEdges(em);
-    MarkDirty(em);
-
-    // find the new edge index
-    for (int i=0; i<em->edge_count; i++)
-    {
-        const EditorEdge& ee = em->edges[i];
-        if ((ee.v0 == opposite1 && ee.v1 == opposite2) || (ee.v0 == opposite2 && ee.v1 == opposite1))
-            return i;
-    }
-
-    return -1;
-}
-
-static void InsertVertex(EditorMesh* em, int face_index, int insert_at, int vertex_index)
+static void InsertFaceVertices(EditorMesh* em, int face_index, int insert_at, int count)
 {
     EditorFace& ef = em->faces[face_index];
 
-    ef.vertex_count++;
+    em->face_vertex_count += count;
 
-    // Shift all existing face vertices up by one
-    em->face_vertex_count++;
-    for (int vertex_index2=em->face_vertex_count-1; vertex_index2>ef.vertex_offset + insert_at; vertex_index2--)
-        em->face_vertices[vertex_index2] = em->face_vertices[vertex_index2-1];
+    int vertex_end = ef.vertex_offset + insert_at;
+    for (int vertex_index=em->face_vertex_count-1; vertex_index > vertex_end; vertex_index--)
+        em->face_vertices[vertex_index] = em->face_vertices[vertex_index-count];
 
-    // Set the new vertex
-    em->face_vertices[ef.vertex_offset + insert_at] = vertex_index;
+    for (int i=0; i<count; i++)
+        em->face_vertices[vertex_end + i] = -1;
 
-    // Shift all face vertices after insert_at up by one
     for (int face_index2=0; face_index2<em->face_count; face_index2++)
     {
         EditorFace& ef2 = em->faces[face_index2];
         if (ef2.vertex_offset > ef.vertex_offset)
-            ef2.vertex_offset++;
+            ef2.vertex_offset += count;
+    }
+
+    ef.vertex_count += count;
+}
+
+static void RemoveFaceVertices(EditorMesh* em, int face_index, int remove_at, int remove_count)
+{
+    EditorFace& ef = em->faces[face_index];
+    if (remove_count == -1)
+        remove_count = ef.vertex_count - remove_at;
+
+    assert(remove_at >= 0 && remove_at + remove_count <= ef.vertex_count);
+
+    for (int vertex_index=ef.vertex_offset + remove_at; vertex_index + remove_count < em->face_vertex_count; vertex_index++)
+        em->face_vertices[vertex_index] = em->face_vertices[vertex_index + remove_count];
+
+    ef.vertex_count -= remove_count;
+    em->face_vertex_count -= remove_count;
+
+    for (int face_index2=0; face_index2<em->face_count; face_index2++)
+    {
+        EditorFace& ef2 = em->faces[face_index2];
+        if (ef2.vertex_offset > ef.vertex_offset)
+            ef2.vertex_offset -= remove_count;
     }
 }
 
@@ -729,7 +610,7 @@ int SplitFaces(EditorMesh* em, int v0, int v1)
     UpdateEdges(em);
     MarkDirty(em);
 
-    return em->face_count-1;
+    return GetEdge(em, em->face_vertices[old_face.vertex_offset + old_face.vertex_count-1], em->face_vertices[new_face.vertex_offset]);
 }
 
 int SplitEdge(EditorMesh* em, int edge_index, float edge_pos)
@@ -760,87 +641,12 @@ int SplitEdge(EditorMesh* em, int edge_index, float edge_pos)
         if (face_edge == -1)
             continue;
 
-        InsertVertex(em, face_index, face_edge + 1, new_vertex_index);
-
-#if 0
-
-
-
-        EditorFace& split_tri = em->faces[em->face_count++];
-        split_tri.color = ef.color;
-
-        if (face_edge == 0)
-        {
-            split_tri.v0 = new_vertex_index;
-            split_tri.v1 = ef.v1;
-            split_tri.v2 = ef.v2;
-            ef.v1 = new_vertex_index;
-        }
-        else if (face_edge == 1)
-        {
-            split_tri.v0 = ef.v0;
-            split_tri.v1 = new_vertex_index;
-            split_tri.v2 = ef.v2;
-            ef.v2 = new_vertex_index;
-        }
-        else
-        {
-            split_tri.v0 = ef.v0;
-            split_tri.v1 = ef.v1;
-            split_tri.v2 = new_vertex_index;
-            ef.v0 = new_vertex_index;
-        }
-
-        FixWinding(em, split_tri);
-#endif
+        InsertFaceVertices(em, face_index, face_edge + 1, 1);
+        em->face_vertices[ef.vertex_offset + face_edge + 1] = new_vertex_index;
     }
 
-    return new_vertex_index;
-}
-
-int SplitTriangle(EditorMesh* em, int triangle_index, const Vec2& position)
-{
-    assert(triangle_index >= 0 && triangle_index < em->face_count);
-
-    if (em->vertex_count >= MAX_VERTICES)
-        return -1;
-
-    if (em->face_count + 2 >= MAX_FACES)
-        return -1;
-
-    EditorFace& et = em->faces[triangle_index];
-
-    // Create new vertex at the position
-    int new_vertex_index = em->vertex_count++;
-    EditorVertex& new_vertex = em->vertices[new_vertex_index];
-    new_vertex.position = position;
-    new_vertex.height = 0.0f;
-    new_vertex.selected = false;
-
-    // Create two new triangles
-    EditorFace& tri1 = em->faces[em->face_count++];
-    EditorFace& tri2 = em->faces[em->face_count++];
-
-    // Copy color from original triangle
-    tri1.color = et.color;
-    tri2.color = et.color;
-
-    // Modify original triangle
-    int original_v2 = et.v2;
-    et.v2 = new_vertex_index;
-
-    // First new triangle
-    tri1.v0 = et.v1;
-    tri1.v1 = original_v2;
-    tri1.v2 = new_vertex_index;
-
-    // Second new triangle
-    tri2.v0 = original_v2;
-    tri2.v1 = et.v0;
-    tri2.v2 = new_vertex_index;
-
-    FixWinding(em, tri1);
-    FixWinding(em, tri2);
+    UpdateEdges(em);
+    MarkDirty(em);
 
     return new_vertex_index;
 }
@@ -986,125 +792,6 @@ int HitTestFace(EditorMesh* em, const Vec2& position, const Vec2& hit_pos, Vec2*
     return -1;
 }
 
-int AddVertex(EditorMesh* em, const Vec2& position)
-{
-    if (em->vertex_count >= MAX_VERTICES)
-        return -1;
-
-    // If on a vertex then return -1
-    int vertex_index = HitTestVertex(em, position, 0.1f);
-    if (vertex_index != -1)
-        return -1;
-
-    // If on an edge then split the edge and add the point
-    float edge_pos;
-    int edge_index = HitTestEdge(em, position, &edge_pos);
-    if (edge_index >= 0)
-    {
-        int new_vertex = SplitEdge(em, edge_index, edge_pos);
-        if (new_vertex != -1)
-        {
-            UpdateEdges(em);
-            MarkDirty(em);
-        }
-        return new_vertex;
-    }
-
-    // If inside a triangle then split the triangle into three triangles and add the point
-    Vec2 tri_pos;
-    int triangle_index = HitTestFace(em, VEC2_ZERO, position, &tri_pos);
-    if (triangle_index >= 0)
-    {
-        int new_vertex = SplitTriangle(em, triangle_index, position);
-        if (new_vertex != -1)
-        {
-            UpdateEdges(em);
-            MarkDirty(em);
-        }
-        return new_vertex;
-    }
-
-    // If outside all triangles, find the closest edge and create a triangle with it
-    int closest_edge = -1;
-    float closest_dist = FLT_MAX;
-
-    for (int i = 0; i < em->edge_count; i++)
-    {
-        const EditorEdge& ee = em->edges[i];
-        const Vec2& v0 = em->vertices[ee.v0].position;
-        const Vec2& v1 = em->vertices[ee.v1].position;
-
-        // Calculate closest point on edge to position
-        Vec2 edge_dir = v1 - v0;
-        float edge_length_sq = Dot(edge_dir, edge_dir);
-        if (edge_length_sq < 1e-6f) continue; // Skip degenerate edges
-
-        Vec2 to_pos = position - v0;
-        float t = Clamp(Dot(to_pos, edge_dir) / edge_length_sq, 0.0f, 1.0f);
-        Vec2 point_on_edge = v0 + edge_dir * t;
-        float dist = Length(position - point_on_edge);
-
-        if (dist < closest_dist)
-        {
-            closest_dist = dist;
-            closest_edge = i;
-        }
-    }
-
-    // If no edge found or mesh is empty, create a standalone vertex
-    if (closest_edge == -1)
-        return -1;
-
-    if (em->face_count >= MAX_FACES)
-        return -1;
-
-    // Create new vertex
-    int new_vertex_index = em->vertex_count++;
-    EditorVertex& new_vertex = em->vertices[new_vertex_index];
-    new_vertex.position = position;
-    new_vertex.height = 0.0f;
-    new_vertex.selected = false;
-    new_vertex.edge_size =
-        (em->vertices[em->edges[closest_edge].v0].edge_size +
-         em->vertices[em->edges[closest_edge].v1].edge_size) * 0.5f;
-
-    // Create triangle with the closest edge
-    const EditorEdge& ee = em->edges[closest_edge];
-    EditorFace& new_triangle = em->faces[em->face_count++];
-    new_triangle.v0 = ee.v0;
-    new_triangle.v1 = ee.v1;
-    new_triangle.v2 = new_vertex_index;
-    new_triangle.color = {0, 0}; // Default color
-    FixWinding(em, new_triangle);
-
-    UpdateEdges(em);
-    MarkDirty(em);
-    return new_vertex_index;
-}
-
-void FixNormals(EditorMesh* em)
-{
-    for (int i=0; i<em->face_count; i++)
-    {
-        // Ensure all triangles have CCW winding
-        EditorFace& et = em->faces[i];
-        const Vec2& v0 = em->vertices[et.v0].position;
-        const Vec2& v1 = em->vertices[et.v1].position;
-        const Vec2& v2 = em->vertices[et.v2].position;
-
-        Vec2 e0 = v1 - v0;
-        Vec2 e1 = v2 - v0;
-        float cross = e0.x * e1.y - e0.y * e1.x;
-        if (cross < 0)
-        {
-            // Swap v1 and v2 to change winding
-            int temp = et.v1;
-            et.v1 = et.v2;
-            et.v2 = temp;
-        }
-    }
-}
-
 static void ParseVertexHeght(EditorVertex& ev, Tokenizer& tk)
 {
     if (!ExpectFloat(tk, &ev.height))
@@ -1212,18 +899,13 @@ static void ParseFace(EditorMesh* em, Tokenizer& tk)
     em->face_vertices[em->face_vertex_count++] = v2;
 
     while (ExpectInt(tk, &v2))
-    {
         em->face_vertices[em->face_vertex_count++] = v2;
-    }
 
     ef.vertex_count = em->face_vertex_count - ef.vertex_offset;
 
     if (v0 < 0 || v0 >= em->vertex_count || v1 < 0 || v1 >= em->vertex_count || v2 < 0 || v2 >= em->vertex_count)
         ThrowError("face vertex index out of range");
 
-    ef.v0 = v0;
-    ef.v1 = v1;
-    ef.v2 = v2;
     ef.color = {0, 0};
 
     while (!IsEOF(tk))
@@ -1278,12 +960,6 @@ EditorMesh* LoadEditorMesh(const std::filesystem::path& path)
         bounds.max = Max(bounds.max, em->vertices[i].position);
     }
 
-    for (int i = 0; i<em->face_count; i++)
-    {
-        EditorFace& ef = em->faces[i];
-        FixWinding(em, ef);
-    }
-
     ToMesh(em, false);
     UpdateEdges(em);
     MarkDirty(em);
@@ -1322,12 +998,6 @@ void EditorMeshLoad(EditorAsset* ea)
     {
         bounds.min = Min(bounds.min, em->vertices[i].position);
         bounds.max = Max(bounds.max, em->vertices[i].position);
-    }
-
-    for (int i = 0; i<em->face_count; i++)
-    {
-        EditorFace& ef = em->faces[i];
-        FixWinding(em, ef);
     }
 
     ToMesh(em, false);

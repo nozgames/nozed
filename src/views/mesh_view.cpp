@@ -227,6 +227,16 @@ static void SelectVertex(int vertex_index, bool selected)
 
 static void SelectEdge(int edge_index, bool selected)
 {
+    if (g_mesh_view.mode == MESH_EDITOR_MODE_VERTEX)
+    {
+        EditorMesh* em = GetEditingMesh();
+        assert(edge_index >= 0 && edge_index < em->edge_count);
+        EditorEdge& ee = em->edges[edge_index];
+        SelectVertex(ee.v0, selected);
+        SelectVertex(ee.v1, selected);
+        return;
+    }
+
     assert(g_mesh_view.mode == MESH_EDITOR_MODE_EDGE);
 
     EditorMesh* em = GetEditingMesh();
@@ -251,16 +261,6 @@ static void SelectFace(int face_index, bool selected)
 
     ef.selected = selected;
     UpdateSelection();
-}
-
-static int GetFirstSelectedEdge()
-{
-    EditorMesh* em = GetEditingMesh();
-    for (int i=0; i<em->edge_count; i++)
-        if (em->edges[i].selected)
-            return i;
-
-    return -1;
 }
 
 static int GetFirstSelectedVertex()
@@ -523,13 +523,13 @@ static bool HandleSelectFace()
 
     EditorAsset* ea = GetEditingAsset();
     EditorMesh* em = GetEditingMesh();
-    int triangle_index = HitTestFace(
+    int face_index = HitTestFace(
         em,
         ea->position,
-        ScreenToWorld(g_view.camera, GetMousePosition()),
+        g_view.mouse_world_position,
         nullptr);
 
-    if (triangle_index == -1)
+    if (face_index == -1)
         return false;
 
     bool ctrl = IsCtrlDown(g_view.input);
@@ -538,24 +538,22 @@ static bool HandleSelectFace()
     if (!ctrl && !shift)
         ClearSelection();
 
-    EditorFace& et = em->faces[triangle_index];
-    const EditorVertex& v0 = em->vertices[et.v0];
-    const EditorVertex& v1 = em->vertices[et.v1];
-    const EditorVertex& v2 = em->vertices[et.v2];
-
-    if ((!ctrl && !shift) || !v0.selected || !v1.selected || !v2.selected)
-        SelectFace(triangle_index, true);
+    if ((!ctrl && !shift) || !em->faces[face_index].selected)
+        SelectFace(face_index, true);
     else
-        SelectFace(triangle_index, false);
+        SelectFace(face_index, false);
 
     return true;
 }
 
 extern int SplitFaces(EditorMesh* em, int v0, int v1);
 
-static void AddVertexAtMouse()
+static void InsertVertexFaceOrEdge()
 {
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
+        return;
+
+    if (g_mesh_view.mode != MESH_EDITOR_MODE_VERTEX)
         return;
 
     EditorAsset* ea = GetEditingAsset();
@@ -563,29 +561,43 @@ static void AddVertexAtMouse()
 
     RecordUndo();
 
-    if (g_mesh_view.mode == MESH_EDITOR_MODE_VERTEX && em->selected_count == 2)
+    Vec2 position = g_view.mouse_world_position - ea->position;
+
+    // Insert edge?
+    if (em->selected_count == 2)
     {
         int v0 = GetFirstSelectedVertex();
         int v1 = GetNextSelectedVertex(v0);
         assert(v0 != -1 && v1 != -1);
 
-        if (-1 == SplitFaces(em, v0, v1))
+        int edge_index = SplitFaces(em, v0, v1);
+        if (edge_index == -1)
+        {
             CancelUndo();
+            return;
+        }
 
+        ClearSelection();
+        SelectEdge(edge_index, true);
         return;
     }
 
 
-
-    int new_vertex = AddVertex(em, g_view.mouse_world_position - ea->position);
-    if (new_vertex == -1)
-    {
-        CancelUndo();
+    int vertex_index = HitTestVertex(em, position, 0.1f);
+    if (vertex_index != -1)
         return;
-    }
+
+    float edge_pos;
+    int edge_index = HitTestEdge(em, position, &edge_pos);
+    if (edge_index < 0)
+        return;
+
+    int new_vertex_index = SplitEdge(em, edge_index, edge_pos);
+    if (new_vertex_index == -1)
+        return;
 
     ClearSelection();
-    SelectVertex(new_vertex, true);
+    SelectVertex(new_vertex_index, true);
 }
 
 static void MergeVertices()
@@ -618,41 +630,17 @@ static void DissolveSelected()
         DissolveSelectedVertices(em);
         break;
 
+    case MESH_EDITOR_MODE_EDGE:
+        DissolveSelectedEdges(em);
+        ClearSelection();
+        break;
+
     case MESH_EDITOR_MODE_FACE:
         DissolveSelectedFaces(em);
         break;
     }
 
     MarkDirty(em);
-    MarkModified(ea);
-    UpdateSelection();
-}
-
-static void RotateEdge()
-{
-    if (g_mesh_view.mode != MESH_EDITOR_MODE_EDGE)
-        return;
-
-    EditorAsset* ea = GetEditingAsset();
-    EditorMesh* em = GetEditingMesh();
-
-    if (em->selected_count != 1)
-        return;
-
-    int edge_index = GetFirstSelectedEdge();
-    assert(edge_index != -1);
-
-    RecordUndo();
-    edge_index = RotateEdge(em, edge_index);
-    if (edge_index == -1)
-    {
-        CancelUndo();
-        return;
-    }
-
-    MarkDirty(em);
-    ClearSelection();
-    SelectEdge(edge_index, true);
     MarkModified(ea);
     UpdateSelection();
 }
@@ -1019,6 +1007,7 @@ void HandleBoxSelect(const Bounds2& bounds)
         break;
 
     case MESH_EDITOR_MODE_FACE:
+#if 0
         for (int face_index=0; face_index<em->face_count; face_index++)
         {
             EditorFace& ef = em->faces[face_index];
@@ -1033,6 +1022,7 @@ void HandleBoxSelect(const Bounds2& bounds)
                     SelectFace(face_index, false);
             }
         }
+#endif
         break;
 
     default:
@@ -1319,11 +1309,6 @@ static bool ExtrudeSelectedEdges(EditorMesh* em)
             em->face_vertices[em->face_vertex_count++] = new_v0;
             em->face_vertices[em->face_vertex_count++] = old_v0;
         }
-
-        // Set the legacy triangle fields for backward compatibility (use first 3 vertices)
-        quad.v0 = em->face_vertices[quad.vertex_offset + 0];
-        quad.v1 = em->face_vertices[quad.vertex_offset + 1];
-        quad.v2 = em->face_vertices[quad.vertex_offset + 2];
     }
 
     UpdateEdges(em);
@@ -1406,9 +1391,8 @@ void MeshViewInit()
             { KEY_W, false, false, false, HandleEdgeCommand },
             { KEY_A, false, false, false, HandleSelectAllCommand },
             { KEY_X, false, false, false, DissolveSelected },
-            { KEY_V, false, false, false, AddVertexAtMouse },
+            { KEY_V, false, false, false, InsertVertexFaceOrEdge },
             { KEY_M, false, false, false, MergeVertices },
-            { KEY_T, false, false, false, RotateEdge },
             { KEY_1, false, false, false, SetVertexMode },
             { KEY_2, false, false, false, SetEdgeMode },
             { KEY_3, false, false, false, SetFaceMode },

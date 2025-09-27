@@ -32,13 +32,9 @@ struct EditorEdge
 
 struct EditorFace
 {
-    int v0;
-    int v1;
-    int v2;
     Vec2Int color;
     Vec3 normal;
     bool selected;
-
     int vertex_offset;
     int vertex_count;
 };
@@ -83,6 +79,7 @@ extern void SetSelectedTrianglesColor(EditorMesh* em, const Vec2Int& color);
 extern void SetEdgeColor(EditorMesh* em, const Vec2Int& color);
 extern void MergeSelectedVerticies(EditorMesh* em);
 extern void DissolveSelectedVertices(EditorMesh* em);
+extern void DissolveSelectedEdges(EditorMesh* em);
 extern void DissolveSelectedFaces(EditorMesh* em);
 extern void SetHeight(EditorMesh* em, int index, float height);
 extern int SplitEdge(EditorMesh* em, int edge_index, float edge_pos);
@@ -101,3 +98,4 @@ extern void DrawSelectedEdges(EditorMesh* em, const Vec2& position);
 extern void DrawSelectedFaces(EditorMesh* em, const Vec2& position);
 extern void DrawFaceCenters(EditorMesh* em, const Vec2& position);
 extern void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder);
+
