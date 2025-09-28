@@ -263,6 +263,16 @@ static void SelectFace(int face_index, bool selected)
     UpdateSelection();
 }
 
+static int GetFirstSelectedEdge()
+{
+    EditorMesh* em = GetEditingMesh();
+    for (int i=0; i<em->edge_count; i++)
+        if (em->edges[i].selected)
+            return i;
+
+    return -1;
+}
+
 static int GetFirstSelectedVertex()
 {
     EditorMesh* em = GetEditingMesh();
@@ -600,20 +610,6 @@ static void InsertVertexFaceOrEdge()
     SelectVertex(new_vertex_index, true);
 }
 
-static void MergeVertices()
-{
-    EditorAsset* ea = GetEditingAsset();
-    EditorMesh* em = GetEditingMesh();
-    if (em->selected_count < 2)
-        return;
-
-    RecordUndo();
-    MergeSelectedVerticies(em);
-    MarkDirty(em);
-    MarkModified(ea);
-    UpdateSelection();
-}
-
 static void DissolveSelected()
 {
     EditorAsset* ea = GetEditingAsset();
@@ -631,7 +627,12 @@ static void DissolveSelected()
         break;
 
     case MESH_EDITOR_MODE_EDGE:
-        DissolveSelectedEdges(em);
+        if (em->selected_count > 1)
+        {
+            CancelUndo();
+            return;
+        }
+        DissolveEdge(em, GetFirstSelectedEdge());
         ClearSelection();
         break;
 
@@ -1236,9 +1237,9 @@ static bool ExtrudeSelectedEdges(EditorMesh* em)
         if (em->face_count + 2 >= MAX_FACES)
             return false;
 
-        GetOrAddEdge(em, old_v0, new_v0);
-        GetOrAddEdge(em, old_v1, new_v1);
-        GetOrAddEdge(em, new_v0, new_v1);
+        GetOrAddEdge(em, old_v0, new_v0, -1);
+        GetOrAddEdge(em, old_v1, new_v1, -1);
+        GetOrAddEdge(em, new_v0, new_v1, -1);
 
         // Store the vertex pair for the new edge we want to select
         if (new_edge_count < MAX_EDGES)
@@ -1392,7 +1393,6 @@ void MeshViewInit()
             { KEY_A, false, false, false, HandleSelectAllCommand },
             { KEY_X, false, false, false, DissolveSelected },
             { KEY_V, false, false, false, InsertVertexFaceOrEdge },
-            { KEY_M, false, false, false, MergeVertices },
             { KEY_1, false, false, false, SetVertexMode },
             { KEY_2, false, false, false, SetEdgeMode },
             { KEY_3, false, false, false, SetFaceMode },

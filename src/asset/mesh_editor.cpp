@@ -9,6 +9,9 @@ static void DeleteFaceInternal(EditorMesh* em, int face_index);
 static void RemoveFaceVertices(EditorMesh* em, int face_index, int remove_at, int remove_count);
 static void InsertFaceVertices(EditorMesh* em, int face_index, int insert_at, int count);
 static void DeleteUnreferencedVertices(EditorMesh* em);
+static void MergeFaces(EditorMesh* em, const EditorEdge& shared_edge);
+static void DeleteFace(EditorMesh* em, int face_index);
+static void DeleteVertex(EditorMesh* em, int vertex_index);
 
 static int GetFaceEdgeIndex(EditorMesh* em, const EditorFace& ef, const EditorEdge& ee)
 {
@@ -90,7 +93,7 @@ static int GetEdge(EditorMesh* em, int v0, int v1)
     return -1;
 }
 
-int GetOrAddEdge(EditorMesh* em, int v0, int v1)
+int GetOrAddEdge(EditorMesh* em, int v0, int v1, int face_index)
 {
     int fv0 = Min(v0, v1);
     int fv1 = Max(v0, v1);
@@ -108,6 +111,15 @@ int GetOrAddEdge(EditorMesh* em, int v0, int v1)
         EditorEdge& ee = em->edges[i];
         if (ee.v0 == fv0 && ee.v1 == fv1)
         {
+            if (ee.face_index[0] > face_index)
+            {
+                int temp = ee.face_index[0];
+                ee.face_index[0] = face_index;
+                ee.face_index[1] = temp;
+            }
+            else
+                ee.face_index[ee.face_count] = face_index;
+
             ee.face_count++;
             return i;
         }
@@ -120,6 +132,7 @@ int GetOrAddEdge(EditorMesh* em, int v0, int v1)
     int edge_index = em->edge_count++;
     EditorEdge& ee = em->edges[edge_index];
     ee.face_count = 1;
+    ee.face_index[0] = face_index;
     ee.v0 = fv0;
     ee.v1 = fv1;
 
@@ -144,14 +157,19 @@ void UpdateEdges(EditorMesh* em)
         {
             int v0 = em->face_vertices[ef.vertex_offset + vertex_index];
             int v1 = em->face_vertices[ef.vertex_offset + vertex_index + 1];
-            em->vertices[v0].ref_count++;
-            GetOrAddEdge(em, v0, v1);
+            GetOrAddEdge(em, v0, v1, face_index);
         }
 
         int vs = em->face_vertices[ef.vertex_offset + ef.vertex_count - 1];
         int ve = em->face_vertices[ef.vertex_offset];
-        em->vertices[vs].ref_count++;
-        GetOrAddEdge(em, vs, ve);
+        GetOrAddEdge(em, vs, ve, face_index);
+    }
+
+    for (int edge_index=0; edge_index<em->edge_count; edge_index++)
+    {
+        EditorEdge& ee = em->edges[edge_index];
+        em->vertices[ee.v0].ref_count++;
+        em->vertices[ee.v1].ref_count++;
     }
 }
 
@@ -241,94 +259,66 @@ void SetSelectedTrianglesColor(EditorMesh* em, const Vec2Int& color)
     MarkDirty(em);
 }
 
-void MergeSelectedVerticies(EditorMesh* em)
+static int CountSharedEdges(EditorMesh* em, int face_index0, int face_index1)
 {
-    if (em->vertex_count < 2)
+    assert(face_index0 < face_index1);
+
+    int shared_edge_count = 0;
+    for (int edge_index=0; edge_index<em->edge_count; edge_index++)
+    {
+        EditorEdge& ee = em->edges[edge_index];
+        if (ee.face_count != 2)
+            continue;
+
+        if (ee.face_index[0] == face_index0 && ee.face_index[1] == face_index1)
+            shared_edge_count++;
+    }
+
+    return shared_edge_count;
+}
+
+static void CollapseEdge(EditorMesh* em, int edge_index)
+{
+    assert(em);
+    assert(edge_index >= 0 && edge_index < em->edge_count);
+
+    EditorEdge& ee = em->edges[edge_index];
+    EditorVertex& v0 = em->vertices[ee.v0];
+    EditorVertex& v1 = em->vertices[ee.v1];
+
+    DeleteVertex(em, v0.ref_count > v1.ref_count ? ee.v1 : ee.v0);
+}
+
+void DissolveEdge(EditorMesh* em, int edge_index)
+{
+    // todo: count the number of edges shared between the two faces for the given edge
+    // todo: if the count is 1 then we can dissolve the edge
+    // todo: if the count is more than 1 then we merge the two vertices
+
+    EditorEdge& ee = em->edges[edge_index];
+    assert(ee.face_count > 0);
+
+    if (ee.face_count == 1)
+    {
+        EditorFace& ef = em->faces[ee.face_index[0]];
+        if (ef.vertex_count <= 3)
+        {
+            DeleteFace(em, ee.face_index[0]);
+            return;
+        }
+
+        CollapseEdge(em, edge_index);
         return;
-
-    // Find all selected vertices and calculate their center position
-    Vec2 center_pos = VEC2_ZERO;
-    int selected_vertices[MAX_VERTICES];
-    int selected_count = 0;
-
-    for (int i = 0; i < em->vertex_count; i++)
-    {
-        if (em->vertices[i].selected && selected_count < MAX_VERTICES)
-        {
-            selected_vertices[selected_count++] = i;
-            center_pos += em->vertices[i].position;
-        }
     }
 
-    if (selected_count < 2)
+    int shared_edge_count = CountSharedEdges (em, ee.face_index[0], ee.face_index[1]);
+    if (shared_edge_count == 1)
+    {
+        MergeFaces(em, ee);
         return;
-
-    center_pos = center_pos / (float)selected_count;
-
-    // Find the first selected vertex to be the merge target
-    int target_vertex = selected_vertices[0];
-
-    // Update target vertex position to center and average other properties
-    EditorVertex& target = em->vertices[target_vertex];
-    target.position = center_pos;
-
-    float avg_height = 0.0f;
-    float avg_edge_size = 0.0f;
-    for (int i = 0; i < selected_count; i++)
-    {
-        const EditorVertex& ev = em->vertices[selected_vertices[i]];
-        avg_height += ev.height;
-        avg_edge_size += ev.edge_size;
-    }
-    target.height = avg_height / (float)selected_count;
-    target.edge_size = avg_edge_size / (float)selected_count;
-
-    // Create a set for fast lookup of selected vertices to replace
-    bool vertex_to_replace[MAX_VERTICES] = {};
-    for (int i = 1; i < selected_count; i++)
-    {
-        vertex_to_replace[selected_vertices[i]] = true;
     }
 
-    // Replace all references to other selected vertices with target vertex
-    for (int i = 0; i < em->face_vertex_count; i++)
-    {
-        int vertex_index = em->face_vertices[i];
-        if (vertex_index < MAX_VERTICES && vertex_to_replace[vertex_index])
-        {
-            em->face_vertices[i] = target_vertex;
-        }
-    }
-
-    // Remove duplicate vertices from faces after merging
-    for (int face_index = 0; face_index < em->face_count; face_index++)
-    {
-        EditorFace& ef = em->faces[face_index];
-
-        // Remove consecutive duplicate vertices
-        for (int i = ef.vertex_count - 1; i >= 0; i--)
-        {
-            int current_vertex = em->face_vertices[ef.vertex_offset + i];
-            int next_vertex = em->face_vertices[ef.vertex_offset + (i + 1) % ef.vertex_count];
-
-            if (current_vertex == next_vertex)
-            {
-                RemoveFaceVertices(em, face_index, i, 1);
-            }
-        }
-
-        // If face has less than 3 vertices after cleanup, delete it
-        if (ef.vertex_count < 3)
-        {
-            DeleteFaceInternal(em, face_index);
-            face_index--; // Adjust index since we deleted a face
-        }
-    }
-
-    // Clean up unreferenced vertices and update edges
-    UpdateEdges(em);
-    DeleteUnreferencedVertices(em);
-    MarkDirty(em);
+    CollapseEdge(em, edge_index);
 }
 
 static void DeleteUnreferencedVertices(EditorMesh* em)
@@ -369,16 +359,21 @@ static void DeleteVertex(EditorMesh* em, int vertex_index) {
 
     for (int face_index=em->face_count-1; face_index >= 0; face_index--) {
         EditorFace& ef = em->faces[face_index];
-        bool contains_vertex = false;
+        int vertex_pos = -1;
         for (int face_vertex_index=0; face_vertex_index<ef.vertex_count; face_vertex_index++) {
             if (em->face_vertices[ef.vertex_offset + face_vertex_index] == vertex_index) {
-                contains_vertex = true;
+                vertex_pos = face_vertex_index;
                 break;
             }
         }
 
-        if (contains_vertex)
+        if (vertex_pos == -1)
+            continue;
+
+        if (ef.vertex_count <= 3)
             DeleteFaceInternal(em, face_index);
+        else
+            RemoveFaceVertices(em, face_index, vertex_pos, 1);
     }
 
     UpdateEdges(em);
@@ -416,33 +411,13 @@ void DissolveSelectedFaces(EditorMesh* em)
     }
 }
 
-static int FindFacesForEdge(EditorMesh* em, const EditorEdge& edge, int face_indices[2])
+static void MergeFaces(EditorMesh* em, const EditorEdge& shared_edge)
 {
-    int found_count = 0;
+    assert(shared_edge.face_count == 2);
+    assert(CountSharedEdges(em, shared_edge.face_index[0], shared_edge.face_index[1]) == 1);
 
-    for (int face_index = 0; face_index < em->face_count; face_index++)
-    {
-        const EditorFace& ef = em->faces[face_index];
-
-        if (GetFaceEdgeIndex(em, ef, edge) != -1)
-        {
-            if (found_count < 2)
-                face_indices[found_count] = face_index;
-            found_count++;
-        }
-    }
-
-    return found_count;
-}
-
-static void MergeFaces(EditorMesh* em, int face0_index, int face1_index, const EditorEdge& shared_edge)
-{
-    assert(face0_index >= 0 && face0_index < em->face_count);
-    assert(face1_index >= 0 && face1_index < em->face_count);
-    assert(face1_index > face0_index);
-
-    EditorFace& face0 = em->faces[face0_index];
-    EditorFace& face1 = em->faces[face1_index];
+    EditorFace& face0 = em->faces[shared_edge.face_index[0]];
+    EditorFace& face1 = em->faces[shared_edge.face_index[1]];
 
     int edge_pos0 = GetFaceEdgeIndex(em, face0, shared_edge);
     int edge_pos1 = GetFaceEdgeIndex(em, face1, shared_edge);
@@ -450,43 +425,14 @@ static void MergeFaces(EditorMesh* em, int face0_index, int face1_index, const E
     assert(edge_pos1 != -1);
 
     int insert_pos = (edge_pos0 + 1) % face0.vertex_count;
-    InsertFaceVertices(em, face0_index, insert_pos, face1.vertex_count - 2);
+    InsertFaceVertices(em, shared_edge.face_index[0], insert_pos, face1.vertex_count - 2);
 
     for (int i=0; i<face1.vertex_count - 2; i++)
         em->face_vertices[face0.vertex_offset + insert_pos + i] =
             em->face_vertices[face1.vertex_offset + ((edge_pos1 + 2 + i) % face1.vertex_count)];
 
-    DeleteFaceInternal(em, face1_index);
+    DeleteFaceInternal(em, shared_edge.face_index[1]);
     UpdateEdges(em);
-    MarkDirty(em);
-}
-
-void DissolveSelectedEdges(EditorMesh* em)
-{
-    for (int edge_index=em->edge_count - 1; edge_index>=0; edge_index--)
-    {
-        EditorEdge& ee = em->edges[edge_index];
-        if (!ee.selected)
-            continue;
-
-        int face_indices[2];
-        int face_count = FindFacesForEdge(em, ee, face_indices);
-
-        if (face_count == 1)
-        {
-            DeleteFaceInternal(em, face_indices[0]);
-            continue;
-        }
-
-        if (face_count == 2)
-        {
-            MergeFaces(em, Min(face_indices[0], face_indices[1]), Max(face_indices[0], face_indices[1]), ee);
-            continue;
-        }
-    }
-
-    UpdateEdges(em);
-    DeleteUnreferencedVertices(em);
     MarkDirty(em);
 }
 
@@ -704,7 +650,7 @@ int HitTestEdge(EditorMesh* em, const Vec2& hit_pos, float* where)
     return best_edge;
 }
 
-    void Center(EditorMesh* em)
+void Center(EditorMesh* em)
 {
     Vec2 size = GetSize(em->bounds);
     Vec2 min = em->bounds.min;
