@@ -124,10 +124,12 @@ static void DrawGridInternal(Camera* camera, float min_pixels, float grid_spacin
 
 void DrawGrid(Camera* camera)
 {
+    BindDepth(-9.0f);
     BindMaterial(g_grid.material);
     DrawGridInternal(camera, 72.0f, 1.0f, 1, 1);
     DrawGridInternal(camera, 72.0f, 0.1f, 0, 1);
     DrawZeroGrid(camera);
+    BindDepth(0.0f);
 }
 
 void InitGrid(Allocator* allocator)
@@ -150,7 +152,7 @@ void InitGrid(Allocator* allocator)
 
 Vec2 SnapToGrid(const Vec2& position, bool secondary)
 {
-    float spacing = secondary ? (g_grid.grid_spacing * 0.1f) : g_grid.grid_spacing;
+    float spacing = secondary ? 0.1f : 0.25f;
     
     return Vec2{
         roundf(position.x / spacing) * spacing,

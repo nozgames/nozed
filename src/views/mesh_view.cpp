@@ -6,8 +6,6 @@
 
 #include <editor.h>
 
-extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
-
 constexpr float HEIGHT_MIN = -1.0f;
 constexpr float HEIGHT_MAX = 1.0f;
 constexpr float EDGE_MIN = 0.0f;
@@ -418,7 +416,16 @@ static void UpdateRotateState(EditorAsset* ea)
 
 static void UpdateMoveState()
 {
-    Vec2 delta = g_view.mouse_world_position - g_mesh_view.world_drag_start;
+    bool secondary = IsShiftDown(g_view.input);
+    Vec2 delta = IsCtrlDown(g_view.input)
+        ? SnapToGrid(g_view.mouse_world_position, secondary) - SnapToGrid(g_mesh_view.world_drag_start, secondary)
+        : g_view.mouse_world_position - g_mesh_view.world_drag_start;
+
+    const TextInput& text_input = GetTextInput();
+    if (text_input.length > 0 && text_input.value[0] == 'x')
+        delta.y = 0.0f;
+    else if (text_input.length > 0 && text_input.value[0] == 'y')
+        delta.x = 0.0f;
 
     EditorMesh* em = GetEditingMesh();
     for (int i=0; i<em->vertex_count; i++)
@@ -1114,7 +1121,11 @@ static void HandleTextInputChanged(EventId event_id, const void* event_data)
     (void) event_id;
 
     TextInput* text_input = (TextInput*)event_data;
-    g_mesh_view.use_fixed_value = text_input->length > 0;
+    char* value = text_input->value;
+    if (*value == 'x' || *value == 'y')
+        value++;
+
+    g_mesh_view.use_fixed_value = *value != 0;
     if (!g_mesh_view.use_fixed_value)
         return;
 
@@ -1140,6 +1151,7 @@ static bool MeshViewAllowTextInput()
 {
     return
         g_mesh_view.state == MESH_EDITOR_STATE_NORMAL ||
+        g_mesh_view.state == MESH_EDITOR_STATE_MOVE ||
         g_mesh_view.state == MESH_EDITOR_STATE_EDGE;
 }
 

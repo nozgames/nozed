@@ -16,8 +16,7 @@ const char* ASSET_MANIFEST_HEADER =
 
 struct AssetEntry
 {
-    fs::path source_path;
-    const Name* name;
+    EditorAsset* asset;
     std::string var_name;
     uint32_t signature;
     std::vector<const Name*> names;
@@ -42,7 +41,6 @@ struct ManifestGenerator
 };
 
 static void SortAssets(ManifestGenerator& generator);
-static void ReadAssetFile(ManifestGenerator& generator, const fs::path& asset_path);
 static void GenerateHeader(ManifestGenerator& generator);
 static void GenerateSource(ManifestGenerator& generator);
 
@@ -56,43 +54,9 @@ static std::string GetNameVar(const Name* name)
     return result;
 }
 
-bool GenerateAssetManifest(const fs::path& source_path, const fs::path& target_path, Props* config)
+static AssetSignature ReadAssetHeader(EditorAsset* ea, ManifestGenerator& generator, std::vector<const Name*>& out_names)
 {
-    (void)target_path;
-
-    if (fs::exists(source_path) && !fs::is_directory(source_path))
-        return false;
-
-    ManifestGenerator generator = {};
-    generator.source_path = source_path;
-    generator.target_path = target_path;
-    generator.config = config;
-
-    try
-    {
-        for (const auto& entry : fs::recursive_directory_iterator(generator.source_path))
-            if (entry.is_regular_file())
-                ReadAssetFile(generator, entry.path());
-    }
-    catch (const std::exception&)
-    {
-        return false;
-    }
-    
-    for (const std::string& name_str : config->GetKeys("names"))
-    {
-        const Name* name = GetName(name_str.c_str());
-        generator.names[name] = GetNameVar(name);
-    }
-
-    SortAssets(generator);
-    GenerateHeader(generator);
-    GenerateSource(generator);
-    return true;
-}
-
-static AssetSignature ReadAssetHeader(ManifestGenerator& generator, const fs::path& path, std::vector<const Name*>& out_names)
-{
+    fs::path path = g_editor.output_dir / GetTypeNameFromSignature(ea->importer->signature) / ea->name->value;
     Stream* stream = LoadStream(nullptr, path);
     if (!stream)
         return ASSET_SIGNATURE_UNKNOWN;
@@ -139,38 +103,73 @@ static AssetSignature ReadAssetHeader(ManifestGenerator& generator, const fs::pa
     return header.signature;
 }
 
-static void ReadAssetFile(ManifestGenerator& generator, const fs::path& asset_path)
+static bool ReadAsset(u32 item_index, void* item_ptr, void* user_data)
 {
+    (void)item_index;
+
+    assert(item_ptr);
+    EditorAsset* ea = (EditorAsset*)item_ptr;
+    ManifestGenerator& generator = *(ManifestGenerator*)user_data;
+
     std::vector<const Name*> names;
-    AssetSignature signature = ReadAssetHeader(generator, asset_path, names);
+    AssetSignature signature = ReadAssetHeader(ea, generator, names);
     if (signature == ASSET_SIGNATURE_UNKNOWN)
-        return;
+        return true;
 
     const char* type_name = GetTypeNameFromSignature(signature);
     if (!type_name)
-        return;
+        return true;
 
-    std::string asset_name_str = fs::relative(asset_path, generator.source_path).string();
-    Lowercase(asset_name_str.data(), (u32)asset_name_str.size());
-    Replace(asset_name_str.data(), (u32)asset_name_str.size(), '\\', '/');
-
-    std::string var_name = GetSafeFilename(asset_name_str.c_str()).string();
+    std::string var_name = std::string(type_name) + "_" + ea->name->value;
     Uppercase(var_name.data(), (u32)var_name.size());
-    Replace(var_name.data(), (u32)var_name.size(), '/', '_');
 
     generator.assets.push_back({
-        .source_path = asset_path,
-        .name = GetName(asset_name_str.c_str()),
+        .asset = ea,
         .var_name = var_name,
         .signature = signature,
         .names = std::move(names)
     });
+
+    return true;
 }
 
 static void SortAssets(ManifestGenerator& generator) {
     std::ranges::sort(generator.assets.begin(), generator.assets.end(), [](const AssetEntry& a, const AssetEntry& b) {
-        return Compare(a.name->value, b.name->value);
+        return Compare(a.asset->name->value, b.asset->name->value);
     });
+}
+
+bool GenerateAssetManifest(const fs::path& source_path, const fs::path& target_path, Props* config)
+{
+    (void)target_path;
+
+    if (fs::exists(source_path) && !fs::is_directory(source_path))
+        return false;
+
+    ManifestGenerator generator = {};
+    generator.source_path = source_path;
+    generator.target_path = target_path;
+    generator.config = config;
+
+    try
+    {
+        Enumerate(g_editor.asset_allocator, ReadAsset, &generator);
+    }
+    catch (const std::exception&)
+    {
+        return false;
+    }
+
+    for (const std::string& name_str : config->GetKeys("names"))
+    {
+        const Name* name = GetName(name_str.c_str());
+        generator.names[name] = GetNameVar(name);
+    }
+
+    SortAssets(generator);
+    GenerateHeader(generator);
+    GenerateSource(generator);
+    return true;
 }
 
 static void GenerateSource(ManifestGenerator& generator)
@@ -186,7 +185,7 @@ static void GenerateSource(ManifestGenerator& generator)
 
     for (AssetSignature sig : generator.signatures)
     {
-        const char* type_name = GetVarTypeNameFromSignature(sig);
+        const char* type_name = GetTypeNameFromSignature(sig);
         std::string type_name_upper = type_name;
         Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
 
@@ -227,11 +226,11 @@ static void GenerateSource(ManifestGenerator& generator)
     WriteCSTR(stream, "\n");
     WriteCSTR(stream, "    // @path\n");
     for (AssetEntry& asset : generator.assets)
-        WriteCSTR(stream, "    PATH_%s = GetName(\"%s\");\n", asset.var_name.c_str(), asset.name->value);
+        WriteCSTR(stream, "    PATH_%s = GetName(\"%s\");\n", asset.var_name.c_str(), asset.asset->name->value);
 
     for (AssetSignature sig : generator.signatures)
     {
-        const char* type_name = GetVarTypeNameFromSignature(sig);
+        const char* type_name = GetTypeNameFromSignature(sig);
         std::string type_name_upper = type_name;
         Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
 
@@ -275,7 +274,7 @@ static void GenerateSource(ManifestGenerator& generator)
     for (AssetSignature sig : generator.signatures)
     {
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "    // @%s\n", GetVarTypeNameFromSignature(sig));
+        WriteCSTR(stream, "    // @%s\n", GetTypeNameFromSignature(sig));
 
         for (AssetEntry& asset : generator.assets)
         {
@@ -296,14 +295,14 @@ static void GenerateSource(ManifestGenerator& generator)
     for (AssetSignature sig : generator.signatures)
     {
         WriteCSTR(stream, "\n");
-        WriteCSTR(stream, "    // @%s\n", GetVarTypeNameFromSignature(sig));
+        WriteCSTR(stream, "    // @%s\n", GetTypeNameFromSignature(sig));
 
         for (AssetEntry& asset : generator.assets)
         {
             if (asset.signature != sig)
                 continue;
 
-            std::string type_name_upper = GetVarTypeNameFromSignature(asset.signature);
+            std::string type_name_upper = GetTypeNameFromSignature(asset.signature);
             Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
 
             WriteCSTR(stream, "    NOZ_RELOAD_%s(PATH_%s, %s);\n", type_name_upper.c_str(), asset.var_name.c_str(), asset.var_name.c_str());
@@ -329,7 +328,7 @@ static void GenerateHeader(ManifestGenerator& generator)
 
     for (AssetSignature sig : generator.signatures)
     {
-        const char* type_name = GetVarTypeNameFromSignature(sig);
+        const char* type_name = GetTypeNameFromSignature(sig);
         std::string type_name_upper = type_name;
         Uppercase(type_name_upper.data(), (u32)type_name_upper.size());
 
@@ -369,7 +368,7 @@ static void GenerateHeader(ManifestGenerator& generator)
             continue;
 
         char prefix[MAX_NAME_LENGTH];
-        Format(prefix, MAX_NAME_LENGTH, "STYLE_%s", asset.source_path.filename().replace_extension("").string().c_str());
+        Format(prefix, MAX_NAME_LENGTH, "STYLE_%s", asset.asset->name->value);
         Uppercase(prefix, MAX_NAME_LENGTH);
 
         WriteCSTR(stream, "\n");

@@ -18,8 +18,8 @@ extern Shader* SHADER_VFX;
 extern Shader* SHADER_UI_VIGNETTE;
 extern Shader* SHADER_UI;
 extern Shader* SHADER_TEXT;
-extern Shader* SHADER_SOLID;
 extern Shader* SHADER_LIT;
+extern Shader* SHADER_SOLID;
 
 // @StyleSheet
 extern StyleSheet* STYLESHEET_VIEW;
@@ -33,16 +33,16 @@ extern Texture* TEXTURE_EDITOR_PALETTE;
 // @name
 extern const Name* NAME_TEXT;
 extern const Name* NAME_COLORS;
+extern const Name* NAME_ASSET_NAME_CONTAINER;
+extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_CONTAINER;
+extern const Name* NAME_ITEM;
+extern const Name* NAME_ITEM_TEXT;
 extern const Name* NAME_INPUT;
 extern const Name* NAME_INPUT_SMALL;
 extern const Name* NAME_COLON;
 extern const Name* NAME_CURSOR;
 extern const Name* NAME_PREVIEW;
-extern const Name* NAME_ITEM;
-extern const Name* NAME_ITEM_TEXT;
-extern const Name* NAME_ASSET_NAME_CONTAINER;
-extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_A;
 extern const Name* NAME_E;
 extern const Name* NAME_M;

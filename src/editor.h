@@ -30,6 +30,7 @@ struct Editor
     int asset_path_count;
     AssetImporter* importers;
     std::filesystem::file_time_type config_timestamp;
+    std::filesystem::path output_dir;
 
     PoolAllocator* asset_allocator;
 };
@@ -53,15 +54,21 @@ struct Command
     char args[MAX_COMMAND_ARGS][MAX_COMMAND_ARG_SIZE];
 };
 
+extern void InitCommands();
+extern bool ParseCommand(const char* str, Command& command);
+extern const char* GetVarTypeNameFromSignature(AssetSignature signature);
+
+// @import
 struct ImportEvent
 {
     const Name* name;
     std::filesystem::path target_path;
 };
 
-extern void InitCommands();
-extern bool ParseCommand(const char* str, Command& command);
-extern const char* GetVarTypeNameFromSignature(AssetSignature signature);
+// @grid
+
+extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
+
 
 #include "asset_editor.h"
 #include "view.h"

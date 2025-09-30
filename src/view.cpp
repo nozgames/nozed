@@ -170,6 +170,9 @@ static void UpdateMoveState()
 {
     // Move all selected assets
     Vec2 drag = g_view.mouse_world_position - g_view.move_world_position;
+    if (IsCtrlDown(g_view.input))
+        drag = SnapToGrid(drag, false);
+
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
         EditorAsset* ea = GetEditorAsset(i);

@@ -15,9 +15,8 @@ struct ImportJob
     fs::path source_relative_path;
     fs::path source_meta_path;
     const Name* source_name;
-    fs::path target_path;
+    //fs::path target_path;
     fs::path target_short_path;
-    const AssetImporter* importer;
     bool force;
 };
 
@@ -27,7 +26,6 @@ struct Importer
     std::atomic<bool> thread_running;
     std::queue<ImportJob> queue;
     std::unique_ptr<std::thread> thread;
-    std::filesystem::path output_dir;
     std::filesystem::path manifest_path;
     std::mutex mutex;
     std::vector<JobHandle> jobs;
@@ -51,20 +49,19 @@ static const AssetImporter* FindImporter(const fs::path& ext)
     return nullptr;
 }
 
-#if 0
-static const AssetImporter* FindImporter(AssetSignature signature)
+bool InitImporter(EditorAsset* ea)
 {
-    for (const auto* importer : g_importer.importers)
-        if (importer && importer->signature == signature)
-            return importer;
+    fs::path path = ea->path;
+    if (!fs::exists(path))
+        return false;
 
-    return nullptr;
-}
-#endif
+    const AssetImporter* importer = FindImporter(path.extension());
+    if (!importer)
+        return false;
 
-const char* GetVarTypeNameFromSignature(AssetSignature signature)
-{
-    return GetTypeNameFromSignature(signature);
+    ea->importer = importer;
+    ea->type = importer->type;
+    return true;
 }
 
 static void QueueImport(EditorAsset* ea, bool force)
@@ -73,16 +70,15 @@ static void QueueImport(EditorAsset* ea, bool force)
     if (!fs::exists(path))
         return;
 
-    const AssetImporter* importer = FindImporter(path.extension());
-    if (!importer)
+    if (!ea->importer)
         return;
 
-    std::string type_name_lower = GetVarTypeNameFromSignature(importer->signature);
+    std::string type_name_lower = GetTypeNameFromSignature(ea->importer->signature);
     Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
 
     fs::path source_relative_path = fs::relative(path, g_editor.asset_paths[ea->asset_path_index]);
     fs::path target_short_path = type_name_lower / GetSafeFilename(source_relative_path.filename().string().c_str());
-    fs::path target_path = g_importer.output_dir / target_short_path;
+    fs::path target_path = g_editor.output_dir / target_short_path;
     fs::path source_meta_path = path;
     source_meta_path += ".meta";
     target_path.replace_extension("");
@@ -106,9 +102,7 @@ static void QueueImport(EditorAsset* ea, bool force)
         .source_relative_path = source_relative_path.make_preferred(),
         .source_meta_path = source_meta_path.make_preferred(),
         .source_name = GetName(source_name.string().c_str()),
-        .target_path = target_path.make_preferred(),
         .target_short_path = target_short_path,
-        .importer = importer,
         .force = force
     }, g_importer.post_import_job));
 }
@@ -158,9 +152,17 @@ static void ExecuteJob(void* data)
 
     std::unique_ptr<Props> meta_guard(meta);
 
-    job->importer->import_func(job->ea, target_stream, g_config, meta);
+    job->ea->importer->import_func(job->ea, target_stream, g_config, meta);
 
-    bool result = SaveStream(target_stream, job->target_path);
+    fs::path target_dir =
+        g_editor.output_dir /
+        GetTypeNameFromSignature(job->ea->importer->signature) /
+        job->ea->name->value;
+
+    std::string target_dir_lower = target_dir.string();
+    Lowercase(target_dir_lower.data(), (u32)target_dir_lower.size());
+
+    bool result = SaveStream(target_stream, target_dir_lower);
     Free(target_stream);
 
     if (!result)
@@ -185,7 +187,7 @@ static void PostImportJob(void *data)
 {
     (void)data;
 
-    GenerateAssetManifest(g_importer.output_dir, g_importer.manifest_path, g_config);
+    GenerateAssetManifest(g_editor.output_dir, g_importer.manifest_path, g_config);
     CleanupOrphanedAssets();
 }
 
@@ -285,11 +287,7 @@ void InitImporter()
 
     g_importer.running = true;
     g_importer.thread_running = true;
-    g_importer.output_dir = fs::absolute(fs::path(g_config->GetString("output", "directory", "assets")));
     g_importer.manifest_path = g_config->GetString("manifest", "output_file", "src/assets.cpp");
-
-    fs::create_directories(g_importer.output_dir);
-
     g_importer.thread = std::make_unique<std::thread>([]
     {
         RunImporter();

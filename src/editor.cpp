@@ -6,6 +6,8 @@
 #include "editor_assets.h"
 #include "server.h"
 
+namespace fs = std::filesystem;
+
 extern void InitEvent(ApplicationTraits* traits);
 extern void RequestStats();
 extern void InitEditorServer(Props* config);
@@ -179,6 +181,10 @@ static void InitConfig()
         full_path = canonical(full_path);
         Copy(g_editor.asset_paths[g_editor.asset_path_count++], 4096, full_path.string().c_str());
     }
+
+    g_editor.output_dir = fs::absolute(fs::path(g_config->GetString("output", "directory", "assets")));
+
+    fs::create_directories(g_editor.output_dir);
 }
 
 extern AssetImporter GetShaderImporter();

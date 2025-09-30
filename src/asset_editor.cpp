@@ -7,17 +7,22 @@
 
 namespace fs = std::filesystem;
 
-EditorAsset* CreateEditorAsset(EditorAssetType type, const std::filesystem::path& path)
+static const Name* MakeCanonicalAssetName(const char* name)
 {
-    std::error_code ec;
-    std::filesystem::path relative_path = std::filesystem::relative(path, "assets", ec);
-    relative_path.replace_extension("");
-    relative_path = FixSlashes(relative_path);
+    std::string result = name;
+    Lowercase(result.data(), (u32)result.size());
+    Replace(result.data(), (u32)result.size(), '/', '_');
+    Replace(result.data(), (u32)result.size(), '.', '_');
+    Replace(result.data(), (u32)result.size(), ' ', '_');
+    Replace(result.data(), (u32)result.size(), '-', '_');
+    return GetName(result.c_str());
+}
 
+EditorAsset* CreateEditorAsset(const std::filesystem::path& path)
+{
     EditorAsset* ea = (EditorAsset*)Alloc(g_editor.asset_allocator, sizeof(EditorAssetData));
     Copy(ea->path, sizeof(ea->path), path.string().c_str());
-    ea->name = GetName(relative_path.filename().string().c_str());
-    ea->type = type;
+    ea->name = MakeCanonicalAssetName(fs::path(path).replace_extension("").filename().string().c_str());
     ea->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
     ea->asset_path_index = -1;
 
@@ -31,7 +36,13 @@ EditorAsset* CreateEditorAsset(EditorAssetType type, const std::filesystem::path
 
     assert(ea->asset_path_index != -1);
 
-    switch (type) {
+    if (!InitImporter(ea))
+    {
+        Free(ea);
+        return nullptr;
+    }
+
+    switch (ea->type) {
     case EDITOR_ASSET_TYPE_MESH:
         InitEditorMesh(ea);
         break;
@@ -329,17 +340,12 @@ void InitEditorAssets()
         for (auto& asset_path : asset_paths)
         {
             std::filesystem::path ext = asset_path.extension();
+            if (ext == ".meta")
+                continue;
+
             EditorAsset* ea = nullptr;
-
-            for (int asset_type=0; asset_type<EDITOR_ASSET_TYPE_COUNT; asset_type++)
-            {
-                AssetImporter* importer = &g_editor.importers[asset_type];
-                assert(importer->type != EDITOR_ASSET_TYPE_UNKNOWN);
-                if (importer->ext != ext)
-                    continue;
-
-                ea = CreateEditorAsset(importer->type, asset_path);
-            }
+            for (int asset_type=0; !ea && asset_type<EDITOR_ASSET_TYPE_COUNT; asset_type++)
+                ea = CreateEditorAsset(asset_path);
 
             if (ea)
                 LoadAssetMetadata(ea, asset_path);

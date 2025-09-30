@@ -860,7 +860,7 @@ EditorMesh* LoadEditorMesh(const std::filesystem::path& path)
     Tokenizer tk;
     Init(tk, contents.c_str());
 
-    EditorMesh* em = (EditorMesh*)CreateEditorAsset(EDITOR_ASSET_TYPE_MESH, path);
+    EditorMesh* em = (EditorMesh*)CreateEditorAsset(path);
     assert(em);
     Init(em);
 
