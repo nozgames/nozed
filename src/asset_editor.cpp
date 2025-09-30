@@ -7,7 +7,7 @@
 
 namespace fs = std::filesystem;
 
-static const Name* MakeCanonicalAssetName(const char* name)
+const Name* MakeCanonicalAssetName(const char* name)
 {
     std::string result = name;
     Lowercase(result.data(), (u32)result.size());

@@ -107,23 +107,37 @@ static void QueueImport(EditorAsset* ea, bool force)
     }, g_importer.post_import_job));
 }
 
+static void QueueImport(const fs::path& path)
+{
+    const AssetImporter* importer = FindImporter(path.extension());
+    if (!importer)
+        return;
+
+    const Name* asset_name = MakeCanonicalAssetName(fs::path(path).replace_extension("").filename().string().c_str());
+    if (!asset_name)
+        return;
+
+    EditorAsset* ea = GetEditorAsset(importer->type, asset_name);
+    if (!ea)
+        return;
+
+    QueueImport(ea, false);
+}
+
 static void HandleFileChangeEvent(const FileChangeEvent& event)
 {
     if (event.type == FILE_CHANGE_TYPE_DELETED)
         return;
 
-#if 0
-    fs::path source_path = event.path;
-    fs::path source_ext = source_path.extension();
+    fs::path source_ext = event.path.extension();
     if (source_ext == ".meta")
     {
         fs::path target_path = event.path;
         target_path.replace_extension("");
-        QueueImport(target_path, event.watch_path, false);
+        QueueImport(target_path);
     }
     else
-        QueueImport(event.path, event.watch_path, false);
-#endif
+        QueueImport(event.path);
 }
 
 static void ExecuteJob(void* data)

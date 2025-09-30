@@ -91,8 +91,10 @@ extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
 extern void AddAssetSelection(int asset_index);
 extern EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name);
+extern EditorAsset* GetEditorAsset(const std::filesystem::path& path);
 extern int GetIndex(EditorAsset* ea);
-extern bool InitImporter(EditorAsset* ea);;
+extern bool InitImporter(EditorAsset* ea);
+extern const Name* MakeCanonicalAssetName(const char* name);
 
 
 #include "asset/animation_editor.h"
