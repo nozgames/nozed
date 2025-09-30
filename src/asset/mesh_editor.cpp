@@ -188,17 +188,7 @@ Mesh* ToMesh(EditorMesh* em, bool upload)
 
     // Generate the mesh body
     for (int i = 0; i < em->face_count; i++)
-    {
         TriangulateFace(em, em->faces + i, builder);
-
-        /*
-        EditorFace& tri = em->faces[i];
-        AddVertex(builder, em->vertices[tri.v0].position, tri.normal, uv_color);
-        AddVertex(builder, em->vertices[tri.v1].position, tri.normal, uv_color);
-        AddVertex(builder, em->vertices[tri.v2].position, tri.normal, uv_color);
-        AddTriangle(builder, (u16)(i * 3), (u16)(i * 3 + 1), (u16)(i * 3 + 2));
-    */
-    }
 
     // Generate outline
     Vec2 edge_uv = ColorUV(em->edge_color.x, em->edge_color.y);
@@ -524,7 +514,6 @@ int SplitFaces(EditorMesh* em, int v0, int v1)
     if (face_index >= em->face_count)
         return -1;
 
-
     if (v0_pos > v1_pos)
     {
         int temp = v0_pos;
@@ -556,7 +545,7 @@ int SplitFaces(EditorMesh* em, int v0, int v1)
     UpdateEdges(em);
     MarkDirty(em);
 
-    return GetEdge(em, em->face_vertices[old_face.vertex_offset + old_face.vertex_count-1], em->face_vertices[new_face.vertex_offset]);
+    return GetEdge(em, em->face_vertices[old_face.vertex_offset + v0_pos], em->face_vertices[old_face.vertex_offset + (v0_pos + 1) % old_face.vertex_count]);
 }
 
 int SplitEdge(EditorMesh* em, int edge_index, float edge_pos)
