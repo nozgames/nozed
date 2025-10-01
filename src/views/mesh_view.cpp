@@ -623,6 +623,7 @@ static void InsertVertexFaceOrEdge()
     if (edge_index < 0)
         return;
 
+
     int new_vertex_index = SplitEdge(em, edge_index, edge_pos);
     if (new_vertex_index == -1)
         return;
@@ -1406,6 +1407,38 @@ static void ExtrudeSelected()
     SetState(MESH_EDITOR_STATE_MOVE);
 }
 
+static void AddNewFace()
+{
+    RecordUndo();
+
+    EditorMesh* em = GetEditingMesh();
+    em->vertex_count += 4;
+    em->vertices[em->vertex_count - 4] = { .position = { -0.25f, -0.25f }, .edge_size = 1.0f };
+    em->vertices[em->vertex_count - 3] = { .position = {  0.25f, -0.25f }, .edge_size = 1.0f };
+    em->vertices[em->vertex_count - 2] = { .position = {  0.25f,  0.25f }, .edge_size = 1.0f };
+    em->vertices[em->vertex_count - 1] = { .position = { -0.25f,  0.25f }, .edge_size = 1.0f };
+    em->faces[em->face_count++] = {
+        .color = { 0, 0 },
+        .normal = { 0, 0, 0 },
+        .vertex_offset = em->face_vertex_count,
+        .vertex_count = 4
+    };
+    em->face_vertices[em->face_vertex_count + 0] = em->vertex_count - 4;
+    em->face_vertices[em->face_vertex_count + 1] = em->vertex_count - 3;
+    em->face_vertices[em->face_vertex_count + 2] = em->vertex_count - 2;
+    em->face_vertices[em->face_vertex_count + 3] = em->vertex_count - 1;
+    em->face_vertex_count += 4;
+
+    UpdateEdges(em);
+    MarkDirty(em);
+    MarkModified();
+    ClearSelection();
+    SelectVertex(em->vertex_count - 4, true);
+    SelectVertex(em->vertex_count - 3, true);
+    SelectVertex(em->vertex_count - 2, true);
+    SelectVertex(em->vertex_count - 1, true);
+}
+
 void MeshViewInit()
 {
     EditorMesh* em = GetEditingMesh();
@@ -1448,6 +1481,7 @@ void MeshViewInit()
             { KEY_3, false, false, false, SetFaceMode },
             { KEY_C, false, false, false, CenterMesh },
             { KEY_E, false, false, false, ExtrudeSelected },
+            { KEY_N, false, false, false, AddNewFace },
             { INPUT_CODE_NONE }
         };
 

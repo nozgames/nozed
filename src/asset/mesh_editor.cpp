@@ -98,14 +98,6 @@ int GetOrAddEdge(EditorMesh* em, int v0, int v1, int face_index)
     int fv0 = Min(v0, v1);
     int fv1 = Max(v0, v1);
 
-    Vec2 en = Normalize(em->vertices[v1].position - em->vertices[v0].position);
-    en = Vec2{en.y, -en.x};
-
-    EditorVertex& ev0 = em->vertices[v0];
-    EditorVertex& ev1 = em->vertices[v1];
-    ev0.edge_normal += en;
-    ev1.edge_normal += en;
-
     for (int i = 0; i < em->edge_count; i++)
     {
         EditorEdge& ee = em->edges[i];
@@ -135,6 +127,7 @@ int GetOrAddEdge(EditorMesh* em, int v0, int v1, int face_index)
     ee.face_index[0] = face_index;
     ee.v0 = fv0;
     ee.v1 = fv1;
+    ee.normal = Normalize(-Perpendicular(em->vertices[v1].position - em->vertices[v0].position));
 
     return edge_index;
 }
@@ -168,8 +161,19 @@ void UpdateEdges(EditorMesh* em)
     for (int edge_index=0; edge_index<em->edge_count; edge_index++)
     {
         EditorEdge& ee = em->edges[edge_index];
+        if (ee.face_count != 1)
+            continue;
         em->vertices[ee.v0].ref_count++;
         em->vertices[ee.v1].ref_count++;
+        em->vertices[ee.v0].edge_normal += ee.normal;
+        em->vertices[ee.v1].edge_normal += ee.normal;
+    }
+
+    for (int vertex_index=0; vertex_index<em->vertex_count; vertex_index++)
+    {
+        EditorVertex& ev = em->vertices[vertex_index];
+        if (Length(ev.edge_normal) > F32_EPSILON)
+            ev.edge_normal = Normalize(ev.edge_normal);
     }
 }
 
@@ -755,7 +759,7 @@ bool OverlapBounds(EditorMesh* em, const Vec2& position, const Bounds2& hit_boun
 
 int HitTestFace(EditorMesh* em, const Vec2& position, const Vec2& hit_pos, Vec2* where)
 {
-    for (int i = 0; i < em->face_count; i++)
+    for (int i = em->face_count - 1; i >= 0; i--)
     {
         EditorFace& ef = em->faces[i];
 
