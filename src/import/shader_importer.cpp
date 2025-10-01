@@ -122,7 +122,10 @@ static void WriteCompiledShader(
     ShaderFlags flags = SHADER_FLAGS_NONE;
     if (meta.GetBool("shader", "blend", false))
         flags |= SHADER_FLAGS_BLEND;
-    
+
+    if (meta.GetBool("shader", "depth", false))
+        flags |= SHADER_FLAGS_DEPTH;
+
     WriteU8(output_stream, (u8)flags);
 }
 

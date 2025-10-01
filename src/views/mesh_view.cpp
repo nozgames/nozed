@@ -72,6 +72,8 @@ struct MeshView
 
 static MeshView g_mesh_view = {};
 
+extern int SplitFaces(EditorMesh* em, int v0, int v1);
+
 inline EditorMesh* GetEditingMesh()
 {
     EditorAsset* ea = GetEditingAsset();
@@ -321,6 +323,10 @@ static void UpdateNormalState()
     EditorAsset* ea = GetEditingAsset();
     EditorMesh* em = GetEditingMesh();
 
+    float start_length = Length(g_mesh_view.world_drag_start - g_mesh_view.selection_drag_start);
+    float current_length = Length(g_view.mouse_world_position - g_mesh_view.selection_drag_start);
+    float delta_length = current_length - start_length;
+
     Vec2 dir = Normalize(g_view.mouse_world_position - g_mesh_view.selection_drag_start);
 
     for (int i=0; i<em->face_count; i++)
@@ -329,8 +335,10 @@ static void UpdateNormalState()
         if (!ef.selected)
             continue;
 
+        MeshViewFace& mvf = g_mesh_view.faces[i];
+
         Vec2 xy = dir;
-        ef.normal = {xy.x, xy.y, 1.0f};
+        ef.normal = {xy.x, xy.y, Clamp(mvf.saved_normal.z + delta_length, 0.0f, 1.0f) };
     }
 
     MarkDirty(em);
@@ -563,8 +571,6 @@ static bool HandleSelectFace()
     return true;
 }
 
-extern int SplitFaces(EditorMesh* em, int v0, int v1);
-
 static void InsertVertexFaceOrEdge()
 {
     if (g_mesh_view.state != MESH_EDITOR_STATE_DEFAULT)
@@ -599,7 +605,15 @@ static void InsertVertexFaceOrEdge()
         return;
     }
 
+    if (em->selected_count >= 3)
+    {
+        int face_index = CreateFace(em);
+        if (face_index == -1)
+            CancelUndo();
 
+        return;
+    }
+    
     int vertex_index = HitTestVertex(em, position, 0.1f);
     if (vertex_index != -1)
         return;
@@ -873,6 +887,23 @@ static void DrawNormalState()
     DrawDashedLine(g_view.mouse_world_position, g_mesh_view.selection_drag_start);
     BindColor(COLOR_ORIGIN);
     DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
+
+
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
+    for (int face_index=0; face_index<em->face_count; face_index++)
+    {
+        EditorFace& ef = em->faces[face_index];
+        if (!ef.selected)
+            continue;
+
+        // draw normal from face center to normal direction using z as the length
+        Vec2 face_center = GetFaceCenter(em, face_index) + ea->position;
+        Vec2 normal_end = face_center + Normalize(Vec2{ef.normal.x, ef.normal.y}) * ef.normal.z * 0.5f;
+        BindColor(COLOR_VERTEX_SELECTED);
+        DrawLine(face_center, normal_end, 0.5f * g_view.zoom_ref_scale);
+        DrawVertex(normal_end, VERTEX_SIZE);
+    }
 }
 
 static float GetEdgeSizeValue(const EditorVertex& ev)

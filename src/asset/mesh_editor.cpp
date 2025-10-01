@@ -483,6 +483,103 @@ static void RemoveFaceVertices(EditorMesh* em, int face_index, int remove_at, in
     }
 }
 
+int CreateFace(EditorMesh* em)
+{
+    // Collect selected vertices
+    int selected_vertices[MAX_VERTICES];
+    int selected_count = 0;
+
+    for (int i = 0; i < em->vertex_count; i++)
+    {
+        if (em->vertices[i].selected)
+        {
+            if (selected_count >= MAX_VERTICES)
+                return -1;
+            selected_vertices[selected_count++] = i;
+        }
+    }
+
+    // Need at least 3 vertices to create a face
+    if (selected_count < 3)
+        return -1;
+
+    // Check if we have room for the new face
+    if (em->face_count >= MAX_FACES)
+        return -1;
+
+    if (em->face_vertex_count + selected_count > MAX_INDICES)
+        return -1;
+
+    // Verify that none of the edges between selected vertices are already part of two faces
+    for (int i = 0; i < selected_count; i++)
+    {
+        int v0 = selected_vertices[i];
+        int v1 = selected_vertices[(i + 1) % selected_count];
+
+        int edge_index = GetEdge(em, v0, v1);
+        if (edge_index != -1)
+        {
+            const EditorEdge& ee = em->edges[edge_index];
+            if (ee.face_count >= 2)
+                return -1;  // Edge already belongs to two faces
+        }
+    }
+
+    // Calculate centroid of selected vertices
+    Vec2 centroid = VEC2_ZERO;
+    for (int i = 0; i < selected_count; i++)
+        centroid += em->vertices[selected_vertices[i]].position;
+    centroid = centroid / (float)selected_count;
+
+    // Sort vertices by angle around centroid to determine correct winding order
+    struct VertexAngle
+    {
+        int vertex_index;
+        float angle;
+    };
+
+    VertexAngle vertex_angles[MAX_VERTICES];
+    for (int i = 0; i < selected_count; i++)
+    {
+        Vec2 dir = em->vertices[selected_vertices[i]].position - centroid;
+        vertex_angles[i].vertex_index = selected_vertices[i];
+        vertex_angles[i].angle = atan2f(dir.y, dir.x);
+    }
+
+    // Sort by angle (counter-clockwise)
+    for (int i = 0; i < selected_count - 1; i++)
+    {
+        for (int j = i + 1; j < selected_count; j++)
+        {
+            if (vertex_angles[i].angle > vertex_angles[j].angle)
+            {
+                VertexAngle temp = vertex_angles[i];
+                vertex_angles[i] = vertex_angles[j];
+                vertex_angles[j] = temp;
+            }
+        }
+    }
+
+    // Create the face with sorted vertices
+    int face_index = em->face_count++;
+    EditorFace& ef = em->faces[face_index];
+    ef.vertex_offset = em->face_vertex_count;
+    ef.vertex_count = selected_count;
+    ef.color = {1, 0};  // Default color
+    ef.normal = {0, 0, 1};  // Default normal
+    ef.selected = false;
+
+    // Add vertices in counter-clockwise order
+    for (int i = 0; i < selected_count; i++)
+        em->face_vertices[em->face_vertex_count++] = vertex_angles[i].vertex_index;
+
+    // Update edges
+    UpdateEdges(em);
+    MarkDirty(em);
+
+    return face_index;
+}
+
 int SplitFaces(EditorMesh* em, int v0, int v1)
 {
     if (em->face_count >= MAX_FACES)

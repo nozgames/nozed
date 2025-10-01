@@ -99,3 +99,4 @@ extern void DrawSelectedFaces(EditorMesh* em, const Vec2& position);
 extern void DrawFaceCenters(EditorMesh* em, const Vec2& position);
 extern void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder);
 extern void DissolveEdge(EditorMesh* em, int edge_index);
+extern int CreateFace(EditorMesh* em);
