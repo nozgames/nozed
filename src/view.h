@@ -51,6 +51,7 @@ struct View
     Material* vertex_material;
     Material* editor_material;
     Mesh* vertex_mesh;
+    Mesh* arrow_mesh;
     Mesh* circle_mesh;
     Mesh* arc_mesh[101];
     Mesh* edge_mesh;
@@ -143,6 +144,8 @@ extern void DrawLine(const Vec2& v0, const Vec2& v1);
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v);
 extern void DrawVertex(const Vec2& v, f32 size);
+extern void DrawArrow(const Vec2& v, const Vec2& dir);
+extern void DrawArrow(const Vec2& v, const Vec2& dir, f32 size);
 extern void DrawOrigin(EditorAsset* ea);
 extern void DrawBounds(EditorAsset* ea, float expand=0);
 extern void DrawBone(const Vec2& a, const Vec2& b);

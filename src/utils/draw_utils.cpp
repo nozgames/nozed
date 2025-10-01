@@ -7,6 +7,7 @@
 constexpr float DEFAULT_LINE_WIDTH = 0.01f;
 constexpr float DEFAULT_VERTEX_SIZE = 0.1f;
 constexpr float DEFAULT_DASH_LENGTH = 0.1f;
+constexpr float DEFAULT_ARROW_SIZE = 0.3f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 constexpr float BONE_WIDTH = 0.10f;
@@ -54,6 +55,17 @@ void DrawVertex(const Vec2& v, f32 size)
 {
     BindTransform(TRS(v, 0, VEC2_ONE * g_view.zoom_ref_scale * size));
     DrawMesh(g_view.vertex_mesh);
+}
+
+void DrawArrow(const Vec2& v, const Vec2& dir, f32 size)
+{
+    BindTransform(TRS(v, dir, VEC2_ONE * g_view.zoom_ref_scale * size));
+    DrawMesh(g_view.arrow_mesh);
+}
+
+void DrawArrow(const Vec2& v, const Vec2& dir)
+{
+    DrawArrow(v, dir, DEFAULT_ARROW_SIZE);
 }
 
 void DrawOrigin(EditorAsset* ea)

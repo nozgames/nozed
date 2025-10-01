@@ -897,12 +897,19 @@ static void DrawNormalState()
         if (!ef.selected)
             continue;
 
-        // draw normal from face center to normal direction using z as the length
         Vec2 face_center = GetFaceCenter(em, face_index) + ea->position;
-        Vec2 normal_end = face_center + Normalize(Vec2{ef.normal.x, ef.normal.y}) * ef.normal.z * 0.5f;
         BindColor(COLOR_VERTEX_SELECTED);
-        DrawLine(face_center, normal_end, 0.5f * g_view.zoom_ref_scale);
-        DrawVertex(normal_end, VERTEX_SIZE);
+
+        if (ef.normal.z <= F32_EPSILON)
+        {
+            DrawVertex(face_center, 0.15f);
+            continue;
+        }
+
+        Vec2 normal = Normalize(Vec2{ef.normal.x, ef.normal.y});
+        Vec2 normal_end = face_center + normal * ef.normal.z * 0.5f;
+        DrawLine(face_center, normal_end, 0.025f);
+        DrawArrow(normal_end, normal);
     }
 }
 

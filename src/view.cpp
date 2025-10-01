@@ -876,6 +876,13 @@ void InitView()
     g_view.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     Clear(builder);
+    AddVertex(builder, { 0.5f, 0.0f});
+    AddVertex(builder, { 0.0f, 0.4f});
+    AddVertex(builder, { 0.0f,-0.4f});
+    AddTriangle(builder, 0, 1, 2);
+    g_view.arrow_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+
+    Clear(builder);
     AddCircle(builder, VEC2_ZERO, 2.0f, 32, VEC2_ZERO);
     g_view.circle_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
