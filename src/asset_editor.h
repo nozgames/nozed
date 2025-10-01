@@ -95,6 +95,7 @@ extern EditorAsset* GetEditorAsset(const std::filesystem::path& path);
 extern int GetIndex(EditorAsset* ea);
 extern bool InitImporter(EditorAsset* ea);
 extern const Name* MakeCanonicalAssetName(const char* name);
+extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);
 
 
 #include "asset/animation_editor.h"

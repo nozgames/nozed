@@ -7,6 +7,11 @@
 
 namespace fs = std::filesystem;
 
+const Name* MakeCanonicalAssetName(const fs::path& path)
+{
+    return MakeCanonicalAssetName(fs::path(path).replace_extension("").filename().string().c_str());
+}
+
 const Name* MakeCanonicalAssetName(const char* name)
 {
     std::string result = name;
@@ -22,7 +27,7 @@ EditorAsset* CreateEditorAsset(const std::filesystem::path& path)
 {
     EditorAsset* ea = (EditorAsset*)Alloc(g_editor.asset_allocator, sizeof(EditorAssetData));
     Copy(ea->path, sizeof(ea->path), path.string().c_str());
-    ea->name = MakeCanonicalAssetName(fs::path(path).replace_extension("").filename().string().c_str());
+    ea->name = MakeCanonicalAssetName(path);
     ea->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
     ea->asset_path_index = -1;
 

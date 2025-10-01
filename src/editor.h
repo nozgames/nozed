@@ -65,6 +65,9 @@ struct ImportEvent
     std::filesystem::path target_path;
 };
 
+extern void QueueImport(const std::filesystem::path& path);
+extern void WaitForImportJobs();
+
 // @grid
 
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);

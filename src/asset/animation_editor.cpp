@@ -480,8 +480,12 @@ EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
     SaveStream(stream, full_path);
     Free(stream);
 
-//    return LoadEditorAnimation(full_path);
-    return nullptr;
+    // todo: wait for import, find the asset, and return it
+    QueueImport(full_path);
+    WaitForImportJobs();
+
+    const Name* asset_name = MakeCanonicalAssetName(full_path);
+    return GetEditorAsset(EDITOR_ASSET_TYPE_ANIMATION, asset_name);
 }
 
 static bool EditorAnimationOverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)

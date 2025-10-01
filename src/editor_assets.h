@@ -33,16 +33,18 @@ extern Texture* TEXTURE_EDITOR_PALETTE;
 // @name
 extern const Name* NAME_TEXT;
 extern const Name* NAME_CONTAINER;
+extern const Name* NAME_ITEM;
+extern const Name* NAME_ITEM_TEXT;
+extern const Name* NAME_COLORS;
+extern const Name* NAME_COLOR_IMAGE;
+extern const Name* NAME_SELECTED_COLOR;
+extern const Name* NAME_ASSET_NAME_CONTAINER;
+extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_INPUT;
 extern const Name* NAME_INPUT_SMALL;
 extern const Name* NAME_COLON;
 extern const Name* NAME_CURSOR;
 extern const Name* NAME_PREVIEW;
-extern const Name* NAME_COLORS;
-extern const Name* NAME_ITEM;
-extern const Name* NAME_ITEM_TEXT;
-extern const Name* NAME_ASSET_NAME_CONTAINER;
-extern const Name* NAME_ASSET_NAME;
 extern const Name* NAME_A;
 extern const Name* NAME_E;
 extern const Name* NAME_M;
@@ -68,6 +70,8 @@ constexpr StyleId STYLE_NOTIFICATIONS_ITEM_TEXT = {1,2};
 
 // @STYLE_MESH_EDITOR
 constexpr StyleId STYLE_MESH_EDITOR_COLORS = {2,0};
+constexpr StyleId STYLE_MESH_EDITOR_COLOR_IMAGE = {2,1};
+constexpr StyleId STYLE_MESH_EDITOR_SELECTED_COLOR = {2,2};
 
 // @STYLE_COMMAND_PALETTE
 constexpr StyleId STYLE_COMMAND_PALETTE_CONTAINER = {3,0};

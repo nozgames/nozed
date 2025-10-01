@@ -107,7 +107,7 @@ static void QueueImport(EditorAsset* ea, bool force)
     }, g_importer.post_import_job));
 }
 
-static void QueueImport(const fs::path& path)
+void QueueImport(const fs::path& path)
 {
     const AssetImporter* importer = FindImporter(path.extension());
     if (!importer)
@@ -232,7 +232,7 @@ static bool UpdateJobs()
     return true;
 }
 
-static void WaitForJobs()
+void WaitForImportJobs()
 {
     while (g_importer.running && UpdateJobs())
         ThreadYield();
@@ -249,7 +249,7 @@ static void InitialImport()
         QueueImport(ea, false);
     }
 
-    WaitForJobs();
+    WaitForImportJobs();
 }
 
 static void RunImporter()

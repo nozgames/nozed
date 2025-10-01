@@ -234,14 +234,11 @@ void SetEdgeColor(EditorMesh* em, const Vec2Int& color)
     MarkDirty(em);
 }
 
-void SetSelectedTrianglesColor(EditorMesh* em, const Vec2Int& color)
-{
+void SetSelectedTrianglesColor(EditorMesh* em, const Vec2Int& color) {
     int count = 0;
-    for (i32 i = 0; i < em->face_count; i++)
-    {
+    for (i32 i = 0; i < em->face_count; i++) {
         EditorFace& et = em->faces[i];
-        if (et.selected)
-        {
+        if (et.selected) {
             et.color = color;
             count++;
         }

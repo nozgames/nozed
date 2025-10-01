@@ -158,6 +158,10 @@ static bool ParseParameter(const string& group, const string& key, Props* source
         style.transform_origin_x = ParseStyleFloat(value);
     else if (key == "transform-origin-y")
         style.transform_origin_y = ParseStyleFloat(value);
+    else if (key == "border-color")
+        style.border_color = ParseStyleColor(value);
+    else if (key == "border-width")
+        style.border_width = ParseStyleFloat(value);
 
     return true;
 }

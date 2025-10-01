@@ -720,24 +720,48 @@ static bool HandleColorPickerInput(const ElementInput& input)
 
     RecordUndo();
 
-    EditorAsset* ea = (EditorAsset*)input.user_data;
     if (IsCtrlDown(g_view.input))
-        SetEdgeColor(GetEditingMesh(), { col, row });
+        SetEdgeColor(GetEditingMesh(), {col, row});
     else
-        SetSelectedTrianglesColor(GetEditingMesh(), { col, row });
+        SetSelectedTrianglesColor(GetEditingMesh(), {col, row});
 
-    MarkModified(ea);
+    MarkModified();
     return true;
+}
+
+static void UpdateColorPicker()
+{
+    bool selected_colors[256] = {};
+    EditorMesh* em = GetEditingMesh();
+    for (int face_index=0; face_index<em->face_count; face_index++) {
+        EditorFace& ef = em->faces[face_index];
+        if (!ef.selected)
+            continue;
+
+        selected_colors[ef.color.y * 16 + ef.color.x] = true;
+    }
+
+    BeginCanvas();
+    BeginElement(STYLE_MESH_EDITOR_COLORS);
+        SetInputHandler(HandleColorPickerInput);
+        Image(g_mesh_view.color_material, STYLE_MESH_EDITOR_COLOR_IMAGE);
+
+        for (int i=0; i<256; i++)
+            if (selected_colors[i]) {
+                BeginElement(STYLE_MESH_EDITOR_SELECTED_COLOR);
+                SetElementTranslate(Vec2{(i % 16) * 25.0f, (i / 16) * 25.0f});
+                EndElement();
+            }
+
+    EndElement();
+    EndCanvas();
 }
 
 void MeshViewUpdate()
 {
     EditorAsset* ea = GetEditingAsset();
 
-    BeginCanvas();
-    Image(g_mesh_view.color_material, STYLE_MESH_EDITOR_COLORS);
-    SetInputHandler(HandleColorPickerInput, &ea);
-    EndCanvas();
+    UpdateColorPicker();
 
     CheckShortcuts(g_mesh_view.shortcuts);
 
