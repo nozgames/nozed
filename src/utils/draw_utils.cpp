@@ -12,6 +12,12 @@ constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 constexpr float BONE_WIDTH = 0.10f;
 
+void DrawRect(const Rect& rect)
+{
+    BindTransform(GetCenter(rect), 0, GetSize(rect) * 0.5f);
+    DrawMesh(g_view.edge_mesh);
+}
+
 void DrawLine(const Vec2& v0, const Vec2& v1)
 {
     DrawLine(v0, v1, DEFAULT_LINE_WIDTH);

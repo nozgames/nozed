@@ -13,6 +13,12 @@ struct EditorAnimationBone
     bool selected;
 };
 
+struct EditorAnimationFrame
+{
+    Transform transforms[MAX_BONES];
+    int hold;
+};
+
 struct EditorAnimation : EditorAsset
 {
     const Name* skeleton_name;
@@ -20,7 +26,7 @@ struct EditorAnimation : EditorAsset
     int current_frame;
     EditorAnimationBone bones[MAX_BONES];
     int bone_count;
-    Transform frames[MAX_BONES * MAX_ANIMATION_FRAMES];
+    EditorAnimationFrame frames[MAX_ANIMATION_FRAMES];
     EditorSkeleton* skeleton;
     Animation* animation;
     Animator animator;

@@ -140,6 +140,7 @@ extern void AddNotification(const char* format, ...);
 extern void HandleBoxSelect(const Bounds2& bounds);
 
 // @draw
+extern void DrawRect(const Rect& rect);
 extern void DrawLine(const Vec2& v0, const Vec2& v1);
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v);

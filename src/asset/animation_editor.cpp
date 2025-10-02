@@ -85,10 +85,9 @@ void UpdateSkeleton(EditorAnimation* en)
     }
 
     // recreate the frames using the new bone indicies and then fix the bones
-    Transform new_frames[MAX_BONES * MAX_ANIMATION_FRAMES];
+    EditorAnimationFrame new_frames[MAX_ANIMATION_FRAMES];
     for (int frame_index=0; frame_index<en->frame_count; frame_index++)
-        for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-            new_frames[frame_index * MAX_BONES + bone_index] = en->frames[frame_index * MAX_BONES + bone_map[bone_index]];
+        new_frames[frame_index] = en->frames[frame_index];
 
     // copy the new frames back
     memcpy(en->frames, new_frames, sizeof(new_frames));
@@ -132,7 +131,7 @@ static void ParseSkeleton(EditorAnimation* en, Tokenizer& tk, int* bone_map)
 
     for (int frame_index=0; frame_index<MAX_ANIMATION_FRAMES; frame_index++)
         for (int bone_index=0; bone_index<MAX_BONES; bone_index++)
-            SetIdentity(en->frames[frame_index * MAX_BONES + bone_index]);
+            SetIdentity(en->frames[frame_index].transforms[bone_index]);
 
     int bone_index = 0;
     while (!IsEOF(tk))
@@ -167,6 +166,15 @@ static void ParseFramePosition(EditorAnimation* en, Tokenizer& tk, int bone_inde
         return;
 
     SetPosition(GetFrameTransform(en, bone_index, frame_index), {x,y});
+}
+
+static void ParseFrameHold(EditorAnimation* en, Tokenizer& tk, int frame_index)
+{
+    int hold;
+    if (!ExpectInt(tk, &hold))
+        ThrowError("expected hold value");
+
+    en->frames[frame_index].hold = Max(0, hold);
 }
 
 static void ParseFrameRotation(EditorAnimation* en, Tokenizer& tk, int bone_index, int frame_index)
@@ -207,6 +215,8 @@ static void ParseFrame(EditorAnimation* en, Tokenizer& tk, int* bone_map)
             ParseFrameScale(en, tk, bone_index, en->frame_count - 1);
         else if (ExpectIdentifier(tk, "p"))
             ParseFramePosition(en, tk, bone_index, en->frame_count - 1);
+        else if (ExpectIdentifier(tk, "h"))
+            ParseFrameHold(en, tk, en->frame_count - 1);
         else
             break;
     }
@@ -263,8 +273,9 @@ static void EditorAnimationLoad(EditorAsset* ea)
 
     if (en->frame_count == 0)
     {
+        EditorAnimationFrame& enf = en->frames[0];
         for (int i=0; i<MAX_BONES; i++)
-            en->frames[i] = {
+            enf.transforms[i] = {
                 .position = VEC2_ZERO,
                 .scale = VEC2_ONE,
                 .rotation = 0,
@@ -286,25 +297,34 @@ void Serialize(EditorAnimation* en, Stream* output_stream, EditorSkeleton* es)
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
 
-    WriteU8(output_stream, (u8)es->bone_count);
-    WriteU8(output_stream, (u8)en->frame_count);
+    int real_frame_count = en->frame_count;
+    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
+        real_frame_count += en->frames[frame_index].hold;
 
-    // todo: we could remove bones that have no actual data?
+    WriteU8(output_stream, (u8)es->bone_count);
+    WriteU8(output_stream, (u8)real_frame_count);
+
     for (int i=0; i<es->bone_count; i++)
         WriteU8(output_stream, (u8)en->bones[i].index);
 
-    // Write all bone transforms
     for (int frame_index=0; frame_index<en->frame_count; frame_index++)
-        for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+    {
+        EditorAnimationFrame& enf = en->frames[frame_index];
+        for (int hold_index=0; hold_index<enf.hold + 1; hold_index++)
         {
-            Transform& transform = en->frames[frame_index * MAX_BONES + bone_index];
-            BoneTransform bone_transform = {
-                .position = transform.position,
-                .scale = transform.scale,
-                .rotation = transform.rotation
-            };
-            WriteStruct(output_stream, bone_transform);
+            for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+            {
+                Transform& transform = enf.transforms[bone_index];
+                BoneTransform bone_transform = {
+                    .position = transform.position,
+                    .scale = transform.scale,
+                    .rotation = transform.rotation
+                };
+
+                WriteStruct(output_stream, bone_transform);
+            }
         }
+    }
 }
 
 Animation* ToAnimation(Allocator* allocator, EditorAnimation* en, const Name* name)
@@ -348,10 +368,12 @@ static void EditorAnimationSave(EditorAsset* ea, const std::filesystem::path& pa
 
             bool has_pos = bt.position != VEC2_ZERO;
             bool has_rot = bt.rotation != 0.0f;
-//            bool has_scale = bt.scale != 1.0f;
 
             if (!has_pos && !has_rot)
                 continue;
+
+            if (en->frames[frame_index].hold > 0)
+                WriteCSTR(stream, "h %d", en->frames[frame_index].hold);
 
             WriteCSTR(stream, "b %d", bone_index);
 
@@ -360,9 +382,6 @@ static void EditorAnimationSave(EditorAsset* ea, const std::filesystem::path& pa
 
             if (has_rot)
                 WriteCSTR(stream, " r %f", bt.rotation);
-
-            // if (has_scale)
-            //     WriteCSTR(stream, " s %f", bt.scale);
 
             WriteCSTR(stream, "\n");
         }
@@ -408,7 +427,7 @@ Transform& GetFrameTransform(EditorAnimation* en, int bone_index, int frame_inde
 {
     assert(bone_index >= 0 && bone_index < MAX_BONES);
     assert(frame_index >= 0 && frame_index < en->frame_count);
-    return en->frames[frame_index * MAX_BONES + bone_index];
+    return en->frames[frame_index].transforms[bone_index];
 }
 
 int HitTestBone(EditorAnimation* en, const Vec2& world_pos)

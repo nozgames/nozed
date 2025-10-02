@@ -8,9 +8,14 @@
 
 constexpr float FRAME_LINE_SIZE = 0.5f;
 constexpr float FRAME_LINE_OFFSET = -0.2f;
-constexpr float FRAME_SIZE = 0.16f;
+constexpr float FRAME_SIZE_X = 0.3f;
+constexpr float FRAME_SIZE_Y = 0.8f;
+constexpr float FRAME_BORDER_SIZE = 0.025f;
 constexpr float FRAME_SELECTED_SIZE = 0.32f;
 constexpr float FRAME_TIME_SIZE = 0.32f;
+constexpr float FRAME_DOT_SIZE = 0.1f;
+constexpr Color FRAME_COLOR = Color32ToColor(100, 100, 100, 255);
+constexpr Color FRAME_SELECTED_COLOR = COLOR_VERTEX_SELECTED;
 
 constexpr float CENTER_SIZE = 0.2f;
 constexpr float ORIGIN_SIZE = 0.1f;
@@ -356,45 +361,66 @@ static void DrawTimeline()
     EditorAsset& ea = *GetEditingAsset();
     EditorAnimation* en = GetEditingAnimation();
 
+    int real_frame_count = en->frame_count;
+    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
+        real_frame_count += en->frames[frame_index].hold;
+
     Vec2 h1 =
-        ScreenToWorld(g_view.camera, {g_view.dpi * FRAME_LINE_SIZE, 0}) -
+        ScreenToWorld(g_view.camera, {g_view.dpi * FRAME_SIZE_X, g_view.dpi * -FRAME_SIZE_Y}) -
         ScreenToWorld(g_view.camera, VEC2_ZERO);
+    float h2 =
+        (ScreenToWorld(g_view.camera, {g_view.dpi * FRAME_BORDER_SIZE, 0}) -
+         ScreenToWorld(g_view.camera, VEC2_ZERO)).x;
 
     Vec2 pos = ea.position + Vec2 { 0, en->bounds.min.y + FRAME_LINE_OFFSET };
-    Vec2 left = Vec2{h1.x * (en->frame_count - 1) * 0.5f, 0};
-    Vec2 right = -left;
-
-    BindColor(COLOR_BLACK);
-    DrawLine(pos - left, pos + left);
+    pos.x -= h1.x * real_frame_count * 0.5f;
+    pos.x -= h2 * 0.5f;
+    pos.y -= h2 * 0.5f;
+    pos.y -= h1.y;
+    int current_frame = en->current_frame;
 
     BindMaterial(g_view.vertex_material);
+    int ii = 0;
     for (int i=0; i<en->frame_count; i++)
-        DrawVertex({pos.x - left.x + h1.x * i, pos.y}, FRAME_SIZE);
+    {
+        Rect frame_rect = Rect {
+            pos.x + h1.x * ii,
+            pos.y,
+            h1.x + h2 + en->frames[i].hold * h1.x,
+            h1.y + h2};
+        BindColor(COLOR_BLACK);
+        DrawRect(frame_rect);
+        BindColor(i == current_frame ? FRAME_SELECTED_COLOR : FRAME_COLOR);
+        DrawRect(Expand(frame_rect, -h2));
+        BindColor(COLOR_BLACK);
+        DrawVertex(Vec2{frame_rect.x + h2 + h1.x * 0.5f, frame_rect.y + frame_rect.height * 0.25f}, FRAME_DOT_SIZE);
 
-    int current_frame = en->current_frame;
+        ii += (1 + en->frames[i].hold);
+    }
+
     if (IsPlaying(en->animator))
     {
         current_frame = GetFrame(en->animator);
         BindColor({0.02f, 0.02f, 0.02f, 1.0f});
-        DrawLine(pos + left, pos + left + h1);
-        DrawVertex(pos + left + h1, FRAME_SIZE * 0.9f);
+        //DrawLine(pos + left, pos + left + h1);
+        //DrawVertex(pos + left + h1, FRAME_SIZE * 0.9f);
     }
 
-    BindColor(COLOR_ORIGIN);
-    DrawVertex({pos.x - left.x + h1.x * current_frame, pos.y}, FRAME_SELECTED_SIZE);
-
-    if (IsPlaying(en->animator))
-    {
-        Vec2 s2 =
-                ScreenToWorld(g_view.camera, {0, g_view.dpi * FRAME_TIME_SIZE}) -
-                ScreenToWorld(g_view.camera, VEC2_ZERO);
-
-
-        BindColor(COLOR_WHITE);
-        float time = GetNormalizedTime(en->animator);
-        Vec2 tpos = pos + Mix(right, left, time);
-        DrawLine(tpos - s2, tpos + s2);
-    }
+    // BindColor(COLOR_ORIGIN);
+    // DrawVertex({pos.x - left.x + h1.x * current_frame, pos.y}, FRAME_SELECTED_SIZE);
+    //
+    // if (IsPlaying(en->animator))
+    // {
+    //     Vec2 s2 =
+    //             ScreenToWorld(g_view.camera, {0, g_view.dpi * FRAME_TIME_SIZE}) -
+    //             ScreenToWorld(g_view.camera, VEC2_ZERO);
+    //
+    //
+    //     BindColor(COLOR_WHITE);
+    //     float time = GetNormalizedTime(en->animator);
+    //     Vec2 tpos = pos + Mix(right, left, time);
+    //     DrawLine(tpos - s2, tpos + s2);
+    // }
 }
 
 void AnimationViewDraw()
@@ -585,6 +611,25 @@ void AnimationViewShutdown()
     UpdateTransforms(en);
 }
 
+static void AddHoldFrame()
+{
+    EditorAnimation* en = GetEditingAnimation();
+    RecordUndo();
+    en->frames[en->current_frame].hold++;
+    MarkModified();
+}
+
+static void RemoveHoldFrame()
+{
+    EditorAnimation* en = GetEditingAnimation();
+    if (en->frames[en->current_frame].hold <= 0)
+        return;
+
+    RecordUndo();
+    en->frames[en->current_frame].hold = Max(0, en->frames[en->current_frame].hold - 1);
+    MarkModified();
+}
+
 void AnimationViewInit()
 {
     g_view.vtable = {
@@ -612,6 +657,8 @@ void AnimationViewInit()
             { KEY_O, false, false, false, HandleInsertAfterFrame },
             { KEY_O, true, false, false, HandleToggleOnionSkin },
             { KEY_X, false, false, false, HandleDeleteFrame },
+            { KEY_H, false, false, false, AddHoldFrame },
+            { KEY_H, false, true, false, RemoveHoldFrame },
             { INPUT_CODE_NONE }
         };
 
