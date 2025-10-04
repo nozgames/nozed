@@ -19,6 +19,7 @@ struct EditorVertex
     float edge_size;
     bool selected;
     int ref_count;
+    float gradient;
 };
 
 struct EditorEdge
@@ -34,6 +35,9 @@ struct EditorEdge
 struct EditorFace
 {
     Vec2Int color;
+    Vec2Int gradient_color;
+    Vec2 gradient_dir;
+    float gradient_offset;
     Vec3 normal;
     bool selected;
     int vertex_offset;

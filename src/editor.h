@@ -62,6 +62,7 @@ extern const char* GetVarTypeNameFromSignature(AssetSignature signature);
 struct ImportEvent
 {
     const Name* name;
+    AssetSignature signature;
     std::filesystem::path target_path;
 };
 

@@ -48,6 +48,8 @@ struct MeshViewVertex
 struct MeshViewFace
 {
     Vec3 saved_normal;
+    Vec2 saved_gradient_dir;
+    float saved_gradient_offset;
 };
 
 struct MeshView
@@ -311,6 +313,8 @@ static void RevertSavedState()
         EditorFace& ef = em->faces[i];
         MeshViewFace& mvf = g_mesh_view.faces[i];
         ef.normal = mvf.saved_normal;
+        ef.gradient_dir = mvf.saved_gradient_dir;
+        ef.gradient_offset = mvf.saved_gradient_offset;
     }
 
     MarkDirty(em);
@@ -318,6 +322,7 @@ static void RevertSavedState()
     UpdateSelection();
 }
 
+#if 0
 static void UpdateNormalState()
 {
     EditorAsset* ea = GetEditingAsset();
@@ -343,6 +348,74 @@ static void UpdateNormalState()
 
     MarkDirty(em);
     MarkModified(ea);
+}
+#endif
+
+#if 0
+static void Test(EditorMesh* em, const Vec2& gradient_dir)
+{
+    Vec2 gradient_origin = g_mesh_view.selection_center;
+    float min_gradient = F32_MAX;
+    float max_gradient = F32_MIN;
+
+    for (int i=0; i<em->face_count; i++)
+    {
+        EditorFace& ef = em->faces[i];
+        if (!ef.selected)
+            continue;
+
+        for (int vertex_index = 0; vertex_index < ef.vertex_count; vertex_index++)
+        {
+            float gradient = Dot(em->vertices[em->face_vertices[ef.vertex_offset + vertex_index]].position - gradient_origin, gradient_dir);
+            if (gradient < min_gradient) min_gradient = gradient;
+            if (gradient > max_gradient) max_gradient = gradient;
+        }
+    }
+
+    float gradient_range = Max(0.001f, max_gradient - min_gradient);
+
+    for (int i=0; i<em->face_count; i++)
+    {
+        EditorFace& ef = em->faces[i];
+        if (!ef.selected)
+            continue;
+
+        for (int vertex_index = 0; vertex_index < ef.vertex_count; vertex_index++)
+        {
+            float gradient = Dot(em->vertices[em->face_vertices[ef.vertex_offset + vertex_index]].position - gradient_origin, gradient_dir);
+            gradient = (gradient - min_gradient) / gradient_range;
+            em->vertices[em->face_vertices[ef.vertex_offset + i]].gradient = gradient;
+        }
+    }
+}
+#endif
+
+static void UpdateGradientState()
+{
+    EditorMesh* em = GetEditingMesh();
+
+    float start_length = Length(g_mesh_view.world_drag_start - g_mesh_view.selection_drag_start);
+    float current_length = Length(g_view.mouse_world_position - g_mesh_view.selection_drag_start);
+    float delta_length = current_length - start_length;
+
+    Vec2 dir = Normalize(g_view.mouse_world_position - g_mesh_view.selection_drag_start);
+
+    for (int i=0; i<em->face_count; i++)
+    {
+        EditorFace& ef = em->faces[i];
+        if (!ef.selected)
+            continue;
+
+        ef.gradient_dir = {dir.x, dir.y};
+
+        MeshViewFace& mvf = g_mesh_view.faces[i];
+        ef.gradient_offset = Clamp(mvf.saved_gradient_offset + delta_length, 0.0f, 1.0f);
+    }
+
+    //Test(em, dir);
+
+    MarkDirty(em);
+    MarkModified();
 }
 
 static void UpdateEdgeState()
@@ -474,6 +547,8 @@ static void SetState(MeshEditorState state)
         MeshViewFace& mvf = g_mesh_view.faces[i];
         EditorFace& ef = em->faces[i];
         mvf.saved_normal = ef.normal;
+        mvf.saved_gradient_dir = ef.gradient_dir;
+        mvf.saved_gradient_offset = ef.gradient_offset;
     }
 
     ClearTextInput();
@@ -708,6 +783,33 @@ static void UpdateDefaultState()
         ClearSelection();
 }
 
+static void SetGradientColor(EditorMesh* em, const Vec2Int& color)
+{
+    RecordUndo();
+
+    bool changed = false;
+    for (int face_index=0; face_index<em->face_count; face_index++)
+    {
+        EditorFace& ef = em->faces[face_index];
+        if (!ef.selected)
+            continue;
+
+        changed = true;
+        ef.gradient_color = color;
+        if (ef.gradient_dir == VEC2_ZERO)
+            ef.gradient_dir = Vec2{0,1};
+    }
+
+    if (!changed)
+    {
+        CancelUndo();
+        return;
+    }
+
+    MarkDirty(em);
+    MarkModified();
+}
+
 static bool HandleColorPickerInput(const ElementInput& input)
 {
     float x = (input.mouse_position.x - GetLeft(input.bounds)) / input.bounds.width;
@@ -722,6 +824,8 @@ static bool HandleColorPickerInput(const ElementInput& input)
 
     if (IsCtrlDown(g_view.input))
         SetEdgeColor(GetEditingMesh(), {col, row});
+    else if (IsShiftDown(g_view.input))
+        SetGradientColor(GetEditingMesh(), {col, row});
     else
         SetSelectedTrianglesColor(GetEditingMesh(), {col, row});
 
@@ -784,7 +888,8 @@ void MeshViewUpdate()
         break;
 
     case MESH_EDITOR_STATE_NORMAL:
-        UpdateNormalState();
+        //UpdateNormalState();
+        UpdateGradientState();
         break;
 
     case MESH_EDITOR_STATE_EDGE:
@@ -904,6 +1009,7 @@ static void DrawCircleControls(float (*value_func)(const EditorVertex& ev))
     }
 }
 
+#if 0
 static void DrawNormalState()
 {
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
@@ -936,6 +1042,42 @@ static void DrawNormalState()
         DrawLine(face_center, normal_end, 0.025f);
         DrawArrow(normal_end, normal);
     }
+}
+#endif
+
+static void DrawGradientState()
+{
+    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
+    DrawVertex(g_mesh_view.selection_drag_start, CENTER_SIZE * 0.75f);
+    BindColor(COLOR_CENTER);
+    DrawDashedLine(g_view.mouse_world_position, g_mesh_view.selection_drag_start);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
+
+#if 1
+    EditorAsset* ea = GetEditingAsset();
+    EditorMesh* em = GetEditingMesh();
+    for (int face_index=0; face_index<em->face_count; face_index++)
+    {
+        EditorFace& ef = em->faces[face_index];
+        if (!ef.selected)
+            continue;
+
+        Vec2 face_center = GetFaceCenter(em, face_index) + ea->position;
+        BindColor(COLOR_VERTEX_SELECTED);
+
+        if (ef.gradient_offset <= F32_EPSILON)
+        {
+            DrawVertex(face_center, 0.15f);
+            continue;
+        }
+
+        Vec2 normal = Normalize(Vec2{ef.gradient_dir.x, ef.gradient_dir.y});
+        Vec2 normal_end = face_center + normal * ef.gradient_offset * 0.5f;
+        DrawLine(face_center, normal_end, 0.025f);
+        DrawArrow(normal_end, normal);
+    }
+#endif
 }
 
 static float GetEdgeSizeValue(const EditorVertex& ev)
@@ -994,7 +1136,8 @@ void MeshViewDraw()
         break;
 
     case MESH_EDITOR_STATE_NORMAL:
-        DrawNormalState();
+        //DrawNormalState();
+        DrawGradientState();
         break;
 
     case MESH_EDITOR_STATE_EDGE:

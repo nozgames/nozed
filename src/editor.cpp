@@ -100,19 +100,12 @@ void HandleImported(EventId event_id, const void* event_data)
     (void)event_id;
 
     ImportEvent* import_event = (ImportEvent*)event_data;
-
-    char target_name_str[MAX_NAME_LENGTH];
-    Copy(target_name_str, MAX_NAME_LENGTH, import_event->target_path.string().c_str());
-    Replace(target_name_str, MAX_NAME_LENGTH, '\\', '/');
-
-    const Name* target_name = GetName(target_name_str);
-
-    HotloadEvent event = { target_name };
+    AssetLoadedEvent event = { import_event->name, import_event->signature };
     Send(EVENT_HOTLOAD, &event);
 
     AddNotification("imported '%s'", import_event->name->value);
 
-    BroadcastAssetChange(target_name);
+    BroadcastAssetChange(import_event->name, import_event->signature);
 }
 
 static void SaveUserConfig(Props* user_config)
@@ -237,9 +230,9 @@ void ShutdownEditor()
     ShutdownImporter();
 }
 
-void EditorHotLoad(const Name* name)
+void EditorHotLoad(const Name* name, AssetSignature signature)
 {
-    HotloadAsset(name);
+    HotloadAsset(name, signature);
     HotloadEditorAsset(name);
 }
 

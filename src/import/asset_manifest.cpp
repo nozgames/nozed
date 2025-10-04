@@ -289,7 +289,7 @@ static void GenerateSource(ManifestGenerator& generator)
 
     WriteCSTR(stream, "\n#ifdef NOZ_EDITOR\n");
     WriteCSTR(stream, "\n");
-    WriteCSTR(stream, "void HotloadAsset(const Name* incoming_name)\n");
+    WriteCSTR(stream, "void HotloadAsset(const Name* incoming_name, AssetSignature incoming_signature)\n");
     WriteCSTR(stream, "{");
 
     for (AssetSignature sig : generator.signatures)
@@ -391,7 +391,7 @@ static void GenerateHeader(ManifestGenerator& generator)
     WriteCSTR(stream, "extern void UnloadAssets();\n");
     WriteCSTR(stream, "\n");
     WriteCSTR(stream, "#ifdef NOZ_EDITOR\n");
-    WriteCSTR(stream, "extern void HotloadAsset(const Name* incoming_name);\n");
+    WriteCSTR(stream, "extern void HotloadAsset(const Name* incoming_name, AssetSignature incoming_signature);\n");
     WriteCSTR(stream, "#endif\n");
 
     fs::path header_path = generator.target_path;

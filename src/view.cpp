@@ -168,10 +168,7 @@ static void UpdateZoom()
 
 static void UpdateMoveState()
 {
-    // Move all selected assets
     Vec2 drag = g_view.mouse_world_position - g_view.move_world_position;
-    if (IsCtrlDown(g_view.input))
-        drag = SnapToGrid(drag, false);
 
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
@@ -179,7 +176,7 @@ static void UpdateMoveState()
         if (!ea || !ea->selected)
             continue;
 
-        MoveTo(ea, ea->saved_position + drag);
+        MoveTo(ea, IsCtrlDown(g_view.input) ? SnapToGrid(ea->saved_position + drag, false) : ea->saved_position + drag);
     }
 
     // Cancel move?

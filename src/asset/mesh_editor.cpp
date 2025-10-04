@@ -53,6 +53,19 @@ void DrawMesh(EditorMesh* em, const Mat3& transform)
     DrawMesh(ToMesh(em), transform);
 }
 
+Vec2 GetFaceCenter(EditorMesh* em, EditorFace* ef)
+{
+    Vec2 center = VEC2_ZERO;
+
+    for (int i = 0; i < ef->vertex_count; i++)
+    {
+        int vertex_idx = em->face_vertices[ef->vertex_offset + i];
+        center += em->vertices[vertex_idx].position;
+    }
+
+    return center / (float)ef->vertex_count;
+}
+
 Vec2 GetFaceCenter(EditorMesh* em, int face_index)
 {
     const EditorFace& ef = em->faces[face_index];
@@ -161,12 +174,13 @@ void UpdateEdges(EditorMesh* em)
     for (int edge_index=0; edge_index<em->edge_count; edge_index++)
     {
         EditorEdge& ee = em->edges[edge_index];
-        if (ee.face_count != 1)
-            continue;
         em->vertices[ee.v0].ref_count++;
         em->vertices[ee.v1].ref_count++;
-        em->vertices[ee.v0].edge_normal += ee.normal;
-        em->vertices[ee.v1].edge_normal += ee.normal;
+        if (ee.face_count == 1)
+        {
+            em->vertices[ee.v0].edge_normal += ee.normal;
+            em->vertices[ee.v1].edge_normal += ee.normal;
+        }
     }
 
     for (int vertex_index=0; vertex_index<em->vertex_count; vertex_index++)
@@ -1195,18 +1209,60 @@ static bool IsEar(EditorMesh* em, int* indices, int vertex_count, int ear_index)
     return true;
 }
 
+float adjust_gradient_power(float t, float power) {
+    if (t <= power)
+        return 0.5f * (t / power);
+
+    return 0.5f + 0.5f * ((t - power) / (1.0f - power));
+}
+
 void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
 {
     if (ef->vertex_count < 3)
         return;
 
     Vec2 uv_color = ColorUV(ef->color.x, ef->color.y);
+    Vec2 gradient_color = ColorUV(ef->gradient_color.x, ef->gradient_color.y);
+
+    Vec2 gradient_dir = ef->gradient_dir;
+
+    // project all vertices against the gradient direction to find the min and max
+    Vec2 gradient_origin = GetFaceCenter(em, ef);
+    float min_gradient = 0;
+    float max_gradient = 0;
+    for (int i = 0; i < ef->vertex_count; i++)
+    {
+        float gradient = Dot(em->vertices[em->face_vertices[ef->vertex_offset + i]].position - gradient_origin, gradient_dir);
+        if (gradient < min_gradient) min_gradient = gradient;
+        if (gradient > max_gradient) max_gradient = gradient;
+    }
+
+    float gradient_range = max_gradient - min_gradient;
+
+    ef->gradient_offset = Clamp(ef->gradient_offset, 0.001f, 0.999f);
+
+    if (min_gradient == max_gradient)
+    {
+        for (int i = 0; i < ef->vertex_count; i++)
+            em->vertices[em->face_vertices[ef->vertex_offset + i]].gradient = 0.0f;;
+    }
+    else
+    {
+        for (int i = 0; i < ef->vertex_count; i++)
+        {
+            float gradient = Dot(em->vertices[em->face_vertices[ef->vertex_offset + i]].position - gradient_origin, gradient_dir);
+            gradient = (gradient - min_gradient) / gradient_range;
+            //gradient = adjust_gradient_power(gradient, ef->gradient_offset);
+            em->vertices[em->face_vertices[ef->vertex_offset + i]].gradient = gradient;
+        }
+    }
 
     // Add all vertices to the builder first
     for (int i = 0; i < ef->vertex_count; i++)
     {
         int vertex_index = em->face_vertices[ef->vertex_offset + i];
-        AddVertex(builder, em->vertices[vertex_index].position, ef->normal, uv_color);
+        EditorVertex& ev = em->vertices[vertex_index];
+        AddVertex(builder, ev.position, Vec3{gradient_color.x, gradient_color.y, ev.gradient}, uv_color);
     }
 
     u16 base_vertex = GetVertexCount(builder) - (u16)ef->vertex_count;

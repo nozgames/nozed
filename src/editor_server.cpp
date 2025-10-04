@@ -119,13 +119,14 @@ void UpdateEditorServer()
 }
 
 // @broadcast
-void BroadcastAssetChange(const Name* name)
+void BroadcastAssetChange(const Name* name, AssetSignature signature)
 {
     if (!HasConnectedClient())
         return;
 
     auto msg = CreateEditorMessage(EDITOR_MESSAGE_HOTLOAD);
 
+    WriteU32(msg, signature);
     WriteString(msg, name->value);
     SendEditorMessage(msg);
 }
