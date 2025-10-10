@@ -38,7 +38,6 @@ set(SOURCE_FILES
     src/import/shader_importer.cpp
     src/import/animation_importer.cpp
     src/import/skeleton_importer.cpp
-    src/import/style_sheet_importer.cpp
     src/import/vfx_importer.cpp
     src/import/texture_importer.cpp
     src/import/sound_importer.cpp

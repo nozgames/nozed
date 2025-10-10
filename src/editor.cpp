@@ -184,7 +184,6 @@ extern AssetImporter GetShaderImporter();
 extern AssetImporter GetTextureImporter();
 extern AssetImporter GetFontImporter();
 extern AssetImporter GetMeshImporter();
-extern AssetImporter GetStyleSheetImporter();
 extern AssetImporter GetVfxImporter();
 extern AssetImporter GetSoundImporter();
 extern AssetImporter GetSkeletonImporter();
@@ -198,7 +197,6 @@ static void InitImporters()
     g_editor.importers[EDITOR_ASSET_TYPE_MESH] = GetMeshImporter();
     g_editor.importers[EDITOR_ASSET_TYPE_SHADER] = GetShaderImporter();
     g_editor.importers[EDITOR_ASSET_TYPE_SOUND] = GetSoundImporter();
-    g_editor.importers[EDITOR_ASSET_TYPE_STYLE_SHEET] = GetStyleSheetImporter();
     g_editor.importers[EDITOR_ASSET_TYPE_TEXTURE] = GetTextureImporter();
     g_editor.importers[EDITOR_ASSET_TYPE_VFX] = GetVfxImporter();
     g_editor.importers[EDITOR_ASSET_TYPE_SKELETON] = GetSkeletonImporter();

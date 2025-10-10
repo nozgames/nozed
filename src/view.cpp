@@ -530,6 +530,7 @@ void UpdateCommandPalette()
         {
             if (input.length > 0)
             {
+#if 0 // @FIXME
                 BeginCanvas();
                 BeginElement(STYLE_COMMAND_PALETTE_CONTAINER);
                     BeginElement(STYLE_COMMAND_PALETTE_INPUT_SMALL);
@@ -538,6 +539,7 @@ void UpdateCommandPalette()
                     EndElement();
                 EndElement();
                 EndCanvas();
+#endif
             }
 
             return;
@@ -564,6 +566,7 @@ void UpdateCommandPalette()
         return;
     }
 
+#if 0 //  @FIXME
     BeginCanvas();
     BeginElement(STYLE_COMMAND_PALETTE_CONTAINER);
         BeginElement(STYLE_COMMAND_PALETTE_INPUT);
@@ -576,6 +579,7 @@ void UpdateCommandPalette()
         EndElement();
     EndElement();
     EndCanvas();
+#endif
 }
 
 static void UpdateAssetNames()
@@ -592,8 +596,9 @@ static void UpdateAssetNames()
         if (!ea || ea->clipped)
             continue;
 
-        Bounds2 bounds = GetBounds(ea);
 
+#if 0 // @FIXME
+        Bounds2 bounds = GetBounds(ea);
         BeginWorldCanvas(
             g_view.camera,
             ea->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(ea).min.y},
@@ -603,6 +608,7 @@ static void UpdateAssetNames()
                 Label(ea->name->value, STYLE_VIEW_ASSET_NAME);
             EndElement();
         EndCanvas();
+#endif
     }
 }
 

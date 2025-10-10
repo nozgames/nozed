@@ -186,7 +186,7 @@ static void ExecuteJob(void* data)
 
     g_importer.mutex.lock();
     g_importer.import_events.push_back({
-        .name =  job->source_name,
+        .name =  job->ea->name,
         .signature = job->ea->importer->signature,
         .target_path = job->target_short_path
     });

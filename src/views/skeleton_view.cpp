@@ -94,6 +94,7 @@ static void UpdateAllAnimations(EditorSkeleton* es)
 }
 
 static void UpdateAssetNames() {
+#if 0 // @fix
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
         return;
 
@@ -111,6 +112,7 @@ static void UpdateAssetNames() {
             EndElement();
         EndCanvas();
     }
+#endif
 }
 
 static void UpdateSelectionCenter() {

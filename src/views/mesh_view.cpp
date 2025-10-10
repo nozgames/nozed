@@ -322,7 +322,7 @@ static void RevertSavedState()
     UpdateSelection();
 }
 
-#if 0
+#if 1
 static void UpdateNormalState()
 {
     EditorAsset* ea = GetEditingAsset();
@@ -352,44 +352,6 @@ static void UpdateNormalState()
 #endif
 
 #if 0
-static void Test(EditorMesh* em, const Vec2& gradient_dir)
-{
-    Vec2 gradient_origin = g_mesh_view.selection_center;
-    float min_gradient = F32_MAX;
-    float max_gradient = F32_MIN;
-
-    for (int i=0; i<em->face_count; i++)
-    {
-        EditorFace& ef = em->faces[i];
-        if (!ef.selected)
-            continue;
-
-        for (int vertex_index = 0; vertex_index < ef.vertex_count; vertex_index++)
-        {
-            float gradient = Dot(em->vertices[em->face_vertices[ef.vertex_offset + vertex_index]].position - gradient_origin, gradient_dir);
-            if (gradient < min_gradient) min_gradient = gradient;
-            if (gradient > max_gradient) max_gradient = gradient;
-        }
-    }
-
-    float gradient_range = Max(0.001f, max_gradient - min_gradient);
-
-    for (int i=0; i<em->face_count; i++)
-    {
-        EditorFace& ef = em->faces[i];
-        if (!ef.selected)
-            continue;
-
-        for (int vertex_index = 0; vertex_index < ef.vertex_count; vertex_index++)
-        {
-            float gradient = Dot(em->vertices[em->face_vertices[ef.vertex_offset + vertex_index]].position - gradient_origin, gradient_dir);
-            gradient = (gradient - min_gradient) / gradient_range;
-            em->vertices[em->face_vertices[ef.vertex_offset + i]].gradient = gradient;
-        }
-    }
-}
-#endif
-
 static void UpdateGradientState()
 {
     EditorMesh* em = GetEditingMesh();
@@ -417,6 +379,7 @@ static void UpdateGradientState()
     MarkDirty(em);
     MarkModified();
 }
+#endif
 
 static void UpdateEdgeState()
 {
@@ -783,6 +746,7 @@ static void UpdateDefaultState()
         ClearSelection();
 }
 
+#if 0 // @FIXME
 static void SetGradientColor(EditorMesh* em, const Vec2Int& color)
 {
     RecordUndo();
@@ -832,6 +796,7 @@ static bool HandleColorPickerInput(const ElementInput& input)
     MarkModified();
     return true;
 }
+#endif
 
 static void UpdateColorPicker()
 {
@@ -845,6 +810,7 @@ static void UpdateColorPicker()
         selected_colors[ef.color.y * 16 + ef.color.x] = true;
     }
 
+#if 0  // @FIXME
     BeginCanvas();
     BeginElement(STYLE_MESH_EDITOR_COLORS);
         SetInputHandler(HandleColorPickerInput);
@@ -859,6 +825,7 @@ static void UpdateColorPicker()
 
     EndElement();
     EndCanvas();
+#endif
 }
 
 void MeshViewUpdate()
@@ -888,8 +855,8 @@ void MeshViewUpdate()
         break;
 
     case MESH_EDITOR_STATE_NORMAL:
-        //UpdateNormalState();
-        UpdateGradientState();
+        UpdateNormalState();
+        //UpdateGradientState();
         break;
 
     case MESH_EDITOR_STATE_EDGE:
@@ -1009,7 +976,7 @@ static void DrawCircleControls(float (*value_func)(const EditorVertex& ev))
     }
 }
 
-#if 0
+#if 1
 static void DrawNormalState()
 {
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
@@ -1045,6 +1012,7 @@ static void DrawNormalState()
 }
 #endif
 
+#if 0
 static void DrawGradientState()
 {
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
@@ -1079,6 +1047,7 @@ static void DrawGradientState()
     }
 #endif
 }
+#endif
 
 static float GetEdgeSizeValue(const EditorVertex& ev)
 {
@@ -1136,8 +1105,8 @@ void MeshViewDraw()
         break;
 
     case MESH_EDITOR_STATE_NORMAL:
-        //DrawNormalState();
-        DrawGradientState();
+        DrawNormalState();
+        //DrawGradientState();
         break;
 
     case MESH_EDITOR_STATE_EDGE:

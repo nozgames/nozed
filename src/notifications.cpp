@@ -39,31 +39,33 @@ void AddNotification(const char* format, ...)
     n->elapsed = 0.0f;
 }
 
-void UpdateNotifications()
-{
-    BeginCanvas();
-    BeginElement(STYLE_NOTIFICATIONS_CONTAINER);
-        for (int i=0, c=g_notifications.buffer->count; i<c; i++)
-        {
-            Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
-            n->elapsed += GetFrameTime();
-            if (n->elapsed > NOTIFICATION_DURATION)
-            {
-                PopFront(g_notifications.buffer);
-                i--;
-                c--;
-                continue;
-            }
+void UpdateNotifications() {
+    Canvas({}, [] {
+        Row({}, [] {
+            Expanded({});
+            Container({}, [] {
+               Column({}, [] {
+                   Expanded({});
+                   for (int i=0, c=g_notifications.buffer->count; i<c; i++) {
+                       Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
+                       n->elapsed += GetFrameTime();
+                       if (n->elapsed > NOTIFICATION_DURATION) {
+                           PopFront(g_notifications.buffer);
+                           i--;
+                           c--;
+                           continue;
+                       }
 
-            BeginElement(STYLE_NOTIFICATIONS_ITEM);
-                Label(n->text, STYLE_NOTIFICATIONS_ITEM_TEXT);
-            EndElement();
-        }
-    EndElement();
-    EndCanvas();
+                       Container({}, [n]() {
+                            Label(n->text, {});
+                       });
+                   }
+               });
+            });
+        });
+    });
 }
 
-void InitNotifications()
-{
+void InitNotifications() {
     g_notifications.buffer = CreateRingBuffer(ALLOCATOR_DEFAULT, sizeof(Notification), MAX_NOTIFICATIONS);
 }

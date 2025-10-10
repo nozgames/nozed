@@ -1222,6 +1222,8 @@ void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
         return;
 
     Vec2 uv_color = ColorUV(ef->color.x, ef->color.y);
+
+#if 0
     Vec2 gradient_color = ColorUV(ef->gradient_color.x, ef->gradient_color.y);
 
     Vec2 gradient_dir = ef->gradient_dir;
@@ -1256,13 +1258,15 @@ void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
             em->vertices[em->face_vertices[ef->vertex_offset + i]].gradient = gradient;
         }
     }
+#endif
 
     // Add all vertices to the builder first
     for (int i = 0; i < ef->vertex_count; i++)
     {
         int vertex_index = em->face_vertices[ef->vertex_offset + i];
         EditorVertex& ev = em->vertices[vertex_index];
-        AddVertex(builder, ev.position, Vec3{gradient_color.x, gradient_color.y, ev.gradient}, uv_color);
+        //AddVertex(builder, ev.position, Vec3{gradient_color.x, gradient_color.y, ev.gradient}, uv_color);
+        AddVertex(builder, ev.position, ef->normal, uv_color);
     }
 
     u16 base_vertex = GetVertexCount(builder) - (u16)ef->vertex_count;

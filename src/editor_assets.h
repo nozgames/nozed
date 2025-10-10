@@ -21,12 +21,6 @@ extern Shader* SHADER_TEXT;
 extern Shader* SHADER_LIT;
 extern Shader* SHADER_SOLID;
 
-// @StyleSheet
-extern StyleSheet* STYLESHEET_VIEW;
-extern StyleSheet* STYLESHEET_NOTIFICATIONS;
-extern StyleSheet* STYLESHEET_MESH_EDITOR;
-extern StyleSheet* STYLESHEET_COMMAND_PALETTE;
-
 // @Texture
 extern Texture* TEXTURE_EDITOR_PALETTE;
 
@@ -58,30 +52,6 @@ extern const Name* NAME_SAVE;
 extern const Name* NAME_MESH;
 extern const Name* NAME_SKELETON;
 extern const Name* NAME_ANIMATION;
-
-// @STYLE_VIEW
-constexpr StyleId STYLE_VIEW_ASSET_NAME_CONTAINER = {0,0};
-constexpr StyleId STYLE_VIEW_ASSET_NAME = {0,1};
-
-// @STYLE_NOTIFICATIONS
-constexpr StyleId STYLE_NOTIFICATIONS_CONTAINER = {1,0};
-constexpr StyleId STYLE_NOTIFICATIONS_ITEM = {1,1};
-constexpr StyleId STYLE_NOTIFICATIONS_ITEM_TEXT = {1,2};
-
-// @STYLE_MESH_EDITOR
-constexpr StyleId STYLE_MESH_EDITOR_COLORS = {2,0};
-constexpr StyleId STYLE_MESH_EDITOR_COLOR_IMAGE = {2,1};
-constexpr StyleId STYLE_MESH_EDITOR_SELECTED_COLOR = {2,2};
-
-// @STYLE_COMMAND_PALETTE
-constexpr StyleId STYLE_COMMAND_PALETTE_CONTAINER = {3,0};
-constexpr StyleId STYLE_COMMAND_PALETTE_INPUT = {3,1};
-constexpr StyleId STYLE_COMMAND_PALETTE_INPUT_SMALL = {3,2};
-constexpr StyleId STYLE_COMMAND_PALETTE_COLON = {3,3};
-constexpr StyleId STYLE_COMMAND_PALETTE_TEXT = {3,4};
-constexpr StyleId STYLE_COMMAND_PALETTE_CURSOR = {3,5};
-constexpr StyleId STYLE_COMMAND_PALETTE_PREVIEW = {3,6};
-
 
 extern bool LoadAssets(Allocator* allocator);
 extern void UnloadAssets();

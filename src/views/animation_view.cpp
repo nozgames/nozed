@@ -205,6 +205,7 @@ static void UpdateMoveState()
 
 static void UpdateAssetNames()
 {
+#if 0 // @FIXME
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
@@ -226,6 +227,7 @@ static void UpdateAssetNames()
             EndElement();
         EndCanvas();
     }
+#endif
 }
 
 static void UpdatePlayState()
