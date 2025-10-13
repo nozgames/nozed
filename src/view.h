@@ -16,7 +16,8 @@ enum ViewState
     VIEW_STATE_DEFAULT,
     VIEW_STATE_MOVE,
     VIEW_STATE_EDIT,
-    VIEW_STATE_BOX_SELECT
+    VIEW_STATE_BOX_SELECT,
+    VIEW_STATE_COMMAND,
 };
 
 enum ViewDrawMode
@@ -62,12 +63,10 @@ struct View
     float ui_scale;
     float dpi;
     InputSet* input;
-    InputSet* command_input;
     bool clear_selection_on_release;
     Vec2 pan_position_camera;
     Vec2 pan_position;
     Command command;
-    bool command_palette;
     const Name* command_preview;
 
     u32 selected_asset_count;
@@ -148,7 +147,7 @@ extern void DrawVertex(const Vec2& v, f32 size);
 extern void DrawArrow(const Vec2& v, const Vec2& dir);
 extern void DrawArrow(const Vec2& v, const Vec2& dir, f32 size);
 extern void DrawOrigin(EditorAsset* ea);
-extern void DrawBounds(EditorAsset* ea, float expand=0);
+extern void DrawBounds(EditorAsset* ea, float expand=0, const Color& color=COLOR_BLACK);
 extern void DrawBone(const Vec2& a, const Vec2& b);
 extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);

@@ -40,7 +40,8 @@ void AddNotification(const char* format, ...)
 }
 
 void UpdateNotifications() {
-    Canvas({}, [] {
+#if 0
+    Canvas([] {
         Row({}, [] {
             Expanded({});
             Container({}, [] {
@@ -64,6 +65,7 @@ void UpdateNotifications() {
             });
         });
     });
+#endif
 }
 
 void InitNotifications() {

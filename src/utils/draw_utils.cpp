@@ -83,10 +83,10 @@ void DrawOrigin(EditorAsset* ea)
     DrawVertex(ea->position, ORIGIN_SIZE);
 }
 
-void DrawBounds(EditorAsset* ea, float expand)
+void DrawBounds(EditorAsset* ea, float expand, const Color& color)
 {
     BindMaterial(g_view.vertex_material);
-    BindColor(COLOR_BLACK);
+    BindColor(color);
     Bounds2 b = Expand(GetBounds(ea), expand);
     Vec2 center = GetCenter(b) + ea->position;
     Vec2 size = GetSize(b);

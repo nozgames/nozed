@@ -281,6 +281,11 @@ void PushState(ViewState state)
             ea->saved_position = ea->position;
         }
         EndUndoGroup();
+        BeginTextInput();
+        break;
+
+    case VIEW_STATE_COMMAND:
+        BeginTextInput();
         break;
 
     default:
@@ -300,6 +305,14 @@ void PopState()
         GetEditingAsset()->editing = false;
         g_view.edit_asset_index = -1;
         g_view.vtable = {};
+        break;
+
+    case VIEW_STATE_MOVE:
+        EndTextInput();
+        break;
+
+    case VIEW_STATE_COMMAND:
+        EndTextInput();
         break;
 
     default:
@@ -450,14 +463,14 @@ void RenderView()
     }
 
     bool show_names = g_view.show_names || IsAltDown(g_view.input);
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
-        EditorAsset* ea = GetEditorAsset(i);
-        if (!ea)
-            continue;
+    if (show_names) {
+        for (u32 i=0; i<MAX_ASSETS; i++) {
+            EditorAsset* ea = GetEditorAsset(i);
+            if (!ea)
+                continue;
 
-        if (show_names || ea->selected)
             DrawBounds(ea);
+        }
     }
 
     BindColor(COLOR_WHITE);
@@ -485,6 +498,15 @@ void RenderView()
         DrawOrigin(ea);
     }
 
+    for (u32 i=0; i<MAX_ASSETS; i++)
+    {
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea || !ea->selected || ea->editing)
+            continue;
+
+        DrawBounds(ea, 0, COLOR_VERTEX_SELECTED);
+    }
+
     if (IsButtonDown(g_view.input, MOUSE_MIDDLE))
     {
         Bounds2 bounds = GetBounds(g_view.camera);
@@ -509,77 +531,59 @@ void FocusAsset(EditorAsset* ea)
     FrameView();
 }
 
-void UpdateCommandPalette()
+static void UpdateCommandModifier(const TextInput& input) {
+    (void) input;
+#if 0
+    if (GetState() != VIEW_STATE_MODIFIER)
+        PushState(VIEW_STATE_MODIFIER);
+
+    if (input.length == 0)
+        return;
+
+    Canvas([] {
+        Align({.alignment={.y=1}, .margin=EdgeInsetsBottom(40)}, [] {
+            Container({.width=300, .height=50, .padding=EdgeInsetsTopLeft(10, 10), .color=Color24ToColor(0x343c4a)}, [] {
+                Row([]{
+                    const TextInput& i = GetTextInput();
+                    Label(i.value, {.font = FONT_SEGUISB, .font_size = 30, .color = Color24ToColor(0xc5c5cb) });
+                    Container({.width=4, .height=30, .color=COLOR_WHITE});
+                });
+            });
+        });
+    });
+#endif
+}
+
+static void UpdateCommandPalette()
 {
     const TextInput& input = GetTextInput();
 
-    if (!g_view.command_palette)
-    {
-        if (input.value[0] == ':')
-        {
-            g_view.command_palette = true;
-            g_view.command_preview = nullptr;
-            TextInput clipped = {};
-            Copy(clipped.value, TEXT_INPUT_MAX_LENGTH, input.value + 1);
-            clipped.length = input.length - 1;
-            clipped.cursor = input.cursor - 1;
-            SetTextInput(clipped);
-            PushInputSet(g_view.command_input);
-        }
-        else if (g_view.vtable.allow_text_input && g_view.vtable.allow_text_input())
-        {
-            if (input.length > 0)
-            {
-#if 0 // @FIXME
-                BeginCanvas();
-                BeginElement(STYLE_COMMAND_PALETTE_CONTAINER);
-                    BeginElement(STYLE_COMMAND_PALETTE_INPUT_SMALL);
-                        Label(input.value, STYLE_COMMAND_PALETTE_TEXT);
-                        EmptyElement(STYLE_COMMAND_PALETTE_CURSOR);
-                    EndElement();
-                EndElement();
-                EndCanvas();
-#endif
-            }
-
-            return;
-        }
-        else
-        {
-            ClearTextInput();
-            return;
-        }
-    }
-
-    if (WasButtonPressed(g_view.command_input, KEY_ESCAPE))
-    {
-        g_view.command_palette = false;
-        PopInputSet();
+    if (g_view.vtable.allow_text_input && g_view.vtable.allow_text_input()) {
+        UpdateCommandModifier(input);
         return;
     }
 
-    if (WasButtonPressed(g_view.command_input, KEY_ENTER))
-    {
-        PopInputSet();
-        g_view.command_palette = false;
-        HandleCommand(g_view.command);
+    if (GetState() != VIEW_STATE_COMMAND)
         return;
-    }
 
-#if 0 //  @FIXME
-    BeginCanvas();
-    BeginElement(STYLE_COMMAND_PALETTE_CONTAINER);
-        BeginElement(STYLE_COMMAND_PALETTE_INPUT);
-            Label(":", STYLE_COMMAND_PALETTE_COLON);
-            Label(input.value, STYLE_COMMAND_PALETTE_TEXT);
-            if (g_view.command_preview)
-                Label(g_view.command_preview->value, STYLE_COMMAND_PALETTE_PREVIEW);
-            else
-                EmptyElement(STYLE_COMMAND_PALETTE_CURSOR);
-        EndElement();
-    EndElement();
-    EndCanvas();
-#endif
+    Canvas([] {
+        Align({.alignment={.y=1}, .margin=EdgeInsetsBottom(40)}, [] {
+            Container({.width=600, .height=50, .padding=EdgeInsetsTopLeft(10, 10), .color=Color24ToColor(0x343c4a)}, [] {
+                Row([]{
+                    const TextInput& i = GetTextInput();
+                    Label(":", {.font = FONT_SEGUISB, .font_size = 30, .color = Color24ToColor(0x777776), .align=ALIGNMENT_CENTER_LEFT});
+                    SizedBox({.width = 5.0f});
+                    Label(i.value, {.font = FONT_SEGUISB, .font_size = 30, .color = Color24ToColor(0xc5c5cb) });
+                    if (g_view.command_preview) {
+                        //Container({.color =
+                        //Label(g_view.command_preview->value,  STYLE_COMMAND_PALETTE_PREVIEW);
+                    }
+                    else
+                        Container({.width=4, .height=30, .color=COLOR_WHITE});
+                });
+            });
+        });
+    });
 }
 
 static void UpdateAssetNames()
@@ -652,20 +656,48 @@ void HandleRename(const Name* name)
         g_view.vtable.rename(name);
 }
 
-static void HandleTextInputChanged(EventId event_id, const void* event_data)
+static void HandleTextInputChange(EventId event_id, const void* event_data)
 {
     (void)event_id;
 
     g_view.command_preview = nullptr;
 
-    TextInput* input = (TextInput*)event_data;
-    if (!ParseCommand(input->value, g_view.command))
-        return;
+    if (GetState() == VIEW_STATE_COMMAND) {
+        TextInput* input = (TextInput*)event_data;
+        if (!ParseCommand(input->value, g_view.command))
+            return;
 
-    if (g_view.command.name == NAME_R || g_view.command.name == NAME_RENAME)
-        if (g_view.vtable.preview_command)
-            g_view.command_preview = g_view.vtable.preview_command(g_view.command);
+        if (g_view.command.name == NAME_R || g_view.command.name == NAME_RENAME)
+            if (g_view.vtable.preview_command)
+                g_view.command_preview = g_view.vtable.preview_command(g_view.command);
+
+        return;
+    }
 }
+
+static void HandleTextInputCancel(EventId event_id, const void* event_data) {
+    (void) event_id;
+    (void) event_data;
+
+    if (GetState() == VIEW_STATE_COMMAND) {
+        EndTextInput();
+        PopState();
+        return;
+    }
+}
+
+static void HandleTextInputCommit(EventId event_id, const void* event_data)
+{
+    (void) event_id;
+    (void) event_data;
+
+    if (GetState() == VIEW_STATE_COMMAND) {
+        PopState();
+        HandleCommand(g_view.command);
+        return;
+    }
+}
+
 
 void InitViewUserConfig(Props* user_config)
 {
@@ -816,6 +848,10 @@ static void HandleSendToBack()
     SortAssets();
 }
 
+static void SetCommandState() {
+    PushState(VIEW_STATE_COMMAND);
+}
+
 void InitView()
 {
     InitUndo();
@@ -870,10 +906,6 @@ void InitView()
     EnableButton(g_view.input, KEY_MINUS);
     PushInputSet(g_view.input);
 
-    g_view.command_input = CreateInputSet(ALLOCATOR_DEFAULT);
-    EnableButton(g_view.command_input, KEY_ESCAPE);
-    EnableButton(g_view.command_input, KEY_ENTER);
-
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
     AddCircle(builder, VEC2_ZERO, 0.5f, 8, VEC2_ZERO);
     g_view.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
@@ -922,7 +954,9 @@ void InitView()
     g_view.state_stack[0] = VIEW_STATE_DEFAULT;
     g_view.state_stack_count = 1;
 
-    Listen(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
+    Listen(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
+    Listen(EVENT_TEXTINPUT_CANCEL, HandleTextInputCancel);
+    Listen(EVENT_TEXTINPUT_COMMIT, HandleTextInputCommit);
 
     static Shortcut shortcuts[] = {
         { KEY_F, false, false, false, HandleFrame },
@@ -936,6 +970,7 @@ void InitView()
         { KEY_RIGHT_BRACKET, false, false, false, HandleBringForward },
         { KEY_RIGHT_BRACKET, false, true, false, HandleBringToFront },
         { KEY_LEFT_BRACKET, false, true, false, HandleSendToBack },
+        { KEY_SEMICOLON, false, false, true, SetCommandState },
         { INPUT_CODE_NONE }
     };
 
@@ -948,7 +983,8 @@ void ShutdownView()
 {
     g_view = {};
 
-    Unlisten(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
+    Unlisten(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
+    Unlisten(EVENT_TEXTINPUT_CANCEL, HandleTextInputCancel);
 
     ShutdownGrid();
     ShutdownWindow();

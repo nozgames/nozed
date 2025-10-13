@@ -1291,7 +1291,7 @@ static void HandleSelectAllCommand()
     SelectAll(GetEditingMesh());
 }
 
-static void HandleTextInputChanged(EventId event_id, const void* event_data)
+static void HandleTextInputChange(EventId event_id, const void* event_data)
 {
     (void) event_id;
 
@@ -1313,9 +1313,29 @@ static void HandleTextInputChanged(EventId event_id, const void* event_data)
     }
 }
 
+static void HandleTextInputCancel(EventId event_id, const void* event_data)
+{
+    (void) event_id;
+    (void) event_data;
+
+    g_mesh_view.use_fixed_value = false;
+    ClearTextInput();
+}
+
+static void HandleTextInputCommit(EventId event_id, const void* event_data)
+{
+    (void) event_id;
+    (void) event_data;
+
+    g_mesh_view.use_fixed_value = false;
+    ClearTextInput();
+}
+
 static void MeshViewShutdown()
 {
-    Unlisten(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
+    Unlisten(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
+    Unlisten(EVENT_TEXTINPUT_CANCEL, HandleTextInputCancel);
+    Unlisten(EVENT_TEXTINPUT_COMMIT, HandleTextInputCommit);
 
     // Clean up arc mesh
     Free(g_mesh_view.rotate_arc_mesh);
@@ -1579,7 +1599,7 @@ void MeshViewInit()
 {
     EditorMesh* em = GetEditingMesh();
 
-    Listen(EVENT_TEXTINPUT_CHANGED, HandleTextInputChanged);
+    Listen(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
 
     g_view.vtable = {
         .update = MeshViewUpdate,
