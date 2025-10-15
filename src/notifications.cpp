@@ -40,32 +40,26 @@ void AddNotification(const char* format, ...)
 }
 
 void UpdateNotifications() {
-#if 0
     Canvas([] {
-        Row({}, [] {
-            Expanded({});
-            Container({}, [] {
-               Column({}, [] {
-                   Expanded({});
-                   for (int i=0, c=g_notifications.buffer->count; i<c; i++) {
-                       Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
-                       n->elapsed += GetFrameTime();
-                       if (n->elapsed > NOTIFICATION_DURATION) {
-                           PopFront(g_notifications.buffer);
-                           i--;
-                           c--;
-                           continue;
-                       }
-
-                       Container({}, [n]() {
-                            Label(n->text, {});
-                       });
+        Align({.alignment = ALIGNMENT_BOTTOM_RIGHT, .margin = EdgeInsetsBottomRight(10)}, [] {
+           Column({.spacing = 10}, [] {
+               for (int i=0, c=g_notifications.buffer->count; i<c; i++) {
+                   Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
+                   n->elapsed += GetFrameTime();
+                   if (n->elapsed > NOTIFICATION_DURATION) {
+                       PopFront(g_notifications.buffer);
+                       i--;
+                       c--;
+                       continue;
                    }
-               });
-            });
+
+                   Container({.width=300, .height=40, .padding=EdgeInsetsAll(10), .color=COLOR_UI_BACKGROUND}, [n] {
+                        Label(n->text, {.font = FONT_SEGUISB, .font_size=18, .color=COLOR_WHITE});
+                   });
+               }
+           });
         });
     });
-#endif
 }
 
 void InitNotifications() {

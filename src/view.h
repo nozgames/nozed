@@ -176,3 +176,4 @@ constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 
 constexpr Color COLOR_SELECTED = { 1,1,1,1 };
 constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
+constexpr Color COLOR_UI_BACKGROUND = Color24ToColor(0x343c4a);

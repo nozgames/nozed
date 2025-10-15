@@ -568,7 +568,7 @@ static void UpdateCommandPalette()
 
     Canvas([] {
         Align({.alignment={.y=1}, .margin=EdgeInsetsBottom(40)}, [] {
-            Container({.width=600, .height=50, .padding=EdgeInsetsTopLeft(10, 10), .color=Color24ToColor(0x343c4a)}, [] {
+            Container({.width=600, .height=50, .padding=EdgeInsetsTopLeft(10, 10), .color=COLOR_UI_BACKGROUND}, [] {
                 Row([]{
                     const TextInput& i = GetTextInput();
                     Label(":", {.font = FONT_SEGUISB, .font_size = 30, .color = Color24ToColor(0x777776), .align=ALIGNMENT_CENTER_LEFT});

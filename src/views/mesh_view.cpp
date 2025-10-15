@@ -773,11 +773,12 @@ static void SetGradientColor(EditorMesh* em, const Vec2Int& color)
     MarkDirty(em);
     MarkModified();
 }
+#endif
 
-static bool HandleColorPickerInput(const ElementInput& input)
+static bool HandleColorPickerInput(const Vec2& position)
 {
-    float x = (input.mouse_position.x - GetLeft(input.bounds)) / input.bounds.width;
-    float y = (input.mouse_position.y - GetTop(input.bounds)) / input.bounds.height;
+    float x = position.x / 400.0f;
+    float y = position.y / 400.0f;
     if (x < 0 || x > 1 || y < 0 || y > 1)
         return false;
 
@@ -788,19 +789,17 @@ static bool HandleColorPickerInput(const ElementInput& input)
 
     if (IsCtrlDown(g_view.input))
         SetEdgeColor(GetEditingMesh(), {col, row});
-    else if (IsShiftDown(g_view.input))
-        SetGradientColor(GetEditingMesh(), {col, row});
     else
         SetSelectedTrianglesColor(GetEditingMesh(), {col, row});
 
     MarkModified();
     return true;
 }
-#endif
 
 static void UpdateColorPicker()
 {
-    bool selected_colors[256] = {};
+    static bool selected_colors[256] = {};
+    memset(selected_colors, 0, sizeof(selected_colors));
     EditorMesh* em = GetEditingMesh();
     for (int face_index=0; face_index<em->face_count; face_index++) {
         EditorFace& ef = em->faces[face_index];
@@ -810,22 +809,29 @@ static void UpdateColorPicker()
         selected_colors[ef.color.y * 16 + ef.color.x] = true;
     }
 
-#if 0  // @FIXME
-    BeginCanvas();
-    BeginElement(STYLE_MESH_EDITOR_COLORS);
-        SetInputHandler(HandleColorPickerInput);
-        Image(g_mesh_view.color_material, STYLE_MESH_EDITOR_COLOR_IMAGE);
+    Canvas([] {
+        Align({.alignment = ALIGNMENT_BOTTOM_LEFT}, [] {
+            GestureDetector({.on_tap = [](const TapDetails& details, void*) {
+                if (HandleColorPickerInput(details.position)) {
+                    ConsumeButton(MOUSE_LEFT);
+                }
+            }}, [] {
+                Container({.width = 400, .height = 400, .margin = EdgeInsetsBottomLeft(10)}, [] {
+                    Image(g_mesh_view.color_material);
 
-        for (int i=0; i<256; i++)
-            if (selected_colors[i]) {
-                BeginElement(STYLE_MESH_EDITOR_SELECTED_COLOR);
-                SetElementTranslate(Vec2{(i % 16) * 25.0f, (i / 16) * 25.0f});
-                EndElement();
-            }
+                    for (int i=0; i<256; i++)
+                        if (selected_colors[i]) {
+                            Transformed({.translate=Vec2{(i % 16) * 25.0f, (i / 16) * 25.0f}}, [] {
+                                SizedBox({.width=25.0f, .height=25.0f}, [] {
+                                    Border({.width=2,.color=COLOR_VERTEX_SELECTED});
+                                });
+                            });
+                        }
 
-    EndElement();
-    EndCanvas();
-#endif
+                });
+            });
+        });
+    });
 }
 
 void MeshViewUpdate()
