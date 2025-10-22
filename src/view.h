@@ -63,6 +63,7 @@ struct View
     float ui_scale;
     float dpi;
     InputSet* input;
+    InputSet* input_command;
     bool clear_selection_on_release;
     Vec2 pan_position_camera;
     Vec2 pan_position;
@@ -149,7 +150,7 @@ extern void DrawArrow(const Vec2& v, const Vec2& dir, f32 size);
 extern void DrawOrigin(EditorAsset* ea);
 extern void DrawBounds(EditorAsset* ea, float expand=0, const Color& color=COLOR_BLACK);
 extern void DrawBone(const Vec2& a, const Vec2& b);
-extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position);
+extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position, float length=BONE_DEFAULT_LENGTH);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1);
 
@@ -166,7 +167,6 @@ struct Shortcut
 extern void EnableShortcuts(const Shortcut* shortcuts);
 extern void CheckShortcuts(const Shortcut* shortcuts);
 
-
 constexpr Color COLOR_VERTEX_SELECTED = Color32ToColor(255, 121, 0, 255);
 constexpr Color COLOR_VERTEX = COLOR_BLACK;
 constexpr Color COLOR_EDGE = COLOR_BLACK;
@@ -177,3 +177,7 @@ constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 constexpr Color COLOR_SELECTED = { 1,1,1,1 };
 constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
 constexpr Color COLOR_UI_BACKGROUND = Color24ToColor(0x343c4a);
+constexpr Color COLOR_UI_TEXT = Color24ToColor(0xc5c5cb);
+constexpr Color COLOR_UI_BUTTON_HOVER = Color24ToColor(0x76a8ff);
+constexpr Color COLOR_UI_BUTTON = {0.9f, 0.9f, 0.9f, 1.0f};
+constexpr Color COLOR_UI_BUTTON_TEXT = COLOR_UI_BACKGROUND;

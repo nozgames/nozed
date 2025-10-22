@@ -4,17 +4,20 @@
 
 #pragma once
 
+// @constants
 constexpr int MAX_ASSETS = 1024;
 constexpr int MAX_VIEWS = 16;
 constexpr int MAX_ASSET_PATHS = 8;
+constexpr float BONE_WIDTH = 0.10f;
+constexpr float BONE_DEFAULT_LENGTH = 0.25f;
+constexpr float BOUNDS_PADDING = 0.01f;
 
 struct LogView;
 struct View;
 struct TextInputBox;
 struct AssetImporter;
 
-struct Editor
-{
+struct Editor {
     LogView* log_view;
     View* view_stack[MAX_VIEWS];
     u32 view_stack_count = 0;
@@ -43,7 +46,6 @@ extern void PushView(View* view);
 extern void PopView();
 
 // @command
-
 constexpr int MAX_COMMAND_ARGS = 4;
 constexpr int MAX_COMMAND_ARG_SIZE = 128;
 
@@ -59,8 +61,7 @@ extern bool ParseCommand(const char* str, Command& command);
 extern const char* GetVarTypeNameFromSignature(AssetSignature signature);
 
 // @import
-struct ImportEvent
-{
+struct ImportEvent {
     const Name* name;
     AssetSignature signature;
     std::filesystem::path target_path;
@@ -70,12 +71,14 @@ extern void QueueImport(const std::filesystem::path& path);
 extern void WaitForImportJobs();
 
 // @grid
-
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary);
 
+// @ui
+extern Color GetButtonHoverColor(ElementState state, float time, void* user_data);
+extern void UpdateConfirmDialog();
+extern void ShowConfirmDialog(const char* message, const std::function<void()>& callback);
 
 #include "asset_editor.h"
 #include "view.h"
 #include "import/asset_importer.h"
-
 

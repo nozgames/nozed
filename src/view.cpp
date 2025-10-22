@@ -20,7 +20,6 @@ constexpr float BOX_SELECT_EDGE_WIDTH = 0.005f;
 constexpr Color BOX_SELECT_COLOR = Color {0.2f, 0.6f, 1.0f, 0.025f};
 constexpr Color BOX_SELECT_OUTLINE_COLOR = Color {0.2f, 0.6f, 1.0f, 0.2f};
 constexpr float FRAME_VIEW_PERCENTAGE = 1.0f / 0.75f;
-constexpr float BONE_WIDTH = 0.10f;
 
 View g_view = {};
 
@@ -40,16 +39,14 @@ static void UpdateCamera()
     g_view.select_size = Abs((ScreenToWorld(g_view.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_view.camera, VEC2_ZERO)).y);
 }
 
-static Bounds2 GetViewBounds(EditorAsset* ea)
-{
+static Bounds2 GetViewBounds(EditorAsset* ea) {
     if (g_view.edit_asset_index == GetIndex(ea) && g_view.vtable.bounds)
         return g_view.vtable.bounds();
 
     return GetBounds(ea);
 }
 
-static void FrameView()
-{
+static void FrameSelected() {
     Bounds2 bounds = {};
     bool first = true;
 
@@ -85,14 +82,12 @@ static void FrameView()
     UpdateCamera();
 }
 
-void BeginBoxSelect(void (*callback)(const Bounds2& bounds))
-{
+void BeginBoxSelect(void (*callback)(const Bounds2& bounds)) {
     g_view.box_select_callback = callback;
     PushState(VIEW_STATE_BOX_SELECT);
 }
 
-static void HandleBoxSelect()
-{
+static void HandleBoxSelect() {
     if (g_view.box_select_callback)
     {
         auto box_select_callback = g_view.box_select_callback;
@@ -114,8 +109,7 @@ static void HandleBoxSelect()
     }
 }
 
-static void UpdateBoxSelect()
-{
+static void UpdateBoxSelect() {
     if (!g_view.drag)
     {
         PopState();
@@ -127,8 +121,7 @@ static void UpdateBoxSelect()
     g_view.box_selection.max = Max(g_view.drag_world_position, g_view.mouse_world_position);
 }
 
-static void UpdatePanState()
-{
+static void UpdatePanState() {
     if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
     {
         g_view.pan_position = g_view.mouse_position;
@@ -202,30 +195,28 @@ static void UpdateMoveState()
     }
 }
 
-static void UpdateDefaultState()
-{
-    // Selection
-    if (WasButtonPressed(g_view.input, MOUSE_LEFT))
-    {
-        g_view.clear_selection_on_release = true;
-
+static void UpdateDefaultState() {
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT)) {
         int asset_index = HitTestAssets(g_view.mouse_world_position);
         if (asset_index != -1)
         {
             g_view.clear_selection_on_release = false;
-            SetAssetSelection(asset_index);
+            if (IsShiftDown(g_view.input))
+                ToggleAssetSelection(asset_index);
+            else
+                SetAssetSelection(asset_index);
             return;
         }
+
+        g_view.clear_selection_on_release = !IsShiftDown(g_view.input);
     }
 
-    if (g_view.drag)
-    {
+    if (g_view.drag) {
         PushState(VIEW_STATE_BOX_SELECT);
         return;
     }
 
-    if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_view.clear_selection_on_release)
-    {
+    if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_view.clear_selection_on_release) {
         ClearAssetSelection();
         return;
     }
@@ -233,8 +224,7 @@ static void UpdateDefaultState()
     // Enter edit mode
     if (WasButtonPressed(g_view.input, KEY_TAB) &&
         !IsAltDown(g_view.input) &&
-        g_view.selected_asset_count == 1)
-    {
+        g_view.selected_asset_count == 1) {
         g_view.edit_asset_index = GetFirstSelectedAsset();
         assert(g_view.edit_asset_index != -1);
 
@@ -250,8 +240,7 @@ static void UpdateDefaultState()
     }
 
     // Start an object move
-    if (WasButtonPressed(g_view.input, KEY_G) && g_view.selected_asset_count > 0)
-    {
+    if (WasButtonPressed(g_view.input, KEY_G) && g_view.selected_asset_count > 0) {
         PushState(VIEW_STATE_MOVE);
         return;
     }
@@ -286,6 +275,7 @@ void PushState(ViewState state)
 
     case VIEW_STATE_COMMAND:
         BeginTextInput();
+        PushInputSet(g_view.input_command);
         break;
 
     default:
@@ -312,6 +302,7 @@ void PopState()
         break;
 
     case VIEW_STATE_COMMAND:
+        PopInputSet();
         EndTextInput();
         break;
 
@@ -369,8 +360,7 @@ static void UpdateCommon()
     }
 }
 
-static void UpdateViewInternal()
-{
+static void UpdateViewInternal() {
     UpdateCamera();
     UpdateMouse();
     UpdateCommon();
@@ -378,9 +368,7 @@ static void UpdateViewInternal()
     switch (GetState())
     {
     case VIEW_STATE_EDIT:
-    {
-        if (WasButtonPressed(g_view.input, KEY_TAB) && !IsAltDown(g_view.input))
-        {
+        if (WasButtonPressed(g_view.input, KEY_TAB) && !IsAltDown(g_view.input)) {
             if (g_view.vtable.shutdown)
                 g_view.vtable.shutdown();
 
@@ -393,13 +381,10 @@ static void UpdateViewInternal()
             g_view.vtable.update();
 
         break;
-    }
 
     case VIEW_STATE_MOVE:
-    {
         UpdateMoveState();
         return;
-    }
 
     case VIEW_STATE_BOX_SELECT:
         UpdateBoxSelect();
@@ -418,8 +403,7 @@ static void UpdateViewInternal()
     UpdateNotifications();
 }
 
-static void DrawBoxSelect()
-{
+static void DrawBoxSelect() {
     if (GetState() != VIEW_STATE_BOX_SELECT)
         return;
 
@@ -445,16 +429,13 @@ static void DrawBoxSelect()
     DrawMesh(g_view.edge_mesh);
 }
 
-void RenderView()
-{
+void DrawView() {
     BindCamera(g_view.camera);
     BindLight(Normalize(Vec3{g_view.light_dir.x, g_view.light_dir.y, 0.0f}), COLOR_WHITE, COLOR_BLACK);
-
     DrawGrid(g_view.camera);
 
     Bounds2 camera_bounds = GetBounds(g_view.camera);
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
+    for (u32 i=0; i<MAX_ASSETS; i++) {
         EditorAsset* ea = GetEditorAsset(i);
         if (!ea)
             continue;
@@ -475,8 +456,7 @@ void RenderView()
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
+    for (u32 i=0, c=GetEditorAssetCount(); i<c; i++) {
         EditorAsset* ea = GetSortedEditorAsset(i);
         if (!ea || ea->clipped)
             continue;
@@ -489,8 +469,7 @@ void RenderView()
         if (g_view.vtable.draw)
             g_view.vtable.draw();
 
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
+    for (u32 i=0; i<MAX_ASSETS; i++) {
         EditorAsset* ea = GetEditorAsset(i);
         if (!ea || ea->clipped)
             continue;
@@ -498,8 +477,7 @@ void RenderView()
         DrawOrigin(ea);
     }
 
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
+    for (u32 i=0; i<MAX_ASSETS; i++) {
         EditorAsset* ea = GetEditorAsset(i);
         if (!ea || !ea->selected || ea->editing)
             continue;
@@ -507,8 +485,7 @@ void RenderView()
         DrawBounds(ea, 0, COLOR_VERTEX_SELECTED);
     }
 
-    if (IsButtonDown(g_view.input, MOUSE_MIDDLE))
-    {
+    if (IsButtonDown(g_view.input, MOUSE_MIDDLE)) {
         Bounds2 bounds = GetBounds(g_view.camera);
         DrawDashedLine(g_view.mouse_world_position, GetCenter(bounds));
         BindColor(COLOR_VERTEX_SELECTED);
@@ -528,7 +505,7 @@ void FocusAsset(EditorAsset* ea)
 
     ClearAssetSelection();
     SetAssetSelection(GetIndex(ea));
-    FrameView();
+    FrameSelected();
 }
 
 static void UpdateCommandModifier(const TextInput& input) {
@@ -554,8 +531,7 @@ static void UpdateCommandModifier(const TextInput& input) {
 #endif
 }
 
-static void UpdateCommandPalette()
-{
+static void UpdateCommandPalette() {
     const TextInput& input = GetTextInput();
 
     if (g_view.vtable.allow_text_input && g_view.vtable.allow_text_input()) {
@@ -573,10 +549,11 @@ static void UpdateCommandPalette()
                     const TextInput& i = GetTextInput();
                     Label(":", {.font = FONT_SEGUISB, .font_size = 30, .color = Color24ToColor(0x777776), .align=ALIGNMENT_CENTER_LEFT});
                     SizedBox({.width = 5.0f});
-                    Label(i.value, {.font = FONT_SEGUISB, .font_size = 30, .color = Color24ToColor(0xc5c5cb) });
+                    Label(i.value, {.font = FONT_SEGUISB, .font_size = 30, .color = COLOR_UI_TEXT });
                     if (g_view.command_preview) {
-                        //Container({.color =
-                        //Label(g_view.command_preview->value,  STYLE_COMMAND_PALETTE_PREVIEW);
+                        Container({.color = COLOR_UI_TEXT}, [] {
+                            Label(g_view.command_preview->value, {.font = FONT_SEGUISB, .font_size = 30, .color = COLOR_UI_BACKGROUND });
+                        });
                     }
                     else
                         Container({.width=4, .height=30, .color=COLOR_WHITE});
@@ -586,33 +563,27 @@ static void UpdateCommandPalette()
     });
 }
 
-static void UpdateAssetNames()
-{
-    if (GetState() != VIEW_STATE_DEFAULT)
+static void UpdateAssetNames() {
+    if (GetState() != VIEW_STATE_DEFAULT &&
+        GetState() != VIEW_STATE_COMMAND &&
+        GetState() != VIEW_STATE_BOX_SELECT)
         return;
 
     if (!IsAltDown(g_view.input) && !g_view.show_names)
         return;
 
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
+    for (u32 i=0; i<MAX_ASSETS; i++) {
         EditorAsset* ea = GetEditorAsset(i);
         if (!ea || ea->clipped)
             continue;
 
-
-#if 0 // @FIXME
         Bounds2 bounds = GetBounds(ea);
-        BeginWorldCanvas(
-            g_view.camera,
-            ea->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(ea).min.y},
-            Vec2{6, 0});
-
-            BeginElement(STYLE_VIEW_ASSET_NAME_CONTAINER);
-                Label(ea->name->value, STYLE_VIEW_ASSET_NAME);
-            EndElement();
-        EndCanvas();
-#endif
+        Vec2 p = ea->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(ea).min.y};
+        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,0}}, [ea] {
+            Align({.alignment=ALIGNMENT_CENTER, .margin=EdgeInsetsTop(16)}, [ea] {
+                Label(ea->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=COLOR_WHITE} );
+            });
+        });
     }
 }
 
@@ -622,10 +593,11 @@ void UpdateView()
     UpdateViewInternal();
     UpdateCommandPalette();
     UpdateAssetNames();
+    UpdateConfirmDialog();
     EndUI();
 
     BeginRenderFrame(VIEW_COLOR);
-    RenderView();
+    DrawView();
     DrawVfx();
     DrawUI();
     EndRenderFrame();
@@ -637,7 +609,7 @@ static void HandleFrame()
     if (g_view.selected_asset_count <= 0)
         return;
 
-    FrameView();
+    FrameSelected();
 }
 
 static void HandleUIZoomIn()
@@ -759,23 +731,29 @@ static int AssetSortFunc(const void* a, const void* b)
     return index_a - index_b;
 }
 
-static void SortAssets()
-{
-    for (u32 i=0; i<MAX_ASSETS; i++)
-        g_view.sorted_assets[i] = i;
+static void SortAssets() {
+    u32 asset_index = 0;
+    for (u32 i=0; i<MAX_ASSETS; i++) {
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea)
+            continue;
 
-    qsort(g_view.sorted_assets, MAX_ASSETS, sizeof(int), AssetSortFunc);
+        g_view.sorted_assets[asset_index++] = i;
+    }
 
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
+    qsort(g_view.sorted_assets, asset_index, sizeof(int), AssetSortFunc);
+
+    asset_index = 0;
+    for (u32 i=0, c=GetEditorAssetCount(); i<c; i++) {
         EditorAsset* ea = GetSortedEditorAsset(i);
         if (!ea)
             continue;
 
-        if (ea->sort_order != (int)i * 10)
+        if (ea->sort_order != (int)asset_index * 10)
             ea->meta_modified = true;
 
-        ea->sort_order = i * 10;
+        ea->sort_order = asset_index * 10;
+        asset_index++;
     }
 }
 
@@ -817,11 +795,9 @@ static void HandleBringToFront()
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<MAX_ASSETS;i++)
-    {
+    for (u32 i=0;i<MAX_ASSETS;i++) {
         EditorAsset* ea = GetEditorAsset(i);
-        if (ea && ea->selected)
-        {
+        if (ea && ea->selected) {
             ea->sort_order = 100000;
             ea->meta_modified = true;
         }
@@ -852,8 +828,21 @@ static void SetCommandState() {
     PushState(VIEW_STATE_COMMAND);
 }
 
-void InitView()
-{
+static void DeleteSelectedAsset() {
+    if (g_view.selected_asset_count == 0)
+        return;
+
+    ShowConfirmDialog("Delete asset?", [] {
+        for (int i=0; i<MAX_ASSETS; i++) {
+            EditorAsset* ea = GetEditorAsset(i);
+            if (!ea || !ea->selected) continue;
+            DeleteEditorAsset(ea);
+        }
+        g_view.selected_asset_count=0;
+    });
+}
+
+void InitView() {
     InitUndo();
 
     g_view.camera = CreateCamera(ALLOCATOR_DEFAULT);
@@ -905,6 +894,10 @@ void InitView()
     EnableButton(g_view.input, KEY_EQUALS);
     EnableButton(g_view.input, KEY_MINUS);
     PushInputSet(g_view.input);
+
+    g_view.input_command = CreateInputSet(ALLOCATOR_DEFAULT);
+    EnableButton(g_view.input_command, KEY_ESCAPE);
+    EnableButton(g_view.input_command, KEY_ENTER);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
     AddCircle(builder, VEC2_ZERO, 0.5f, 8, VEC2_ZERO);
@@ -960,6 +953,7 @@ void InitView()
 
     static Shortcut shortcuts[] = {
         { KEY_F, false, false, false, HandleFrame },
+        { KEY_X, false, false, false, DeleteSelectedAsset },
         { KEY_EQUALS, false, true, false, HandleUIZoomIn },
         { KEY_MINUS, false, true, false, HandleUIZoomOut },
         { KEY_N, true, false, false, HandleToggleNames },

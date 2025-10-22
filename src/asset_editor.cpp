@@ -226,38 +226,34 @@ bool OverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
     return ea->vtable.overlap_bounds(ea, overlap_bounds);
 }
 
-int HitTestAssets(const Vec2& overlap_point)
-{
-    for (int i=MAX_ASSETS-1; i>=0; i--)
-    {
-        EditorAsset* ea = GetSortedEditorAsset(i);
+int HitTestAssets(const Vec2& overlap_point) {
+    for (u32 i=GetEditorAssetCount(); i>0; i--) {
+        EditorAsset* ea = GetSortedEditorAsset(i-1);
         if (!ea)
             continue;
 
         if (OverlapPoint(ea, overlap_point))
-            return i;
+            return GetIndex(ea);
     }
 
     return -1;
 }
 
-int HitTestAssets(const Bounds2& hit_bounds)
-{
-    for (int i=0; i<MAX_ASSETS; i++)
-    {
-        EditorAsset* ea = GetEditorAsset(i);
+int HitTestAssets(const Bounds2& hit_bounds) {
+    for (u32 i=GetEditorAssetCount(); i>0; i--) {
+        EditorAsset* ea = GetSortedEditorAsset(i-1);
         if (!ea)
             continue;
 
         if (OverlapBounds(ea, hit_bounds))
-            return i;
+            return GetIndex(ea);
     }
 
     return -1;
 }
 
-void DrawAsset(EditorAsset* ea)
-{
+void DrawAsset(EditorAsset* ea) {
+    BindDepth(0.0f);
     if (ea->vtable.draw)
         ea->vtable.draw(ea);
 }
@@ -301,6 +297,17 @@ void SetAssetSelection(int asset_index)
     g_view.selected_asset_count = 1;
 }
 
+void ToggleAssetSelection(int asset_index) {
+    EditorAsset* ea = GetEditorAsset(asset_index);
+    if (!ea)
+        return;
+
+    ea->selected = !ea->selected;
+    if (ea->selected)
+        g_view.selected_asset_count++;
+    else
+        g_view.selected_asset_count--;
+}
 
 void AddAssetSelection(int asset_index)
 {
@@ -441,8 +448,13 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
     return path;
 }
 
-int GetIndex(EditorAsset* ea)
-{
-    assert(ea);
-    return GetIndex(g_editor.asset_allocator, ea);
+void DeleteEditorAsset(EditorAsset* ea) {
+    if (fs::exists(ea->path))
+        fs::remove(ea->path);
+
+    fs::path meta_path = fs::path(std::string(ea->path) + ".meta");
+    if (fs::exists(meta_path))
+        fs::remove(meta_path);
+
+    Free(ea);
 }

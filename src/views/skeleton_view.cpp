@@ -93,8 +93,7 @@ static void UpdateAllAnimations(EditorSkeleton* es)
     }
 }
 
-static void UpdateAssetNames() {
-#if 0 // @fix
+static void UpdateBoneNames() {
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
         return;
 
@@ -105,14 +104,14 @@ static void UpdateAssetNames() {
     EditorSkeleton* es = GetEditingSkeleton();
     for (u16 i=0; i<es->bone_count; i++) {
         Mat3 transform = es->bones[i].local_to_world * Rotate(es->bones[i].transform.rotation);
-        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, VEC2_RIGHT)) * 0.5f + ea->position;
-        BeginWorldCanvas(g_view.camera, p, Vec2{6, 6});
-            BeginElement(STYLE_VIEW_ASSET_NAME_CONTAINER);
-                Label(es->bones[i].name->value, STYLE_VIEW_ASSET_NAME);
-            EndElement();
-        EndCanvas();
+        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{0.25f, 0})) * 0.5f + ea->position;
+        const char* name = es->bones[i].name->value;
+        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [name] {
+            Align({.alignment=ALIGNMENT_CENTER}, [name] {
+                Label(name, {.font = FONT_SEGUISB, .font_size=12, .color=COLOR_WHITE} );
+            });
+        });
     }
-#endif
 }
 
 static void UpdateSelectionCenter() {
@@ -337,39 +336,33 @@ static void UpdateUnparentState()
     MarkModified();
 }
 
-void SkeletonViewUpdate()
-{
+void SkeletonViewUpdate() {
     CheckShortcuts(g_skeleton_view.shortcuts);
 
-    UpdateAssetNames();
+    UpdateBoneNames();
 
     if (g_skeleton_view.state_update)
         g_skeleton_view.state_update();
 
-    if (g_skeleton_view.state == SKELETON_EDITOR_STATE_DEFAULT)
-    {
+    if (g_skeleton_view.state == SKELETON_EDITOR_STATE_DEFAULT) {
         UpdateDefaultState();
         return;
     }
 
     // Commit the tool
-    if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
-    {
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER)) {
         MarkModified();
         g_skeleton_view.ignore_up = true;
         SetState(SKELETON_EDITOR_STATE_DEFAULT, nullptr, nullptr);
-    }
     // Cancel the tool
-    else if (WasButtonPressed(g_view.input, KEY_ESCAPE) || WasButtonPressed(g_view.input, MOUSE_RIGHT))
-    {
+    } else if (WasButtonPressed(g_view.input, KEY_ESCAPE) || WasButtonPressed(g_view.input, MOUSE_RIGHT)) {
         CancelUndo();
         RevertToSavedState();
         SetState(SKELETON_EDITOR_STATE_DEFAULT, nullptr, nullptr);
     }
 }
 
-static void DrawRotateState()
-{
+static void DrawRotateState() {
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
     DrawVertex(g_skeleton_view.selection_center_world, CENTER_SIZE * 0.75f);
     BindColor(COLOR_CENTER);
@@ -378,8 +371,7 @@ static void DrawRotateState()
     DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
 
-static void DrawSkeleton()
-{
+static void DrawSkeleton() {
     EditorAsset* ea = GetEditingAsset();
     EditorSkeleton* es = GetEditingSkeleton();
 
@@ -519,6 +511,7 @@ static void RenameBone(const Name* name)
         return;
     }
 
+    MarkModified();
     BeginUndoGroup();
     RecordUndo();
     GetEditingSkeleton()->bones[GetFirstSelectedBoneIndex()].name = name;

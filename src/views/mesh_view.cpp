@@ -96,15 +96,13 @@ static void DrawVertices(bool selected)
     }
 }
 
-static void UpdateSelection()
-{
+static void UpdateSelection() {
     EditorMesh* em = GetEditingMesh();
     Vec2 center = VEC2_ZERO;
     Bounds2 bounds = { VEC2_ZERO, VEC2_ZERO };
 
     em->selected_count = 0;
-    switch (g_mesh_view.mode)
-    {
+    switch (g_mesh_view.mode) {
     case MESH_EDITOR_MODE_VERTEX:
         for (int vertex_index=0; vertex_index<em->vertex_count; vertex_index++)
         {
@@ -148,8 +146,7 @@ static void UpdateSelection()
         break;
 
     case MESH_EDITOR_MODE_FACE:
-        for (int face_index=0; face_index<em->face_count; face_index++)
-        {
+        for (int face_index=0; face_index<em->face_count; face_index++) {
             const EditorFace& ef = em->faces[face_index];
             if (!ef.selected)
                 continue;
@@ -161,7 +158,7 @@ static void UpdateSelection()
             bounds = Union(bounds, face_center);
 
             for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++)
-                em->vertices[ef.vertex_offset + vertex_index].selected = true;
+                em->vertices[em->face_vertices[ef.vertex_offset + vertex_index]].selected = true;
 
             em->selected_count++;
         }
@@ -809,33 +806,35 @@ static void UpdateColorPicker()
         selected_colors[ef.color.y * 16 + ef.color.x] = true;
     }
 
+    constexpr float COLOR_PICKER_SIZE = 300.0f;
+    constexpr float COLOR_SQUARE_SIZE = COLOR_PICKER_SIZE / 16.0f;
+
     Canvas([] {
         Align({.alignment = ALIGNMENT_BOTTOM_LEFT}, [] {
-            GestureDetector({.on_tap = [](const TapDetails& details, void*) {
-                if (HandleColorPickerInput(details.position)) {
-                    ConsumeButton(MOUSE_LEFT);
-                }
-            }}, [] {
-                Container({.width = 400, .height = 400, .margin = EdgeInsetsBottomLeft(10)}, [] {
+            Container({.width = COLOR_PICKER_SIZE, .height = COLOR_PICKER_SIZE, .margin = EdgeInsetsBottomLeft(10)}, [] {
+                GestureDetector({.on_tap = [](const TapDetails& details, void*) {
+                    if (HandleColorPickerInput(details.position)) {
+                        ConsumeButton(MOUSE_LEFT);
+                    }
+                }}, [] {
                     Image(g_mesh_view.color_material);
-
-                    for (int i=0; i<256; i++)
-                        if (selected_colors[i]) {
-                            Transformed({.translate=Vec2{(i % 16) * 25.0f, (i / 16) * 25.0f}}, [] {
-                                SizedBox({.width=25.0f, .height=25.0f}, [] {
-                                    Border({.width=2,.color=COLOR_VERTEX_SELECTED});
-                                });
-                            });
-                        }
-
                 });
+
+                for (int i=0; i<256; i++) {
+                    if (selected_colors[i]) {
+                        Transformed({.translate=Vec2{(i % 16) * COLOR_SQUARE_SIZE, (i / 16) * COLOR_SQUARE_SIZE}}, [] {
+                            SizedBox({.width=COLOR_SQUARE_SIZE, .height=COLOR_SQUARE_SIZE}, [] {
+                                Border({.width=2,.color=COLOR_VERTEX_SELECTED});
+                            });
+                        });
+                    }
+                }
             });
         });
     });
 }
 
-void MeshViewUpdate()
-{
+void MeshViewUpdate() {
     EditorAsset* ea = GetEditingAsset();
 
     UpdateColorPicker();
@@ -1149,8 +1148,7 @@ Bounds2 MeshViewBounds()
     return bounds;
 }
 
-void HandleBoxSelect(const Bounds2& bounds)
-{
+void HandleBoxSelect(const Bounds2& bounds) {
     EditorAsset* ea = GetEditingAsset();
     EditorMesh* em = GetEditingMesh();
 
@@ -1348,26 +1346,22 @@ static void MeshViewShutdown()
     g_mesh_view.rotate_arc_mesh = nullptr;
 }
 
-static bool MeshViewAllowTextInput()
-{
+static bool MeshViewAllowTextInput() {
     return
         g_mesh_view.state == MESH_EDITOR_STATE_NORMAL ||
         g_mesh_view.state == MESH_EDITOR_STATE_MOVE ||
         g_mesh_view.state == MESH_EDITOR_STATE_EDGE;
 }
 
-static void SetVertexMode()
-{
+static void SetVertexMode() {
     g_mesh_view.mode = MESH_EDITOR_MODE_VERTEX;
 }
 
-static void SetEdgeMode()
-{
+static void SetEdgeMode() {
     g_mesh_view.mode = MESH_EDITOR_MODE_EDGE;
 }
 
-static void SetFaceMode()
-{
+static void SetFaceMode() {
     g_mesh_view.mode = MESH_EDITOR_MODE_FACE;
 }
 

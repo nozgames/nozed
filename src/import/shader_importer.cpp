@@ -126,6 +126,9 @@ static void WriteCompiledShader(
     if (meta.GetBool("shader", "depth", false))
         flags |= SHADER_FLAGS_DEPTH;
 
+    if (meta.GetBool("shader", "depth_less", false))
+        flags |= SHADER_FLAGS_DEPTH_LESS;
+
     WriteU8(output_stream, (u8)flags);
 }
 

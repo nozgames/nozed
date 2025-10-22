@@ -32,24 +32,22 @@ static void EditorMeshDraw(EditorAsset* ea)
     assert(ea->type == EDITOR_ASSET_TYPE_MESH);
     EditorMesh* em = (EditorMesh*)ea;
 
-    if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME)
-    {
+    if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
         BindColor(COLOR_EDGE);
         DrawEdges(em, ea->position);
-    }
-    else
-    {
+    } else {
         BindColor(COLOR_WHITE);
         DrawMesh(em, Translate(ea->position));
     }
 }
 
-void DrawMesh(EditorMesh* em, const Mat3& transform)
-{
+void DrawMesh(EditorMesh* em, const Mat3& transform) {
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME)
         return;
 
-    BindMaterial(g_view.draw_mode == VIEW_DRAW_MODE_SHADED ? g_view.shaded_material : g_view.solid_material);
+    BindMaterial(g_view.draw_mode == VIEW_DRAW_MODE_SHADED
+        ? g_view.shaded_material
+        : g_view.solid_material);
     DrawMesh(ToMesh(em), transform);
 }
 
@@ -1141,21 +1139,6 @@ static void EditorClone(EditorAsset* ea)
     ((EditorMesh*)ea)->mesh = nullptr;
 }
 
-static void Init(EditorMesh* em)
-{
-    extern void MeshViewInit();
-
-    em->vtable = {
-        .load = EditorMeshLoad,
-        .save = EditorMeshSave,
-        .draw = EditorMeshDraw,
-        .view_init = MeshViewInit,
-        .overlap_point = EditorMeshOverlapPoint,
-        .overlap_bounds = EditorMeshOverlapBounds,
-        .clone = EditorClone
-    };
-}
-
 void InitEditorMesh(EditorAsset* ea)
 {
     assert(ea);
@@ -1368,4 +1351,19 @@ void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
         }
         AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
     }
+}
+
+static void Init(EditorMesh* em)
+{
+    extern void MeshViewInit();
+
+    em->vtable = {
+        .load = EditorMeshLoad,
+        .save = EditorMeshSave,
+        .draw = EditorMeshDraw,
+        .view_init = MeshViewInit,
+        .overlap_point = EditorMeshOverlapPoint,
+        .overlap_bounds = EditorMeshOverlapBounds,
+        .clone = EditorClone
+    };
 }

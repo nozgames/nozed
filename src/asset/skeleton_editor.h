@@ -57,3 +57,11 @@ extern Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton* es, const Name
 extern int ReparentBone(EditorSkeleton* es, int bone_index, int parent_index);
 extern const Name* GetUniqueBoneName(EditorSkeleton* es);
 extern void RemoveBone(EditorSkeleton* es, int bone_index);
+
+inline EditorBone* GetParent(EditorSkeleton* es, EditorBone* eb) {
+    return eb->parent_index >= 0 ? &es->bones[eb->parent_index] : nullptr;
+}
+
+inline Mat3 GetParentLocalToWorld(EditorSkeleton* es, EditorBone* eb, const Mat3& default_local_to_world) {
+    return eb->parent_index >= 0 ? es->bones[eb->parent_index].local_to_world : default_local_to_world;
+}

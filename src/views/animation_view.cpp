@@ -203,31 +203,22 @@ static void UpdateMoveState()
     UpdateTransforms(en);
 }
 
-static void UpdateAssetNames()
-{
-#if 0 // @FIXME
-    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+static void UpdateBoneNames() {
+    if (!IsAltDown(g_view.input) && !g_view.show_names)
         return;
 
-    if (!IsAltDown(g_view.input))
-        return;
-
-    EditorAsset& ea = *GetEditingAsset();
-    EditorAnimation* en = GetEditingAnimation();
+    EditorAsset* ea = GetEditingAsset();
     EditorSkeleton* es = GetEditingSkeleton();
-    for (u16 bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
-        Vec2 p =
-            (TransformPoint(en->animator.bones[bone_index]) +
-             TransformPoint(en->animator.bones[bone_index], {1,0})) * 0.5f;
-
-        BeginWorldCanvas(g_view.camera, ea.position + p, Vec2{2, 2});
-            BeginElement(STYLE_VIEW_ASSET_NAME_CONTAINER);
-                Label(es->bones[bone_index].name->value, STYLE_VIEW_ASSET_NAME);
-            EndElement();
-        EndCanvas();
+    for (u16 i=0; i<es->bone_count; i++) {
+        Mat3 transform = es->bones[i].local_to_world * Rotate(es->bones[i].transform.rotation);
+        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{0.25f, 0})) * 0.5f + ea->position;
+        const char* name = es->bones[i].name->value;
+        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [name] {
+            Align({.alignment=ALIGNMENT_CENTER}, [name] {
+                Label(name, {.font = FONT_SEGUISB, .font_size=12, .color=COLOR_WHITE} );
+            });
+        });
     }
-#endif
 }
 
 static void UpdatePlayState()
@@ -273,7 +264,7 @@ void AnimationViewUpdate()
     EditorAnimation* ea = GetEditingAnimation();
     CheckShortcuts(g_animation_editor_shortcuts);
     UpdateBounds(ea);
-    UpdateAssetNames();
+    UpdateBoneNames();
 
     // Commit the tool
     if (g_animation_view.state == ANIMATION_VIEW_STATE_MOVE ||
@@ -304,8 +295,7 @@ void AnimationViewUpdate()
         UpdateDefaultState();
 }
 
-static void DrawOnionSkin()
-{
+static void DrawOnionSkin() {
     EditorAsset& ea = *GetEditingAsset();
     EditorSkeleton* es = GetEditingSkeleton();
     EditorAnimation* en = GetEditingAnimation();
@@ -320,8 +310,7 @@ static void DrawOnionSkin()
 
     BindMaterial(g_view.vertex_material);
     BindColor(SetAlpha(COLOR_RED, 0.25f));
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         DrawBone(
             en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation),
             es->bones[bone_index].parent_index < 0
@@ -334,8 +323,7 @@ static void DrawOnionSkin()
     UpdateTransforms(en);
 
     BindColor(SetAlpha(COLOR_GREEN, 0.25f));
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         DrawBone(
             en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation),
             es->bones[bone_index].parent_index < 0

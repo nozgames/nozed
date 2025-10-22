@@ -33,7 +33,7 @@ void DrawEditorAnimationBone(EditorAnimation* en, int bone_index, const Vec2& po
     Mat3 ep = en->animator.bones[parent_index];
 
     Vec2 p0 = TransformPoint(eb);
-    Vec2 p1 = TransformPoint(eb, Vec2 {1, 0});
+    Vec2 p1 = TransformPoint(eb, Vec2 {0.25f, 0});
     Vec2 pp = TransformPoint(ep);
     DrawDashedLine(pp + position, p0 + position);
     DrawVertex(p0 + position);
@@ -405,6 +405,8 @@ int InsertFrame(EditorAnimation* en, int frame_index)
     if (copy_frame >= 0)
         for (int j=0; j<es->bone_count; j++)
             GetFrameTransform(en, j, frame_index) = GetFrameTransform(en, j, copy_frame);
+
+    en->frames[frame_index].hold = 0;
 
     return frame_index;
 }

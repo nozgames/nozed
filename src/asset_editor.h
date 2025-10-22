@@ -37,8 +37,7 @@ struct EditorAssetVtable
     void (*undo_redo)(EditorAsset* ea);
 };
 
-struct EditorAsset
-{
+struct EditorAsset {
     EditorAssetType type;
     int asset_path_index;
     const Name* name;
@@ -57,14 +56,21 @@ struct EditorAsset
     const AssetImporter* importer;
 };
 
-inline EditorAsset* GetEditorAsset(int index, EditorAssetType type=EDITOR_ASSET_TYPE_UNKNOWN)
-{
+inline EditorAsset* GetEditorAsset(int index, EditorAssetType type=EDITOR_ASSET_TYPE_UNKNOWN) {
     assert(index >= 0 && index < (int)MAX_ASSETS);
     if (!IsValid(g_editor.asset_allocator, index))
         return nullptr;
     EditorAsset* ea = (EditorAsset*)GetAt(g_editor.asset_allocator, index);
     assert(type == EDITOR_ASSET_TYPE_UNKNOWN || (ea && ea->type == type));
     return ea;
+}
+
+inline u32 GetEditorAssetCount() {
+    return GetCount(g_editor.asset_allocator);
+}
+
+inline int GetIndex(EditorAsset* ea) {
+    return (int)GetIndex(g_editor.asset_allocator, ea);
 }
 
 extern void InitEditorAssets();
@@ -89,12 +95,13 @@ extern void MoveTo(EditorAsset* ea, const Vec2& position);
 extern void ClearAssetSelection();
 extern void SetAssetSelection(int asset_index);
 extern void AddAssetSelection(int asset_index);
+extern void ToggleAssetSelection(int asset_index);
 extern EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name);
 extern EditorAsset* GetEditorAsset(const std::filesystem::path& path);
-extern int GetIndex(EditorAsset* ea);
 extern bool InitImporter(EditorAsset* ea);
 extern const Name* MakeCanonicalAssetName(const char* name);
 extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);
+extern void DeleteEditorAsset(EditorAsset* ea);
 
 
 #include "asset/animation_editor.h"

@@ -12,4 +12,3 @@ extern std::string ReadAllText(Allocator* allocator, const std::filesystem::path
 extern int CompareModifiedTime(const std::filesystem::file_time_type& a, const std::filesystem::file_time_type& b);
 extern int CompareModifiedTime(const std::filesystem::path& a, const std::filesystem::path& b);
 extern std::filesystem::path GetSafeFilename(const char* name);
-extern std::filesystem::path GetImportTargetPath(const std::filesystem::path& source_path);

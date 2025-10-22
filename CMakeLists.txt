@@ -31,6 +31,7 @@ set(SOURCE_FILES
     src/utils/tokenizer.cpp
     src/utils/file_helpers.cpp
     src/utils/draw_utils.cpp
+    src/utils/ui_utils.cpp
 
     src/import/importer.cpp
     src/import/mesh_importer.cpp

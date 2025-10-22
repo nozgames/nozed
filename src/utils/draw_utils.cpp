@@ -10,7 +10,6 @@ constexpr float DEFAULT_DASH_LENGTH = 0.1f;
 constexpr float DEFAULT_ARROW_SIZE = 0.3f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
-constexpr float BONE_WIDTH = 0.10f;
 
 void DrawRect(const Rect& rect)
 {
@@ -63,19 +62,16 @@ void DrawVertex(const Vec2& v, f32 size)
     DrawMesh(g_view.vertex_mesh);
 }
 
-void DrawArrow(const Vec2& v, const Vec2& dir, f32 size)
-{
+void DrawArrow(const Vec2& v, const Vec2& dir, f32 size) {
     BindTransform(TRS(v, dir, VEC2_ONE * g_view.zoom_ref_scale * size));
     DrawMesh(g_view.arrow_mesh);
 }
 
-void DrawArrow(const Vec2& v, const Vec2& dir)
-{
+void DrawArrow(const Vec2& v, const Vec2& dir) {
     DrawArrow(v, dir, DEFAULT_ARROW_SIZE);
 }
 
-void DrawOrigin(EditorAsset* ea)
-{
+void DrawOrigin(EditorAsset* ea) {
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_ORIGIN_BORDER);
     DrawVertex(ea->position, ORIGIN_BORDER_SIZE);
@@ -83,8 +79,7 @@ void DrawOrigin(EditorAsset* ea)
     DrawVertex(ea->position, ORIGIN_SIZE);
 }
 
-void DrawBounds(EditorAsset* ea, float expand, const Color& color)
-{
+void DrawBounds(EditorAsset* ea, float expand, const Color& color) {
     BindMaterial(g_view.vertex_material);
     BindColor(color);
     Bounds2 b = Expand(GetBounds(ea), expand);
@@ -96,8 +91,7 @@ void DrawBounds(EditorAsset* ea, float expand, const Color& color)
     DrawLine ({center.x - size.x * 0.5f, center.y + size.y * 0.5f}, {center.x - size.x * 0.5f, center.y - size.y * 0.5f});
 }
 
-void DrawBone(const Vec2& a, const Vec2& b)
-{
+void DrawBone(const Vec2& a, const Vec2& b) {
     float l = Length(b - a);
     float s = l * BONE_WIDTH;
     Vec2 d = Normalize(b - a);
@@ -112,10 +106,9 @@ void DrawBone(const Vec2& a, const Vec2& b)
     DrawLine(bb, b);
 }
 
-void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position)
-{
+void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position, float length) {
     Vec2 p0 = TransformPoint(transform);
-    Vec2 p1 = TransformPoint(transform, Vec2 {1, 0});
+    Vec2 p1 = TransformPoint(transform, Vec2 {length, 0});
     Vec2 pp = TransformPoint(parent_transform);
     DrawDashedLine(pp + position, p0 + position);
     DrawVertex(p0 + position);
