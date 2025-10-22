@@ -10,6 +10,7 @@ constexpr int MAX_VIEWS = 16;
 constexpr int MAX_ASSET_PATHS = 8;
 constexpr float BONE_WIDTH = 0.10f;
 constexpr float BONE_DEFAULT_LENGTH = 0.25f;
+constexpr float BONE_ORIGIN_SIZE = 0.12f;
 constexpr float BOUNDS_PADDING = 0.01f;
 
 struct LogView;
@@ -36,6 +37,7 @@ struct Editor {
     std::filesystem::path output_dir;
 
     PoolAllocator* asset_allocator;
+    int sorted_assets[MAX_ASSETS];
 };
 
 extern Editor g_editor;

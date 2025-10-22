@@ -18,7 +18,16 @@ void DrawEditorSkeletonBone(EditorSkeleton* es, int bone_index, const Vec2& posi
         eb->length);
 }
 
-void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool selected) {
+static void SortSkin(EditorSkeleton* es) {
+    qsort(es->skinned_meshes, es->skinned_mesh_count, sizeof(EditorSkinnedMesh),
+        [](void const* p, void const* arg) {
+            EditorSkinnedMesh* a = (EditorSkinnedMesh*)p;
+            EditorSkinnedMesh* b = (EditorSkinnedMesh*)arg;
+            return a->mesh->sort_order - b->mesh->sort_order;
+        });
+}
+
+void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool) {
     UpdateTransforms(es);
 
     if (g_view.draw_mode != VIEW_DRAW_MODE_WIREFRAME) {
@@ -34,7 +43,7 @@ void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool selected)
     }
 
     BindMaterial(g_view.vertex_material);
-    BindColor(selected ? COLOR_SELECTED : COLOR_BLACK);
+    BindColor(COLOR_BONE);
     for (int bone_index=0; bone_index<es->bone_count; bone_index++)
         DrawEditorSkeletonBone(es, bone_index, position);
 }
@@ -47,34 +56,15 @@ static void EditorSkeletonDraw(EditorAsset* ea) {
 }
 
 int HitTestBone(EditorSkeleton* es, const Vec2& world_pos) {
-    const float size = g_view.select_size;
     float best_dist = F32_MAX;
     int best_bone_index = -1;
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        EditorBone& bone = es->bones[bone_index];
-        Mat3 local_to_world = bone.local_to_world * Rotate(bone.transform.rotation);
-        Vec2 bone_position = TransformPoint(local_to_world);
-        float dist = Length(bone_position - world_pos);
-        if (dist < size && dist < best_dist)
-        {
-            best_dist = dist;
-            best_bone_index = bone_index;
-        }
-    }
-
-    if (best_bone_index != -1)
-        return best_bone_index;
-
-    best_bone_index = -1;
-    best_dist = F32_MAX;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         EditorBone* eb = es->bones + bone_index;
 
-        Vec2 collider_point = TransformPoint(Rotate(-eb->transform.rotation), TransformPoint(eb->world_to_local, world_pos));
-        if (!OverlapPoint(g_view.bone_collider, collider_point, eb->length))
+        Mat3 local_to_world = Translate(GetEditingAsset()->position) * eb->local_to_world * Rotate(eb->transform.rotation);
+        if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world * Scale(eb->length)))
             continue;
 
-        Mat3 local_to_world = eb->local_to_world * Rotate(eb->transform.rotation);
         Vec2 b0 = TransformPoint(local_to_world);
         Vec2 b1 = TransformPoint(local_to_world, {eb->length, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
@@ -282,6 +272,8 @@ static void EditorSkeletonPostLoad(EditorAsset* ea)
         EditorSkinnedMesh& esm = es->skinned_meshes[i];
         esm.mesh = (EditorMesh*)GetEditorAsset(EDITOR_ASSET_TYPE_MESH, esm.asset_name);
     }
+
+    SortSkin(es);
 }
 
 int FindBoneIndex(EditorSkeleton* es, const Name* name)

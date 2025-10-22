@@ -10,7 +10,6 @@ constexpr float CENTER_SIZE = 0.2f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 constexpr float ROTATE_TOOL_WIDTH = 0.02f;
-constexpr float BONE_ORIGIN_SIZE = 0.16f;
 
 enum SkeletonEditorState {
     SKELETON_EDITOR_STATE_DEFAULT,
@@ -53,6 +52,18 @@ inline EditorSkeleton* GetEditingSkeleton() {
 }
 
 static bool IsBoneSelected(int bone_index) { return GetEditingSkeleton()->bones[bone_index].selected; }
+static bool IsAncestorSelected(int bone_index) {
+    EditorSkeleton* es = GetEditingSkeleton();
+    int parent_index = es->bones[bone_index].parent_index;
+    while (parent_index >= 0) {
+        if (es->bones[parent_index].selected)
+            return true;
+        parent_index = es->bones[parent_index].parent_index;
+    }
+
+    return false;
+}
+
 static void SetBoneSelected(int bone_index, bool selected) {
     if (IsBoneSelected(bone_index) == selected)
         return;
@@ -180,30 +191,46 @@ static void ClearSelection()
         SetBoneSelected(bone_index, false);
 }
 
-static void SelectBone(int bone_index)
-{
-    ClearSelection();
-    SetBoneSelected(bone_index, true);
-}
-
-static bool SelectBone()
-{
-    EditorAsset* ea = GetEditingAsset();
+static bool TrySelect() {
     EditorSkeleton* es = GetEditingSkeleton();
-    int bone_index = HitTestBone(es, g_view.mouse_world_position - ea->position);
+    int bone_index = HitTestBone(es, g_view.mouse_world_position);
     if (bone_index == -1)
         return false;
 
-    SelectBone(bone_index);
+    EditorBone* eb = &es->bones[bone_index];
+    if (IsShiftDown(g_view.input)) {
+        SetBoneSelected(bone_index, !eb->selected);
+    } else {
+        ClearSelection();
+        SetBoneSelected(bone_index, true);
+    }
+
     return true;
+}
+
+static void HandleBoxSelect(const Bounds2& bounds) {
+    if (!IsShiftDown(g_view.input))
+        ClearSelection();
+
+    EditorAsset* ea = GetEditingAsset();
+    EditorSkeleton* es = GetEditingSkeleton();
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        EditorBone* eb = &es->bones[bone_index];
+        Mat3 collider_transform =
+            Translate(ea->position) *
+            eb->local_to_world *
+            Rotate(eb->transform.rotation) *
+            Scale(eb->length);
+        if (OverlapBounds(g_view.bone_collider, bounds, collider_transform))
+            SetBoneSelected(bone_index, true);
+    }
 }
 
 static void UpdateDefaultState()
 {
     // If a drag has started then switch to box select
-    if (g_view.drag)
-    {
-        //BeginBoxSelect(HandleBoxSelect);
+    if (g_view.drag) {
+        BeginBoxSelect(HandleBoxSelect);
         return;
     }
 
@@ -211,7 +238,7 @@ static void UpdateDefaultState()
     {
         g_skeleton_view.clear_selection_on_up = false;
 
-        if (SelectBone())
+        if (TrySelect())
             return;
 
         g_skeleton_view.clear_selection_on_up = true;
@@ -251,13 +278,12 @@ static void UpdateScaleState() {
         Length(g_view.drag_world_position - g_skeleton_view.selection_center_world);
 
     EditorSkeleton* es = GetEditingSkeleton();
-
-    for (i32 i=0; i<es->bone_count; i++) {
-        EditorBone* eb = es->bones + i;
-        if (!eb->selected)
+    for (i32 bone_index=0; bone_index<es->bone_count; bone_index++) {
+        EditorBone* eb = es->bones + bone_index;
+        if (!IsBoneSelected(bone_index))
             continue;
 
-        SkeletonViewBone& svb = g_skeleton_view.bones[i];
+        SkeletonViewBone& svb = g_skeleton_view.bones[bone_index];
         eb->length = Clamp(svb.length * (1.0f + delta), 0.05f, 10.0f);
     }
 
@@ -267,7 +293,7 @@ static void UpdateScaleState() {
 static void UpdateMoveState() {
     EditorSkeleton* es = GetEditingSkeleton();
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        if (!IsBoneSelected(bone_index))
+        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
             continue;
 
         EditorBone& eb = es->bones[bone_index];
@@ -290,14 +316,15 @@ static void UpdateParentState() {
     // Bone?
     int bone_index = HitTestBone(
         es,
-        g_view.mouse_world_position - ea->position);
+        g_view.mouse_world_position);
 
     if (bone_index != -1)
     {
         BeginUndoGroup();
         RecordUndo(ea);
         bone_index = ReparentBone(es, GetFirstSelectedBoneIndex(), bone_index);
-        SelectBone(bone_index);
+        ClearSelection();
+        SetBoneSelected(bone_index, true);
         UpdateAllAnimations(es);
         EndUndoGroup();
         return;
@@ -406,22 +433,14 @@ static void DrawSkeleton() {
 
     DrawEditorSkeleton(es, ea->position, false);
 
+    // Draw selected bones in front
     BindMaterial(g_view.vertex_material);
-    BindColor(COLOR_SELECTED);
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
+    BindColor(COLOR_BONE_SELECTED);
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
         DrawEditorSkeletonBone(es, bone_index, ea->position);
-    }
-
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
-        EditorBone& bone = es->bones[bone_index];
-        Vec2 bone_position = TransformPoint(bone.local_to_world);
-        BindColor(IsBoneSelected(bone_index) ? COLOR_SELECTED : COLOR_BLACK);
-        DrawVertex(bone_position + ea->position, BONE_ORIGIN_SIZE);
     }
 }
 
@@ -533,7 +552,8 @@ static void HandleExtrudeCommand()
     es->bone_count++;
 
     UpdateTransforms(es);
-    SelectBone(es->bone_count-1);
+    ClearSelection();
+    SetBoneSelected(es->bone_count-1, true);
     SaveState();
     SetState(SKELETON_EDITOR_STATE_EXTRUDE, UpdateMoveState, nullptr);
     SetCursor(SYSTEM_CURSOR_MOVE);

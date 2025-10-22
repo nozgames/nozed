@@ -3,19 +3,16 @@
 //
 
 #pragma  once
-#include "asset_editor.h"
 
 constexpr int MAX_SKINNED_MESHES = 64;
 
-struct EditorSkinnedMesh
-{
+struct EditorSkinnedMesh {
     const Name* asset_name;
     EditorMesh* mesh;
     int bone_index;
 };
 
-struct EditorBone
-{
+struct EditorBone {
     const Name* name;
     int index;
     int parent_index;
@@ -26,8 +23,7 @@ struct EditorBone
     bool selected;
 };
 
-struct EditorSkeleton : EditorAsset
-{
+struct EditorSkeleton : EditorAsset {
     int bone_count;
     EditorBone bones[MAX_BONES];
     EditorSkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
@@ -35,8 +31,7 @@ struct EditorSkeleton : EditorAsset
     int selected_bone_count;
 };
 
-inline EditorSkeleton* GetEditorSkeleton(int index)
-{
+inline EditorSkeleton* GetEditorSkeleton(int index) {
     EditorAsset* ea = GetEditorAsset(index);
     assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
     return (EditorSkeleton*)ea;

@@ -75,6 +75,7 @@ struct MeshView
 static MeshView g_mesh_view = {};
 
 extern int SplitFaces(EditorMesh* em, int v0, int v1);
+static void HandleBoxSelect(const Bounds2& bounds);
 
 inline EditorMesh* GetEditingMesh()
 {
@@ -1148,7 +1149,7 @@ Bounds2 MeshViewBounds()
     return bounds;
 }
 
-void HandleBoxSelect(const Bounds2& bounds) {
+static void HandleBoxSelect(const Bounds2& bounds) {
     EditorAsset* ea = GetEditingAsset();
     EditorMesh* em = GetEditingMesh();
 

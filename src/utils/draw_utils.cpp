@@ -104,6 +104,7 @@ void DrawBone(const Vec2& a, const Vec2& b) {
     DrawLine(a, aa);
     DrawLine(aa, b);
     DrawLine(bb, b);
+    DrawVertex(a, BONE_ORIGIN_SIZE);
 }
 
 void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position, float length) {
@@ -111,7 +112,5 @@ void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& p
     Vec2 p1 = TransformPoint(transform, Vec2 {length, 0});
     Vec2 pp = TransformPoint(parent_transform);
     DrawDashedLine(pp + position, p0 + position);
-    DrawVertex(p0 + position);
-    DrawVertex(p1 + position);
     DrawBone(p0 + position, p1 + position);
 }

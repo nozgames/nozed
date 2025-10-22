@@ -71,7 +71,6 @@ struct View
     const Name* command_preview;
 
     u32 selected_asset_count;
-    int sorted_assets[MAX_ASSETS];
 
     Bounds2 box_selection;
     void (*box_select_callback)(const Bounds2& bounds);
@@ -111,7 +110,6 @@ extern void PopState();
 extern void FocusAsset(EditorAsset* ea);
 extern void HandleRename(const Name* name);
 extern void AddEditorAsset(EditorAsset* ea);
-inline EditorAsset* GetSortedEditorAsset(int index) { return GetEditorAsset(g_view.sorted_assets[index]); }
 inline EditorAsset* GetEditingAsset() { return GetEditorAsset(g_view.edit_asset_index); }
 
 // @grid
@@ -135,9 +133,6 @@ extern void CancelUndo();
 extern void InitNotifications();
 extern void UpdateNotifications();
 extern void AddNotification(const char* format, ...);
-
-// @mesh_editor
-extern void HandleBoxSelect(const Bounds2& bounds);
 
 // @draw
 extern void DrawRect(const Rect& rect);
@@ -176,6 +171,8 @@ constexpr Color COLOR_ORIGIN_BORDER = { 0,0,0,1 };
 
 constexpr Color COLOR_SELECTED = { 1,1,1,1 };
 constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
+constexpr Color COLOR_BONE = COLOR_BLACK;
+constexpr Color COLOR_BONE_SELECTED = COLOR_EDGE_SELECTED;
 constexpr Color COLOR_UI_BACKGROUND = Color24ToColor(0x343c4a);
 constexpr Color COLOR_UI_TEXT = Color24ToColor(0xc5c5cb);
 constexpr Color COLOR_UI_BUTTON_HOVER = Color24ToColor(0x76a8ff);

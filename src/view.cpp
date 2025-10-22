@@ -707,69 +707,22 @@ static void HandleSetDrawModeSolid()
     g_view.draw_mode = VIEW_DRAW_MODE_SOLID;
 }
 
-static int AssetSortFunc(const void* a, const void* b)
-{
-    int index_a = *(int*)a;
-    int index_b = *(int*)b;
-
-    EditorAsset* ea_a = GetEditorAsset(index_a);
-    EditorAsset* ea_b = GetEditorAsset(index_b);
-    if (!ea_a && !ea_b)
-        return 0;
-
-    if (!ea_a)
-        return 1;
-
-    if (!ea_b)
-        return 0;
-
-    if (ea_a->sort_order != ea_b->sort_order)
-        return ea_a->sort_order - ea_b->sort_order;
-
-    if (ea_a->type != ea_b->type)
-        return ea_a->type - ea_b->type;
-
-    return index_a - index_b;
-}
-
-static void SortAssets() {
-    u32 asset_index = 0;
-    for (u32 i=0; i<MAX_ASSETS; i++) {
-        EditorAsset* ea = GetEditorAsset(i);
-        if (!ea)
-            continue;
-
-        g_view.sorted_assets[asset_index++] = i;
-    }
-
-    qsort(g_view.sorted_assets, asset_index, sizeof(int), AssetSortFunc);
-
-    asset_index = 0;
-    for (u32 i=0, c=GetEditorAssetCount(); i<c; i++) {
-        EditorAsset* ea = GetSortedEditorAsset(i);
-        if (!ea)
-            continue;
-
-        if (ea->sort_order != (int)asset_index * 10)
-            ea->meta_modified = true;
-
-        ea->sort_order = asset_index * 10;
-        asset_index++;
-    }
-}
-
 static void HandleSendBack()
 {
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<MAX_ASSETS;i++)
-    {
-        EditorAsset* ea = GetEditorAsset(i);
-        if (ea && ea->selected)
-            ea->sort_order-=11;
-    }
+    BeginUndoGroup();
+    for (u32 i=0, c=GetEditorAssetCount();i<c;i++) {
+        EditorAsset* ea = GetSortedEditorAsset(i);
+        RecordUndo(ea);
+        if (!ea->selected)
+            continue;
 
+        ea->sort_order-=11;
+        ea->meta_modified = true;
+    }
+    EndUndoGroup();
     SortAssets();
 }
 
@@ -778,16 +731,17 @@ static void HandleBringForward()
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<MAX_ASSETS;i++)
-    {
-        EditorAsset* ea = GetEditorAsset(i);
-        if (ea && ea->selected)
-        {
-            ea->sort_order += 11;
-            ea->meta_modified = true;
-        }
-    }
+    BeginUndoGroup();
+    for (u32 i=0, c=GetEditorAssetCount();i<c;i++) {
+        EditorAsset* ea = GetSortedEditorAsset(i);
+        RecordUndo(ea);
+        if (!ea->selected)
+            continue;
 
+        ea->sort_order += 11;
+        ea->meta_modified = true;
+    }
+    EndUndoGroup();
     SortAssets();
 }
 
@@ -796,14 +750,17 @@ static void HandleBringToFront()
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<MAX_ASSETS;i++) {
-        EditorAsset* ea = GetEditorAsset(i);
-        if (ea && ea->selected) {
-            ea->sort_order = 100000;
-            ea->meta_modified = true;
-        }
-    }
+    BeginUndoGroup();
+    for (u32 i=0, c=GetEditorAssetCount();i<c;i++) {
+        EditorAsset* ea = GetSortedEditorAsset(i);
+        RecordUndo(ea);
+        if (!ea->selected)
+            continue;
 
+        ea->sort_order = 100000;
+        ea->meta_modified = true;
+    }
+    EndUndoGroup();
     SortAssets();
 }
 
@@ -812,16 +769,17 @@ static void HandleSendToBack()
     if (g_view.selected_asset_count == 0)
         return;
 
-    for (u32 i=0;i<MAX_ASSETS;i++)
-    {
-        EditorAsset* ea = GetEditorAsset(i);
-        if (ea && ea->selected)
-        {
-            ea->sort_order = -100000;
-            ea->meta_modified = true;
-        }
-    }
+    BeginUndoGroup();
+    for (u32 i=0, c=GetEditorAssetCount();i<c;i++) {
+        EditorAsset* ea = GetSortedEditorAsset(i);
+        RecordUndo(ea);
+        if (!ea->selected)
+            continue;
 
+        ea->sort_order = -100000;
+        ea->meta_modified = true;
+    }
+    EndUndoGroup();
     SortAssets();
 }
 

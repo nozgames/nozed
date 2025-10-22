@@ -65,6 +65,8 @@ inline EditorAsset* GetEditorAsset(int index, EditorAssetType type=EDITOR_ASSET_
     return ea;
 }
 
+inline EditorAsset* GetSortedEditorAsset(int index) { return GetEditorAsset(g_editor.sorted_assets[index]); }
+
 inline u32 GetEditorAssetCount() {
     return GetCount(g_editor.asset_allocator);
 }
@@ -102,7 +104,7 @@ extern bool InitImporter(EditorAsset* ea);
 extern const Name* MakeCanonicalAssetName(const char* name);
 extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);
 extern void DeleteEditorAsset(EditorAsset* ea);
-
+extern void SortAssets();
 
 #include "asset/animation_editor.h"
 #include "asset/mesh_editor.h"

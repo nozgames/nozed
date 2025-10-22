@@ -36,8 +36,6 @@ void DrawEditorAnimationBone(EditorAnimation* en, int bone_index, const Vec2& po
     Vec2 p1 = TransformPoint(eb, Vec2 {es->bones[bone_index].length, 0});
     Vec2 pp = TransformPoint(ep);
     DrawDashedLine(pp + position, p0 + position);
-    DrawVertex(p0 + position);
-    DrawVertex(p1 + position);
     DrawBone(p0 + position, p1 + position);
 }
 
@@ -424,39 +422,21 @@ Transform& GetFrameTransform(EditorAnimation* en, int bone_index, int frame_inde
 
 int HitTestBone(EditorAnimation* en, const Vec2& world_pos) {
     EditorSkeleton* es = GetEditorSkeleton(en);
-
     UpdateTransforms(en);
 
-    const float size = g_view.select_size;
-    float best_dist = F32_MAX;
     int best_bone_index = -1;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
-        Vec2 b0 = TransformPoint(en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation));
-        float dist = Length(b0 - world_pos);
-        if (dist < size && dist < best_dist)
-        {
-            best_dist = dist;
-            best_bone_index = bone_index;
-        }
-    }
-
-    if (best_bone_index != -1)
-        return best_bone_index;
-
-    best_bone_index = -1;
-    best_dist = F32_MAX;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
-        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(-es->bones[bone_index].transform.rotation), TransformPoint(Inverse(en->animator.bones[bone_index]), world_pos))))
+    float best_dist = F32_MAX;
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        EditorBone* eb = &es->bones[bone_index];
+        Mat3 collider_transform = Translate(GetEditingAsset()->position) * en->animator.bones[bone_index] * Scale(eb->length);
+        if (!OverlapPoint(g_view.bone_collider, world_pos, collider_transform))
             continue;
 
-        Mat3 local_to_world = en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation);
+        Mat3 local_to_world = en->animator.bones[bone_index] * Rotate(eb->transform.rotation);
         Vec2 b0 = TransformPoint(local_to_world);
-        Vec2 b1 = TransformPoint(local_to_world, {1, 0});
+        Vec2 b1 = TransformPoint(local_to_world, {eb->length, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
-        if (dist < best_dist)
-        {
+        if (dist < best_dist) {
             best_dist = dist;
             best_bone_index = bone_index;
         }

@@ -458,3 +458,54 @@ void DeleteEditorAsset(EditorAsset* ea) {
 
     Free(ea);
 }
+
+static int AssetSortFunc(const void* a, const void* b)
+{
+    int index_a = *(int*)a;
+    int index_b = *(int*)b;
+
+    EditorAsset* ea_a = GetEditorAsset(index_a);
+    EditorAsset* ea_b = GetEditorAsset(index_b);
+    if (!ea_a && !ea_b)
+        return 0;
+
+    if (!ea_a)
+        return 1;
+
+    if (!ea_b)
+        return 0;
+
+    if (ea_a->sort_order != ea_b->sort_order)
+        return ea_a->sort_order - ea_b->sort_order;
+
+    if (ea_a->type != ea_b->type)
+        return ea_a->type - ea_b->type;
+
+    return index_a - index_b;
+}
+
+void SortAssets() {
+    u32 asset_index = 0;
+    for (u32 i=0; i<MAX_ASSETS; i++) {
+        EditorAsset* ea = GetEditorAsset(i);
+        if (!ea)
+            continue;
+
+        g_editor.sorted_assets[asset_index++] = i;
+    }
+
+    qsort(g_editor.sorted_assets, asset_index, sizeof(int), AssetSortFunc);
+
+    asset_index = 0;
+    for (u32 i=0, c=GetEditorAssetCount(); i<c; i++) {
+        EditorAsset* ea = GetSortedEditorAsset(i);
+        if (!ea)
+            continue;
+
+        if (ea->sort_order != (int)asset_index * 10)
+            ea->meta_modified = true;
+
+        ea->sort_order = asset_index * 10;
+        asset_index++;
+    }
+}

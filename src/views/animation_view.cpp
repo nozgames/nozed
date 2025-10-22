@@ -22,23 +22,18 @@ constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 constexpr float ROTATE_TOOL_WIDTH = 0.02f;
 
-constexpr float BONE_ORIGIN_SIZE = 0.16f;
-
-enum AnimationViewState
-{
+enum AnimationViewState {
     ANIMATION_VIEW_STATE_DEFAULT,
     ANIMATION_VIEW_STATE_MOVE,
     ANIMATION_VIEW_STATE_ROTATE,
     ANIMATION_VIEW_STATE_PLAY,
 };
 
-struct AnimationViewBone
-{
+struct AnimationViewBone {
     Transform transform;
 };
 
-struct AnimationView
-{
+struct AnimationView {
     AnimationViewState state;
     bool clear_selection_on_up;
     bool ignore_up;
@@ -65,8 +60,20 @@ static EditorAnimation* GetEditingAnimation()
 
 static EditorSkeleton* GetEditingSkeleton() { return GetEditingAnimation()->skeleton; }
 static bool IsBoneSelected(int bone_index) { return GetEditingAnimation()->bones[bone_index].selected; }
-static void SetBoneSelected(int bone_index, bool selected)
-{
+static bool IsAncestorSelected(int bone_index) {
+    EditorAnimation* en = GetEditingAnimation();
+    EditorSkeleton* es = GetEditingSkeleton();
+    int parent_index = es->bones[bone_index].parent_index;
+    while (parent_index >= 0) {
+        if (en->bones[parent_index].selected)
+            return true;
+        parent_index = es->bones[parent_index].parent_index;
+    }
+
+    return false;
+}
+
+static void SetBoneSelected(int bone_index, bool selected) {
     if (IsBoneSelected(bone_index) == selected)
         return;
 
@@ -132,38 +139,30 @@ static void SetState(AnimationViewState state, void (*state_update)(), void (*st
     SetCursor(SYSTEM_CURSOR_DEFAULT);
 }
 
-static void ClearSelection()
-{
+static void ClearSelection() {
     EditorSkeleton* es = GetEditingSkeleton();
     for (int bone_index=0; bone_index<es->bone_count; bone_index++)
         SetBoneSelected(bone_index, false);
 }
 
-static void AddSelection(int bone_index)
-{
-    SetBoneSelected(bone_index, true);
-}
-
-static void SelectBone(int bone_index)
-{
-    ClearSelection();
-    SetBoneSelected(bone_index, true);
-}
-
-static bool SelectBone()
-{
-    EditorAsset& ea = *GetEditingAsset();
+static bool TrySelect() {
     EditorAnimation* en = GetEditingAnimation();
-    int bone_index = HitTestBone(en, g_view.mouse_world_position - ea.position);
+    int bone_index = HitTestBone(en, g_view.mouse_world_position);
     if (bone_index == -1)
         return false;
 
-    SelectBone(bone_index);
+    EditorBone* eb = &GetEditingSkeleton()->bones[bone_index];
+    if (IsShiftDown(g_view.input)) {
+        SetBoneSelected(bone_index, !eb->selected);
+    } else {
+        ClearSelection();
+        SetBoneSelected(bone_index, true);
+    }
+
     return true;
 }
 
-static void UpdateRotateState()
-{
+static void UpdateRotateState() {
     EditorAnimation* en = GetEditingAnimation();
     EditorSkeleton* es = GetEditingSkeleton();
 
@@ -173,9 +172,8 @@ static void UpdateRotateState()
     if (fabsf(angle) < F32_EPSILON)
         return;
 
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
-        if (!IsBoneSelected(bone_index))
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
             continue;
 
         AnimationViewBone& sb = g_animation_view.bones[bone_index];
@@ -185,15 +183,13 @@ static void UpdateRotateState()
     UpdateTransforms(en);
 }
 
-static void UpdateMoveState()
-{
+static void UpdateMoveState() {
     EditorAnimation* en = GetEditingAnimation();
     EditorSkeleton* es = GetEditingSkeleton();
 
     Vec2 world_delta = g_view.mouse_world_position - g_animation_view.command_world_position;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
-        if (!IsBoneSelected(bone_index))
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
             continue;
 
         AnimationViewBone& sb = g_animation_view.bones[bone_index];
@@ -221,8 +217,7 @@ static void UpdateBoneNames() {
     }
 }
 
-static void UpdatePlayState()
-{
+static void UpdatePlayState() {
     EditorAsset& ea = *GetEditingAsset();
     EditorAnimation* en = GetEditingAnimation();
     if (!en->animation)
@@ -234,12 +229,29 @@ static void UpdatePlayState()
     Update(en->animator);
 }
 
-static void UpdateDefaultState()
-{
+static void HandleBoxSelect(const Bounds2& bounds) {
+    if (!IsShiftDown(g_view.input))
+        ClearSelection();
+
+    EditorAsset* ea = GetEditingAsset();
+    EditorSkeleton* es = GetEditingSkeleton();
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        EditorAnimation* en = GetEditingAnimation();
+        EditorBone* eb = &es->bones[bone_index];
+        Mat3 collider_transform =
+            Translate(ea->position) *
+            en->animator.bones[bone_index] *
+            Rotate(eb->transform.rotation) *
+            Scale(eb->length);
+        if (OverlapBounds(g_view.bone_collider, bounds, collider_transform))
+            SetBoneSelected(bone_index, true);
+    }
+}
+
+static void UpdateDefaultState() {
     // If a drag has started then switch to box select
-    if (g_view.drag)
-    {
-        //BeginBoxSelect(HandleBoxSelect);
+    if (g_view.drag) {
+        BeginBoxSelect(HandleBoxSelect);
         return;
     }
 
@@ -247,7 +259,7 @@ static void UpdateDefaultState()
     {
         g_animation_view.clear_selection_on_up = false;
 
-        if (SelectBone())
+        if (TrySelect())
             return;
 
         g_animation_view.clear_selection_on_up = true;
@@ -255,7 +267,7 @@ static void UpdateDefaultState()
 
     g_animation_view.ignore_up &= !WasButtonReleased(g_view.input, MOUSE_LEFT);
 
-    if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_animation_view.clear_selection_on_up)
+    if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_animation_view.clear_selection_on_up && !IsShiftDown(g_view.input))
         ClearSelection();
 }
 
@@ -341,8 +353,7 @@ static void DrawOnionSkin() {
     UpdateTransforms(en);
 }
 
-static void DrawRotateState()
-{
+static void DrawRotateState() {
     BindColor(SetAlpha(COLOR_CENTER, 0.75f));
     DrawVertex(g_animation_view.selection_center_world, CENTER_SIZE * 0.75f);
     BindColor(COLOR_CENTER);
@@ -351,8 +362,7 @@ static void DrawRotateState()
     DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
 
-static void DrawTimeline()
-{
+static void DrawTimeline() {
     EditorAsset& ea = *GetEditingAsset();
     EditorAnimation* en = GetEditingAnimation();
 
@@ -376,8 +386,7 @@ static void DrawTimeline()
 
     BindMaterial(g_view.vertex_material);
     int ii = 0;
-    for (int i=0; i<en->frame_count; i++)
-    {
+    for (int i=0; i<en->frame_count; i++) {
         Rect frame_rect = Rect {
             pos.x + h1.x * ii,
             pos.y,
@@ -393,8 +402,7 @@ static void DrawTimeline()
         ii += (1 + en->frames[i].hold);
     }
 
-    if (IsPlaying(en->animator))
-    {
+    if (IsPlaying(en->animator)) {
         current_frame = GetFrame(en->animator);
         BindColor({0.02f, 0.02f, 0.02f, 1.0f});
         //DrawLine(pos + left, pos + left + h1);
@@ -441,9 +449,9 @@ void AnimationViewDraw()
     for (int bone_index=0; bone_index<es->bone_count; bone_index++)
         DrawEditorAnimationBone(en, bone_index, ea.position);
 
+    // Draw selected bones
     BindColor(COLOR_EDGE_SELECTED);
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
@@ -484,8 +492,7 @@ static void HandleMoveCommand()
     SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
-static void HandleRotate()
-{
+static void HandleRotate() {
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
@@ -497,16 +504,14 @@ static void HandleRotate()
     SetState(ANIMATION_VIEW_STATE_ROTATE, UpdateRotateState, DrawRotateState);
 }
 
-static void HandleResetRotate()
-{
+static void HandleResetRotate() {
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
     RecordUndo();
     EditorAnimation* en = GetEditingAnimation();
     EditorSkeleton* es = GetEditingSkeleton();
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
@@ -540,8 +545,7 @@ static void HandlePlayCommand()
     SetState(ANIMATION_VIEW_STATE_PLAY, UpdatePlayState, nullptr);
 }
 
-static void HandleResetMoveCommand()
-{
+static void HandleResetMoveCommand() {
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
@@ -549,8 +553,7 @@ static void HandleResetMoveCommand()
 
     EditorAnimation* en = GetEditingAnimation();
     EditorSkeleton* es = GetEditingSkeleton();
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
@@ -560,14 +563,13 @@ static void HandleResetMoveCommand()
     UpdateTransforms(en);
 }
 
-static void HandleSelectAll()
-{
+static void HandleSelectAll() {
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
     EditorSkeleton* es = GetEditingSkeleton();
     for (int i=0; i<es->bone_count; i++)
-        AddSelection(i);
+        SetBoneSelected(i, true);
 }
 
 static void HandleInsertBeforeFrame()

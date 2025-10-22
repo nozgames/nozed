@@ -2,9 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <editor.h>
-
-#define MAX_UNDO 256
+constexpr int MAX_UNDO = MAX_ASSETS * 2;
 
 struct UndoItem
 {
@@ -30,14 +28,14 @@ static void Free(UndoItem& item)
     item.group_id = -1;
 }
 
-static void CallUndoRedo()
-{
-    for (int i=0; i<g_undo.temp_count; i++)
-    {
+static void CallUndoRedo() {
+    for (int i=0; i<g_undo.temp_count; i++) {
         EditorAsset* ea = g_undo.temp[i];
         if (ea->vtable.undo_redo)
             ea->vtable.undo_redo(ea);
     }
+
+    SortAssets();
 
     g_undo.temp_count = 0;
 }
@@ -148,8 +146,7 @@ void RecordUndo()
 void RecordUndo(EditorAsset* ea)
 {
     // Maxium undo size
-    if (IsFull(g_undo.undo))
-    {
+    if (IsFull(g_undo.undo)) {
         UndoItem& old = *(UndoItem*)GetFront(g_undo.undo);
         Free(old);
         PopBack(g_undo.undo);
@@ -161,8 +158,7 @@ void RecordUndo(EditorAsset* ea)
     Clone(&item.ea.asset, ea);
 
     // Clear the redo
-    while (!IsEmpty(g_undo.redo))
-    {
+    while (!IsEmpty(g_undo.redo)) {
         UndoItem& old = *(UndoItem*)GetFront(g_undo.redo);
         Free(old);
         PopBack(g_undo.redo);
