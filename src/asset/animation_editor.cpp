@@ -33,7 +33,7 @@ void DrawEditorAnimationBone(EditorAnimation* en, int bone_index, const Vec2& po
     Mat3 ep = en->animator.bones[parent_index];
 
     Vec2 p0 = TransformPoint(eb);
-    Vec2 p1 = TransformPoint(eb, Vec2 {0.25f, 0});
+    Vec2 p1 = TransformPoint(eb, Vec2 {es->bones[bone_index].length, 0});
     Vec2 pp = TransformPoint(ep);
     DrawDashedLine(pp + position, p0 + position);
     DrawVertex(p0 + position);
@@ -327,8 +327,7 @@ void Serialize(EditorAnimation* en, Stream* output_stream, EditorSkeleton* es)
     }
 }
 
-Animation* ToAnimation(Allocator* allocator, EditorAnimation* en, const Name* name)
-{
+Animation* ToAnimation(Allocator* allocator, EditorAnimation* en, const Name* name) {
     EditorSkeleton* es = GetEditorSkeleton(en);
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
@@ -343,8 +342,7 @@ Animation* ToAnimation(Allocator* allocator, EditorAnimation* en, const Name* na
     return animation;
 }
 
-static void EditorAnimationSave(EditorAsset* ea, const std::filesystem::path& path)
-{
+static void EditorAnimationSave(EditorAsset* ea, const std::filesystem::path& path) {
     assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     EditorSkeleton* es = GetEditorSkeleton(en);
@@ -353,17 +351,14 @@ static void EditorAnimationSave(EditorAsset* ea, const std::filesystem::path& pa
 
     WriteCSTR(stream, "s \"%s\"\n", en->skeleton_name->value);
 
-    for (int i=0; i<es->bone_count; i++)
-    {
+    for (int i=0; i<es->bone_count; i++) {
         const EditorAnimationBone& eab = en->bones[i];
         WriteCSTR(stream, "b \"%s\"\n", eab.name->value);
     }
 
-    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
-    {
+    for (int frame_index=0; frame_index<en->frame_count; frame_index++) {
         WriteCSTR(stream, "f\n");
-        for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-        {
+        for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
             Transform& bt = GetFrameTransform(en, bone_index, frame_index);
 
             bool has_pos = bt.position != VEC2_ZERO;
@@ -391,14 +386,12 @@ static void EditorAnimationSave(EditorAsset* ea, const std::filesystem::path& pa
     Free(stream);
 }
 
-int InsertFrame(EditorAnimation* en, int frame_index)
-{
+int InsertFrame(EditorAnimation* en, int frame_index) {
     int copy_frame = Max(0,frame_index - 1);
 
     EditorSkeleton* es = GetEditorSkeleton(en);
-    for (int i=frame_index + 1; i<en->frame_count; i++)
-        for (int j=0; j<es->bone_count; j++)
-            GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i - 1);
+    for (int i=frame_index + 1; i<=en->frame_count; i++)
+        en->frames[i] = en->frames[i - 1];
 
     en->frame_count++;
 
@@ -411,29 +404,25 @@ int InsertFrame(EditorAnimation* en, int frame_index)
     return frame_index;
 }
 
-int DeleteFrame(EditorAnimation* en, int frame_index)
-{
+int DeleteFrame(EditorAnimation* en, int frame_index) {
     if (en->frame_count <= 1)
         return frame_index;
 
     for (int i=frame_index; i<en->frame_count - 1; i++)
-        for (int j=0; j<MAX_BONES; j++)
-            GetFrameTransform(en, j, i) = GetFrameTransform(en, j, i + 1);
+        en->frames[i] = en->frames[i + 1];
 
     en->frame_count--;
 
     return Min(frame_index, en->frame_count - 1);
 }
 
-Transform& GetFrameTransform(EditorAnimation* en, int bone_index, int frame_index)
-{
+Transform& GetFrameTransform(EditorAnimation* en, int bone_index, int frame_index) {
     assert(bone_index >= 0 && bone_index < MAX_BONES);
     assert(frame_index >= 0 && frame_index < en->frame_count);
     return en->frames[frame_index].transforms[bone_index];
 }
 
-int HitTestBone(EditorAnimation* en, const Vec2& world_pos)
-{
+int HitTestBone(EditorAnimation* en, const Vec2& world_pos) {
     EditorSkeleton* es = GetEditorSkeleton(en);
 
     UpdateTransforms(en);

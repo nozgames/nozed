@@ -315,13 +315,11 @@ void PopState()
     }
 }
 
-static void UpdateMouse()
-{
+static void UpdateMouse() {
     g_view.mouse_position = GetMousePosition();
     g_view.mouse_world_position = ScreenToWorld(g_view.camera, g_view.mouse_position);
 
-    if (WasButtonPressed(g_view.input, MOUSE_LEFT))
-    {
+    if (WasButtonPressed(g_view.input, MOUSE_LEFT)) {
         g_view.drag = false;
         g_view.drag_world_delta = VEC2_ZERO;
         g_view.drag_delta = VEC2_ZERO;
@@ -329,14 +327,13 @@ static void UpdateMouse()
         g_view.drag_world_position = g_view.mouse_world_position;
     }
 
-    if (IsButtonDown(g_view.input, MOUSE_LEFT))
-    {
+    if (IsButtonDown(g_view.input, MOUSE_LEFT)) {
         g_view.drag_delta = g_view.mouse_position - g_view.drag_position;
         g_view.drag_world_delta = g_view.mouse_world_position - g_view.drag_world_position;
         g_view.drag |= Length(g_view.drag_delta) >= DRAG_MIN;
-    }
-    else
+    } else {
         g_view.drag = false;
+    }
 }
 
 static void UpdateCommon()

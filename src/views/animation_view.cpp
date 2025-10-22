@@ -311,12 +311,15 @@ static void DrawOnionSkin() {
     BindMaterial(g_view.vertex_material);
     BindColor(SetAlpha(COLOR_RED, 0.25f));
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        EditorBone* eb = &es->bones[bone_index];
         DrawBone(
-            en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation),
-            es->bones[bone_index].parent_index < 0
+            en->animator.bones[bone_index] * Rotate(eb->transform.rotation),
+            eb->parent_index < 0
                 ? en->animator.bones[bone_index]
-                : en->animator.bones[es->bones[bone_index].parent_index],
-            ea.position);
+                : en->animator.bones[eb->parent_index],
+            ea.position,
+            eb->length
+            );
     }
 
     en->current_frame = (frame + 1 + en->frame_count) % en->frame_count;
@@ -324,12 +327,14 @@ static void DrawOnionSkin() {
 
     BindColor(SetAlpha(COLOR_GREEN, 0.25f));
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        EditorBone* eb = &es->bones[bone_index];
         DrawBone(
-            en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation),
-            es->bones[bone_index].parent_index < 0
+            en->animator.bones[bone_index] * Rotate(eb->transform.rotation),
+            eb->parent_index < 0
                 ? en->animator.bones[bone_index]
-                : en->animator.bones[es->bones[bone_index].parent_index],
-            ea.position);
+                : en->animator.bones[eb->parent_index],
+            ea.position,
+            eb->length);
     }
 
     en->current_frame = frame;

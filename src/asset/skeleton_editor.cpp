@@ -9,7 +9,7 @@ static void Init(EditorSkeleton* es);
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 
 void DrawEditorSkeletonBone(EditorSkeleton* es, int bone_index, const Vec2& position) {
-    EditorBone* eb = &es->bones[bone_index];
+    EditorBone* eb = es->bones + bone_index;
     Mat3 local_to_world = eb->local_to_world * Rotate(eb->transform.rotation);
     DrawBone(
         local_to_world,
@@ -50,8 +50,7 @@ int HitTestBone(EditorSkeleton* es, const Vec2& world_pos) {
     const float size = g_view.select_size;
     float best_dist = F32_MAX;
     int best_bone_index = -1;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         EditorBone& bone = es->bones[bone_index];
         Mat3 local_to_world = bone.local_to_world * Rotate(bone.transform.rotation);
         Vec2 bone_position = TransformPoint(local_to_world);
@@ -68,19 +67,18 @@ int HitTestBone(EditorSkeleton* es, const Vec2& world_pos) {
 
     best_bone_index = -1;
     best_dist = F32_MAX;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
-        EditorBone& bone = es->bones[bone_index];
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        EditorBone* eb = es->bones + bone_index;
 
-        if (!OverlapPoint(g_view.bone_collider, TransformPoint(Rotate(-bone.transform.rotation), TransformPoint(bone.world_to_local, world_pos))))
+        Vec2 collider_point = TransformPoint(Rotate(-eb->transform.rotation), TransformPoint(eb->world_to_local, world_pos));
+        if (!OverlapPoint(g_view.bone_collider, collider_point, eb->length))
             continue;
 
-        Mat3 local_to_world = bone.local_to_world * Rotate(bone.transform.rotation);
+        Mat3 local_to_world = eb->local_to_world * Rotate(eb->transform.rotation);
         Vec2 b0 = TransformPoint(local_to_world);
-        Vec2 b1 = TransformPoint(local_to_world, {1, 0});
+        Vec2 b1 = TransformPoint(local_to_world, {eb->length, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
-        if (dist < best_dist)
-        {
+        if (dist < best_dist) {
             best_dist = dist;
             best_bone_index = bone_index;
         }
@@ -226,10 +224,11 @@ void UpdateTransforms(EditorSkeleton* es) {
     Vec2 root_position = TransformPoint(es->bones[0].local_to_world);
     Bounds2 bounds = Bounds2 { root_position, root_position };
     for (int i=0; i<es->bone_count; i++) {
-        float bone_width = es->bones[i].length * BONE_WIDTH;
-        Mat3 bone_transform = es->bones[i].local_to_world * Rotate(es->bones[i].transform.rotation);
-        bounds = Union(bounds, TransformPoint(es->bones[i].local_to_world));
-        bounds = Union(bounds, TransformPoint(bone_transform, Vec2{es->bones[i].length, 0}));
+        EditorBone* eb = es->bones + i;
+        float bone_width = eb->length * BONE_WIDTH;
+        Mat3 bone_transform = eb->local_to_world * Rotate(eb->transform.rotation);
+        bounds = Union(bounds, TransformPoint(eb->local_to_world));
+        bounds = Union(bounds, TransformPoint(bone_transform, Vec2{eb->length, 0}));
         bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, bone_width}));
         bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, -bone_width}));
     }
@@ -247,8 +246,7 @@ void UpdateTransforms(EditorSkeleton* es) {
     es->bounds = Expand(bounds, BOUNDS_PADDING);
 }
 
-static void EditorSkeletonLoadMetadata(EditorAsset* ea, Props* meta)
-{
+static void EditorSkeletonLoadMetadata(EditorAsset* ea, Props* meta) {
     assert(ea);
     assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
