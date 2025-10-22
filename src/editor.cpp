@@ -3,7 +3,7 @@
 //
 
 #include <editor.h>
-#include "editor_assets.h"
+#include "nozed_assets.h"
 #include "server.h"
 
 namespace fs = std::filesystem;

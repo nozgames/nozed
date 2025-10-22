@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "editor_assets.h"
+#include "nozed_assets.h"
 enum ConfirmType {
     CONFIRM_TYPE_NONE,
     CONFIRM_TYPE_OK,

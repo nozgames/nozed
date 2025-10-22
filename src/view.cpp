@@ -3,7 +3,7 @@
 //
 
 #include "editor.h"
-#include "editor_assets.h"
+#include "nozed_assets.h"
 
 constexpr int MAX_COMMAND_LENGTH = 1024;
 constexpr float SELECT_SIZE = 60.0f;
@@ -929,11 +929,19 @@ void InitView() {
 
     g_view.shortcuts = shortcuts;
     EnableShortcuts(shortcuts);
+
+    extern void MeshViewInit();
+
+    MeshViewInit();
 }
 
 
 void ShutdownView()
 {
+    extern void MeshViewShutdown();
+
+    MeshViewShutdown();
+
     g_view = {};
 
     Unlisten(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);

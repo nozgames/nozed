@@ -3,7 +3,7 @@
 //
 
 #include <editor.h>
-#include "editor_assets.h"
+#include "nozed_assets.h"
 
 constexpr int MAX_NOTIFICATIONS = 8;
 constexpr float NOTIFICATION_DURATION = 3.0f;

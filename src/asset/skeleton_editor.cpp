@@ -498,6 +498,13 @@ static void EditorSkeletonUndoRedo(EditorAsset* ea) {
     UpdateTransforms(es);
 }
 
+static void EditorSkeletonSortOrderChanged(EditorAsset* ea) {
+    assert(ea);
+    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    EditorSkeleton* es = (EditorSkeleton*)ea;
+    SortSkin(es);
+}
+
 extern void SkeletonViewInit();
 extern void SkeletonViewDraw();
 extern void SkeletonViewUpdate();
@@ -515,7 +522,8 @@ static void Init(EditorSkeleton* es) {
         .view_init = SkeletonViewInit,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds,
-        .undo_redo = EditorSkeletonUndoRedo
+        .undo_redo = EditorSkeletonUndoRedo,
+        .on_sort_order_changed = EditorSkeletonSortOrderChanged
     };
 }
 

@@ -506,6 +506,9 @@ void SortAssets() {
             ea->meta_modified = true;
 
         ea->sort_order = asset_index * 10;
+        if (ea->vtable.on_sort_order_changed)
+            ea->vtable.on_sort_order_changed(ea);
+
         asset_index++;
     }
 }

@@ -78,10 +78,8 @@ Vec2 GetFaceCenter(EditorMesh* em, int face_index)
     return center / (float)ef.vertex_count;
 }
 
-bool IsVertexOnOutsideEdge(EditorMesh* em, int v0)
-{
-    for (int i = 0; i < em->edge_count; i++)
-    {
+bool IsVertexOnOutsideEdge(EditorMesh* em, int v0) {
+    for (int i = 0; i < em->edge_count; i++) {
         EditorEdge& ee = em->edges[i];
         if (ee.face_count == 1 && (ee.v0 == v0 || ee.v1 == v0))
             return true;
@@ -1356,12 +1354,14 @@ void TriangulateFace(EditorMesh* em, EditorFace* ef, MeshBuilder* builder)
 static void Init(EditorMesh* em)
 {
     extern void MeshViewInit();
+    extern void MeshViewShutdown();
 
     em->vtable = {
         .load = EditorMeshLoad,
         .save = EditorMeshSave,
         .draw = EditorMeshDraw,
         .view_init = MeshViewInit,
+        .view_shutdown = MeshViewShutdown,
         .overlap_point = EditorMeshOverlapPoint,
         .overlap_bounds = EditorMeshOverlapBounds,
         .clone = EditorClone

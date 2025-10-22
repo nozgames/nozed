@@ -56,7 +56,7 @@ set(SOURCE_FILES
 
     src/shortcut.cpp
     src/undo.cpp
-    src/editor_assets.cpp
+    src/nozed_assets.cpp
     src/editor_server.cpp
     src/editor.cpp
     src/commands.cpp

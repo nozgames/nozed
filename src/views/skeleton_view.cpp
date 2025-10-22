@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "editor_assets.h"
+#include "nozed_assets.h"
 
 #include <editor.h>
 

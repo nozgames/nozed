@@ -11,8 +11,7 @@ constexpr int MAX_FACES = MAX_VERTICES / 3;
 constexpr int MAX_INDICES = MAX_FACES * 3;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;
 
-struct EditorVertex
-{
+struct EditorVertex {
     Vec2 position;
     float height;
     Vec2 edge_normal;
@@ -22,8 +21,7 @@ struct EditorVertex
     float gradient;
 };
 
-struct EditorEdge
-{
+struct EditorEdge {
     int v0;
     int v1;
     int face_count;
@@ -32,8 +30,7 @@ struct EditorEdge
     bool selected;
 };
 
-struct EditorFace
-{
+struct EditorFace {
     Vec2Int color;
     Vec2Int gradient_color;
     Vec2 gradient_dir;

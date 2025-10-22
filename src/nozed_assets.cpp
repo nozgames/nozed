@@ -4,7 +4,7 @@
 //
 
 #include <noz/noz.h>
-#include "editor_assets.h"
+#include "nozed_assets.h"
 
 
 // @Font

@@ -2,10 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "editor_assets.h"
-
-#include <editor.h>
-
 constexpr float HEIGHT_MIN = -1.0f;
 constexpr float HEIGHT_MAX = 1.0f;
 constexpr float EDGE_MIN = 0.0f;
@@ -21,8 +17,7 @@ constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 constexpr float ROTATE_TOOL_WIDTH = 0.02f;
 
-enum MeshEditorState
-{
+enum MeshEditorState {
     MESH_EDITOR_STATE_DEFAULT,
     MESH_EDITOR_STATE_MOVE,
     MESH_EDITOR_STATE_ROTATE,
@@ -31,29 +26,25 @@ enum MeshEditorState
     MESH_EDITOR_STATE_EDGE,
 };
 
-enum MeshEditorMode
-{
+enum MeshEditorMode {
     MESH_EDITOR_MODE_VERTEX,
     MESH_EDITOR_MODE_EDGE,
     MESH_EDITOR_MODE_FACE
 };
 
-struct MeshViewVertex
-{
+struct MeshViewVertex {
     float saved_height;
     float saved_edge_size;
     Vec2 saved_position;
 };
 
-struct MeshViewFace
-{
+struct MeshViewFace {
     Vec3 saved_normal;
     Vec2 saved_gradient_dir;
     float saved_gradient_offset;
 };
 
-struct MeshView
-{
+struct MeshView {
     MeshEditorState state;
     MeshEditorMode mode;
     Vec2 world_drag_start;
@@ -70,6 +61,7 @@ struct MeshView
     MeshViewVertex vertices[MAX_VERTICES];
     MeshViewFace faces[MAX_FACES];
     Mesh* rotate_arc_mesh;
+    InputSet* input;
 };
 
 static MeshView g_mesh_view = {};
@@ -379,8 +371,7 @@ static void UpdateGradientState()
 }
 #endif
 
-static void UpdateEdgeState()
-{
+static void UpdateEdgeState() {
     EditorMesh* em = GetEditingMesh();
     float delta = (g_view.mouse_position.y - g_mesh_view.state_mouse.y) / (g_view.dpi * HEIGHT_SLIDER_SIZE);
 
@@ -391,7 +382,9 @@ static void UpdateEdgeState()
             continue;
 
         MeshViewVertex& mvv = g_mesh_view.vertices[i];
-        ev.edge_size = Clamp(g_mesh_view.use_fixed_value ? g_mesh_view.fixed_value : mvv.saved_edge_size - delta, EDGE_MIN, EDGE_MAX);
+        ev.edge_size = Clamp(g_mesh_view.use_fixed_value
+            ? g_mesh_view.fixed_value
+            : mvv.saved_edge_size - delta, EDGE_MIN, EDGE_MAX);
     }
 
     MarkDirty(em);
@@ -840,7 +833,7 @@ void MeshViewUpdate() {
 
     UpdateColorPicker();
 
-    CheckShortcuts(g_mesh_view.shortcuts);
+    CheckShortcuts(g_mesh_view.shortcuts, g_mesh_view.input);
 
     switch (g_mesh_view.state)
     {
@@ -951,8 +944,7 @@ static void DrawScaleState()
     DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
 
-static void DrawCircleControls(float (*value_func)(const EditorVertex& ev))
-{
+static void DrawCircleControls(float (*value_func)(const EditorVertex& ev)) {
     EditorAsset* ea = GetEditingAsset();
     EditorMesh* em = GetEditingMesh();
 
@@ -1060,13 +1052,11 @@ static float GetEdgeSizeValue(const EditorVertex& ev)
     return (ev.edge_size - EDGE_MIN) / (EDGE_MAX - EDGE_MIN);
 }
 
-static void DrawEdgeState()
-{
+static void DrawEdgeState() {
     DrawCircleControls(GetEdgeSizeValue);
 }
 
-void MeshViewDraw()
-{
+void MeshViewDraw() {
     EditorAsset* ea = GetEditingAsset();
     EditorMesh* em = GetEditingMesh();
 
@@ -1296,6 +1286,7 @@ static void HandleSelectAllCommand()
     SelectAll(GetEditingMesh());
 }
 
+#if 0
 static void HandleTextInputChange(EventId event_id, const void* event_data)
 {
     (void) event_id;
@@ -1335,17 +1326,7 @@ static void HandleTextInputCommit(EventId event_id, const void* event_data)
     g_mesh_view.use_fixed_value = false;
     ClearTextInput();
 }
-
-static void MeshViewShutdown()
-{
-    Unlisten(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
-    Unlisten(EVENT_TEXTINPUT_CANCEL, HandleTextInputCancel);
-    Unlisten(EVENT_TEXTINPUT_COMMIT, HandleTextInputCommit);
-
-    // Clean up arc mesh
-    Free(g_mesh_view.rotate_arc_mesh);
-    g_mesh_view.rotate_arc_mesh = nullptr;
-}
+#endif
 
 static bool MeshViewAllowTextInput() {
     return
@@ -1596,54 +1577,55 @@ static void AddNewFace()
     SelectVertex(em->vertex_count - 1, true);
 }
 
-void MeshViewInit()
-{
-    EditorMesh* em = GetEditingMesh();
-
-    Listen(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
-
+void MeshViewEnter() {
     g_view.vtable = {
         .update = MeshViewUpdate,
         .draw = MeshViewDraw,
         .bounds = MeshViewBounds,
-        .shutdown = MeshViewShutdown,
         .allow_text_input = MeshViewAllowTextInput
     };
 
+    PushInputSet(g_mesh_view.input);
+
+    ClearSelection();
+
     g_mesh_view.state = MESH_EDITOR_STATE_DEFAULT;
     g_mesh_view.mode = MESH_EDITOR_MODE_VERTEX;
+}
 
-    for (int i=0; i<em->vertex_count; i++)
-        em->vertices[i].selected = false;
+void MeshViewLeave() {
+    PopInputSet();
+}
 
-    if (!g_mesh_view.color_material)
-    {
-        g_mesh_view.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
-        SetTexture(g_mesh_view.color_material, TEXTURE_EDITOR_PALETTE, 0);
-    }
+void MeshViewShutdown() {
+    Free(g_mesh_view.rotate_arc_mesh);
+    g_mesh_view = {};
+}
 
-    if (!g_mesh_view.shortcuts)
-    {
-        static Shortcut shortcuts[] = {
-            { KEY_G, false, false, false, HandleMoveCommand },
-            { KEY_R, false, false, false, HandleRotateCommand },
-            { KEY_S, false, false, false, HandleScaleCommand },
-            { KEY_Q, false, false, false, HandleNormalCommand },
-            { KEY_W, false, false, false, HandleEdgeCommand },
-            { KEY_A, false, false, false, HandleSelectAllCommand },
-            { KEY_X, false, false, false, DissolveSelected },
-            { KEY_V, false, false, false, InsertVertexFaceOrEdge },
-            { KEY_1, false, false, false, SetVertexMode },
-            { KEY_2, false, false, false, SetEdgeMode },
-            { KEY_3, false, false, false, SetFaceMode },
-            { KEY_C, false, false, false, CenterMesh },
-            { KEY_E, false, false, false, ExtrudeSelected },
-            { KEY_N, false, false, false, AddNewFace },
-            { INPUT_CODE_NONE }
-        };
+void MeshViewInit() {
+    g_mesh_view.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
+    SetTexture(g_mesh_view.color_material, TEXTURE_EDITOR_PALETTE, 0);
 
-        g_mesh_view.shortcuts = shortcuts;
-        EnableShortcuts(shortcuts);
-    }
+    static Shortcut shortcuts[] = {
+        { KEY_G, false, false, false, HandleMoveCommand },
+        { KEY_R, false, false, false, HandleRotateCommand },
+        { KEY_S, false, false, false, HandleScaleCommand },
+        { KEY_Q, false, false, false, HandleNormalCommand },
+        { KEY_W, false, false, false, HandleEdgeCommand },
+        { KEY_A, false, false, false, HandleSelectAllCommand },
+        { KEY_X, false, false, false, DissolveSelected },
+        { KEY_V, false, false, false, InsertVertexFaceOrEdge },
+        { KEY_1, false, false, false, SetVertexMode },
+        { KEY_2, false, false, false, SetEdgeMode },
+        { KEY_3, false, false, false, SetFaceMode },
+        { KEY_C, false, false, false, CenterMesh },
+        { KEY_E, false, false, false, ExtrudeSelected },
+        { KEY_N, false, false, false, AddNewFace },
+        { INPUT_CODE_NONE }
+    };
+
+    g_mesh_view.input = CreateInputSet(ALLOCATOR_DEFAULT);
+    g_mesh_view.shortcuts = shortcuts;
+    EnableShortcuts(shortcuts, g_mesh_view.input);
 }
 

@@ -31,10 +31,12 @@ struct EditorAssetVtable
     void (*save_metadata)(EditorAsset* ea, Props* meta);
     void (*draw)(EditorAsset* ea);
     void (*view_init)();
+    void (*view_shutdown)();
     bool (*overlap_point)(EditorAsset* ea, const Vec2& position, const Vec2& hit_pos);
     bool (*overlap_bounds)(EditorAsset* ea, const Bounds2& hit_bounds);
     void (*clone)(EditorAsset* ea);
     void (*undo_redo)(EditorAsset* ea);
+    void (*on_sort_order_changed)(EditorAsset* ea);
 };
 
 struct EditorAsset {

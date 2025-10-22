@@ -3,7 +3,7 @@
 //
 
 #include <editor.h>
-#include "editor_assets.h"
+#include "nozed_assets.h"
 
 constexpr float GRID_SPACING = 1.0f;
 constexpr float MIN_GRID_PIXELS = 50.0f;

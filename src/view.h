@@ -159,8 +159,8 @@ struct Shortcut
     void (*action)();
 };
 
-extern void EnableShortcuts(const Shortcut* shortcuts);
-extern void CheckShortcuts(const Shortcut* shortcuts);
+extern void EnableShortcuts(const Shortcut* shortcuts, InputSet* input_set=nullptr);
+extern void CheckShortcuts(const Shortcut* shortcuts, InputSet* input_set=nullptr);
 
 constexpr Color COLOR_VERTEX_SELECTED = Color32ToColor(255, 121, 0, 255);
 constexpr Color COLOR_VERTEX = COLOR_BLACK;

@@ -64,5 +64,6 @@ enum EditorEvent
 #include <utils/tokenizer.h>
 #include <utils/file_helpers.h>
 #include <editor.h>
+#include "nozed_assets.h"
 
 extern Props* g_config;
