@@ -142,21 +142,25 @@ static void UpdateZoom()
     if (zoom_axis > -0.5f && zoom_axis < 0.5f)
         return;
 
+    // Capture the world position under the cursor before zoom
     Vec2 mouse_screen = GetMousePosition();
     Vec2 world_under_cursor = ScreenToWorld(g_view.camera, mouse_screen);
 
+    // Apply zoom
     f32 zoom_factor = 1.0f + zoom_axis * ZOOM_STEP;
     g_view.zoom *= zoom_factor;
     g_view.zoom = Clamp(g_view.zoom, ZOOM_MIN, ZOOM_MAX);
 
+    // Update camera with new zoom
     UpdateCamera();
 
-    Vec2 new_screen_pos = WorldToScreen(g_view.camera, world_under_cursor);
-    Vec2 screen_offset = mouse_screen - new_screen_pos;
-    Vec2 world_offset = ScreenToWorld(g_view.camera, screen_offset) - ScreenToWorld(g_view.camera, VEC2_ZERO);
-    Bounds2 bounds = GetBounds(g_view.camera);
-    Vec2 current_center = Vec2{(bounds.min.x + bounds.max.x) * 0.5f, (bounds.min.y + bounds.max.y) * 0.5f};
-    SetPosition(g_view.camera, current_center + world_offset);
+    // Calculate where the world point is now in screen space after zoom
+    Vec2 world_under_cursor_after = ScreenToWorld(g_view.camera, mouse_screen);
+
+    // Adjust camera position to keep the world point under cursor
+    Vec2 current_position = GetPosition(g_view.camera);
+    Vec2 world_offset = world_under_cursor - world_under_cursor_after;
+    SetPosition(g_view.camera, current_position + world_offset);
 }
 
 static void UpdateMoveState()
