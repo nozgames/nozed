@@ -116,13 +116,14 @@ extern void DrawGrid(Camera* camera);
 extern void InitUndo();
 extern void ShutdownUndo();
 extern void HandleCommand(const Command& command);
-extern void RecordUndo(AssetData* ea);
+extern void RecordUndo(AssetData* a);
 extern void RecordUndo();
 extern void BeginUndoGroup();
 extern void EndUndoGroup();
 extern bool Undo();
 extern bool Redo();
 extern void CancelUndo();
+extern void RemoveFromUndoRedo(AssetData* a);
 
 // @notifications
 extern void InitNotifications();

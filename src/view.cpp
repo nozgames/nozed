@@ -331,18 +331,6 @@ static void UpdateCommon()
         Vec2 dir = Normalize(GetScreenCenter() - g_view.mouse_position);
         g_view.light_dir = Vec2{-dir.x, dir.y};
     }
-
-    if (WasButtonPressed(g_view.input, KEY_Z) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
-    {
-        Undo();
-        return;
-    }
-
-    if (WasButtonPressed(g_view.input, KEY_Y) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
-    {
-        Redo();
-        return;
-    }
 }
 
 static void UpdateViewInternal() {
@@ -732,18 +720,24 @@ static void DeleteSelectedAsset() {
         return;
 
     ShowConfirmDialog("Delete asset?", [] {
-        for (int i=0; i<MAX_ASSETS; i++) {
-            AssetData* ea = GetAssetData(i);
-            if (!ea || !ea->selected) continue;
-            DeleteAsset(ea);
+        for (u32 i=GetAssetCount(); i > 0; i--) {
+            AssetData* a = GetSortedAssetData(i-1);
+            assert(a);
+            if (!a->selected) continue;
+            RemoveFromUndoRedo(a);
+            DeleteAsset(a);
         }
         g_view.selected_asset_count=0;
+        SortAssets();
     });
 }
 
 void EndEdit() {
     SetState(VIEW_STATE_DEFAULT);
 }
+
+void HandleUndo() { Undo(); }
+void HandleRedo() { Redo(); }
 
 void InitView() {
     InitUndo();
@@ -859,6 +853,8 @@ void InitView() {
 
     static Shortcut shortcuts[] = {
         { KEY_TAB, false, false, false, BeginEdit },
+        { KEY_Z, false, true, false, HandleUndo },
+        { KEY_Y, false, true, false, HandleRedo },
         { KEY_F, false, false, false, FrameSelected },
         { KEY_X, false, false, false, DeleteSelectedAsset },
         { KEY_EQUALS, false, true, false, HandleUIZoomIn },

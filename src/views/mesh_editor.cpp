@@ -471,7 +471,7 @@ static void UpdateMoveTool(const Vec2& delta) {
 
     UpdateEdges(m);
     MarkDirty(m);
-    MarkModified(GetAssetData());
+    MarkModified();
 }
 
 static void SetState(MeshEditorState state) {
@@ -1197,6 +1197,11 @@ static void HandleBoxSelect(const Bounds2& bounds) {
     }
 }
 
+static void CancelMeshTool() {
+    CancelUndo();
+    RevertMeshState();
+}
+
 static void HandleMoveCommand()
 {
     if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
@@ -1206,10 +1211,9 @@ static void HandleMoveCommand()
     if (m->selected_count == 0)
         return;
 
-    //SetState(MESH_EDITOR_STATE_MOVE);
     SaveMeshState();
     RecordUndo();
-    BeginMove(g_mesh_editor.selection_center, UpdateMoveTool);
+    BeginMove({.origin = g_mesh_editor.selection_center, .update=UpdateMoveTool, .cancel=CancelMeshTool});
 }
 
 static void HandleRotateCommand()
@@ -1602,6 +1606,8 @@ void MeshEditorInit() {
         { KEY_E, false, false, false, ExtrudeSelected },
         { KEY_N, false, false, false, AddNewFace },
         { KEY_TAB, false, false, false, MeshEditorEnd },
+        { KEY_Z, false, true, false, HandleUndo },
+        { KEY_Y, false, true, false, HandleRedo },
         { INPUT_CODE_NONE }
     };
 

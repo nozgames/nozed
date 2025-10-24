@@ -4,15 +4,13 @@
 
 constexpr int MAX_UNDO = MAX_ASSETS * 2;
 
-struct UndoItem
-{
+struct UndoItem {
     FatAssetData ea;
-    int asset_index;
+    AssetData* asset;
     int group_id;
 };
 
-struct UndoSystem
-{
+struct UndoSystem {
     RingBuffer* undo;
     RingBuffer* redo;
     int next_group_id;
@@ -23,8 +21,7 @@ struct UndoSystem
 
 static UndoSystem g_undo = {};
 
-static void Free(UndoItem& item)
-{
+static void Free(UndoItem& item) {
     item.group_id = -1;
 }
 
@@ -53,7 +50,7 @@ static bool UndoInternal(bool allow_redo)
         if (undo_item.group_id != -1 && undo_item.group_id != group_id)
             break;
 
-        AssetData* undo_asset = GetAssetData(undo_item.asset_index);
+        AssetData* undo_asset = undo_item.asset;
         assert(undo_asset);
         assert(undo_asset->type == undo_item.ea.asset.type);
 
@@ -61,7 +58,7 @@ static bool UndoInternal(bool allow_redo)
         {
             UndoItem& redo_item = *(UndoItem*)PushBack(g_undo.redo);
             redo_item.group_id = group_id;
-            redo_item.asset_index = undo_item.asset_index;
+            redo_item.asset = undo_item.asset;
             Clone(&redo_item.ea.asset, undo_asset);
         }
 
@@ -98,13 +95,13 @@ bool Redo()
         if (redo_item.group_id != -1 && redo_item.group_id != group_id)
             break;
 
-        AssetData* redo_asset = GetAssetData(redo_item.asset_index);
+        AssetData* redo_asset = redo_item.asset;
         assert(redo_asset);
         assert(redo_asset->type == redo_item.ea.asset.type);
 
         UndoItem& undo_item = *(UndoItem*)PushBack(g_undo.undo);
         undo_item.group_id = group_id;
-        undo_item.asset_index = redo_item.asset_index;
+        undo_item.asset = redo_item.asset;
         Clone(&undo_item.ea.asset, redo_asset);
 
         Clone(redo_asset, &redo_item.ea.asset);
@@ -143,7 +140,7 @@ void RecordUndo()
     RecordUndo(GetAssetData());
 }
 
-void RecordUndo(AssetData* ea)
+void RecordUndo(AssetData* a)
 {
     // Maxium undo size
     if (IsFull(g_undo.undo)) {
@@ -154,14 +151,28 @@ void RecordUndo(AssetData* ea)
 
     UndoItem& item = *(UndoItem*)PushBack(g_undo.undo);
     item.group_id = g_undo.current_group_id;
-    item.asset_index = GetIndex(ea);
-    Clone(&item.ea.asset, ea);
+    item.asset = a;
+    Clone(&item.ea.asset, a);
 
     // Clear the redo
     while (!IsEmpty(g_undo.redo)) {
         UndoItem& old = *(UndoItem*)GetFront(g_undo.redo);
         Free(old);
         PopBack(g_undo.redo);
+    }
+}
+
+void RemoveFromUndoRedo(AssetData* a) {
+    for (u32 i=GetCount(g_undo.undo); i>0; i--) {
+        UndoItem& undo_item = *(UndoItem*)GetAt(g_undo.undo, i-1);
+        if (undo_item.asset != a) continue;
+        RemoveAt(g_undo.undo, i);
+    }
+
+    for (u32 i=GetCount(g_undo.redo); i>0; i--) {
+        UndoItem& undo_item = *(UndoItem*)GetAt(g_undo.redo, i-1);
+        if (undo_item.asset != a) continue;
+        RemoveAt(g_undo.redo, i);
     }
 }
 

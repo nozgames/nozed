@@ -3,31 +3,30 @@
 //
 
 struct MoveTool {
-    Vec2 origin;
     Vec2 last_delta;
-    void (*callback)(const Vec2& delta);
+    MoveToolOptions options;
 };
 
 static MoveTool g_move = {};
 
-static void EndMove() {
+static void EndMove(bool commit) {
+    if (commit && g_move.options.commit)
+        g_move.options.commit(g_move.last_delta);
+    else if (!commit && g_move.options.cancel)
+        g_move.options.cancel();
+
     EndDrag();
     EndTool();
 }
 
 static void UpdateMove() {
-    if (!g_view.drag) {
-        EndMove();
-        return;
-    }
-
     if (WasButtonPressed(GetInputSet(), MOUSE_LEFT)) {
-        EndMove();
+        EndMove(true);
         return;
     }
 
-    if (WasButtonPressed(GetInputSet(), KEY_ESCAPE)) {
-        EndMove();
+    if (!g_view.drag || WasButtonPressed(GetInputSet(), KEY_ESCAPE)) {
+        EndMove(false);
         return;
     }
 
@@ -39,16 +38,16 @@ static void UpdateMove() {
         return;
 
     g_move.last_delta = delta;
-    g_move.callback(delta);
+
+    if (g_move.options.update)
+        g_move.options.update(delta);
 }
 
 static void DrawMove() {
 
 }
 
-void BeginMove(const Vec2& origin, void (*callback)(const Vec2& delta)) {
-    assert(callback);
-
+void BeginMove(const MoveToolOptions& options) {
     static ToolVtable vtable = {
         .update = UpdateMove,
         .draw = DrawMove,
@@ -61,8 +60,7 @@ void BeginMove(const Vec2& origin, void (*callback)(const Vec2& delta)) {
     });
 
     g_move = {};
-    g_move.callback = callback;
-    g_move.origin = origin;
+    g_move.options = options;
 
     BeginDrag();
 }
