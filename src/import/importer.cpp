@@ -10,7 +10,7 @@ namespace fs = std::filesystem;
 
 struct ImportJob
 {
-    EditorAsset* ea;
+    AssetData* ea;
     fs::path source_path;
     fs::path source_relative_path;
     fs::path source_meta_path;
@@ -39,7 +39,7 @@ static void ExecuteJob(void* data);
 
 static const AssetImporter* FindImporter(const fs::path& ext)
 {
-    for (int i=0; i<EDITOR_ASSET_TYPE_COUNT; i++)
+    for (int i=0; i<ASSET_TYPE_COUNT; i++)
     {
         AssetImporter* importer = &g_editor.importers[i];
         if (ext == importer->ext)
@@ -49,7 +49,7 @@ static const AssetImporter* FindImporter(const fs::path& ext)
     return nullptr;
 }
 
-bool InitImporter(EditorAsset* ea)
+bool InitImporter(AssetData* ea)
 {
     fs::path path = ea->path;
     if (!fs::exists(path))
@@ -64,7 +64,7 @@ bool InitImporter(EditorAsset* ea)
     return true;
 }
 
-static void QueueImport(EditorAsset* ea, bool force)
+static void QueueImport(AssetData* ea, bool force)
 {
     fs::path path = ea->path;
     if (!fs::exists(path))
@@ -117,7 +117,7 @@ void QueueImport(const fs::path& path)
     if (!asset_name)
         return;
 
-    EditorAsset* ea = GetEditorAsset(importer->type, asset_name);
+    AssetData* ea = GetAssetData(importer->type, asset_name);
     if (!ea)
         return;
 
@@ -243,7 +243,7 @@ static void InitialImport()
 {
     for (int i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset* ea = GetEditorAsset(i);
+        AssetData* ea = GetAssetData(i);
         if (!ea)
             continue;
 

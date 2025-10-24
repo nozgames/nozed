@@ -19,7 +19,7 @@ struct EditorAnimationFrame
     int hold;
 };
 
-struct EditorAnimation : EditorAsset
+struct EditorAnimation : AssetData
 {
     const Name* skeleton_name;
     int frame_count;
@@ -33,8 +33,8 @@ struct EditorAnimation : EditorAsset
     int selected_bone_count;
 };
 
-extern void InitEditorAnimation(EditorAsset* ea);
-extern EditorAsset* NewEditorAnimation(const std::filesystem::path& path);
+extern void InitEditorAnimation(AssetData* ea);
+extern AssetData* NewEditorAnimation(const std::filesystem::path& path);
 extern void PostLoadEditorAssets(EditorAnimation* en);
 extern void UpdateBounds(EditorAnimation* en);
 extern void Serialize(EditorAnimation* en, Stream* output_stream, EditorSkeleton* es);
@@ -45,5 +45,5 @@ extern Transform& GetFrameTransform(EditorAnimation* en, int bone_index, int fra
 extern int HitTestBone(EditorAnimation* en, const Vec2& world_pos);
 extern void UpdateTransforms(EditorAnimation* en);
 extern void UpdateSkeleton(EditorAnimation* en);
-extern void DrawEditorAnimation(EditorAsset* ea);
+extern void DrawEditorAnimation(AssetData* ea);
 extern void DrawEditorAnimationBone(EditorAnimation* en, int bone_index, const Vec2& position);

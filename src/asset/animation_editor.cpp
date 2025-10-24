@@ -39,16 +39,16 @@ void DrawEditorAnimationBone(EditorAnimation* en, int bone_index, const Vec2& po
     DrawBone(p0 + position, p1 + position);
 }
 
-void DrawEditorAnimation(EditorAsset* ea) {
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+void DrawEditorAnimation(AssetData* ea) {
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     EditorSkeleton* es = GetEditorSkeleton(en);
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
     for (int i=0; i<es->skinned_mesh_count; i++) {
-        EditorMesh* skinned_mesh = es->skinned_meshes[i].mesh;
-        if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
+        MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+        if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
         DrawMesh(skinned_mesh, Translate(ea->position) * en->animator.bones[es->skinned_meshes[i].bone_index]);
@@ -111,7 +111,7 @@ static void ParseSkeleton(EditorAnimation* en, Tokenizer& tk, int* bone_map)
 
     en->skeleton_name = GetName(tk);
 
-    EditorSkeleton* es = (EditorSkeleton*)GetEditorAsset(EDITOR_ASSET_TYPE_SKELETON, en->skeleton_name);
+    EditorSkeleton* es = (EditorSkeleton*)GetAssetData(ASSET_TYPE_SKELETON, en->skeleton_name);
     assert(es);
 
     if (!es->loaded)
@@ -225,12 +225,12 @@ void UpdateBounds(EditorAnimation* en)
     en->bounds = GetEditorSkeleton(en)->bounds;
 }
 
-static void EditorAnimationPostLoad(EditorAsset* ea)
+static void EditorAnimationPostLoad(AssetData* ea)
 {
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
 
-    en->skeleton = (EditorSkeleton*)GetEditorAsset(EDITOR_ASSET_TYPE_SKELETON, en->skeleton_name);
+    en->skeleton = (EditorSkeleton*)GetAssetData(ASSET_TYPE_SKELETON, en->skeleton_name);
     if (!en->skeleton)
         return;
 
@@ -239,10 +239,10 @@ static void EditorAnimationPostLoad(EditorAsset* ea)
     UpdateBounds(en);
 }
 
-static void EditorAnimationLoad(EditorAsset* ea)
+static void EditorAnimationLoad(AssetData* ea)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     en->frame_count = 0;
 
@@ -340,8 +340,8 @@ Animation* ToAnimation(Allocator* allocator, EditorAnimation* en, const Name* na
     return animation;
 }
 
-static void EditorAnimationSave(EditorAsset* ea, const std::filesystem::path& path) {
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+static void EditorAnimationSave(AssetData* ea, const std::filesystem::path& path) {
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     EditorSkeleton* es = GetEditorSkeleton(en);
 
@@ -428,7 +428,7 @@ int HitTestBone(EditorAnimation* en, const Vec2& world_pos) {
     float best_dist = F32_MAX;
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         EditorBone* eb = &es->bones[bone_index];
-        Mat3 collider_transform = Translate(GetEditingAsset()->position) * en->animator.bones[bone_index] * Scale(eb->length);
+        Mat3 collider_transform = Translate(GetAssetData()->position) * en->animator.bones[bone_index] * Scale(eb->length);
         if (!OverlapPoint(g_view.bone_collider, world_pos, collider_transform))
             continue;
 
@@ -445,7 +445,7 @@ int HitTestBone(EditorAnimation* en, const Vec2& world_pos) {
     return best_bone_index;
 }
 
-EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
+AssetData* NewEditorAnimation(const std::filesystem::path& path)
 {
     (void)path;
 
@@ -458,8 +458,8 @@ EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
     std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "animations" / path : path;
     full_path += ".anim";
 
-    EditorAsset* skeleton_asset = GetEditorAsset(GetFirstSelectedAsset());
-    if (!skeleton_asset || skeleton_asset->type != EDITOR_ASSET_TYPE_SKELETON)
+    AssetData* skeleton_asset = GetFirstSelectedAsset();
+    if (!skeleton_asset || skeleton_asset->type != ASSET_TYPE_SKELETON)
     {
         LogError("no skeleton selected");
         return nullptr;
@@ -475,26 +475,26 @@ EditorAsset* NewEditorAnimation(const std::filesystem::path& path)
     WaitForImportJobs();
 
     const Name* asset_name = MakeCanonicalAssetName(full_path);
-    return GetEditorAsset(EDITOR_ASSET_TYPE_ANIMATION, asset_name);
+    return GetAssetData(ASSET_TYPE_ANIMATION, asset_name);
 }
 
-static bool EditorAnimationOverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)
+static bool EditorAnimationOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
 {
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     return Contains(en->bounds + position, overlap_point);
 }
 
-static bool EditorAnimationOverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
+static bool EditorAnimationOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
 {
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     return Intersects(en->bounds + ea->position, overlap_bounds);
 }
 
-static void EditorAnimationClone(EditorAsset* ea)
+static void EditorAnimationClone(AssetData* ea)
 {
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     en->animation = nullptr;
     en->animator = {};
@@ -502,9 +502,9 @@ static void EditorAnimationClone(EditorAsset* ea)
     UpdateBounds(en);
 }
 
-static void EditorAnimationUndoRedo(EditorAsset* ea)
+static void EditorAnimationUndoRedo(AssetData* ea)
 {
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     UpdateSkeleton(en);
     UpdateTransforms(en);
@@ -522,18 +522,18 @@ static void Init(EditorAnimation* ea)
         .post_load = EditorAnimationPostLoad,
         .save = EditorAnimationSave,
         .draw = DrawEditorAnimation,
-        .view_init = AnimationViewInit,
         .overlap_point = EditorAnimationOverlapPoint,
         .overlap_bounds = EditorAnimationOverlapBounds,
         .clone = EditorAnimationClone,
-        .undo_redo = EditorAnimationUndoRedo
+        .undo_redo = EditorAnimationUndoRedo,
+        .editor_begin = AnimationViewInit
     };
 }
 
-void InitEditorAnimation(EditorAsset* ea)
+void InitEditorAnimation(AssetData* ea)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
     Init(en);
 }

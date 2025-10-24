@@ -19,6 +19,16 @@ extern void InitImporter();
 extern void ShutdownImporter();
 extern void UpdateImporter();
 
+extern AssetImporter GetShaderImporter();
+extern AssetImporter GetTextureImporter();
+extern AssetImporter GetFontImporter();
+extern AssetImporter GetMeshImporter();
+extern AssetImporter GetVfxImporter();
+extern AssetImporter GetSoundImporter();
+extern AssetImporter GetSkeletonImporter();
+extern AssetImporter GetAnimationImporter();
+
+
 Editor g_editor = {};
 Props* g_config = nullptr;
 
@@ -180,41 +190,30 @@ static void InitConfig()
     fs::create_directories(g_editor.output_dir);
 }
 
-extern AssetImporter GetShaderImporter();
-extern AssetImporter GetTextureImporter();
-extern AssetImporter GetFontImporter();
-extern AssetImporter GetMeshImporter();
-extern AssetImporter GetVfxImporter();
-extern AssetImporter GetSoundImporter();
-extern AssetImporter GetSkeletonImporter();
-extern AssetImporter GetAnimationImporter();
-
-static void InitImporters()
-{
-    g_editor.importers = (AssetImporter*)Alloc(ALLOCATOR_DEFAULT, sizeof(AssetImporter) * EDITOR_ASSET_TYPE_COUNT);
-    g_editor.importers[EDITOR_ASSET_TYPE_ANIMATION] = GetAnimationImporter();
-    g_editor.importers[EDITOR_ASSET_TYPE_FONT] = GetFontImporter();
-    g_editor.importers[EDITOR_ASSET_TYPE_MESH] = GetMeshImporter();
-    g_editor.importers[EDITOR_ASSET_TYPE_SHADER] = GetShaderImporter();
-    g_editor.importers[EDITOR_ASSET_TYPE_SOUND] = GetSoundImporter();
-    g_editor.importers[EDITOR_ASSET_TYPE_TEXTURE] = GetTextureImporter();
-    g_editor.importers[EDITOR_ASSET_TYPE_VFX] = GetVfxImporter();
-    g_editor.importers[EDITOR_ASSET_TYPE_SKELETON] = GetSkeletonImporter();
+static void InitImporters() {
+    g_editor.importers = (AssetImporter*)Alloc(ALLOCATOR_DEFAULT, sizeof(AssetImporter) * ASSET_TYPE_COUNT);
+    g_editor.importers[ASSET_TYPE_ANIMATION] = GetAnimationImporter();
+    g_editor.importers[ASSET_TYPE_FONT] = GetFontImporter();
+    g_editor.importers[ASSET_TYPE_MESH] = GetMeshImporter();
+    g_editor.importers[ASSET_TYPE_SHADER] = GetShaderImporter();
+    g_editor.importers[ASSET_TYPE_SOUND] = GetSoundImporter();
+    g_editor.importers[ASSET_TYPE_TEXTURE] = GetTextureImporter();
+    g_editor.importers[ASSET_TYPE_VFX] = GetVfxImporter();
+    g_editor.importers[ASSET_TYPE_SKELETON] = GetSkeletonImporter();
 
 #ifdef _DEBUG
-    for (int i=0; i<EDITOR_ASSET_TYPE_COUNT; i++)
+    for (int i=0; i<ASSET_TYPE_COUNT; i++)
     {
-        assert(g_editor.importers[i].type == (EditorAssetType)i);
+        assert(g_editor.importers[i].type == (AssetType)i);
         assert(g_editor.importers[i].import_func);
         assert(g_editor.importers[i].ext);
     }
 #endif
 }
 
-void InitEditor()
-{
+void InitEditor() {
     g_main_thread_id = std::this_thread::get_id();
-    g_editor.asset_allocator = CreatePoolAllocator(sizeof(EditorAssetData), MAX_ASSETS);
+    g_editor.asset_allocator = CreatePoolAllocator(sizeof(FatAssetData), MAX_ASSETS);
 
     InitImporters();
     InitLog(HandleLog);
@@ -222,8 +221,7 @@ void InitEditor()
     Listen(EDITOR_EVENT_IMPORTED, HandleImported);
 }
 
-void ShutdownEditor()
-{
+void ShutdownEditor() {
     ShutdownEditorServer();
     ShutdownImporter();
 }
@@ -234,8 +232,31 @@ void EditorHotLoad(const Name* name, AssetSignature signature)
     HotloadEditorAsset(name);
 }
 
-int main(int argc, const char* argv[])
-{
+void BeginTool(const Tool& tool) {
+    assert(g_editor.tool.type == TOOL_TYPE_NONE);
+    g_editor.tool = tool;
+
+    if (g_editor.tool.input == nullptr)
+        g_editor.tool.input = g_view.input_tool;
+
+    PushInputSet(g_editor.tool.input, tool.inherit_input);
+}
+
+void EndTool() {
+    assert(g_editor.tool.type != TOOL_TYPE_NONE);
+    g_editor.tool = {};
+    PopInputSet();
+}
+
+void CancelTool() {
+    assert(g_editor.tool.type != TOOL_TYPE_NONE);
+    if (g_editor.tool.vtable.cancel)
+        g_editor.tool.vtable.cancel();
+
+    EndTool();
+}
+
+int main(int argc, const char* argv[]) {
     g_editor.exe = argv[0];
 
     g_main_thread_id = std::this_thread::get_id();

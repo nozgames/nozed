@@ -71,7 +71,7 @@ void DrawArrow(const Vec2& v, const Vec2& dir) {
     DrawArrow(v, dir, DEFAULT_ARROW_SIZE);
 }
 
-void DrawOrigin(EditorAsset* ea) {
+void DrawOrigin(AssetData* ea) {
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_ORIGIN_BORDER);
     DrawVertex(ea->position, ORIGIN_BORDER_SIZE);
@@ -79,7 +79,7 @@ void DrawOrigin(EditorAsset* ea) {
     DrawVertex(ea->position, ORIGIN_SIZE);
 }
 
-void DrawBounds(EditorAsset* ea, float expand, const Color& color) {
+void DrawBounds(AssetData* ea, float expand, const Color& color) {
     BindMaterial(g_view.vertex_material);
     BindColor(color);
     Bounds2 b = Expand(GetBounds(ea), expand);

@@ -16,7 +16,7 @@ const char* ASSET_MANIFEST_HEADER =
 
 struct AssetEntry
 {
-    EditorAsset* asset;
+    AssetData* asset;
     std::string var_name;
     uint32_t signature;
     std::vector<const Name*> names;
@@ -54,7 +54,7 @@ static std::string GetNameVar(const Name* name)
     return result;
 }
 
-static AssetSignature ReadAssetHeader(EditorAsset* ea, ManifestGenerator& generator, std::vector<const Name*>& out_names)
+static AssetSignature ReadAssetHeader(AssetData* ea, ManifestGenerator& generator, std::vector<const Name*>& out_names)
 {
     fs::path path = g_editor.output_dir / GetTypeNameFromSignature(ea->importer->signature) / ea->name->value;
     Stream* stream = LoadStream(nullptr, path);
@@ -108,7 +108,7 @@ static bool ReadAsset(u32 item_index, void* item_ptr, void* user_data)
     (void)item_index;
 
     assert(item_ptr);
-    EditorAsset* ea = (EditorAsset*)item_ptr;
+    AssetData* ea = (AssetData*)item_ptr;
     ManifestGenerator& generator = *(ManifestGenerator*)user_data;
 
     std::vector<const Name*> names;

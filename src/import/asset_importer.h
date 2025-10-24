@@ -8,9 +8,9 @@ class Props;
 
 struct AssetImporter
 {
-    EditorAssetType type;
+    AssetType type;
     AssetSignature signature;
     const char* ext;
-    void (*import_func) (EditorAsset* ea, Stream* output_stream, Props* config, Props* meta);
-    bool (*does_depend_on) (EditorAsset* ea, EditorAsset* dependency);
+    void (*import_func) (AssetData* ea, Stream* output_stream, Props* config, Props* meta);
+    bool (*does_depend_on) (AssetData* ea, AssetData* dependency);
 };

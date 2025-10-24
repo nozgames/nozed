@@ -6,7 +6,7 @@ constexpr int MAX_UNDO = MAX_ASSETS * 2;
 
 struct UndoItem
 {
-    EditorAssetData ea;
+    FatAssetData ea;
     int asset_index;
     int group_id;
 };
@@ -17,7 +17,7 @@ struct UndoSystem
     RingBuffer* redo;
     int next_group_id;
     int current_group_id;
-    EditorAsset* temp[MAX_UNDO];
+    AssetData* temp[MAX_UNDO];
     int temp_count;
 };
 
@@ -30,7 +30,7 @@ static void Free(UndoItem& item)
 
 static void CallUndoRedo() {
     for (int i=0; i<g_undo.temp_count; i++) {
-        EditorAsset* ea = g_undo.temp[i];
+        AssetData* ea = g_undo.temp[i];
         if (ea->vtable.undo_redo)
             ea->vtable.undo_redo(ea);
     }
@@ -53,7 +53,7 @@ static bool UndoInternal(bool allow_redo)
         if (undo_item.group_id != -1 && undo_item.group_id != group_id)
             break;
 
-        EditorAsset* undo_asset = GetEditorAsset(undo_item.asset_index);
+        AssetData* undo_asset = GetAssetData(undo_item.asset_index);
         assert(undo_asset);
         assert(undo_asset->type == undo_item.ea.asset.type);
 
@@ -98,7 +98,7 @@ bool Redo()
         if (redo_item.group_id != -1 && redo_item.group_id != group_id)
             break;
 
-        EditorAsset* redo_asset = GetEditorAsset(redo_item.asset_index);
+        AssetData* redo_asset = GetAssetData(redo_item.asset_index);
         assert(redo_asset);
         assert(redo_asset->type == redo_item.ea.asset.type);
 
@@ -140,10 +140,10 @@ void EndUndoGroup()
 
 void RecordUndo()
 {
-    RecordUndo(GetEditingAsset());
+    RecordUndo(GetAssetData());
 }
 
-void RecordUndo(EditorAsset* ea)
+void RecordUndo(AssetData* ea)
 {
     // Maxium undo size
     if (IsFull(g_undo.undo)) {

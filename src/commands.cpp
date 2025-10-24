@@ -22,32 +22,6 @@ static void HandleSave(const Command& command)
     SaveEditorAssets();
 }
 
-// @edit
-static void HandleEdit(const Command& command)
-{
-    if (command.arg_count < 1)
-    {
-        LogError("missing asset name");
-        return;
-    }
-
-    const Name* name = GetName(command.args[0]);
-    if (name == NAME_NONE)
-    {
-        LogError("missing asset name");
-        return;
-    }
-
-    EditorAsset* ea = GetEditorAsset(EDITOR_ASSET_TYPE_UNKNOWN, name);
-    if (!ea)
-    {
-        LogError("unknown asset: %s", name->value);
-        return;
-    }
-
-    FocusAsset(ea);
-}
-
 // @new
 static void HandleNew(const Command& command)
 {
@@ -67,7 +41,7 @@ static void HandleNew(const Command& command)
 
     const Name* asset_name = GetName(command.args[1]);
 
-    EditorAsset* ea = nullptr;
+    AssetData* ea = nullptr;
     if (type == NAME_MESH || type == NAME_M)
         ea = NewEditorMesh(asset_name->value);
     else if (type == NAME_SKELETON || type == NAME_S)
@@ -136,7 +110,6 @@ void InitCommands()
 {
     static CommandHandler commands[] = {
         { NAME_S, NAME_SAVE, HandleSave },
-        { NAME_E, NAME_EDIT, HandleEdit },
         { NAME_N, NAME_NEW, HandleNew },
         { NAME_R, NAME_RENAME, HandleRename },
         { nullptr, nullptr, nullptr }

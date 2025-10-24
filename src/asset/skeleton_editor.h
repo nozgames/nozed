@@ -8,7 +8,7 @@ constexpr int MAX_SKINNED_MESHES = 64;
 
 struct EditorSkinnedMesh {
     const Name* asset_name;
-    EditorMesh* mesh;
+    MeshData* mesh;
     int bone_index;
 };
 
@@ -23,7 +23,7 @@ struct EditorBone {
     bool selected;
 };
 
-struct EditorSkeleton : EditorAsset {
+struct EditorSkeleton : AssetData {
     int bone_count;
     EditorBone bones[MAX_BONES];
     EditorSkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
@@ -32,14 +32,14 @@ struct EditorSkeleton : EditorAsset {
 };
 
 inline EditorSkeleton* GetEditorSkeleton(int index) {
-    EditorAsset* ea = GetEditorAsset(index);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    AssetData* ea = GetAssetData(index);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     return (EditorSkeleton*)ea;
 }
 
-extern void InitEditorSkeleton(EditorAsset* ea);
-extern EditorAsset* NewEditorSkeleton(const std::filesystem::path& path);
-extern EditorAsset* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton);
+extern void InitEditorSkeleton(AssetData* ea);
+extern AssetData* NewEditorSkeleton(const std::filesystem::path& path);
+extern AssetData* CreateEditorSkeletonAsset(const std::filesystem::path& path, EditorSkeleton* skeleton);
 extern void DrawEditorSkeleton(EditorSkeleton* es, bool selected);
 extern void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool selected);
 extern void DrawEditorSkeletonBone(EditorSkeleton* es, int bone_index, const Vec2& position);

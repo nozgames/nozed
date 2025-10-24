@@ -76,7 +76,7 @@ static void WriteFontData(
     WriteBytes(stream, atlas_data.data(), (u32)atlas_data.size());
 }
 
-static void ImportFont(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
+static void ImportFont(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
 
@@ -193,7 +193,7 @@ static void ImportFont(EditorAsset* ea, Stream* output_stream, Props* config, Pr
 AssetImporter GetFontImporter()
 {
     return {
-        .type = EDITOR_ASSET_TYPE_FONT,
+        .type = ASSET_TYPE_FONT,
         .signature = ASSET_SIGNATURE_FONT,
         .ext = ".ttf",
         .import_func = ImportFont

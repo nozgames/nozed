@@ -23,9 +23,9 @@ const Name* MakeCanonicalAssetName(const char* name)
     return GetName(result.c_str());
 }
 
-EditorAsset* CreateEditorAsset(const std::filesystem::path& path)
+AssetData* CreateEditorAsset(const std::filesystem::path& path)
 {
-    EditorAsset* ea = (EditorAsset*)Alloc(g_editor.asset_allocator, sizeof(EditorAssetData));
+    AssetData* ea = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData));
     Copy(ea->path, sizeof(ea->path), path.string().c_str());
     ea->name = MakeCanonicalAssetName(path);
     ea->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
@@ -48,19 +48,19 @@ EditorAsset* CreateEditorAsset(const std::filesystem::path& path)
     }
 
     switch (ea->type) {
-    case EDITOR_ASSET_TYPE_MESH:
+    case ASSET_TYPE_MESH:
         InitEditorMesh(ea);
         break;
 
-    case EDITOR_ASSET_TYPE_VFX:
+    case ASSET_TYPE_VFX:
         InitEditorVfx(ea);
         break;
 
-    case EDITOR_ASSET_TYPE_ANIMATION:
+    case ASSET_TYPE_ANIMATION:
         InitEditorAnimation(ea);
         break;
 
-    case EDITOR_ASSET_TYPE_SKELETON:
+    case ASSET_TYPE_SKELETON:
         InitEditorSkeleton(ea);
         break;
 
@@ -71,7 +71,7 @@ EditorAsset* CreateEditorAsset(const std::filesystem::path& path)
     return ea;
 }
 
-static void LoadAssetMetadata(EditorAsset* ea, const std::filesystem::path& path) {
+static void LoadAssetMetadata(AssetData* ea, const std::filesystem::path& path) {
     Props* props = LoadProps(std::filesystem::path(path.string() + ".meta"));
     if (!props)
         return;
@@ -83,7 +83,7 @@ static void LoadAssetMetadata(EditorAsset* ea, const std::filesystem::path& path
         ea->vtable.load_metadata(ea, props);
 }
 
-static void SaveAssetMetadata(EditorAsset* ea) {
+static void SaveAssetMetadata(AssetData* ea) {
     std::filesystem::path meta_path = std::filesystem::path(std::string(ea->path) + ".meta");
     Props* props = LoadProps(meta_path);
     if (!props)
@@ -101,7 +101,7 @@ static void SaveAssetMetadata()
 {
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset* ea = GetEditorAsset(i);
+        AssetData* ea = GetAssetData(i);
         if (!ea || (!ea->modified && !ea->meta_modified))
             continue;
 
@@ -111,19 +111,19 @@ static void SaveAssetMetadata()
     }
 }
 
-void MoveTo(EditorAsset* ea, const Vec2& position)
+void SetPosition(AssetData* ea, const Vec2& position)
 {
     ea->position = position;
     ea->meta_modified = true;
 }
 
-void DrawSelectedEdges(EditorMesh* em, const Vec2& position)
+void DrawSelectedEdges(MeshData* em, const Vec2& position)
 {
     BindMaterial(g_view.vertex_material);
 
     for (i32 edge_index=0; edge_index < em->edge_count; edge_index++)
     {
-        const EditorEdge& ee = em->edges[edge_index];
+        const EdgeData& ee = em->edges[edge_index];
         if (!ee.selected)
             continue;
 
@@ -133,24 +133,24 @@ void DrawSelectedEdges(EditorMesh* em, const Vec2& position)
     }
 }
 
-void DrawEdges(EditorMesh* em, const Vec2& position)
+void DrawEdges(MeshData* em, const Vec2& position)
 {
     BindMaterial(g_view.vertex_material);
 
     for (i32 edge_index=0; edge_index < em->edge_count; edge_index++)
     {
-        const EditorEdge& ee = em->edges[edge_index];
+        const EdgeData& ee = em->edges[edge_index];
         DrawLine(em->vertices[ee.v0].position + position, em->vertices[ee.v1].position + position);
     }
 }
 
-void DrawSelectedFaces(EditorMesh* em, const Vec2& position)
+void DrawSelectedFaces(MeshData* em, const Vec2& position)
 {
     BindMaterial(g_view.vertex_material);
 
     for (i32 face_index=0; face_index < em->face_count; face_index++)
     {
-        const EditorFace& ef = em->faces[face_index];
+        const FaceData& ef = em->faces[face_index];
         if (!ef.selected)
             continue;
 
@@ -163,12 +163,12 @@ void DrawSelectedFaces(EditorMesh* em, const Vec2& position)
     }
 }
 
-void DrawFaceCenters(EditorMesh* em, const Vec2& position)
+void DrawFaceCenters(MeshData* em, const Vec2& position)
 {
     BindMaterial(g_view.vertex_material);
     for (int i=0; i<em->face_count; i++)
     {
-        EditorFace& ef = em->faces[i];
+        FaceData& ef = em->faces[i];
         BindColor(ef.selected ? COLOR_VERTEX_SELECTED : COLOR_VERTEX);
         DrawVertex(position + GetFaceCenter(em, i));
     }
@@ -181,7 +181,7 @@ void SaveEditorAssets()
     u32 count = 0;
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset* ea = GetEditorAsset(i);;
+        AssetData* ea = GetAssetData(i);;
         if (!ea || !ea->modified)
             continue;
 
@@ -199,7 +199,7 @@ void SaveEditorAssets()
         AddNotification("Saved %d asset(s)", count);
 }
 
-bool OverlapPoint(EditorAsset* ea, const Vec2& overlap_point)
+bool OverlapPoint(AssetData* ea, const Vec2& overlap_point)
 {
     if (!Contains(ea->bounds + ea->position, overlap_point))
         return false;
@@ -210,7 +210,7 @@ bool OverlapPoint(EditorAsset* ea, const Vec2& overlap_point)
     return ea->vtable.overlap_point(ea, ea->position, overlap_point);
 }
 
-bool OverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)
+bool OverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
 {
     if (!ea->vtable.overlap_point)
         return false;
@@ -218,7 +218,7 @@ bool OverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_poi
     return ea->vtable.overlap_point(ea, position, overlap_point);
 }
 
-bool OverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
+bool OverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
 {
     if (!ea->vtable.overlap_bounds)
         return Intersects(ea->bounds + ea->position, overlap_bounds);
@@ -226,120 +226,98 @@ bool OverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
     return ea->vtable.overlap_bounds(ea, overlap_bounds);
 }
 
-int HitTestAssets(const Vec2& overlap_point) {
-    for (u32 i=GetEditorAssetCount(); i>0; i--) {
-        EditorAsset* ea = GetSortedEditorAsset(i-1);
-        if (!ea)
+AssetData* HitTestAssets(const Vec2& overlap_point) {
+    for (u32 i=GetAssetCount(); i>0; i--) {
+        AssetData* a = GetSortedAssetData(i-1);
+        if (!a)
             continue;
 
-        if (OverlapPoint(ea, overlap_point))
-            return GetIndex(ea);
+        if (OverlapPoint(a, overlap_point))
+            return a;
     }
 
-    return -1;
+    return nullptr;
 }
 
-int HitTestAssets(const Bounds2& hit_bounds) {
-    for (u32 i=GetEditorAssetCount(); i>0; i--) {
-        EditorAsset* ea = GetSortedEditorAsset(i-1);
-        if (!ea)
+AssetData* HitTestAssets(const Bounds2& hit_bounds) {
+    for (u32 i=GetAssetCount(); i>0; i--) {
+        AssetData* a = GetSortedAssetData(i-1);
+        if (!a)
             continue;
 
-        if (OverlapBounds(ea, hit_bounds))
-            return GetIndex(ea);
+        if (OverlapBounds(a, hit_bounds))
+            return a;
     }
 
-    return -1;
+    return nullptr;
 }
 
-void DrawAsset(EditorAsset* ea) {
+void DrawAsset(AssetData* ea) {
     BindDepth(0.0f);
     if (ea->vtable.draw)
         ea->vtable.draw(ea);
 }
 
-Bounds2 GetBounds(EditorAsset* ea)
-{
-    return ea->bounds;
-}
-
-int GetFirstSelectedAsset()
-{
-    for (u32 i=0; i<MAX_ASSETS; i++)
+AssetData* GetFirstSelectedAsset() {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++)
     {
-        EditorAsset* ea = GetEditorAsset(i);
-        if (ea && ea->selected)
-            return i;
+        AssetData* a = GetSortedAssetData(i);
+        assert(a);
+        if (a->selected)
+            return a;
     }
 
-    return -1;
+    return nullptr;
 }
 
-void ClearAssetSelection()
-{
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
-        EditorAsset* ea = GetEditorAsset(i);
-        if (!ea)
-            continue;
+void ClearAssetSelection() {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* ea = GetSortedAssetData(i);
+        assert(ea);
         ea->selected = false;
     }
 
     g_view.selected_asset_count = 0;
 }
 
-void SetAssetSelection(int asset_index)
-{
-    ClearAssetSelection();
-    EditorAsset* ea = GetEditorAsset(asset_index);
-    if (ea)
-        ea->selected = true;
-    g_view.selected_asset_count = 1;
+void SetSelected(AssetData* a, bool selected) {
+    assert(a);
+    if (a->selected == selected)
+        return;
+    a->selected = true;
+    g_view.selected_asset_count++;
 }
 
-void ToggleAssetSelection(int asset_index) {
-    EditorAsset* ea = GetEditorAsset(asset_index);
-    if (!ea)
-        return;
-
-    ea->selected = !ea->selected;
-    if (ea->selected)
+void ToggleSelected(AssetData* a) {
+    assert(a);
+    a->selected = !a->selected;
+    if (a->selected)
         g_view.selected_asset_count++;
     else
         g_view.selected_asset_count--;
 }
 
-void AddAssetSelection(int asset_index)
-{
-    EditorAsset* ea = GetEditorAsset(asset_index);
-    if (!ea || ea->selected)
-        return;
-
-    ea->selected = true;
-    g_view.selected_asset_count++;
-}
-
-EditorAsset* GetEditorAsset(EditorAssetType type, const Name* name)
+AssetData* GetAssetData(AssetType type, const Name* name)
 {
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset* ea = GetEditorAsset(i);
+        AssetData* ea = GetAssetData(i);
         if (!ea)
             continue;
 
-        if ((type == EDITOR_ASSET_TYPE_UNKNOWN || ea->type == type) && ea->name == name)
+        if ((type == ASSET_TYPE_UNKNOWN || ea->type == type) && ea->name == name)
             return ea;
     }
 
     return nullptr;
 }
 
-void Clone(EditorAsset* dst, EditorAsset* src)
+void Clone(AssetData* dst, AssetData* src)
 {
-    *(EditorAssetData*)dst = *(EditorAssetData*)src;
+    *(FatAssetData*)dst = *(FatAssetData*)src;
 
     if (dst->vtable.clone)
-        dst->vtable.clone((EditorAsset*)dst);
+        dst->vtable.clone((AssetData*)dst);
 }
 
 void InitEditorAssets()
@@ -355,8 +333,8 @@ void InitEditorAssets()
             if (ext == ".meta")
                 continue;
 
-            EditorAsset* ea = nullptr;
-            for (int asset_type=0; !ea && asset_type<EDITOR_ASSET_TYPE_COUNT; asset_type++)
+            AssetData* ea = nullptr;
+            for (int asset_type=0; !ea && asset_type<ASSET_TYPE_COUNT; asset_type++)
                 ea = CreateEditorAsset(asset_path);
 
             if (ea)
@@ -365,7 +343,7 @@ void InitEditorAssets()
     }
 }
 
-void LoadEditorAsset(EditorAsset* ea)
+void LoadEditorAsset(AssetData* ea)
 {
     assert(ea);
 
@@ -383,7 +361,7 @@ void LoadEditorAssets()
 {
     for (int asset_index=0; asset_index<MAX_ASSETS; asset_index++)
     {
-        EditorAsset* ea = GetEditorAsset(asset_index);
+        AssetData* ea = GetAssetData(asset_index);
         if (!ea)
             continue;
 
@@ -392,7 +370,7 @@ void LoadEditorAssets()
 
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset* ea = GetEditorAsset(i);
+        AssetData* ea = GetAssetData(i);
         if (ea && ea->vtable.post_load)
             ea->vtable.post_load(ea);
     }
@@ -402,13 +380,13 @@ void HotloadEditorAsset(const Name* name)
 {
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset* ea = GetEditorAsset(i);
+        AssetData* ea = GetAssetData(i);
         if (!ea || ea->name != name)
             continue;
 
         switch (ea->type)
         {
-        case EDITOR_ASSET_TYPE_VFX:
+        case ASSET_TYPE_VFX:
             // Stop(ea->vfx_handle);
             // Free(ea->vfx);
             // ea->vfx = LoadEditorVfx(ALLOCATOR_DEFAULT, ea->path);
@@ -423,10 +401,10 @@ void HotloadEditorAsset(const Name* name)
 
 void MarkModified()
 {
-    MarkModified(GetEditingAsset());
+    MarkModified(GetAssetData());
 }
 
-void MarkModified(EditorAsset* ea)
+void MarkModified(AssetData* ea)
 {
     ea->modified = true;
 }
@@ -448,7 +426,7 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
     return path;
 }
 
-void DeleteEditorAsset(EditorAsset* ea) {
+void DeleteAsset(AssetData* ea) {
     if (fs::exists(ea->path))
         fs::remove(ea->path);
 
@@ -464,8 +442,8 @@ static int AssetSortFunc(const void* a, const void* b)
     int index_a = *(int*)a;
     int index_b = *(int*)b;
 
-    EditorAsset* ea_a = GetEditorAsset(index_a);
-    EditorAsset* ea_b = GetEditorAsset(index_b);
+    AssetData* ea_a = GetAssetData(index_a);
+    AssetData* ea_b = GetAssetData(index_b);
     if (!ea_a && !ea_b)
         return 0;
 
@@ -487,7 +465,7 @@ static int AssetSortFunc(const void* a, const void* b)
 void SortAssets() {
     u32 asset_index = 0;
     for (u32 i=0; i<MAX_ASSETS; i++) {
-        EditorAsset* ea = GetEditorAsset(i);
+        AssetData* ea = GetAssetData(i);
         if (!ea)
             continue;
 
@@ -497,8 +475,8 @@ void SortAssets() {
     qsort(g_editor.sorted_assets, asset_index, sizeof(int), AssetSortFunc);
 
     asset_index = 0;
-    for (u32 i=0, c=GetEditorAssetCount(); i<c; i++) {
-        EditorAsset* ea = GetSortedEditorAsset(i);
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* ea = GetSortedAssetData(i);
         if (!ea)
             continue;
 

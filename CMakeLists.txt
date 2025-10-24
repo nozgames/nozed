@@ -14,14 +14,14 @@ set(SOURCE_FILES
     src/grid.cpp
     src/view.cpp
     src/notifications.cpp
-    src/asset_editor.cpp
+    src/asset_data.cpp
 
     src/views/animation_view.cpp
-    src/views/mesh_view.cpp
+    src/views/mesh_editor.cpp
     src/views/skeleton_view.cpp
 
     src/asset/skeleton_editor.cpp
-    src/asset/mesh_editor.cpp
+    src/asset/mesh_data.cpp
     src/asset/vfx_editor.cpp
     src/asset/animation_editor.cpp
 
@@ -32,6 +32,9 @@ set(SOURCE_FILES
     src/utils/file_helpers.cpp
     src/utils/draw_utils.cpp
     src/utils/ui_utils.cpp
+
+    src/tools/box_select.cpp
+    src/tools/move.cpp
 
     src/import/importer.cpp
     src/import/mesh_importer.cpp

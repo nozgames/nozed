@@ -4,13 +4,13 @@
 
 namespace fs = std::filesystem;
 
-void ImportVfx(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
+void ImportVfx(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
     (void)meta;
 
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_VFX);
+    assert(ea->type == ASSET_TYPE_VFX);
     EditorVfx* evfx = (EditorVfx*)ea;
     Serialize(evfx, output_stream);
 }
@@ -18,7 +18,7 @@ void ImportVfx(EditorAsset* ea, Stream* output_stream, Props* config, Props* met
 AssetImporter GetVfxImporter()
 {
     return {
-        .type = EDITOR_ASSET_TYPE_VFX,
+        .type = ASSET_TYPE_VFX,
         .signature = ASSET_SIGNATURE_VFX,
         .ext = ".vfx",
         .import_func = ImportVfx

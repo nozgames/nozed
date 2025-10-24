@@ -6,11 +6,11 @@
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 static void Init(EditorVfx* evfx);
 
-static void EditorVfxDraw(EditorAsset* ea)
+static void EditorVfxDraw(AssetData* ea)
 {
     EditorVfx* evfx = (EditorVfx*)ea;
     assert(evfx);
-    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    assert(evfx->type == ASSET_TYPE_VFX);
     if (!IsPlaying(evfx->handle) && evfx->vfx)
         evfx->handle = Play(evfx->vfx, ea->position);
 }
@@ -335,10 +335,10 @@ Vfx* ToVfx(Allocator* allocator, EditorVfx* evfx, const Name* name)
     return vfx;
 }
 
-static void EditorVfxLoad(EditorAsset* ea)
+static void EditorVfxLoad(AssetData* ea)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_VFX);
+    assert(ea->type == ASSET_TYPE_VFX);
     EditorVfx* evfx = (EditorVfx*)ea;
 
     Stream* input_stream = LoadStream(ALLOCATOR_DEFAULT, ea->path);
@@ -390,27 +390,27 @@ static void EditorVfxLoad(EditorAsset* ea)
     evfx->bounds = GetBounds(evfx->vfx);
 }
 
-static bool EditorVfxOverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)
+static bool EditorVfxOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
 {
     EditorVfx* evfx = (EditorVfx*)ea;
     assert(evfx);
-    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    assert(evfx->type == ASSET_TYPE_VFX);
     return Contains(GetBounds(evfx->vfx) + position, overlap_point);
 }
 
-static bool EditorVfxOverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
+static bool EditorVfxOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
 {
     EditorVfx* evfx = (EditorVfx*)ea;
     assert(evfx);
-    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    assert(evfx->type == ASSET_TYPE_VFX);
     return Intersects(GetBounds(evfx->vfx) + ea->position, overlap_bounds);
 }
 
-static void EditorVfxClone(EditorAsset* ea)
+static void EditorVfxClone(AssetData* ea)
 {
     EditorVfx* evfx = (EditorVfx*)ea;
     assert(evfx);
-    assert(evfx->type == EDITOR_ASSET_TYPE_VFX);
+    assert(evfx->type == ASSET_TYPE_VFX);
     evfx->vfx = nullptr;
     evfx->handle = INVALID_VFX_HANDLE;
 }
@@ -428,10 +428,10 @@ static void Init(EditorVfx* evfx)
     };
 }
 
-void InitEditorVfx(EditorAsset* ea)
+void InitEditorVfx(AssetData* ea)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_VFX);
+    assert(ea->type == ASSET_TYPE_VFX);
     EditorVfx* evfx = (EditorVfx*)ea;
     Init(evfx);
 }

@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../asset_editor.h"
+#include "../asset_data.h"
 #include "utils/file_helpers.h"
 
 static void Init(EditorSkeleton* es);
@@ -34,8 +34,8 @@ void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool) {
         BindColor(COLOR_WHITE);
         for (int i=0; i<es->skinned_mesh_count; i++) {
             EditorBone& bone = es->bones[es->skinned_meshes[i].bone_index];
-            EditorMesh* skinned_mesh = es->skinned_meshes[i].mesh;
-            if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
+            MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+            if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
                 continue;
 
             DrawMesh(skinned_mesh, Translate(es->position) * bone.local_to_world);
@@ -48,10 +48,10 @@ void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool) {
         DrawEditorSkeletonBone(es, bone_index, position);
 }
 
-static void EditorSkeletonDraw(EditorAsset* ea) {
+static void EditorSkeletonDraw(AssetData* ea) {
     EditorSkeleton* es = (EditorSkeleton*)ea;
     assert(es);
-    assert(es->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(es->type == ASSET_TYPE_SKELETON);
     DrawEditorSkeleton(es, es->position, ea->selected && !ea->editing);
 }
 
@@ -61,7 +61,7 @@ int HitTestBone(EditorSkeleton* es, const Vec2& world_pos) {
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         EditorBone* eb = es->bones + bone_index;
 
-        Mat3 local_to_world = Translate(GetEditingAsset()->position) * eb->local_to_world * Rotate(eb->transform.rotation);
+        Mat3 local_to_world = Translate(GetAssetData()->position) * eb->local_to_world * Rotate(eb->transform.rotation);
         if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world * Scale(eb->length)))
             continue;
 
@@ -135,10 +135,10 @@ static void ParseBone(EditorSkeleton* es, Tokenizer& tk) {
     }
 }
 
-static void EditorSkeletonLoad(EditorAsset* ea)
+static void EditorSkeletonLoad(AssetData* ea)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
 
     std::filesystem::path path = ea->path;
@@ -159,9 +159,9 @@ static void EditorSkeletonLoad(EditorAsset* ea)
     UpdateTransforms(es);
 }
 
-static void EditorSkeletonSave(EditorAsset* ea, const std::filesystem::path& path) {
+static void EditorSkeletonSave(AssetData* ea, const std::filesystem::path& path) {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
@@ -180,7 +180,7 @@ static void EditorSkeletonSave(EditorAsset* ea, const std::filesystem::path& pat
     Free(stream);
 }
 
-EditorAsset* NewEditorSkeleton(const std::filesystem::path& path)
+AssetData* NewEditorSkeleton(const std::filesystem::path& path)
 {
     const char* default_mesh = "b \"root\" -1 p 0 0\n";
 
@@ -225,8 +225,8 @@ void UpdateTransforms(EditorSkeleton* es) {
 
     for (int i=0; i<es->skinned_mesh_count; i++) {
         EditorBone& bone = es->bones[es->skinned_meshes[i].bone_index];
-        EditorMesh* skinned_mesh = es->skinned_meshes[i].mesh;
-        if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
+        MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+        if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
         Bounds2 mesh_bounds = Translate(GetBounds(skinned_mesh), TransformPoint(bone.local_to_world));
@@ -236,9 +236,9 @@ void UpdateTransforms(EditorSkeleton* es) {
     es->bounds = Expand(bounds, BOUNDS_PADDING);
 }
 
-static void EditorSkeletonLoadMetadata(EditorAsset* ea, Props* meta) {
+static void EditorSkeletonLoadMetadata(AssetData* ea, Props* meta) {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
 
     for (auto& key : meta->GetKeys("skin")) {
@@ -261,16 +261,16 @@ static void EditorSkeletonLoadMetadata(EditorAsset* ea, Props* meta) {
     }
 }
 
-static void EditorSkeletonPostLoad(EditorAsset* ea)
+static void EditorSkeletonPostLoad(AssetData* ea)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
 
     for (int i=0; i<es->skinned_mesh_count; i++)
     {
         EditorSkinnedMesh& esm = es->skinned_meshes[i];
-        esm.mesh = (EditorMesh*)GetEditorAsset(EDITOR_ASSET_TYPE_MESH, esm.asset_name);
+        esm.mesh = (MeshData*)GetAssetData(ASSET_TYPE_MESH, esm.asset_name);
     }
 
     SortSkin(es);
@@ -454,10 +454,10 @@ Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton* es, const Name* name)
     return skeleton;
 }
 
-static void EditorSkeletonSaveMetadata(EditorAsset* ea, Props* meta)
+static void EditorSkeletonSaveMetadata(AssetData* ea, Props* meta)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
     meta->ClearGroup("skin");
 
@@ -475,32 +475,32 @@ static void EditorSkeletonSaveMetadata(EditorAsset* ea, Props* meta)
     }
 }
 
-static bool EditorSkeletonOverlapPoint(EditorAsset* ea, const Vec2& position, const Vec2& overlap_point)
+static bool EditorSkeletonOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
     return Contains(es->bounds + position, overlap_point);
 }
 
-static bool EditorSkeletonOverlapBounds(EditorAsset* ea, const Bounds2& overlap_bounds)
+static bool EditorSkeletonOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
     return Intersects(es->bounds + ea->position, overlap_bounds);
 }
 
-static void EditorSkeletonUndoRedo(EditorAsset* ea) {
+static void EditorSkeletonUndoRedo(AssetData* ea) {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
     UpdateTransforms(es);
 }
 
-static void EditorSkeletonSortOrderChanged(EditorAsset* ea) {
+static void EditorSkeletonSortOrderChanged(AssetData* ea) {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
     SortSkin(es);
 }
@@ -519,17 +519,17 @@ static void Init(EditorSkeleton* es) {
         .load_metadata = EditorSkeletonLoadMetadata,
         .save_metadata = EditorSkeletonSaveMetadata,
         .draw = EditorSkeletonDraw,
-        .view_init = SkeletonViewInit,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds,
         .undo_redo = EditorSkeletonUndoRedo,
-        .on_sort_order_changed = EditorSkeletonSortOrderChanged
+        .on_sort_order_changed = EditorSkeletonSortOrderChanged,
+        .editor_begin = SkeletonViewInit,
     };
 }
 
-void InitEditorSkeleton(EditorAsset* ea) {
+void InitEditorSkeleton(AssetData* ea) {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     EditorSkeleton* es = (EditorSkeleton*)ea;
     Init(es);
 }

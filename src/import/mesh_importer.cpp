@@ -17,14 +17,14 @@ struct OutlineConfig
     float boundary_taper;
 };
 
-static void ImportMesh(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
+static void ImportMesh(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
     (void)meta;
 
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_MESH);
-    EditorMesh* em = (EditorMesh*)ea;
+    assert(ea->type == ASSET_TYPE_MESH);
+    MeshData* em = (MeshData*)ea;
 
     Mesh* m = ToMesh(em, false);
 
@@ -47,7 +47,7 @@ static void ImportMesh(EditorAsset* ea, Stream* output_stream, Props* config, Pr
 AssetImporter GetMeshImporter()
 {
     return {
-        .type = EDITOR_ASSET_TYPE_MESH,
+        .type = ASSET_TYPE_MESH,
         .signature = ASSET_SIGNATURE_MESH,
         .ext = ".mesh",
         .import_func = ImportMesh

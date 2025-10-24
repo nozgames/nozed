@@ -71,7 +71,7 @@ static void WriteTextureData(
     WriteBytes(stream, data, data_size);
 }
 
-static void ImportTexture(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
+static void ImportTexture(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
 
@@ -130,7 +130,7 @@ static void ImportTexture(EditorAsset* ea, Stream* output_stream, Props* config,
 AssetImporter GetTextureImporter()
 {
     return {
-        .type = EDITOR_ASSET_TYPE_TEXTURE,
+        .type = ASSET_TYPE_TEXTURE,
         .signature = ASSET_SIGNATURE_TEXTURE,
         .ext = ".png",
         .import_func = ImportTexture

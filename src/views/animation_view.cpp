@@ -52,9 +52,9 @@ static Shortcut* g_animation_editor_shortcuts;
 
 static EditorAnimation* GetEditingAnimation()
 {
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     return (EditorAnimation*)ea;
 }
 
@@ -84,7 +84,7 @@ static void SetBoneSelected(int bone_index, bool selected) {
 
 static void UpdateSelectionCenter()
 {
-    EditorAsset& ea = *GetEditingAsset();
+    AssetData& ea = *GetAssetData();
     EditorAnimation* en = GetEditingAnimation();
     EditorSkeleton* es = GetEditingSkeleton();
 
@@ -203,7 +203,7 @@ static void UpdateBoneNames() {
     if (!IsAltDown(g_view.input) && !g_view.show_names)
         return;
 
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
     for (u16 i=0; i<es->bone_count; i++) {
         Mat3 transform = es->bones[i].local_to_world * Rotate(es->bones[i].transform.rotation);
@@ -218,7 +218,7 @@ static void UpdateBoneNames() {
 }
 
 static void UpdatePlayState() {
-    EditorAsset& ea = *GetEditingAsset();
+    AssetData& ea = *GetAssetData();
     EditorAnimation* en = GetEditingAnimation();
     if (!en->animation)
         en->animation = ToAnimation(ALLOCATOR_DEFAULT, en, ea.name);
@@ -233,7 +233,7 @@ static void HandleBoxSelect(const Bounds2& bounds) {
     if (!IsShiftDown(g_view.input))
         ClearSelection();
 
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         EditorAnimation* en = GetEditingAnimation();
@@ -308,7 +308,7 @@ void AnimationViewUpdate()
 }
 
 static void DrawOnionSkin() {
-    EditorAsset& ea = *GetEditingAsset();
+    AssetData& ea = *GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
     EditorAnimation* en = GetEditingAnimation();
 
@@ -363,7 +363,7 @@ static void DrawRotateState() {
 }
 
 static void DrawTimeline() {
-    EditorAsset& ea = *GetEditingAsset();
+    AssetData& ea = *GetAssetData();
     EditorAnimation* en = GetEditingAnimation();
 
     int real_frame_count = en->frame_count;
@@ -428,15 +428,15 @@ static void DrawTimeline() {
 
 void AnimationViewDraw()
 {
-    EditorAsset& ea = *GetEditingAsset();
+    AssetData& ea = *GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
     EditorAnimation* en = GetEditingAnimation();
 
     BindColor(COLOR_WHITE);
     for (int i=0; i<es->skinned_mesh_count; i++)
     {
-        EditorMesh* skinned_mesh = es->skinned_meshes[i].mesh;
-        if (!skinned_mesh || skinned_mesh->type != EDITOR_ASSET_TYPE_MESH)
+        MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+        if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
         DrawMesh(skinned_mesh, Translate(ea.position) * en->animator.bones[es->skinned_meshes[i].bone_index]);
@@ -535,7 +535,7 @@ static void HandlePlayCommand()
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    EditorAsset& ea = *GetEditingAsset();
+    AssetData& ea = *GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
 
     Init(

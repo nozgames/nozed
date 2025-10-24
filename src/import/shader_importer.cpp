@@ -132,7 +132,7 @@ static void WriteCompiledShader(
     WriteU8(output_stream, (u8)flags);
 }
 
-static void ImportShader(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
+static void ImportShader(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
 
@@ -391,7 +391,7 @@ static std::string ProcessIncludes(const std::string& source, const fs::path& ba
 AssetImporter GetShaderImporter()
 {
     return {
-        .type = EDITOR_ASSET_TYPE_SHADER,
+        .type = ASSET_TYPE_SHADER,
         .signature = ASSET_SIGNATURE_SHADER,
         .ext = ".glsl",
         .import_func = ImportShader

@@ -4,29 +4,29 @@
 
 namespace fs = std::filesystem;
 
-static void ImportAnimation(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
+static void ImportAnimation(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
     (void)meta;
 
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     EditorAnimation* en = (EditorAnimation*)ea;
 
-    EditorSkeleton* es = (EditorSkeleton*)GetEditorAsset(EDITOR_ASSET_TYPE_SKELETON, en->skeleton_name);
+    EditorSkeleton* es = (EditorSkeleton*)GetAssetData(ASSET_TYPE_SKELETON, en->skeleton_name);
     if (!es)
         ThrowError("invalid skeleton");
 
     Serialize(en, output_stream, es);
 }
 
-static bool DoesAnimationDependOn(EditorAsset* ea, EditorAsset* dependency)
+static bool DoesAnimationDependOn(AssetData* ea, AssetData* dependency)
 {
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_ANIMATION);
+    assert(ea->type == ASSET_TYPE_ANIMATION);
     assert(dependency);
 
-    if (dependency->type != EDITOR_ASSET_TYPE_SKELETON)
+    if (dependency->type != ASSET_TYPE_SKELETON)
         return false;
 
 #if 0
@@ -55,7 +55,7 @@ static bool DoesAnimationDependOn(EditorAsset* ea, EditorAsset* dependency)
 AssetImporter GetAnimationImporter()
 {
     return {
-        .type = EDITOR_ASSET_TYPE_ANIMATION,
+        .type = ASSET_TYPE_ANIMATION,
         .signature = ASSET_SIGNATURE_ANIMATION,
         .ext = ".anim",
         .import_func = ImportAnimation,

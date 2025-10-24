@@ -45,9 +45,9 @@ struct SkeletonView {
 static SkeletonView g_skeleton_view = {};
 
 inline EditorSkeleton* GetEditingSkeleton() {
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     assert(ea);
-    assert(ea->type == EDITOR_ASSET_TYPE_SKELETON);
+    assert(ea->type == ASSET_TYPE_SKELETON);
     return (EditorSkeleton*)ea;
 }
 
@@ -87,8 +87,8 @@ static void UpdateAllAnimations(EditorSkeleton* es)
 
     for (u32 i=0; i<MAX_ASSETS; i++)
     {
-        EditorAsset* other = GetEditorAsset(i);
-        if (!other || other->type != EDITOR_ASSET_TYPE_ANIMATION)
+        AssetData* other = GetAssetData(i);
+        if (!other || other->type != ASSET_TYPE_ANIMATION)
             continue;
 
         EditorAnimation* en = (EditorAnimation*)other;
@@ -108,7 +108,7 @@ static void UpdateBoneNames() {
     if (!IsAltDown(g_view.input) && !g_view.show_names)
         return;
 
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
     for (u16 i=0; i<es->bone_count; i++) {
         EditorBone* eb = es->bones + i;
@@ -124,7 +124,7 @@ static void UpdateBoneNames() {
 }
 
 static void UpdateSelectionCenter() {
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
 
     Vec2 center = VEC2_ZERO;
@@ -212,7 +212,7 @@ static void HandleBoxSelect(const Bounds2& bounds) {
     if (!IsShiftDown(g_view.input))
         ClearSelection();
 
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         EditorBone* eb = &es->bones[bone_index];
@@ -310,7 +310,7 @@ static void UpdateParentState() {
     if (!WasButtonPressed(g_view.input, MOUSE_LEFT))
         return;
 
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
 
     // Bone?
@@ -331,18 +331,14 @@ static void UpdateParentState() {
     }
 
     // Asset?
-    int hit_index = HitTestAssets(g_view.mouse_world_position);
-    if (hit_index == -1)
-        return;
-
-    EditorAsset* hit_asset = GetEditorAsset(hit_index);
-    if (!hit_asset || hit_asset->type != EDITOR_ASSET_TYPE_MESH)
+    AssetData* hit_asset = HitTestAssets(g_view.mouse_world_position);
+    if (!hit_asset || hit_asset->type != ASSET_TYPE_MESH)
         return;
 
     RecordUndo();
     es->skinned_meshes[es->skinned_mesh_count++] = {
         hit_asset->name,
-        (EditorMesh*)hit_asset,
+        (MeshData*)hit_asset,
         GetFirstSelectedBoneIndex()
     };
 
@@ -353,7 +349,7 @@ static void UpdateUnparentState() {
     if (!WasButtonPressed(g_view.input, MOUSE_LEFT))
         return;
 
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
     for (int i=0; i<es->skinned_mesh_count; i++)
     {
@@ -426,7 +422,7 @@ static void DrawRotateState() {
 }
 
 static void DrawSkeleton() {
-    EditorAsset* ea = GetEditingAsset();
+    AssetData* ea = GetAssetData();
     EditorSkeleton* es = GetEditingSkeleton();
 
     UpdateTransforms(es);

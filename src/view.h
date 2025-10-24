@@ -9,14 +9,13 @@ constexpr int STATE_STACK_SIZE = 16;
 constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
 
-#include <asset_editor.h>
+#include <asset_data.h>
 
 enum ViewState
 {
     VIEW_STATE_DEFAULT,
     VIEW_STATE_MOVE,
     VIEW_STATE_EDIT,
-    VIEW_STATE_BOX_SELECT,
     VIEW_STATE_COMMAND,
 };
 
@@ -33,7 +32,6 @@ struct ViewVtable
 {
     void (*update)();
     void (*draw)();
-    Bounds2 (*bounds)();
     void (*shutdown)();
     void (*rename)(const Name* new_name);
     const Name* (*preview_command)(const Command& command);
@@ -42,10 +40,8 @@ struct ViewVtable
 
 struct Shortcut;
 
-struct View
-{
-    ViewState state_stack[STATE_STACK_SIZE];
-    int state_stack_count;
+struct View {
+    ViewState state;
     Camera* camera;
     Material* shaded_material;
     Material* solid_material;
@@ -64,6 +60,7 @@ struct View
     float dpi;
     InputSet* input;
     InputSet* input_command;
+    InputSet* input_tool;
     bool clear_selection_on_release;
     Vec2 pan_position_camera;
     Vec2 pan_position;
@@ -72,11 +69,10 @@ struct View
 
     u32 selected_asset_count;
 
-    Bounds2 box_selection;
-    void (*box_select_callback)(const Bounds2& bounds);
     Vec2 move_world_position;
 
     bool drag;
+    bool drag_started;
     Vec2 drag_position;
     Vec2 drag_world_position;
     Vec2 drag_delta;
@@ -88,7 +84,6 @@ struct View
 
     ViewVtable vtable;
 
-    int edit_asset_index;
 
     Shortcut* shortcuts;
     bool show_names;
@@ -105,12 +100,12 @@ extern void InitViewUserConfig(Props* user_config);
 extern void SaveViewUserConfig(Props* user_config);
 extern void BeginBoxSelect(void (*callback)(const Bounds2& bounds));
 extern void ClearBoxSelect();
-extern void PushState(ViewState state);
-extern void PopState();
-extern void FocusAsset(EditorAsset* ea);
+extern void SetState(ViewState state);
 extern void HandleRename(const Name* name);
-extern void AddEditorAsset(EditorAsset* ea);
-inline EditorAsset* GetEditingAsset() { return GetEditorAsset(g_view.edit_asset_index); }
+extern void AddEditorAsset(AssetData* ea);
+extern void EndEdit();
+extern void BeginDrag();
+extern void EndDrag();
 
 // @grid
 extern void InitGrid(Allocator* allocator);
@@ -121,7 +116,7 @@ extern void DrawGrid(Camera* camera);
 extern void InitUndo();
 extern void ShutdownUndo();
 extern void HandleCommand(const Command& command);
-extern void RecordUndo(EditorAsset* ea);
+extern void RecordUndo(AssetData* ea);
 extern void RecordUndo();
 extern void BeginUndoGroup();
 extern void EndUndoGroup();
@@ -142,8 +137,8 @@ extern void DrawVertex(const Vec2& v);
 extern void DrawVertex(const Vec2& v, f32 size);
 extern void DrawArrow(const Vec2& v, const Vec2& dir);
 extern void DrawArrow(const Vec2& v, const Vec2& dir, f32 size);
-extern void DrawOrigin(EditorAsset* ea);
-extern void DrawBounds(EditorAsset* ea, float expand=0, const Color& color=COLOR_BLACK);
+extern void DrawOrigin(AssetData* ea);
+extern void DrawBounds(AssetData* ea, float expand=0, const Color& color=COLOR_BLACK);
 extern void DrawBone(const Vec2& a, const Vec2& b);
 extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position, float length=BONE_DEFAULT_LENGTH);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);

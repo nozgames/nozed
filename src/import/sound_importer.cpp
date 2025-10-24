@@ -71,7 +71,7 @@ bool ValidateWavDataChunk(const WavDataChunk* data)
     );
 }
 
-static void ImportSound(EditorAsset* ea, Stream* output_stream, Props* config, Props* meta)
+static void ImportSound(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
 {
     (void)config;
     (void)meta;
@@ -182,7 +182,7 @@ static void ImportSound(EditorAsset* ea, Stream* output_stream, Props* config, P
 AssetImporter GetSoundImporter()
 {
     return {
-        .type = EDITOR_ASSET_TYPE_SOUND,
+        .type = ASSET_TYPE_SOUND,
         .signature = ASSET_SIGNATURE_SOUND,
         .ext = ".wav",
         .import_func = ImportSound
