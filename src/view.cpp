@@ -137,40 +137,34 @@ static void UpdateZoom()
     SetPosition(g_view.camera, current_position + world_offset);
 }
 
-static void UpdateMoveState()
-{
-    Vec2 drag = g_view.mouse_world_position - g_view.move_world_position;
-
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
-        AssetData* ea = GetAssetData(i);
-        if (!ea || !ea->selected)
+static void UpdateMoveTool(const Vec2& delta) {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* ea = GetSortedAssetData(i);
+        assert(ea);
+        if (!ea->selected)
             continue;
 
-        SetPosition(ea, IsCtrlDown(g_view.input) ? SnapToGrid(ea->saved_position + drag, false) : ea->saved_position + drag);
+        SetPosition(ea, IsCtrlDown(g_view.input)
+            ? SnapToGrid(ea->saved_position + delta)
+            : ea->saved_position + delta);
+    }
+}
+
+static void CommitMoveTool(const Vec2&) {
+    EndTextInput();
+}
+
+static void CancelMoveTool() {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* ea = GetSortedAssetData(i);
+        assert(ea);
+        if (!ea->selected)
+            continue;
+        ea->position = ea->saved_position;
     }
 
-    // Cancel move?
-    if (WasButtonPressed(g_view.input, KEY_ESCAPE))
-    {
-        for (u32 i=0; i<MAX_ASSETS; i++)
-        {
-            AssetData* ea = GetAssetData(i);
-            if (ea && ea->selected)
-                ea->position = ea->saved_position;
-        }
-
-        SetState(VIEW_STATE_DEFAULT);
-        CancelUndo();
-        return;
-    }
-
-    // Finish move?
-    if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_G))
-    {
-        SetState(VIEW_STATE_DEFAULT);
-        return;
-    }
+    CancelUndo();
+    EndTextInput();
 }
 
 static void BeginEdit() {
@@ -217,12 +211,6 @@ static void UpdateDefaultState() {
         ClearAssetSelection();
         return;
     }
-
-    // Start an object move
-    if (WasButtonPressed(g_view.input, KEY_G) && g_view.selected_asset_count > 0) {
-        SetState(VIEW_STATE_MOVE);
-        return;
-    }
 }
 
 void SetState(ViewState state) {
@@ -235,10 +223,6 @@ void SetState(ViewState state) {
         GetAssetData()->editing = false;
         g_editor.editing_asset = nullptr;
         g_view.vtable = {};
-        break;
-
-    case VIEW_STATE_MOVE:
-        EndTextInput();
         break;
 
     case VIEW_STATE_COMMAND:
@@ -254,21 +238,6 @@ void SetState(ViewState state) {
 
     switch (state)
     {
-    case VIEW_STATE_MOVE:
-        g_view.move_world_position = g_view.mouse_world_position;
-        BeginUndoGroup();
-        for (u32 i=0; i<MAX_ASSETS; i++)
-        {
-            AssetData* ea = GetAssetData(i);
-            if (!ea || !ea->selected)
-                continue;
-            RecordUndo(ea);
-            ea->saved_position = ea->position;
-        }
-        EndUndoGroup();
-        BeginTextInput();
-        break;
-
     case VIEW_STATE_COMMAND:
         BeginTextInput();
         PushInputSet(g_view.input_command);
@@ -355,10 +324,6 @@ static void UpdateViewInternal() {
             g_editor.editing_asset->vtable.editor_update();
 
         break;
-
-    case VIEW_STATE_MOVE:
-        UpdateMoveState();
-        return;
 
     default:
         UpdateDefaultState();
@@ -739,6 +704,22 @@ void EndEdit() {
 void HandleUndo() { Undo(); }
 void HandleRedo() { Redo(); }
 
+static void BeginMove() {
+    BeginUndoGroup();
+    for (u32 i=0, c=GetAssetCount(); i<c; i++)
+    {
+        AssetData* a = GetSortedAssetData(i);
+        assert(a);
+        if (!a->selected)
+            continue;
+        RecordUndo(a);
+        a->saved_position = a->position;
+    }
+    EndUndoGroup();
+    BeginTextInput();
+    BeginMove({.update=UpdateMoveTool, .commit=CommitMoveTool, .cancel=CancelMoveTool});
+}
+
 void InitView() {
     InitUndo();
 
@@ -853,6 +834,7 @@ void InitView() {
 
     static Shortcut shortcuts[] = {
         { KEY_TAB, false, false, false, BeginEdit },
+        { KEY_G, false, false, false, BeginMove },
         { KEY_Z, false, true, false, HandleUndo },
         { KEY_Y, false, true, false, HandleRedo },
         { KEY_F, false, false, false, FrameSelected },

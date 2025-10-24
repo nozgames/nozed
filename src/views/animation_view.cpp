@@ -478,7 +478,7 @@ static void HandleNextFrameCommand()
     UpdateTransforms(en);
 }
 
-static void HandleMoveCommand()
+static void BeginMove()
 {
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
@@ -642,7 +642,7 @@ void AnimationViewInit()
     if (g_animation_editor_shortcuts == nullptr)
     {
         static Shortcut shortcuts[] = {
-            { KEY_G, false, false, false, HandleMoveCommand },
+            { KEY_G, false, false, false, BeginMove },
             { KEY_G, true, false, false, HandleResetMoveCommand },
             { KEY_R, false, false, false, HandleRotate },
             { KEY_R, true, false, false, HandleResetRotate },

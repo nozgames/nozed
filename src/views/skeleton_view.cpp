@@ -448,7 +448,7 @@ void SkeletonViewDraw()
         g_skeleton_view.state_draw();
 }
 
-static void HandleMoveCommand()
+static void BeginMove()
 {
     if (g_skeleton_view.state != SKELETON_EDITOR_STATE_DEFAULT)
         return;
@@ -599,7 +599,7 @@ void SkeletonViewInit() {
 
     if (!g_skeleton_view.shortcuts) {
         static Shortcut shortcuts[] = {
-            { KEY_G, false, false, false, HandleMoveCommand },
+            { KEY_G, false, false, false, BeginMove },
             { KEY_P, false, false, false, HandleParentCommand },
             { KEY_P, false, true, false, HandleUnparentCommand },
             { KEY_E, false, false, false, HandleExtrudeCommand },

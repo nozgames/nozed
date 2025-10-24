@@ -14,7 +14,6 @@ constexpr int UI_REF_HEIGHT = 1080;
 enum ViewState
 {
     VIEW_STATE_DEFAULT,
-    VIEW_STATE_MOVE,
     VIEW_STATE_EDIT,
     VIEW_STATE_COMMAND,
 };
@@ -68,8 +67,6 @@ struct View {
     const Name* command_preview;
 
     u32 selected_asset_count;
-
-    Vec2 move_world_position;
 
     bool drag;
     bool drag_started;

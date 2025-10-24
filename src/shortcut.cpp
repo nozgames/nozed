@@ -33,12 +33,9 @@ void CheckShortcuts(const Shortcut* shortcuts, InputSet* input_set) {
     if (!IsActive(input_set))
         return;
 
-    // Modifiers
     bool alt = IsButtonDown(input_set, KEY_LEFT_ALT) || IsButtonDown(g_view.input, KEY_RIGHT_ALT);
     bool ctrl = IsButtonDown(input_set, KEY_LEFT_CTRL) || IsButtonDown(g_view.input, KEY_RIGHT_CTRL);
     bool shift = IsButtonDown(input_set, KEY_LEFT_SHIFT) || IsButtonDown(g_view.input, KEY_RIGHT_SHIFT);
-
-    LogInfo("%d %d %d", (int)alt, (int)ctrl, (int)shift);
 
     for (const Shortcut* s = shortcuts; s->button != INPUT_CODE_NONE; s++) {
         if (alt == s->alt && ctrl == s->ctrl && shift == s->shift) {
