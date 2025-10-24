@@ -15,16 +15,12 @@ constexpr float CIRCLE_CONTROL_SIZE = 0.12f;
 constexpr float CENTER_SIZE = 0.2f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
-constexpr float ROTATE_TOOL_WIDTH = 0.02f;
 
 constexpr float COLOR_PICKER_SIZE = 300.0f;
 constexpr float COLOR_SQUARE_SIZE = COLOR_PICKER_SIZE / 16.0f;
 
 enum MeshEditorState {
     MESH_EDITOR_STATE_DEFAULT,
-    MESH_EDITOR_STATE_ROTATE,
-    MESH_EDITOR_STATE_SCALE,
-    MESH_EDITOR_STATE_NORMAL,
     MESH_EDITOR_STATE_EDGE,
 };
 
@@ -38,12 +34,6 @@ struct MeshEditorVertex {
     float saved_height;
     float saved_edge_size;
     Vec2 saved_position;
-};
-
-struct MeshEditorFace {
-    Vec3 saved_normal;
-    Vec2 saved_gradient_dir;
-    float saved_gradient_offset;
 };
 
 struct MeshEditor {
@@ -60,8 +50,6 @@ struct MeshEditor {
     float fixed_value;
     Shortcut* shortcuts;
     MeshEditorVertex vertices[MAX_VERTICES];
-    MeshEditorFace faces[MAX_FACES];
-    Mesh* rotate_arc_mesh;
     InputSet* input;
 };
 
@@ -279,21 +267,12 @@ static void SaveMeshState() {
         ev.saved_edge_size = v.edge_size;
         ev.saved_height = v.height;
     }
-
-    for (int i=0; i<m->face_count; i++) {
-        MeshEditorFace& ef = g_mesh_editor.faces[i];
-        FaceData& f = m->faces[i];
-        ef.saved_normal = f.normal;
-        ef.saved_gradient_dir = f.gradient_dir;
-        ef.saved_gradient_offset = f.gradient_offset;
-    }
 }
 
 static void RevertMeshState() {
     AssetData* ea = GetAssetData();
     MeshData* em = GetMeshData();
-    for (int i=0; i<em->vertex_count; i++)
-    {
+    for (int i=0; i<em->vertex_count; i++) {
         VertexData& ev = em->vertices[i];
         MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
         ev.position = mvv.saved_position;
@@ -301,42 +280,9 @@ static void RevertMeshState() {
         ev.edge_size = mvv.saved_edge_size;
     }
 
-    for (int i=0; i<em->face_count; i++)
-    {
-        FaceData& ef = em->faces[i];
-        MeshEditorFace& mvf = g_mesh_editor.faces[i];
-        ef.normal = mvf.saved_normal;
-        ef.gradient_dir = mvf.saved_gradient_dir;
-        ef.gradient_offset = mvf.saved_gradient_offset;
-    }
-
     MarkDirty(em);
     MarkModified(ea);
     UpdateSelection();
-}
-
-static void UpdateNormalState() {
-    AssetData* a = GetAssetData();
-    MeshData* m = GetMeshData();
-
-    float start_length = Length(g_view.drag_world_position - g_mesh_editor.selection_drag_start);
-    float current_length = Length(g_view.mouse_world_position - g_mesh_editor.selection_drag_start);
-    float delta_length = current_length - start_length;
-
-    Vec2 dir = Normalize(g_view.mouse_world_position - g_mesh_editor.selection_drag_start);
-
-    for (int i=0; i<m->face_count; i++) {
-        FaceData& f = m->faces[i];
-        if (!f.selected)
-            continue;
-
-        MeshEditorFace& ef = g_mesh_editor.faces[i];
-        Vec2 xy = dir;
-        f.normal = {xy.x, xy.y, Clamp(ef.saved_normal.z + delta_length, 0.0f, 1.0f) };
-    }
-
-    MarkDirty(m);
-    MarkModified(a);
 }
 
 static void UpdateEdgeState() {
@@ -359,71 +305,48 @@ static void UpdateEdgeState() {
     MarkModified(GetAssetData());
 }
 
-static void UpdateScaleState(AssetData* ea)
-{
-    float delta =
-        Length(g_view.mouse_world_position - g_mesh_editor.selection_drag_start) -
-        Length(g_view.drag_world_position - g_mesh_editor.selection_drag_start);
-
-    MeshData* em = GetMeshData();
-    for (i32 i=0; i<em->vertex_count; i++)
-    {
-        VertexData& ev = em->vertices[i];
-        if (!ev.selected)
+static void UpdateScaleTool(float scale) {
+    MeshData* m = GetMeshData();
+    for (i32 i=0; i<m->vertex_count; i++) {
+        VertexData& v = m->vertices[i];
+        if (!v.selected)
             continue;
 
-        MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
-        Vec2 dir = mvv.saved_position - g_mesh_editor.selection_center;
-        ev.position = g_mesh_editor.selection_center + dir * (1.0f + delta);
+        MeshEditorVertex& ev = g_mesh_editor.vertices[i];
+        Vec2 dir = ev.saved_position - g_mesh_editor.selection_center;
+        v.position = g_mesh_editor.selection_center + dir * scale;
     }
 
-    UpdateEdges(em);
-    MarkDirty(em);
-    MarkModified(ea);
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified();
 }
 
-static void UpdateRotateState(AssetData* ea)
-{
-    Vec2 start_dir = g_view.drag_world_position - g_mesh_editor.selection_drag_start;
-    Vec2 current_dir = g_view.mouse_world_position - g_mesh_editor.selection_drag_start;
+static void UpdateRotateTool(float angle) {
+    float cos_angle = Cos(Radians(angle));
+    float sin_angle = Sin(Radians(angle));
 
-    float start_angle = atan2f(start_dir.y, start_dir.x);
-    float current_angle = atan2f(current_dir.y, current_dir.x);
-    float rotation_angle = current_angle - start_angle;
-
-    float cos_angle = cosf(rotation_angle);
-    float sin_angle = sinf(rotation_angle);
-
-    MeshData* em = GetMeshData();
-    for (i32 i=0; i<em->vertex_count; i++)
-    {
-        VertexData& ev = em->vertices[i];
+    MeshData* m = GetMeshData();
+    for (i32 i=0; i<m->vertex_count; i++) {
+        VertexData& ev = m->vertices[i];
         if (!ev.selected)
             continue;
 
         MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
         Vec2 relative_pos = mvv.saved_position - g_mesh_editor.selection_center;
 
-        // Apply rotation
         Vec2 rotated_pos;
         rotated_pos.x = relative_pos.x * cos_angle - relative_pos.y * sin_angle;
         rotated_pos.y = relative_pos.x * sin_angle + relative_pos.y * cos_angle;
-
         ev.position = g_mesh_editor.selection_center + rotated_pos;
     }
 
-    UpdateEdges(em);
-    MarkDirty(em);
-    MarkModified(ea);
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified();
 }
 
 static void UpdateMoveTool(const Vec2& delta) {
-    // const TextInput& text_input = GetTextInput();
-    // if (text_input.length > 0 && text_input.value[0] == 'x')
-    //     delta.y = 0.0f;
-    // else if (text_input.length > 0 && text_input.value[0] == 'y')
-    //     delta.x = 0.0f;
-
     MeshData* m = GetMeshData();
     for (int i=0; i<m->vertex_count; i++) {
         VertexData& v = m->vertices[i];
@@ -445,32 +368,10 @@ static void SetState(MeshEditorState state) {
     g_mesh_editor.use_fixed_value = false;
     g_mesh_editor.use_negative_fixed_value = false;
 
-    MeshData* em = GetMeshData();
-    for (int i=0; i<em->vertex_count; i++)
-    {
-        MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
-        VertexData& ev = em->vertices[i];
-        mvv.saved_position = ev.position;
-        mvv.saved_edge_size = ev.edge_size;
-        mvv.saved_height = ev.height;
-    }
-
-    for (int i=0; i<em->face_count; i++)
-    {
-        MeshEditorFace& mvf = g_mesh_editor.faces[i];
-        FaceData& ef = em->faces[i];
-        mvf.saved_normal = ef.normal;
-        mvf.saved_gradient_dir = ef.gradient_dir;
-        mvf.saved_gradient_offset = ef.gradient_offset;
-    }
-
     ClearTextInput();
 
     switch (state)
     {
-    case MESH_EDITOR_STATE_ROTATE:
-    case MESH_EDITOR_STATE_SCALE:
-    case MESH_EDITOR_STATE_NORMAL:
     case MESH_EDITOR_STATE_EDGE:
         RecordUndo();
         break;
@@ -775,8 +676,6 @@ static void UpdateColorPicker(){
 }
 
 static void MeshEditorUpdate() {
-    AssetData* ea = GetAssetData();
-
     UpdateColorPicker();
 
     CheckShortcuts(g_mesh_editor.shortcuts, g_mesh_editor.input);
@@ -786,19 +685,6 @@ static void MeshEditorUpdate() {
     case MESH_EDITOR_STATE_DEFAULT:
         UpdateDefaultState();
         return;
-
-    case MESH_EDITOR_STATE_ROTATE:
-        UpdateRotateState(ea);
-        break;
-
-    case MESH_EDITOR_STATE_SCALE:
-        UpdateScaleState(ea);
-        break;
-
-    case MESH_EDITOR_STATE_NORMAL:
-        UpdateNormalState();
-        //UpdateGradientState();
-        break;
 
     case MESH_EDITOR_STATE_EDGE:
         UpdateEdgeState();
@@ -822,68 +708,6 @@ static void MeshEditorUpdate() {
         RevertMeshState();
         g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     }
-}
-
-static void DrawRotateState()
-{
-    Vec2 center = g_mesh_editor.selection_drag_start;
-    Vec2 start_dir = g_view.drag_world_position - center;
-    Vec2 current_dir = g_view.mouse_world_position - center;
-
-    float current_radius = Length(current_dir);
-    float start_angle = atan2f(start_dir.y, start_dir.x);
-    float current_angle = atan2f(current_dir.y, current_dir.x);
-    float rotation_angle = current_angle - start_angle;
-
-    // Normalize rotation angle to [-π, π] to avoid full circle jumps
-    while (rotation_angle > noz::PI) rotation_angle -= noz::TWO_PI;
-    while (rotation_angle < -noz::PI) rotation_angle += noz::TWO_PI;
-
-    // Draw center point
-    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
-    DrawVertex(center, CENTER_SIZE * 0.75f);
-
-    // Draw start line extending to current radius
-    Vec2 start_end = center + Normalize(start_dir) * current_radius;
-    BindColor(SetAlpha(COLOR_CENTER, 0.1f));
-    DrawLine(center, start_end);
-
-    // Draw current line
-    BindColor(COLOR_CENTER);
-    DrawDashedLine(center, g_view.mouse_world_position);
-
-    Free(g_mesh_editor.rotate_arc_mesh);
-    g_mesh_editor.rotate_arc_mesh = nullptr;
-
-    if (fabsf(rotation_angle) > 0.01f && current_radius > 0.01f)
-    {
-        BindColor(SetAlpha(COLOR_VERTEX, 0.1f));
-
-
-        MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 128, 384);
-        float arc_degrees = -Degrees(rotation_angle);
-        if (arc_degrees < 0)
-            AddArc(builder, VEC2_ZERO, current_radius, arc_degrees, 0.0f, 32, VEC2_ZERO);
-        else
-            AddArc(builder, VEC2_ZERO, current_radius, 0.0f, arc_degrees, 32, VEC2_ZERO);
-
-        g_mesh_editor.rotate_arc_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, true);
-        DrawMesh(g_mesh_editor.rotate_arc_mesh, TRS(center, Degrees(start_angle), VEC2_ONE));
-        Free(builder);
-    }
-
-    BindColor(COLOR_ORIGIN);
-    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
-}
-
-static void DrawScaleState()
-{
-    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
-    DrawVertex(g_mesh_editor.selection_drag_start, CENTER_SIZE * 0.75f);
-    BindColor(COLOR_CENTER);
-    DrawLine(g_view.mouse_world_position, g_mesh_editor.selection_drag_start, ROTATE_TOOL_WIDTH);
-    BindColor(COLOR_ORIGIN);
-    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
 }
 
 static void DrawCircleControls(float (*value_func)(const VertexData& ev)) {
@@ -916,81 +740,7 @@ static void DrawCircleControls(float (*value_func)(const VertexData& ev)) {
     }
 }
 
-#if 1
-static void DrawNormalState()
-{
-    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
-    DrawVertex(g_mesh_editor.selection_drag_start, CENTER_SIZE * 0.75f);
-    BindColor(COLOR_CENTER);
-    DrawDashedLine(g_view.mouse_world_position, g_mesh_editor.selection_drag_start);
-    BindColor(COLOR_ORIGIN);
-    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
-
-
-    AssetData* ea = GetAssetData();
-    MeshData* em = GetMeshData();
-    for (int face_index=0; face_index<em->face_count; face_index++)
-    {
-        FaceData& ef = em->faces[face_index];
-        if (!ef.selected)
-            continue;
-
-        Vec2 face_center = GetFaceCenter(em, face_index) + ea->position;
-        BindColor(COLOR_VERTEX_SELECTED);
-
-        if (ef.normal.z <= F32_EPSILON)
-        {
-            DrawVertex(face_center, 0.15f);
-            continue;
-        }
-
-        Vec2 normal = Normalize(Vec2{ef.normal.x, ef.normal.y});
-        Vec2 normal_end = face_center + normal * ef.normal.z * 0.5f;
-        DrawLine(face_center, normal_end, 0.025f);
-        DrawArrow(normal_end, normal);
-    }
-}
-#endif
-
-#if 0
-static void DrawGradientState()
-{
-    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
-    DrawVertex(g_mesh_editor.selection_drag_start, CENTER_SIZE * 0.75f);
-    BindColor(COLOR_CENTER);
-    DrawDashedLine(g_view.mouse_world_position, g_mesh_editor.selection_drag_start);
-    BindColor(COLOR_ORIGIN);
-    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
-
-#if 1
-    AssetData* ea = GetAssetData();
-    MeshData* em = GetMeshData();
-    for (int face_index=0; face_index<em->face_count; face_index++)
-    {
-        EditorFace& ef = em->faces[face_index];
-        if (!ef.selected)
-            continue;
-
-        Vec2 face_center = GetFaceCenter(em, face_index) + ea->position;
-        BindColor(COLOR_VERTEX_SELECTED);
-
-        if (ef.gradient_offset <= F32_EPSILON)
-        {
-            DrawVertex(face_center, 0.15f);
-            continue;
-        }
-
-        Vec2 normal = Normalize(Vec2{ef.gradient_dir.x, ef.gradient_dir.y});
-        Vec2 normal_end = face_center + normal * ef.gradient_offset * 0.5f;
-        DrawLine(face_center, normal_end, 0.025f);
-        DrawArrow(normal_end, normal);
-    }
-#endif
-}
-#endif
-
-static float GetEdgeSizeValue(const VertexData& ev)
-{
+static float GetEdgeSizeValue(const VertexData& ev) {
     return (ev.edge_size - EDGE_MIN) / (EDGE_MAX - EDGE_MIN);
 }
 
@@ -1034,19 +784,6 @@ static void MeshEditorDraw() {
     // Tools
     switch (g_mesh_editor.state)
     {
-    case MESH_EDITOR_STATE_ROTATE:
-        DrawRotateState();
-        break;
-
-    case MESH_EDITOR_STATE_SCALE:
-        DrawScaleState();
-        break;
-
-    case MESH_EDITOR_STATE_NORMAL:
-        DrawNormalState();
-        //DrawGradientState();
-        break;
-
     case MESH_EDITOR_STATE_EDGE:
         DrawEdgeState();
         break;
@@ -1164,43 +901,33 @@ static void BeginMove()
 
     SaveMeshState();
     RecordUndo();
-    BeginMove({.origin = g_mesh_editor.selection_center, .update=UpdateMoveTool, .cancel=CancelMeshTool});
+    BeginMove({.update=UpdateMoveTool, .cancel=CancelMeshTool});
 }
 
-static void HandleRotateCommand()
-{
+static void BeginRotate() {
     if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    MeshData* em = GetMeshData();
-    if (em->selected_count == 0 || (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX && em->selected_count == 1))
+    MeshData* m = GetMeshData();
+    if (m->selected_count == 0 || (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX && m->selected_count == 1))
         return;
 
-    SetState(MESH_EDITOR_STATE_ROTATE);
+    SaveMeshState();
+    RecordUndo();
+    BeginRotate({.origin=g_mesh_editor.selection_center+m->position, .update=UpdateRotateTool, .cancel=CancelMeshTool});
 }
 
-static void HandleScaleCommand()
-{
+static void BeginScale() {
     if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
         return;
 
-    MeshData* em = GetMeshData();
-    if (em->selected_count == 0)
+    MeshData* m = GetMeshData();
+    if (m->selected_count == 0)
         return;
 
-    SetState(MESH_EDITOR_STATE_SCALE);
-}
-
-static void HandleNormalCommand()
-{
-    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
-        return;
-
-    MeshData* em = GetMeshData();
-    if (em->selected_count == 0)
-        return;
-
-    SetState(MESH_EDITOR_STATE_NORMAL);
+    SaveMeshState();
+    RecordUndo();
+    BeginScale({.origin=g_mesh_editor.selection_center+m->position, .update=UpdateScaleTool, .cancel=CancelMeshTool});
 }
 
 static void HandleEdgeCommand()
@@ -1530,7 +1257,6 @@ static void MeshEditorEnd() {
 }
 
 void MeshEditorShutdown() {
-    Free(g_mesh_editor.rotate_arc_mesh);
     g_mesh_editor = {};
 }
 
@@ -1540,9 +1266,8 @@ void MeshEditorInit() {
 
     static Shortcut shortcuts[] = {
         { KEY_G, false, false, false, BeginMove },
-        { KEY_R, false, false, false, HandleRotateCommand },
-        { KEY_S, false, false, false, HandleScaleCommand },
-        { KEY_Q, false, false, false, HandleNormalCommand },
+        { KEY_R, false, false, false, BeginRotate },
+        { KEY_S, false, false, false, BeginScale },
         { KEY_W, false, false, false, HandleEdgeCommand },
         { KEY_A, false, false, false, HandleSelectAllCommand },
         { KEY_X, false, false, false, DissolveSelected },

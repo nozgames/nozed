@@ -347,22 +347,18 @@ void DrawView() {
     DrawGrid(g_view.camera);
 
     Bounds2 camera_bounds = GetBounds(g_view.camera);
-    for (u32 i=0; i<MAX_ASSETS; i++) {
-        AssetData* ea = GetAssetData(i);
-        if (!ea)
-            continue;
-
-        ea->clipped = !Intersects(camera_bounds, GetBounds(ea) + ea->position);
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* a = GetSortedAssetData(i);
+        assert(a);
+        a->clipped = !Intersects(camera_bounds, GetBounds(a) + a->position);
     }
 
     bool show_names = g_view.show_names || IsAltDown(g_view.input);
     if (show_names) {
-        for (u32 i=0; i<MAX_ASSETS; i++) {
-            AssetData* ea = GetAssetData(i);
-            if (!ea)
-                continue;
-
-            DrawBounds(ea);
+        for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+            AssetData* a = GetSortedAssetData(i);
+            assert(a);
+            DrawBounds(a);
         }
     }
 

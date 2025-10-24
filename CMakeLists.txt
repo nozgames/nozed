@@ -35,6 +35,8 @@ set(SOURCE_FILES
 
     src/tools/box_select.cpp
     src/tools/move.cpp
+    src/tools/scale.cpp
+    src/tools/rotate.cpp
 
     src/import/importer.cpp
     src/import/mesh_importer.cpp

@@ -43,14 +43,9 @@ static void UpdateMove() {
         g_move.options.update(delta);
 }
 
-static void DrawMove() {
-
-}
-
 void BeginMove(const MoveToolOptions& options) {
     static ToolVtable vtable = {
-        .update = UpdateMove,
-        .draw = DrawMove,
+        .update = UpdateMove
     };
 
     BeginTool({
