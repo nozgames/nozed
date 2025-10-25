@@ -9,7 +9,7 @@ constexpr int STATE_STACK_SIZE = 16;
 constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
 
-#include <asset_data.h>
+#include <asset/asset_data.h>
 
 enum ViewState
 {
@@ -51,6 +51,7 @@ struct View {
     Mesh* circle_mesh;
     Mesh* arc_mesh[101];
     Mesh* edge_mesh;
+    Mesh* quad_mesh;
     Collider* bone_collider;
     float zoom;
     float zoom_ref_scale;
@@ -103,6 +104,8 @@ extern void AddEditorAsset(AssetData* ea);
 extern void EndEdit();
 extern void BeginDrag();
 extern void EndDrag();
+extern void EnableCommonShortcuts(InputSet* input_set);
+extern void CheckCommonShortcuts();
 
 // @grid
 extern void InitGrid(Allocator* allocator);

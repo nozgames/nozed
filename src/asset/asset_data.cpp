@@ -2,9 +2,6 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <editor.h>
-#include <utils/file_helpers.h>
-
 namespace fs = std::filesystem;
 
 const Name* MakeCanonicalAssetName(const fs::path& path)
@@ -25,50 +22,53 @@ const Name* MakeCanonicalAssetName(const char* name)
 
 AssetData* CreateEditorAsset(const std::filesystem::path& path)
 {
-    AssetData* ea = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData));
-    Copy(ea->path, sizeof(ea->path), path.string().c_str());
-    ea->name = MakeCanonicalAssetName(path);
-    ea->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
-    ea->asset_path_index = -1;
+    AssetData* a = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData));
+    Copy(a->path, sizeof(a->path), path.string().c_str());
+    a->name = MakeCanonicalAssetName(path);
+    a->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
+    a->asset_path_index = -1;
 
     for (int i=0; i<g_editor.asset_path_count; i++) {
         fs::path relative = path.lexically_relative(g_editor.asset_paths[i]);
         if (!relative.empty() && relative.string().find("..") == std::string::npos) {
-            ea->asset_path_index = i;
+            a->asset_path_index = i;
             break;
         }
     }
 
-    assert(ea->asset_path_index != -1);
+    assert(a->asset_path_index != -1);
 
-    if (!InitImporter(ea))
-    {
-        Free(ea);
+    if (!InitImporter(a)) {
+        Free(a);
         return nullptr;
     }
 
-    switch (ea->type) {
+    switch (a->type) {
+    case ASSET_TYPE_TEXTURE:
+        InitTextureData(a);
+        break;
+
     case ASSET_TYPE_MESH:
-        InitEditorMesh(ea);
+        InitEditorMesh(a);
         break;
 
     case ASSET_TYPE_VFX:
-        InitEditorVfx(ea);
+        InitEditorVfx(a);
         break;
 
     case ASSET_TYPE_ANIMATION:
-        InitEditorAnimation(ea);
+        InitEditorAnimation(a);
         break;
 
     case ASSET_TYPE_SKELETON:
-        InitEditorSkeleton(ea);
+        InitEditorSkeleton(a);
         break;
 
     default:
         break;
     }
 
-    return ea;
+    return a;
 }
 
 static void LoadAssetMetadata(AssetData* ea, const std::filesystem::path& path) {
@@ -83,31 +83,30 @@ static void LoadAssetMetadata(AssetData* ea, const std::filesystem::path& path) 
         ea->vtable.load_metadata(ea, props);
 }
 
-static void SaveAssetMetadata(AssetData* ea) {
-    std::filesystem::path meta_path = std::filesystem::path(std::string(ea->path) + ".meta");
+static void SaveAssetMetadata(AssetData* a) {
+    std::filesystem::path meta_path = std::filesystem::path(std::string(a->path) + ".meta");
     Props* props = LoadProps(meta_path);
     if (!props)
         props = new Props{};
-    props->SetVec2("editor", "position", ea->position);
-    props->SetInt("editor", "sort_order", ea->sort_order);
+    props->SetVec2("editor", "position", a->position);
+    props->SetInt("editor", "sort_order", a->sort_order);
 
-    if (ea->vtable.save_metadata)
-        ea->vtable.save_metadata(ea, props);
+    if (a->vtable.save_metadata)
+        a->vtable.save_metadata(a, props);
 
     SaveProps(props, meta_path);
 }
 
-static void SaveAssetMetadata()
-{
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
-        AssetData* ea = GetAssetData(i);
-        if (!ea || (!ea->modified && !ea->meta_modified))
+static void SaveAssetMetadata() {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* a = GetSortedAssetData(i);
+        assert(a);
+        if (!a->modified && !a->meta_modified)
             continue;
 
-        SaveAssetMetadata(ea);
+        SaveAssetMetadata(a);
 
-        ea->meta_modified= false;
+        a->meta_modified= false;
     }
 }
 
@@ -174,21 +173,19 @@ void DrawFaceCenters(MeshData* em, const Vec2& position)
     }
 }
 
-void SaveEditorAssets()
-{
+void SaveEditorAssets() {
     SaveAssetMetadata();
 
     u32 count = 0;
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
-        AssetData* ea = GetAssetData(i);;
-        if (!ea || !ea->modified)
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* a = GetSortedAssetData(i);;
+        if (!a || !a->modified)
             continue;
 
-        ea->modified = false;
+        a->modified = false;
 
-        if (ea->vtable.save)
-            ea->vtable.save(ea, ea->path);
+        if (a->vtable.save)
+            a->vtable.save(a, a->path);
         else
             continue;
 
@@ -320,15 +317,12 @@ void Clone(AssetData* dst, AssetData* src)
         dst->vtable.clone((AssetData*)dst);
 }
 
-void InitEditorAssets()
-{
-    for (int i=0; i<g_editor.asset_path_count; i++)
-    {
+void InitEditorAssets() {
+    for (int i=0; i<g_editor.asset_path_count; i++) {
         std::vector<fs::path> asset_paths;
         GetFilesInDirectory(g_editor.asset_paths[i], asset_paths);
 
-        for (auto& asset_path : asset_paths)
-        {
+        for (auto& asset_path : asset_paths) {
             std::filesystem::path ext = asset_path.extension();
             if (ext == ".meta")
                 continue;
@@ -359,8 +353,7 @@ void LoadEditorAsset(AssetData* ea)
 
 void LoadEditorAssets()
 {
-    for (int asset_index=0; asset_index<MAX_ASSETS; asset_index++)
-    {
+    for (int asset_index=0; asset_index<MAX_ASSETS; asset_index++) {
         AssetData* ea = GetAssetData(asset_index);
         if (!ea)
             continue;
@@ -368,8 +361,7 @@ void LoadEditorAssets()
         LoadEditorAsset(ea);
     }
 
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
+    for (u32 i=0; i<MAX_ASSETS; i++) {
         AssetData* ea = GetAssetData(i);
         if (ea && ea->vtable.post_load)
             ea->vtable.post_load(ea);
@@ -399,14 +391,12 @@ void HotloadEditorAsset(const Name* name)
     }
 }
 
-void MarkModified()
-{
-    MarkModified(GetAssetData());
+void MarkModified(AssetData* a) {
+    a->modified = true;
 }
 
-void MarkModified(AssetData* ea)
-{
-    ea->modified = true;
+void MarkMetaModified(AssetData* a) {
+    a->meta_modified = true;
 }
 
 std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)

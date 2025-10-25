@@ -39,6 +39,7 @@ struct AssetData {
     bool meta_modified;
     bool clipped;
     bool loaded;
+    bool editor_only;
     AssetVtable vtable;
     Bounds2 bounds;
     int sort_order;
@@ -67,8 +68,11 @@ inline int GetIndex(AssetData* ea) {
 extern void InitEditorAssets();
 extern void LoadEditorAsset(AssetData* ea);
 extern void HotloadEditorAsset(const Name* name);
-extern void MarkModified();
-extern void MarkModified(AssetData* ea);
+extern void MarkModified(AssetData* a);
+inline void MarkModified() { MarkModified(GetAssetData()); }
+extern void MarkMetaModified();
+extern void MarkMetaModified(AssetData* a);
+inline void MarkMetaModified() { MarkMetaModified(GetAssetData()); }
 extern AssetData* CreateEditorAsset(const std::filesystem::path& path);
 extern std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext);
 extern void Clone(AssetData* dst, AssetData* src);
@@ -96,14 +100,16 @@ extern void SortAssets();
 inline Bounds2 GetBounds(AssetData* a) { return a->bounds; }
 
 
-#include "asset/animation_editor.h"
-#include "asset/mesh_data.h"
-#include "asset/skeleton_editor.h"
-#include "asset/vfx_editor.h"
+#include "animation_editor.h"
+#include "mesh_data.h"
+#include "texture_data.h"
+#include "skeleton_editor.h"
+#include "vfx_editor.h"
 
 union FatAssetData {
     AssetData asset;
     MeshData mesh;
+    TextureData texture;
     EditorVfx vfx;
     EditorSkeleton skeleton;
     EditorAnimation animation;

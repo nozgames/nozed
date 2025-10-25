@@ -51,6 +51,7 @@ struct MeshData : AssetData {
     int selected_count;
     Mesh* mesh;
     Vec2Int edge_color;
+    float opacity;
 };
 
 inline MeshData* GetMeshData(int index) {
@@ -62,7 +63,7 @@ inline MeshData* GetMeshData(int index) {
     return (MeshData*)ea;
 }
 
-extern void InitEditorMesh(AssetData* ea);
+extern void InitEditorMesh(AssetData* a);
 extern AssetData* NewEditorMesh(const std::filesystem::path& path);
 extern MeshData* Clone(Allocator* allocator, MeshData* em);
 extern MeshData* LoadEditorMesh(const std::filesystem::path& path);

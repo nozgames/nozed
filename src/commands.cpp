@@ -41,22 +41,22 @@ static void HandleNew(const Command& command)
 
     const Name* asset_name = GetName(command.args[1]);
 
-    AssetData* ea = nullptr;
+    AssetData* a = nullptr;
     if (type == NAME_MESH || type == NAME_M)
-        ea = NewEditorMesh(asset_name->value);
+        a = NewEditorMesh(asset_name->value);
     else if (type == NAME_SKELETON || type == NAME_S)
-        ea = NewEditorSkeleton(asset_name->value);
+        a = NewEditorSkeleton(asset_name->value);
     else if (type == NAME_ANIMATION || type == NAME_A)
-        ea = NewEditorAnimation(asset_name->value);
+        a = NewEditorAnimation(asset_name->value);
 
-    if (ea == nullptr)
+    if (a == nullptr)
         return;
 
-    ea->position = GetCenter(GetBounds(g_view.camera));
-    ea->meta_modified = true;
+    a->position = GetCenter(GetBounds(g_view.camera));
+    a->meta_modified = true;
 
-    if (ea->vtable.post_load)
-        ea->vtable.post_load(ea);
+    if (a->vtable.post_load)
+        a->vtable.post_load(a);
 }
 
 // @rename

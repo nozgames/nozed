@@ -14,14 +14,16 @@ set(SOURCE_FILES
     src/grid.cpp
     src/view.cpp
     src/notifications.cpp
-    src/asset_data.cpp
 
     src/views/animation_view.cpp
     src/views/mesh_editor.cpp
+    src/views/texture_editor.cpp
     src/views/skeleton_view.cpp
 
-    src/asset/skeleton_editor.cpp
+    src/asset/asset_data.cpp
     src/asset/mesh_data.cpp
+    src/asset/texture_data.cpp
+    src/asset/skeleton_editor.cpp
     src/asset/vfx_editor.cpp
     src/asset/animation_editor.cpp
 
@@ -37,6 +39,7 @@ set(SOURCE_FILES
     src/tools/move.cpp
     src/tools/scale.cpp
     src/tools/rotate.cpp
+    src/tools/weight.cpp
 
     src/import/importer.cpp
     src/import/mesh_importer.cpp

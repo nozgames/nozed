@@ -30,10 +30,7 @@ static void UpdateMove() {
         return;
     }
 
-    Vec2 delta = IsCtrlDown(GetInputSet())
-        ? SnapToGrid(g_view.mouse_world_position) - SnapToGrid(g_view.drag_world_position)
-        : g_view.drag_world_delta;
-
+    Vec2 delta = g_view.drag_world_delta;
     if (g_move.last_delta == delta)
         return;
 

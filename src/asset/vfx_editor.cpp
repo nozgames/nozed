@@ -3,7 +3,6 @@
 //
 
 
-extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 static void Init(EditorVfx* evfx);
 
 static void EditorVfxDraw(AssetData* ea)

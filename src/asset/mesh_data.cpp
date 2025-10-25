@@ -747,16 +747,16 @@ int HitTestEdge(MeshData* em, const Vec2& hit_pos, float* where)
     return best_edge;
 }
 
-void Center(MeshData* em)
-{
-    Vec2 size = GetSize(em->bounds);
-    Vec2 min = em->bounds.min;
+void Center(MeshData* m) {
+    Vec2 size = GetSize(m->bounds);
+    Vec2 min = m->bounds.min;
     Vec2 offset = min + size * 0.5f;
-    for (int i=0; i<em->vertex_count; i++)
-        em->vertices[i].position = em->vertices[i].position - offset;
+    for (int i=0; i<m->vertex_count; i++)
+        m->vertices[i].position = m->vertices[i].position - offset;
 
-    UpdateEdges(em);
-    MarkDirty(em);
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified();
 }
 
 bool OverlapBounds(MeshData* em, const Vec2& position, const Bounds2& hit_bounds)
@@ -962,8 +962,7 @@ static void ParseFace(MeshData* em, Tokenizer& tk)
     }
 }
 
-MeshData* LoadEditorMesh(const std::filesystem::path& path)
-{
+MeshData* LoadEditorMesh(const std::filesystem::path& path) {
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
@@ -1010,8 +1009,7 @@ MeshData* LoadEditorMesh(const std::filesystem::path& path)
     return em;
 }
 
-void EditorMeshLoad(AssetData* ea)
-{
+static void LoadMeshData(AssetData* ea) {
     assert(ea);
     assert(ea->type == ASSET_TYPE_MESH);
     MeshData* em = (MeshData*)ea;
@@ -1353,8 +1351,9 @@ void TriangulateFace(MeshData* em, FaceData* ef, MeshBuilder* builder) {
 extern void InitMeshEditor(MeshData* m);
 
 static void Init(MeshData* m) {
+    m->opacity = 1.0f;
     m->vtable = {
-        .load = EditorMeshLoad,
+        .load = LoadMeshData,
         .save = EditorMeshSave,
         .draw = EditorMeshDraw,
         .overlap_point = EditorMeshOverlapPoint,

@@ -30,6 +30,7 @@ enum ToolType {
     TOOL_TYPE_MOVE,
     TOOL_TYPE_ROTATE,
     TOOL_TYPE_SCALE,
+    TOOL_TYPE_WEIGHT,
 };
 
 struct Tool {
@@ -107,7 +108,7 @@ inline bool IsToolActive() { return g_editor.tool.type != TOOL_TYPE_NONE; }
 extern void HandleUndo();
 extern void HandleRedo();
 
-#include "asset_data.h"
+#include "asset/asset_data.h"
 #include "view.h"
 #include "import/asset_importer.h"
 #include "tool.h"

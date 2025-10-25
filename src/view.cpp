@@ -5,12 +5,11 @@
 #include "editor.h"
 #include "nozed_assets.h"
 
-constexpr int MAX_COMMAND_LENGTH = 1024;
 constexpr float SELECT_SIZE = 60.0f;
 constexpr float DRAG_MIN = 5;
 constexpr float DEFAULT_DPI = 72.0f;
 constexpr float ZOOM_MIN = 0.1f;
-constexpr float ZOOM_MAX = 40.0f;
+constexpr float ZOOM_MAX = 80.0f;
 constexpr float ZOOM_STEP = 0.1f;
 constexpr float ZOOM_DEFAULT = 1.0f;
 constexpr float VERTEX_SIZE = 0.1f;
@@ -22,8 +21,7 @@ View g_view = {};
 
 inline ViewState GetState() { return g_view.state; }
 
-static void UpdateCamera()
-{
+static void UpdateCamera() {
     float DPI = g_view.dpi * g_view.ui_scale * g_view.zoom;
     Vec2Int screen_size = GetScreenSize();
     f32 world_width = screen_size.x / DPI;
@@ -50,18 +48,17 @@ static void FrameSelected() {
     Bounds2 bounds = {};
     bool first = true;
 
-    if (first)
-    {
-        for (u32 i=0; i<MAX_ASSETS; i++)
-        {
-            AssetData* ea = GetAssetData(i);
-            if (!ea || !ea->selected)
+    if (first) {
+        for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+            AssetData* ea = GetSortedAssetData(i);
+            assert(ea);
+            if (!ea->selected)
                 continue;
 
             if (first)
-                bounds = GetViewBounds(ea) + ea->position;
+                bounds = GetViewBounds(ea);
             else
-                bounds = Union(bounds, GetViewBounds(ea) + ea->position);
+                bounds = Union(bounds, GetViewBounds(ea));
 
             first = false;
         }
@@ -96,42 +93,33 @@ static void CommitBoxSelect(const Bounds2& bounds) {
 }
 
 static void UpdatePanState() {
-    if (WasButtonPressed(g_view.input, MOUSE_RIGHT))
-    {
+    if (WasButtonPressed(g_view.input, MOUSE_RIGHT)) {
         g_view.pan_position = g_view.mouse_position;
         g_view.pan_position_camera = GetPosition(g_view.camera);
     }
 
-    if (IsButtonDown(g_view.input, MOUSE_RIGHT))
-    {
+    if (IsButtonDown(g_view.input, MOUSE_RIGHT)) {
         Vec2 delta = g_view.mouse_position - g_view.pan_position;
         Vec2 world_delta = ScreenToWorld(g_view.camera, delta) - ScreenToWorld(g_view.camera, VEC2_ZERO);
         SetPosition(g_view.camera, g_view.pan_position_camera - world_delta);
     }
 }
 
-static void UpdateZoom()
-{
-    float zoom_axis = GetAxis(g_view.input, MOUSE_SCROLL_Y);
+static void UpdateZoom() {
+    float zoom_axis = GetAxis(GetInputSet(), MOUSE_SCROLL_Y);
     if (zoom_axis > -0.5f && zoom_axis < 0.5f)
         return;
 
-    // Capture the world position under the cursor before zoom
     Vec2 mouse_screen = GetMousePosition();
     Vec2 world_under_cursor = ScreenToWorld(g_view.camera, mouse_screen);
 
-    // Apply zoom
     f32 zoom_factor = 1.0f + zoom_axis * ZOOM_STEP;
     g_view.zoom *= zoom_factor;
     g_view.zoom = Clamp(g_view.zoom, ZOOM_MIN, ZOOM_MAX);
 
-    // Update camera with new zoom
     UpdateCamera();
 
-    // Calculate where the world point is now in screen space after zoom
     Vec2 world_under_cursor_after = ScreenToWorld(g_view.camera, mouse_screen);
-
-    // Adjust camera position to keep the world point under cursor
     Vec2 current_position = GetPosition(g_view.camera);
     Vec2 world_offset = world_under_cursor - world_under_cursor_after;
     SetPosition(g_view.camera, current_position + world_offset);
@@ -144,7 +132,7 @@ static void UpdateMoveTool(const Vec2& delta) {
         if (!ea->selected)
             continue;
 
-        SetPosition(ea, IsCtrlDown(g_view.input)
+        SetPosition(ea, IsCtrlDown(GetInputSet())
             ? SnapToGrid(ea->saved_position + delta)
             : ea->saved_position + delta);
     }
@@ -217,8 +205,7 @@ void SetState(ViewState state) {
     if (state == GetState())
         return;
 
-    switch (g_view.state)
-    {
+    switch (g_view.state) {
     case VIEW_STATE_EDIT:
         GetAssetData()->editing = false;
         g_editor.editing_asset = nullptr;
@@ -291,6 +278,7 @@ static void UpdateMouse() {
 
 static void UpdateCommon()
 {
+    CheckCommonShortcuts();
     CheckShortcuts(g_view.shortcuts);
 
     UpdatePanState();
@@ -307,8 +295,7 @@ static void UpdateViewInternal() {
     UpdateMouse();
     UpdateCommon();
 
-    switch (GetState())
-    {
+    switch (GetState()) {
     case VIEW_STATE_EDIT:
         // if (WasButtonPressed(g_view.input, KEY_TAB) && !IsAltDown(g_view.input)) {
         //     if (g_view.vtable.shutdown)
@@ -332,10 +319,6 @@ static void UpdateViewInternal() {
 
     if (g_editor.tool.type != TOOL_TYPE_NONE && g_editor.tool.vtable.update)
         g_editor.tool.vtable.update();
-
-    // Save
-    if (WasButtonPressed(g_view.input, KEY_S) && IsButtonDown(g_view.input, KEY_LEFT_CTRL))
-        SaveEditorAssets();
 
     UpdateZoom();
     UpdateNotifications();
@@ -716,6 +699,28 @@ static void BeginMove() {
     BeginMove({.update=UpdateMoveTool, .commit=CommitMoveTool, .cancel=CancelMoveTool});
 }
 
+static Shortcut g_common_shortcuts[] = {
+    { KEY_S, false, true, false, SaveEditorAssets },
+    { KEY_F, false, false, false, FrameSelected },
+    { KEY_N, true, false, false, HandleToggleNames },
+    { KEY_1, true, false, false, HandleSetDrawModeWireframe },
+    { KEY_2, true, false, false, HandleSetDrawModeSolid },
+    { KEY_3, true, false, false, HandleSetDrawModeShaded },
+    { KEY_Z, false, true, false, HandleUndo },
+    { KEY_Y, false, true, false, HandleRedo },
+    { KEY_SEMICOLON, false, false, true, SetCommandState },
+    { KEY_S, false, false, true, SetCommandState },
+    { INPUT_CODE_NONE }
+};
+
+void EnableCommonShortcuts(InputSet* input_set) {
+    EnableShortcuts(g_common_shortcuts, input_set);
+}
+
+void CheckCommonShortcuts() {
+    CheckShortcuts(g_common_shortcuts, GetInputSet());
+}
+
 void InitView() {
     InitUndo();
 
@@ -776,6 +781,8 @@ void InitView() {
     EnableButton(g_view.input_tool, KEY_ESCAPE);
     EnableButton(g_view.input_tool, KEY_ENTER);
     EnableButton(g_view.input_tool, MOUSE_LEFT);
+    EnableButton(g_view.input_tool, KEY_LEFT_CTRL);
+    EnableButton(g_view.input_tool, KEY_RIGHT_CTRL);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
     AddCircle(builder, VEC2_ZERO, 0.5f, 8, VEC2_ZERO);
@@ -808,6 +815,15 @@ void InitView() {
     AddTriangle(builder, 2, 3, 0);
     g_view.edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
+    Clear(builder);
+    AddVertex(builder, { -0.5f, -0.5f}, VEC3_FORWARD, Vec2{0,1});
+    AddVertex(builder, {  0.5f, -0.5f}, VEC3_FORWARD, Vec2{1,1});
+    AddVertex(builder, {  0.5f,  0.5f}, VEC3_FORWARD, Vec2{1,0});
+    AddVertex(builder, { -0.5f,  0.5f}, VEC3_FORWARD, Vec2{0,0});
+    AddTriangle(builder, 0, 1, 2);
+    AddTriangle(builder, 2, 3, 0);
+    g_view.quad_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
+
     Vec2 bone_collider_verts[] = {
         {0, 0},
         {BONE_WIDTH, -BONE_WIDTH},
@@ -831,21 +847,13 @@ void InitView() {
     static Shortcut shortcuts[] = {
         { KEY_TAB, false, false, false, BeginEdit },
         { KEY_G, false, false, false, BeginMove },
-        { KEY_Z, false, true, false, HandleUndo },
-        { KEY_Y, false, true, false, HandleRedo },
-        { KEY_F, false, false, false, FrameSelected },
         { KEY_X, false, false, false, DeleteSelectedAsset },
         { KEY_EQUALS, false, true, false, HandleUIZoomIn },
         { KEY_MINUS, false, true, false, HandleUIZoomOut },
-        { KEY_N, true, false, false, HandleToggleNames },
-        { KEY_1, true, false, false, HandleSetDrawModeWireframe },
-        { KEY_2, true, false, false, HandleSetDrawModeSolid },
-        { KEY_3, true, false, false, HandleSetDrawModeShaded },
         { KEY_LEFT_BRACKET, false, false, false, HandleSendBack },
         { KEY_RIGHT_BRACKET, false, false, false, HandleBringForward },
         { KEY_RIGHT_BRACKET, false, true, false, HandleBringToFront },
         { KEY_LEFT_BRACKET, false, true, false, HandleSendToBack },
-        { KEY_SEMICOLON, false, false, true, SetCommandState },
         { INPUT_CODE_NONE }
     };
 
@@ -853,8 +861,10 @@ void InitView() {
     EnableShortcuts(shortcuts);
 
     extern void MeshEditorInit();
+    extern void InitTextureEditor();
 
     MeshEditorInit();
+    InitTextureEditor();
 }
 
 

@@ -55,7 +55,7 @@ static void DrawScale() {
     DrawVertex(g_view.mouse_world_position, SCALE_TOOL_CENTER_SIZE);
 }
 
-void BeginScale(const ScaleToolOptions& options) {
+void BeginScaleTool(const ScaleToolOptions& options) {
     static ToolVtable vtable = {
         .update = UpdateScale,
         .draw = DrawScale,

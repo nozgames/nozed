@@ -24,7 +24,7 @@ struct ScaleToolOptions {
     void (*cancel)();
 };
 
-extern void BeginScale(const ScaleToolOptions& options);
+extern void BeginScaleTool(const ScaleToolOptions& options);
 
 // @rotate
 struct RotateToolOptions {
@@ -35,3 +35,24 @@ struct RotateToolOptions {
 };
 
 extern void BeginRotate(const RotateToolOptions& options);
+
+// @weight
+struct WeightToolVertex {
+    Vec2 position;
+    float weight;
+    void* user_data;
+};
+
+struct WeightToolOptions {
+    int vertex_count;
+    WeightToolVertex vertices[MAX_VERTICES];
+    float min_weight;
+    float max_weight;
+
+    void (*update)();
+    void (*commit)();
+    void (*cancel)();
+    void (*update_vertex)(float weight, void* user_data);
+};
+
+extern void BeginWeightTool(const WeightToolOptions& options);

@@ -44,8 +44,7 @@ static void SortAssets(ManifestGenerator& generator);
 static void GenerateHeader(ManifestGenerator& generator);
 static void GenerateSource(ManifestGenerator& generator);
 
-static std::string GetNameVar(const Name* name)
-{
+static std::string GetNameVar(const Name* name) {
     std::string result = name->value;
     Uppercase(result.data(), (u32)result.size());
     Replace(result.data(), (u32)result.size(), '/', '_');
@@ -103,12 +102,14 @@ static AssetSignature ReadAssetHeader(AssetData* ea, ManifestGenerator& generato
     return header.signature;
 }
 
-static bool ReadAsset(u32 item_index, void* item_ptr, void* user_data)
-{
+static bool ReadAsset(u32 item_index, void* item_ptr, void* user_data) {
     (void)item_index;
 
     assert(item_ptr);
     AssetData* ea = (AssetData*)item_ptr;
+    if (ea->editor_only)
+        return true;
+
     ManifestGenerator& generator = *(ManifestGenerator*)user_data;
 
     std::vector<const Name*> names;

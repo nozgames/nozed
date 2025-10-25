@@ -49,8 +49,7 @@ static const AssetImporter* FindImporter(const fs::path& ext)
     return nullptr;
 }
 
-bool InitImporter(AssetData* ea)
-{
+bool InitImporter(AssetData* ea) {
     fs::path path = ea->path;
     if (!fs::exists(path))
         return false;
@@ -296,8 +295,7 @@ void UpdateImporter()
         Send(EDITOR_EVENT_IMPORTED, &event);
 }
 
-void InitImporter()
-{
+void InitImporter() {
     assert(!g_importer.thread_running);
 
     g_importer.running = true;

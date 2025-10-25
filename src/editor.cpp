@@ -270,6 +270,7 @@ int main(int argc, const char* argv[]) {
     traits.load_assets = LoadAssets;
     traits.unload_assets = UnloadAssets;
     traits.hotload_asset = EditorHotLoad;
+    traits.scratch_memory_size = noz::MB * 128;
 
     InitApplication(&traits, argc, argv);
     InitEditor();

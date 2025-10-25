@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../asset_data.h"
+#include "asset_data.h"
 #include "utils/file_helpers.h"
 
 static void Init(EditorSkeleton* es);

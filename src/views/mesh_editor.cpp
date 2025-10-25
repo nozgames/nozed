@@ -2,27 +2,8 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-constexpr float HEIGHT_MIN = -1.0f;
-constexpr float HEIGHT_MAX = 1.0f;
-constexpr float EDGE_MIN = 0.0f;
-constexpr float EDGE_MAX = 2.0f;
-
-constexpr float HEIGHT_SLIDER_SIZE = 2.0f;
-constexpr float VERTEX_SIZE = 0.08f;
-constexpr float VERTEX_HIT_SIZE = 20.0f;
-constexpr float CIRCLE_CONTROL_OUTLINE_SIZE = 0.13f;
-constexpr float CIRCLE_CONTROL_SIZE = 0.12f;
-constexpr float CENTER_SIZE = 0.2f;
-constexpr float ORIGIN_SIZE = 0.1f;
-constexpr float ORIGIN_BORDER_SIZE = 0.12f;
-
 constexpr float COLOR_PICKER_SIZE = 300.0f;
 constexpr float COLOR_SQUARE_SIZE = COLOR_PICKER_SIZE / 16.0f;
-
-enum MeshEditorState {
-    MESH_EDITOR_STATE_DEFAULT,
-    MESH_EDITOR_STATE_EDGE,
-};
 
 enum MeshEditorMode {
     MESH_EDITOR_MODE_VERTEX,
@@ -37,7 +18,6 @@ struct MeshEditorVertex {
 };
 
 struct MeshEditor {
-    MeshEditorState state;
     MeshEditorMode mode;
     Vec2 selection_drag_start;
     Vec2 selection_center;
@@ -285,24 +265,16 @@ static void RevertMeshState() {
     UpdateSelection();
 }
 
-static void UpdateEdgeState() {
-    MeshData* em = GetMeshData();
-    float delta = (g_view.mouse_position.y - g_mesh_editor.state_mouse.y) / (g_view.dpi * HEIGHT_SLIDER_SIZE);
+static void UpdateEdgeToolVertex(float weight, void* user_data) {
+    VertexData* v = (VertexData*)user_data;
+    v->edge_size = weight;
+}
 
-    for (i32 i=0; i<em->vertex_count; i++)
-    {
-        VertexData& ev = em->vertices[i];
-        if (!ev.selected)
-            continue;
-
-        MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
-        ev.edge_size = Clamp(g_mesh_editor.use_fixed_value
-            ? g_mesh_editor.fixed_value
-            : mvv.saved_edge_size - delta, EDGE_MIN, EDGE_MAX);
-    }
-
-    MarkDirty(em);
-    MarkModified(GetAssetData());
+static void UpdateEdgeSizeTool() {
+    MeshData* m = GetMeshData();
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified();
 }
 
 static void UpdateScaleTool(float scale) {
@@ -358,27 +330,6 @@ static void UpdateMoveTool(const Vec2& delta) {
     UpdateEdges(m);
     MarkDirty(m);
     MarkModified();
-}
-
-static void SetState(MeshEditorState state) {
-    AssetData* a = GetAssetData();
-    g_mesh_editor.state = state;
-    g_mesh_editor.state_mouse = g_view.mouse_position;
-    g_mesh_editor.selection_drag_start = a->position + g_mesh_editor.selection_center;
-    g_mesh_editor.use_fixed_value = false;
-    g_mesh_editor.use_negative_fixed_value = false;
-
-    ClearTextInput();
-
-    switch (state)
-    {
-    case MESH_EDITOR_STATE_EDGE:
-        RecordUndo();
-        break;
-
-    default:
-        break;
-    }
 }
 
 static bool TrySelectVertex() {
@@ -456,9 +407,6 @@ static bool TrySelectFace() {
 
 static void InsertVertexFaceOrEdge()
 {
-    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
-        return;
-
     if (g_mesh_editor.mode != MESH_EDITOR_MODE_VERTEX)
         return;
 
@@ -677,88 +625,22 @@ static void UpdateColorPicker(){
 
 static void MeshEditorUpdate() {
     UpdateColorPicker();
-
+    CheckCommonShortcuts();
     CheckShortcuts(g_mesh_editor.shortcuts, g_mesh_editor.input);
-
-    switch (g_mesh_editor.state)
-    {
-    case MESH_EDITOR_STATE_DEFAULT:
-        UpdateDefaultState();
-        return;
-
-    case MESH_EDITOR_STATE_EDGE:
-        UpdateEdgeState();
-        break;
-
-    default:
-        break;
-    }
-
-    // Commit the tool
-    if (WasButtonPressed(g_mesh_editor.input, MOUSE_LEFT) || WasButtonPressed(g_mesh_editor.input, KEY_ENTER))
-    {
-        UpdateSelection();
-        g_mesh_editor.ignore_up = true;
-        g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
-    }
-    // Cancel the tool
-    else if (WasButtonPressed(g_mesh_editor.input, KEY_ESCAPE) || WasButtonPressed(g_mesh_editor.input, MOUSE_RIGHT))
-    {
-        CancelUndo();
-        RevertMeshState();
-        g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
-    }
-}
-
-static void DrawCircleControls(float (*value_func)(const VertexData& ev)) {
-    AssetData* ea = GetAssetData();
-    MeshData* em = GetMeshData();
-
-    for (int i=0; i<em->vertex_count; i++)
-    {
-        VertexData& ev = em->vertices[i];
-        if (!ev.selected || !IsVertexOnOutsideEdge(em, i))
-            continue;
-
-        BindColor(COLOR_VERTEX_SELECTED);
-        DrawMesh(g_view.circle_mesh, TRS(ev.position + ea->position, 0, VEC2_ONE * CIRCLE_CONTROL_OUTLINE_SIZE * g_view.zoom_ref_scale));
-    }
-
-    for (int i=0; i<em->vertex_count; i++)
-    {
-        VertexData& ev = em->vertices[i];
-        if (!ev.selected || !IsVertexOnOutsideEdge(em, i))
-            continue;
-
-        f32 h = value_func(ev);
-        i32 arc = Clamp((i32)(100 * h), 0, 100);
-
-        BindColor(COLOR_BLACK);
-        DrawMesh(g_view.circle_mesh, TRS(ev.position + ea->position, 0, VEC2_ONE * CIRCLE_CONTROL_SIZE * g_view.zoom_ref_scale));
-        BindColor(COLOR_VERTEX_SELECTED);
-        DrawMesh(g_view.arc_mesh[arc], TRS(ev.position + ea->position, 0, VEC2_ONE * CIRCLE_CONTROL_SIZE * g_view.zoom_ref_scale));
-    }
-}
-
-static float GetEdgeSizeValue(const VertexData& ev) {
-    return (ev.edge_size - EDGE_MIN) / (EDGE_MAX - EDGE_MIN);
-}
-
-static void DrawEdgeState() {
-    DrawCircleControls(GetEdgeSizeValue);
+    UpdateDefaultState();
 }
 
 static void MeshEditorDraw() {
-    AssetData* ea = GetAssetData();
-    MeshData* em = GetMeshData();
+    AssetData* a = GetAssetData();
+    MeshData* m = GetMeshData();
 
     // Mesh
-    BindColor(COLOR_WHITE);
-    DrawMesh(em, Translate(ea->position));
+    BindColor(SetAlpha(COLOR_WHITE, m->opacity));
+    DrawMesh(m, Translate(a->position));
 
     // Edges
     BindColor(COLOR_EDGE);
-    DrawEdges(em, ea->position);
+    DrawEdges(m, a->position);
 
     switch (g_mesh_editor.mode)
     {
@@ -771,24 +653,13 @@ static void MeshEditorDraw() {
 
     case MESH_EDITOR_MODE_EDGE:
         BindColor(COLOR_EDGE_SELECTED);
-        DrawSelectedEdges(em, ea->position);
+        DrawSelectedEdges(m, a->position);
         break;
 
     case MESH_EDITOR_MODE_FACE:
         BindColor(COLOR_VERTEX_SELECTED);
-        DrawSelectedFaces(em, ea->position);
-        DrawFaceCenters(em, ea->position);
-        break;
-    }
-
-    // Tools
-    switch (g_mesh_editor.state)
-    {
-    case MESH_EDITOR_STATE_EDGE:
-        DrawEdgeState();
-        break;
-
-    default:
+        DrawSelectedFaces(m, a->position);
+        DrawFaceCenters(m, a->position);
         break;
     }
 }
@@ -892,9 +763,6 @@ static void CancelMeshTool() {
 
 static void BeginMove()
 {
-    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
-        return;
-
     MeshData* m = GetMeshData();
     if (m->selected_count == 0)
         return;
@@ -905,9 +773,6 @@ static void BeginMove()
 }
 
 static void BeginRotate() {
-    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
-        return;
-
     MeshData* m = GetMeshData();
     if (m->selected_count == 0 || (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX && m->selected_count == 1))
         return;
@@ -918,41 +783,68 @@ static void BeginRotate() {
 }
 
 static void BeginScale() {
-    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
-        return;
-
     MeshData* m = GetMeshData();
     if (m->selected_count == 0)
         return;
 
     SaveMeshState();
     RecordUndo();
-    BeginScale({.origin=g_mesh_editor.selection_center+m->position, .update=UpdateScaleTool, .cancel=CancelMeshTool});
+    BeginScaleTool({.origin=g_mesh_editor.selection_center+m->position, .update=UpdateScaleTool, .cancel=CancelMeshTool});
 }
 
-static void HandleEdgeCommand()
-{
-    if (g_mesh_editor.state != MESH_EDITOR_STATE_DEFAULT)
+static void BeginEdgeSize() {
+    MeshData* m = GetMeshData();
+    if (m->selected_count == 0)
         return;
 
-    MeshData* em = GetMeshData();
-    if (em->selected_count == 0)
-        return;
+    WeightToolOptions options = {
+        .vertex_count = 0,
+        .min_weight = 0,
+        .max_weight = 2,
+        .update = UpdateEdgeSizeTool,
+        .cancel = CancelMeshTool,
+        .update_vertex = UpdateEdgeToolVertex,
+    };
 
-    bool has_outside_edge = false;
-    for (int i=0; i<em->vertex_count && !has_outside_edge; i++)
-    {
-        VertexData& ev = em->vertices[i];
-        if (!ev.selected || !IsVertexOnOutsideEdge(em, i))
+    for (int i=0; i<m->vertex_count; i++) {
+        VertexData& ev = m->vertices[i];
+        if (!ev.selected) // || !IsVertexOnOutsideEdge(m, i))
             continue;
 
-        has_outside_edge = true;
+        options.vertices[options.vertex_count++] = {
+            .position = ev.position + GetAssetData()->position,
+            .weight = ev.edge_size,
+            .user_data = &ev,
+        };
     }
 
-    if (!has_outside_edge)
+    if (!options.vertex_count)
         return;
 
-    SetState(MESH_EDITOR_STATE_EDGE);
+    SaveMeshState();
+    RecordUndo();
+    BeginWeightTool(options);
+}
+
+static void UpdateOpacityToolVertex(float weight, void*) {
+    MeshData* m = GetMeshData();
+    m->opacity = weight;
+}
+
+static void BeginOpacityTool() {
+    MeshData* m = GetMeshData();
+    WeightToolOptions options = {
+        .vertex_count = 1,
+        .vertices = {
+            { .position = g_view.mouse_world_position, .weight = m->opacity  }
+        },
+        .min_weight = 0,
+        .max_weight = 2,
+        .cancel = CancelMeshTool,
+        .update_vertex = UpdateOpacityToolVertex,
+    };
+
+    BeginWeightTool(options);
 }
 
 static void HandleSelectAllCommand()
@@ -1018,13 +910,11 @@ static void SetFaceMode() {
     g_mesh_editor.mode = MESH_EDITOR_MODE_FACE;
 }
 
-static void CenterMesh()
-{
+static void CenterMesh() {
     Center(GetMeshData());
 }
 
-static bool ExtrudeSelectedEdges(MeshData* em)
-{
+static bool ExtrudeSelectedEdges(MeshData* em) {
     if (em->edge_count == 0)
         return false;
 
@@ -1247,7 +1137,6 @@ static void MeshEditorBegin() {
 
     ClearSelection();
 
-    g_mesh_editor.state = MESH_EDITOR_STATE_DEFAULT;
     g_mesh_editor.mode = MESH_EDITOR_MODE_VERTEX;
 }
 
@@ -1268,7 +1157,8 @@ void MeshEditorInit() {
         { KEY_G, false, false, false, BeginMove },
         { KEY_R, false, false, false, BeginRotate },
         { KEY_S, false, false, false, BeginScale },
-        { KEY_W, false, false, false, HandleEdgeCommand },
+        { KEY_W, false, false, false, BeginEdgeSize },
+        { KEY_O, false, false, false, BeginOpacityTool },
         { KEY_A, false, false, false, HandleSelectAllCommand },
         { KEY_X, false, false, false, DissolveSelected },
         { KEY_V, false, false, false, InsertVertexFaceOrEdge },
@@ -1279,8 +1169,6 @@ void MeshEditorInit() {
         { KEY_E, false, false, false, ExtrudeSelected },
         { KEY_N, false, false, false, AddNewFace },
         { KEY_TAB, false, false, false, MeshEditorEnd },
-        { KEY_Z, false, true, false, HandleUndo },
-        { KEY_Y, false, true, false, HandleRedo },
         { INPUT_CODE_NONE }
     };
 
@@ -1291,6 +1179,7 @@ void MeshEditorInit() {
 
     g_mesh_editor.shortcuts = shortcuts;
     EnableShortcuts(shortcuts, g_mesh_editor.input);
+    EnableCommonShortcuts(g_mesh_editor.input);
 }
 
 void InitMeshEditor(MeshData* m) {
