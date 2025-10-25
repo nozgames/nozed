@@ -64,7 +64,7 @@ inline MeshData* GetMeshData(int index) {
 }
 
 extern void InitEditorMesh(AssetData* a);
-extern AssetData* NewEditorMesh(const std::filesystem::path& path);
+extern AssetData* NewMeshData(const std::filesystem::path& path);
 extern MeshData* Clone(Allocator* allocator, MeshData* em);
 extern MeshData* LoadEditorMesh(const std::filesystem::path& path);
 extern Mesh* ToMesh(MeshData* em, bool upload=true);

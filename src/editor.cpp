@@ -256,15 +256,15 @@ int main(int argc, const char* argv[]) {
     InitEditor();
     InitLog(HandleLog);
 
-    InitEditorAssets();
-    LoadEditorAssets();
+    InitAssetData();
+    LoadAssetData();
     InitImporter();
     InitWindow();
     InitView();
     InitCommandInput();
     InitUserConfig();
     InitEditorServer(g_config);
-    
+
     while (UpdateApplication())
     {
         UpdateImporter();

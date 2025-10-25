@@ -20,6 +20,7 @@ constexpr float FRAME_VIEW_PERCENTAGE = 1.0f / 0.75f;
 View g_view = {};
 
 inline ViewState GetState() { return g_view.state; }
+static void CheckCommonShortcuts();
 
 static void UpdateCamera() {
     float DPI = g_view.dpi * g_view.ui_scale * g_view.zoom;
@@ -339,6 +340,9 @@ void DrawView() {
         if (a->clipped)
             continue;
 
+        if (!g_editor.editing_asset && a->selected)
+            DrawBounds(a, 0, COLOR_VERTEX_SELECTED);
+
         DrawOrigin(a);
     }
 
@@ -366,15 +370,15 @@ static void UpdateAssetNames() {
         return;
 
     for (u32 i=0; i<MAX_ASSETS; i++) {
-        AssetData* ea = GetAssetData(i);
-        if (!ea || ea->clipped)
+        AssetData* a = GetAssetData(i);
+        if (!a || a->clipped)
             continue;
 
-        Bounds2 bounds = GetBounds(ea);
-        Vec2 p = ea->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(ea).min.y};
-        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,0}}, [ea] {
-            Align({.alignment=ALIGNMENT_CENTER, .margin=EdgeInsetsTop(16)}, [ea] {
-                Label(ea->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=COLOR_WHITE} );
+        Bounds2 bounds = GetBounds(a);
+        Vec2 p = a->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(a).min.y};
+        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,0}}, [a] {
+            Align({.alignment=ALIGNMENT_CENTER, .margin=EdgeInsetsTop(16)}, [a] {
+                Label(a->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=a->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
             });
         });
     }
@@ -446,77 +450,73 @@ static void HandleSetDrawModeSolid()
     g_view.draw_mode = VIEW_DRAW_MODE_SOLID;
 }
 
-static void HandleSendBack()
-{
+static void BringForward() {
     if (g_view.selected_asset_count == 0)
         return;
 
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount();i<c;i++) {
-        AssetData* ea = GetSortedAssetData(i);
-        RecordUndo(ea);
-        if (!ea->selected)
+        AssetData* a = GetSortedAssetData(i);
+        RecordUndo(a);
+        if (!a->selected)
             continue;
 
-        ea->sort_order-=11;
-        ea->meta_modified = true;
+        a->sort_order += 11;
+        MarkMetaModified(a);
     }
     EndUndoGroup();
     SortAssets();
 }
 
-static void HandleBringForward()
-{
+static void BringToFront() {
     if (g_view.selected_asset_count == 0)
         return;
 
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount();i<c;i++) {
-        AssetData* ea = GetSortedAssetData(i);
-        RecordUndo(ea);
-        if (!ea->selected)
+        AssetData* a = GetSortedAssetData(i);
+        RecordUndo(a);
+        if (!a->selected)
             continue;
 
-        ea->sort_order += 11;
-        ea->meta_modified = true;
+        a->sort_order = 100000;
+        MarkMetaModified(a);
     }
     EndUndoGroup();
     SortAssets();
 }
 
-static void HandleBringToFront()
-{
+static void SendBackward() {
     if (g_view.selected_asset_count == 0)
         return;
 
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount();i<c;i++) {
-        AssetData* ea = GetSortedAssetData(i);
-        RecordUndo(ea);
-        if (!ea->selected)
+        AssetData* a = GetSortedAssetData(i);
+        RecordUndo(a);
+        if (!a->selected)
             continue;
 
-        ea->sort_order = 100000;
-        ea->meta_modified = true;
+        a->sort_order-=11;
+        MarkMetaModified(a);
     }
     EndUndoGroup();
     SortAssets();
 }
 
-static void HandleSendToBack()
-{
+static void SendToBack() {
     if (g_view.selected_asset_count == 0)
         return;
 
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount();i<c;i++) {
-        AssetData* ea = GetSortedAssetData(i);
-        RecordUndo(ea);
-        if (!ea->selected)
+        AssetData* a = GetSortedAssetData(i);
+        RecordUndo(a);
+        if (!a->selected)
             continue;
 
-        ea->sort_order = -100000;
-        ea->meta_modified = true;
+        a->sort_order = -100000;
+        MarkModified(a);
     }
     EndUndoGroup();
     SortAssets();
@@ -570,7 +570,7 @@ static void BeginMoveTool() {
 // @command
 static void SaveAssetsCommand(const Command& command) {
     (void)command;
-    SaveEditorAssets();
+    SaveAssetData();
 }
 
 static void NewAssetCommand(const Command& command) {
@@ -589,20 +589,24 @@ static void NewAssetCommand(const Command& command) {
 
     AssetData* a = nullptr;
     if (type == NAME_MESH || type == NAME_M)
-        a = NewEditorMesh(asset_name->value);
+        a = NewMeshData(asset_name->value);
     else if (type == NAME_SKELETON || type == NAME_S)
         a = NewEditorSkeleton(asset_name->value);
     else if (type == NAME_ANIMATION || type == NAME_A)
-        a = NewEditorAnimation(asset_name->value);
+        a = NewAnimationData(asset_name->value);
 
     if (a == nullptr)
         return;
 
     a->position = GetCenter(GetBounds(g_view.camera));
-    a->meta_modified = true;
+    a->sort_order = 100000;
+    MarkMetaModified(a);
 
     if (a->vtable.post_load)
         a->vtable.post_load(a);
+
+    SortAssets();
+    SaveAssetData();
 }
 
 static void RenameAssetCommand(const Command& command) {
@@ -627,7 +631,7 @@ static void BeginCommandInput() {
 
 // @shortcut
 static Shortcut g_common_shortcuts[] = {
-    { KEY_S, false, true, false, SaveEditorAssets },
+    { KEY_S, false, true, false, SaveAssetData },
     { KEY_F, false, false, false, FrameSelected },
     { KEY_N, true, false, false, HandleToggleNames },
     { KEY_1, true, false, false, HandleSetDrawModeWireframe },
@@ -642,6 +646,8 @@ static Shortcut g_common_shortcuts[] = {
 
 void EnableCommonShortcuts(InputSet* input_set) {
     EnableShortcuts(g_common_shortcuts, input_set);
+    EnableModifiers(input_set);
+    EnableButton(input_set, MOUSE_RIGHT);
 }
 
 void CheckCommonShortcuts() {
@@ -739,8 +745,6 @@ void InitView() {
 
     InitGrid(ALLOCATOR_DEFAULT);
     InitNotifications();
-    LoadEditorAssets();
-    SortAssets();
     g_view.state = VIEW_STATE_DEFAULT;
 
     static Shortcut shortcuts[] = {
@@ -748,10 +752,10 @@ void InitView() {
         { KEY_X, false, false, false, DeleteSelectedAsset },
         { KEY_EQUALS, false, true, false, HandleUIZoomIn },
         { KEY_MINUS, false, true, false, HandleUIZoomOut },
-        { KEY_LEFT_BRACKET, false, false, false, HandleSendBack },
-        { KEY_RIGHT_BRACKET, false, false, false, HandleBringForward },
-        { KEY_RIGHT_BRACKET, false, true, false, HandleBringToFront },
-        { KEY_LEFT_BRACKET, false, true, false, HandleSendToBack },
+        { KEY_LEFT_BRACKET, false, false, false, SendBackward },
+        { KEY_RIGHT_BRACKET, false, false, false, BringForward },
+        { KEY_RIGHT_BRACKET, false, true, false, BringToFront },
+        { KEY_LEFT_BRACKET, false, true, false, SendToBack },
         { KEY_SEMICOLON, false, false, true, BeginCommandInput },
         { INPUT_CODE_NONE }
     };

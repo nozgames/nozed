@@ -15,17 +15,16 @@ set(SOURCE_FILES
     src/view.cpp
     src/notifications.cpp
 
-    src/views/animation_view.cpp
-    src/views/mesh_editor.cpp
-    src/views/texture_editor.cpp
-    src/views/skeleton_editor.cpp
-
+    src/asset/animation_editor.cpp
+    src/asset/animation_data.cpp
     src/asset/asset_data.cpp
     src/asset/mesh_data.cpp
+    src/asset/mesh_editor.cpp
     src/asset/texture_data.cpp
+    src/asset/texture_editor.cpp
     src/asset/skeleton_data.cpp
-    src/asset/vfx_editor.cpp
-    src/asset/animation_editor.cpp
+    src/asset/skeleton_editor.cpp
+    src/asset/vfx_data.cpp
 
     src/utils/file_watcher.cpp
     src/utils/rect_packer.cpp

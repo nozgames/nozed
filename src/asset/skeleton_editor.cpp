@@ -194,7 +194,6 @@ static void UpdateDefaultState() {
 
 void UpdateSkeletonEditor() {
     CheckShortcuts(g_skeleton_editor.shortcuts, g_skeleton_editor.input);
-    CheckCommonShortcuts();
     UpdateBoneNames();
 
     if (g_skeleton_editor.state_update)
@@ -207,7 +206,7 @@ static void DrawSkeleton() {
     AssetData* ea = GetAssetData();
     SkeletonData* es = GetSkeletonData();
 
-    DrawEditorSkeleton(es, ea->position, false);
+    DrawSkeletonData(es, ea->position);
 
     // Draw selected bones in front
     BindMaterial(g_view.vertex_material);
@@ -220,7 +219,7 @@ static void DrawSkeleton() {
     }
 }
 
-void DrawSkeletonEditor() {
+void DrawSkeletonData() {
     DrawBounds(GetSkeletonData(), 0, COLOR_BLACK);
     DrawSkeleton();
 
@@ -270,7 +269,7 @@ static void UpdateRotateTool(float angle) {
             continue;
 
         BoneData& b = s->bones[bone_index];
-        b.transform.rotation = b.saved_transform.rotation - angle;
+        b.transform.rotation = b.saved_transform.rotation + angle;
     }
 
     UpdateTransforms(s);
@@ -358,6 +357,7 @@ static void CommitParentTool(const Vec2& position) {
         GetFirstSelectedBoneIndex()
     };
 
+    SortSkin(s);
     MarkModified();
 }
 
@@ -374,11 +374,13 @@ static void CommitUnparentTool(const Vec2& position) {
             continue;
 
         RecordUndo(s);
-        MarkModified();
         for (int j=i; j<s->skinned_mesh_count-1; j++)
             s->skinned_meshes[j] = s->skinned_meshes[j+1];
 
         s->skinned_mesh_count--;
+
+        SortSkin(s);
+        MarkModified();
         return;
     }
 }
@@ -467,6 +469,7 @@ static void BeginRenameCommand() {
 
 static void BeginSkeletonEditor() {
     PushInputSet(g_skeleton_editor.input);
+    ClearSelection();
 }
 
 static void EndSkeletonEditor() {
@@ -476,7 +479,7 @@ static void EndSkeletonEditor() {
 void InitSkeletonEditor(SkeletonData* s) {
     s->vtable.editor_begin = BeginSkeletonEditor;
     s->vtable.editor_end = EndSkeletonEditor;
-    s->vtable.editor_draw = DrawSkeletonEditor;
+    s->vtable.editor_draw = DrawSkeletonData;
     s->vtable.editor_update = UpdateSkeletonEditor;
 }
 

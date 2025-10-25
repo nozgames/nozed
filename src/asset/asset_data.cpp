@@ -20,7 +20,7 @@ const Name* MakeCanonicalAssetName(const char* name)
     return GetName(result.c_str());
 }
 
-AssetData* CreateEditorAsset(const std::filesystem::path& path)
+AssetData* CreateAssetData(const std::filesystem::path& path)
 {
     AssetData* a = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData));
     Copy(a->path, sizeof(a->path), path.string().c_str());
@@ -57,7 +57,7 @@ AssetData* CreateEditorAsset(const std::filesystem::path& path)
         break;
 
     case ASSET_TYPE_ANIMATION:
-        InitEditorAnimation(a);
+        InitAnimationData(a);
         break;
 
     case ASSET_TYPE_SKELETON:
@@ -132,12 +132,10 @@ void DrawSelectedEdges(MeshData* em, const Vec2& position)
     }
 }
 
-void DrawEdges(MeshData* em, const Vec2& position)
-{
+void DrawEdges(MeshData* em, const Vec2& position) {
     BindMaterial(g_view.vertex_material);
 
-    for (i32 edge_index=0; edge_index < em->edge_count; edge_index++)
-    {
+    for (i32 edge_index=0; edge_index < em->edge_count; edge_index++) {
         const EdgeData& ee = em->edges[edge_index];
         DrawLine(em->vertices[ee.v0].position + position, em->vertices[ee.v1].position + position);
     }
@@ -173,7 +171,7 @@ void DrawFaceCenters(MeshData* em, const Vec2& position)
     }
 }
 
-void SaveEditorAssets() {
+void SaveAssetData() {
     SaveAssetMetadata();
 
     u32 count = 0;
@@ -317,7 +315,7 @@ void Clone(AssetData* dst, AssetData* src)
         dst->vtable.clone((AssetData*)dst);
 }
 
-void InitEditorAssets() {
+void InitAssetData() {
     for (int i=0; i<g_editor.asset_path_count; i++) {
         std::vector<fs::path> asset_paths;
         GetFilesInDirectory(g_editor.asset_paths[i], asset_paths);
@@ -327,44 +325,52 @@ void InitEditorAssets() {
             if (ext == ".meta")
                 continue;
 
-            AssetData* ea = nullptr;
-            for (int asset_type=0; !ea && asset_type<ASSET_TYPE_COUNT; asset_type++)
-                ea = CreateEditorAsset(asset_path);
+            AssetData* a = nullptr;
+            for (int asset_type=0; !a && asset_type<ASSET_TYPE_COUNT; asset_type++)
+                a = CreateAssetData(asset_path);
 
-            if (ea)
-                LoadAssetMetadata(ea, asset_path);
+            if (a)
+                LoadAssetMetadata(a, asset_path);
         }
     }
+
+    SortAssets(false);
 }
 
-void LoadEditorAsset(AssetData* ea)
-{
-    assert(ea);
+void LoadAssetData(AssetData* a) {
+    assert(a);
 
-    if (ea->loaded)
+    if (a->loaded)
         return;
 
-    if (!ea->vtable.load)
-        return;
+    a->loaded = true;
 
-    ea->loaded = true;
-    ea->vtable.load(ea);
+    if (a->vtable.load)
+        a->vtable.load(a);
 }
 
-void LoadEditorAssets()
-{
-    for (int asset_index=0; asset_index<MAX_ASSETS; asset_index++) {
-        AssetData* ea = GetAssetData(asset_index);
-        if (!ea)
-            continue;
+void PostLoadAssetData(AssetData* a) {
+    assert(a);
+    assert(a->loaded);
 
-        LoadEditorAsset(ea);
+    if (a->post_loaded)
+        return;
+
+    if (a->vtable.post_load)
+        a->vtable.post_load(a);
+
+    a->post_loaded = true;
+}
+
+void LoadAssetData() {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* a = GetSortedAssetData(i);
+        assert(a);
+        LoadAssetData(a);
     }
 
-    for (u32 i=0; i<MAX_ASSETS; i++) {
-        AssetData* ea = GetAssetData(i);
-        if (ea && ea->vtable.post_load)
-            ea->vtable.post_load(ea);
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        PostLoadAssetData(GetSortedAssetData(i));
     }
 }
 
@@ -452,7 +458,7 @@ static int AssetSortFunc(const void* a, const void* b)
     return index_a - index_b;
 }
 
-void SortAssets() {
+void SortAssets(bool notify) {
     u32 asset_index = 0;
     for (u32 i=0; i<MAX_ASSETS; i++) {
         AssetData* ea = GetAssetData(i);
@@ -464,19 +470,22 @@ void SortAssets() {
 
     qsort(g_editor.sorted_assets, asset_index, sizeof(int), AssetSortFunc);
 
-    asset_index = 0;
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* ea = GetSortedAssetData(i);
-        if (!ea)
-            continue;
+        AssetData* a = GetSortedAssetData(i);
+        assert(a);
 
-        if (ea->sort_order != (int)asset_index * 10)
-            ea->meta_modified = true;
+        if (a->sort_order != (int)i * 10)
+            MarkMetaModified(a);
 
-        ea->sort_order = asset_index * 10;
-        if (ea->vtable.on_sort_order_changed)
-            ea->vtable.on_sort_order_changed(ea);
+        a->sort_order = i * 10;
+    }
 
-        asset_index++;
+    if (!notify)
+        return;
+
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* a = GetSortedAssetData(i);
+        if (a->vtable.on_sort_order_changed)
+            a->vtable.on_sort_order_changed(a);
     }
 }

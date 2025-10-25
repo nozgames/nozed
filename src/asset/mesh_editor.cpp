@@ -1035,7 +1035,6 @@ void ShutdownMeshEditor() {
 
 static void UpdateMeshEditor() {
     UpdateColorPicker();
-    CheckCommonShortcuts();
     CheckShortcuts(g_mesh_editor.shortcuts, g_mesh_editor.input);
     UpdateDefaultState();
 }

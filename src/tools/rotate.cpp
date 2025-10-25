@@ -74,7 +74,7 @@ static void UpdateRotate() {
     UpdateArcMesh();
 
     if (g_rotate.options.update)
-        g_rotate.options.update(angle);
+        g_rotate.options.update(-angle);
 }
 
 static void DrawRotate() {

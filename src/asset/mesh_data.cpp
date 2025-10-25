@@ -27,28 +27,30 @@ static int GetFaceEdgeIndex(MeshData* em, const FaceData& ef, const EdgeData& ee
     return -1;
 }
 
-static void EditorMeshDraw(AssetData* ea)
-{
-    assert(ea->type == ASSET_TYPE_MESH);
-    MeshData* em = (MeshData*)ea;
+static void DrawMesh(AssetData* a) {
+    assert(a->type == ASSET_TYPE_MESH);
+    MeshData* em = static_cast<MeshData*>(a);
 
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
         BindColor(COLOR_EDGE);
-        DrawEdges(em, ea->position);
+        DrawEdges(em, a->position);
     } else {
         BindColor(COLOR_WHITE);
-        DrawMesh(em, Translate(ea->position));
+        DrawMesh(em, Translate(a->position));
     }
 }
 
-void DrawMesh(MeshData* em, const Mat3& transform) {
-    if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME)
+void DrawMesh(MeshData* m, const Mat3& transform) {
+    if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
+        BindColor(COLOR_EDGE);
+        DrawEdges(m, TransformPoint(transform));
         return;
+    }
 
     BindMaterial(g_view.draw_mode == VIEW_DRAW_MODE_SHADED
         ? g_view.shaded_material
         : g_view.solid_material);
-    DrawMesh(ToMesh(em), transform);
+    DrawMesh(ToMesh(m), transform);
 }
 
 Vec2 GetFaceCenter(MeshData* em, FaceData* ef)
@@ -962,53 +964,6 @@ static void ParseFace(MeshData* em, Tokenizer& tk)
     }
 }
 
-MeshData* LoadEditorMesh(const std::filesystem::path& path) {
-    std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
-    Tokenizer tk;
-    Init(tk, contents.c_str());
-
-    MeshData* em = (MeshData*)CreateEditorAsset(path);
-    assert(em);
-    Init(em);
-
-    try
-    {
-        while (!IsEOF(tk))
-        {
-            if (ExpectIdentifier(tk, "v"))
-                ParseVertex(em, tk);
-            else if (ExpectIdentifier(tk, "f"))
-                ParseFace(em, tk);
-            else if (ExpectIdentifier(tk, "e"))
-                ParseEdgeColor(em, tk);
-            else
-            {
-                char error[1024];
-                GetString(tk, error, sizeof(error) - 1);
-                ThrowError("invalid token '%s' in mesh", error);
-            }
-        }
-    }
-    catch (std::exception& e)
-    {
-        LogFileError(path.string().c_str(), e.what());
-        return nullptr;
-    }
-
-    Bounds2 bounds = { em->vertices[0].position, em->vertices[0].position };
-    for (int i=0; i<em->vertex_count; i++)
-    {
-        bounds.min = Min(bounds.min, em->vertices[i].position);
-        bounds.max = Max(bounds.max, em->vertices[i].position);
-    }
-
-    ToMesh(em, false);
-    UpdateEdges(em);
-    MarkDirty(em);
-
-    return em;
-}
-
 static void LoadMeshData(AssetData* ea) {
     assert(ea);
     assert(ea->type == ASSET_TYPE_MESH);
@@ -1046,7 +1001,19 @@ static void LoadMeshData(AssetData* ea) {
     MarkDirty(em);
 }
 
-static void EditorMeshSave(AssetData* ea, const std::filesystem::path& path)
+MeshData* LoadMeshData(const std::filesystem::path& path) {
+    std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
+    Tokenizer tk;
+    Init(tk, contents.c_str());
+
+    MeshData* m = static_cast<MeshData*>(CreateAssetData(path));
+    assert(m);
+    Init(m);
+    LoadMeshData(m);
+    return m;
+}
+
+static void SaveMeshData(AssetData* ea, const std::filesystem::path& path)
 {
     assert(ea->type == ASSET_TYPE_MESH);
     MeshData* em = (MeshData*)ea;
@@ -1081,7 +1048,7 @@ static void EditorMeshSave(AssetData* ea, const std::filesystem::path& path)
     Free(stream);
 }
 
-AssetData* NewEditorMesh(const std::filesystem::path& path) {
+AssetData* NewMeshData(const std::filesystem::path& path) {
     const char* default_mesh = "v -1 -1 e 1 h 0\n"
                                "v 1 -1 e 1 h 0\n"
                                "v 1 1 e 1 h 0\n"
@@ -1109,7 +1076,7 @@ AssetData* NewEditorMesh(const std::filesystem::path& path) {
     SaveStream(stream, full_path);
     Free(stream);
 
-    return LoadEditorMesh(full_path);
+    return LoadMeshData(full_path);
 }
 
 static bool EditorMeshOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
@@ -1354,8 +1321,8 @@ static void Init(MeshData* m) {
     m->opacity = 1.0f;
     m->vtable = {
         .load = LoadMeshData,
-        .save = EditorMeshSave,
-        .draw = EditorMeshDraw,
+        .save = SaveMeshData,
+        .draw = DrawMesh,
         .overlap_point = EditorMeshOverlapPoint,
         .overlap_bounds = EditorMeshOverlapBounds,
         .clone = EditorClone

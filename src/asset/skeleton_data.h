@@ -32,6 +32,7 @@ struct SkeletonData : AssetData {
     SkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
     int skinned_mesh_count;
     int selected_bone_count;
+    float opacity;
 };
 
 inline SkeletonData* GetEditorSkeleton(int index) {
@@ -43,8 +44,7 @@ inline SkeletonData* GetEditorSkeleton(int index) {
 extern void InitSkeletonData(AssetData* ea);
 extern AssetData* NewEditorSkeleton(const std::filesystem::path& path);
 extern AssetData* CreateEditorSkeletonAsset(const std::filesystem::path& path, SkeletonData* skeleton);
-extern void DrawEditorSkeleton(SkeletonData* es, bool selected);
-extern void DrawEditorSkeleton(SkeletonData* s, const Vec2& position, bool selected);
+extern void DrawSkeletonData(SkeletonData* es, const Vec2& position);
 extern void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& position);
 extern int HitTestBone(SkeletonData* s, const Vec2& world_pos);
 extern void UpdateTransforms(SkeletonData* s);
@@ -55,6 +55,7 @@ extern Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* es, const Name* 
 extern int ReparentBone(SkeletonData* s, int bone_index, int parent_index);
 extern const Name* GetUniqueBoneName(SkeletonData* s);
 extern void RemoveBone(SkeletonData* s, int bone_index);
+extern void SortSkin(SkeletonData* s);
 
 inline BoneData* GetParent(SkeletonData* es, BoneData* eb) {
     return eb->parent_index >= 0 ? &es->bones[eb->parent_index] : nullptr;

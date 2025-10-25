@@ -1,539 +1,665 @@
 //
-//  NozEd - Copyright(c) 2025 NoZ Games, LLC
+//  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
-static void Init(AnimationData* ea);
+#include "nozed_assets.h"
 
-inline SkeletonData* GetEditorSkeleton(AnimationData* en) { return en->skeleton; }
+#include <editor.h>
 
-void UpdateTransforms(AnimationData* en) {
-    SkeletonData* es = GetEditorSkeleton(en);
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        BoneData& eb = es->bones[bone_index];
-        Transform& frame = GetFrameTransform(en, bone_index, en->current_frame);
+constexpr float FRAME_LINE_SIZE = 0.5f;
+constexpr float FRAME_LINE_OFFSET = -0.2f;
+constexpr float FRAME_SIZE_X = 0.3f;
+constexpr float FRAME_SIZE_Y = 0.8f;
+constexpr float FRAME_BORDER_SIZE = 0.025f;
+constexpr float FRAME_SELECTED_SIZE = 0.32f;
+constexpr float FRAME_TIME_SIZE = 0.32f;
+constexpr float FRAME_DOT_SIZE = 0.1f;
+constexpr Color FRAME_COLOR = Color32ToColor(100, 100, 100, 255);
+constexpr Color FRAME_SELECTED_COLOR = COLOR_VERTEX_SELECTED;
 
-        en->animator.bones[bone_index] = TRS(
-            eb.transform.position + frame.position,
-            frame.rotation,
-            eb.transform.scale);
-    }
+constexpr float CENTER_SIZE = 0.2f;
+constexpr float ORIGIN_SIZE = 0.1f;
+constexpr float ORIGIN_BORDER_SIZE = 0.12f;
+constexpr float ROTATE_TOOL_WIDTH = 0.02f;
 
-    for (int bone_index=1; bone_index<es->bone_count; bone_index++)
-        en->animator.bones[bone_index] = en->animator.bones[es->bones[bone_index].parent_index] * en->animator.bones[bone_index];
-}
+enum AnimationViewState {
+    ANIMATION_VIEW_STATE_DEFAULT,
+    ANIMATION_VIEW_STATE_MOVE,
+    ANIMATION_VIEW_STATE_ROTATE,
+    ANIMATION_VIEW_STATE_PLAY,
+};
 
-void DrawEditorAnimationBone(AnimationData* en, int bone_index, const Vec2& position) {
-    SkeletonData* es = GetEditorSkeleton(en);
-    int parent_index = es->bones[bone_index].parent_index;
-    if (parent_index < 0)
-        parent_index = bone_index;
+struct AnimationViewBone {
+    Transform transform;
+};
 
-    Mat3 eb = en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation);
-    Mat3 ep = en->animator.bones[parent_index];
+struct AnimationEditor {
+    AnimationViewState state;
+    bool clear_selection_on_up;
+    bool ignore_up;
+    void (*state_update)();
+    void (*state_draw)();
+    Vec2 command_world_position;
+    Vec2 selection_center;
+    Vec2 selection_center_world;
+    AnimationViewBone bones[MAX_BONES];
+    bool onion_skin;
+};
 
-    Vec2 p0 = TransformPoint(eb);
-    Vec2 p1 = TransformPoint(eb, Vec2 {es->bones[bone_index].length, 0});
-    Vec2 pp = TransformPoint(ep);
-    DrawDashedLine(pp + position, p0 + position);
-    DrawBone(p0 + position, p1 + position);
-}
+static AnimationEditor g_animation_view = {};
 
-void DrawEditorAnimation(AssetData* ea) {
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    SkeletonData* es = GetEditorSkeleton(en);
+static Shortcut* g_animation_editor_shortcuts;
 
-    BindColor(COLOR_WHITE);
-    BindMaterial(g_view.shaded_material);
-    for (int i=0; i<es->skinned_mesh_count; i++) {
-        MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
-        if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
-            continue;
-
-        DrawMesh(skinned_mesh, Translate(ea->position) * en->animator.bones[es->skinned_meshes[i].bone_index]);
-    }
-
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-        DrawEditorAnimationBone(en, bone_index, ea->position);
-}
-
-static void ParseSkeletonBone(Tokenizer& tk, SkeletonData* es, int bone_index, int* bone_map) {
-    if (!ExpectQuotedString(tk))
-        throw std::exception("missing quoted bone name");
-
-    bone_map[bone_index] = FindBoneIndex(es, GetName(tk));
-}
-
-void UpdateSkeleton(AnimationData* en)
+static AnimationData* GetEditingAnimation()
 {
-    SkeletonData* es = GetEditorSkeleton(en);
-
-    // Create a mapping table based on the name
-    int bone_map[MAX_BONES];
-    for (int i=0; i<MAX_BONES; i++)
-        bone_map[i] = -1;
-
-    for (int i=0; i<en->bone_count; i++)
-    {
-        int new_bone_index = FindBoneIndex(es, en->bones[i].name);
-        if (new_bone_index == -1)
-            continue;
-        bone_map[new_bone_index] = i;
-    }
-
-    // recreate the frames using the new bone indicies and then fix the bones
-    EditorAnimationFrame new_frames[MAX_ANIMATION_FRAMES];
-    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
-        new_frames[frame_index] = en->frames[frame_index];
-
-    // copy the new frames back
-    memcpy(en->frames, new_frames, sizeof(new_frames));
-
-    // fix the bones
-    for (int i=0; i<es->bone_count; i++)
-    {
-        EditorAnimationBone& enb = en->bones[i];
-        enb.index = i;
-        enb.name = es->bones[i].name;
-    }
-
-    en->bone_count = es->bone_count;
-
-    UpdateBounds(en);
-    UpdateTransforms(en);
-}
-
-static void ParseSkeleton(AnimationData* en, Tokenizer& tk, int* bone_map)
-{
-    if (!ExpectQuotedString(tk))
-        throw std::exception("missing quoted skeleton name");
-
-    en->skeleton_name = GetName(tk);
-
-    SkeletonData* es = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, en->skeleton_name);
-    assert(es);
-
-    if (!es->loaded)
-        LoadEditorAsset(es);
-
-    for (int i=0; i<es->bone_count; i++)
-    {
-        EditorAnimationBone& enb = en->bones[i];
-        BoneData& eb = es->bones[i];
-        enb.name = eb.name;
-        enb.index = i;
-    }
-
-    en->bone_count = es->bone_count;
-
-    for (int frame_index=0; frame_index<MAX_ANIMATION_FRAMES; frame_index++)
-        for (int bone_index=0; bone_index<MAX_BONES; bone_index++)
-            SetIdentity(en->frames[frame_index].transforms[bone_index]);
-
-    int bone_index = 0;
-    while (!IsEOF(tk))
-    {
-        if (ExpectIdentifier(tk, "b"))
-            ParseSkeletonBone(tk, es, bone_index++, bone_map);
-        else
-            break;
-    }
-}
-
-static int ParseFrameBone(AnimationData* ea, Tokenizer& tk, int* bone_map)
-{
-    (void)ea;
-    int bone_index;
-    if (!ExpectInt(tk, &bone_index))
-        ThrowError("expected bone index");
-
-    return bone_map[bone_index];
-}
-
-static void ParseFramePosition(AnimationData* en, Tokenizer& tk, int bone_index, int frame_index)
-{
-    float x;
-    if (!ExpectFloat(tk, &x))
-        ThrowError("expected position 'x' value");
-    float y;
-    if (!ExpectFloat(tk, &y))
-        ThrowError("expected position 'y' value");
-
-    if (bone_index == -1)
-        return;
-
-    SetPosition(GetFrameTransform(en, bone_index, frame_index), {x,y});
-}
-
-static void ParseFrameHold(AnimationData* en, Tokenizer& tk, int frame_index)
-{
-    int hold;
-    if (!ExpectInt(tk, &hold))
-        ThrowError("expected hold value");
-
-    en->frames[frame_index].hold = Max(0, hold);
-}
-
-static void ParseFrameRotation(AnimationData* en, Tokenizer& tk, int bone_index, int frame_index)
-{
-    float r;
-    if (!ExpectFloat(tk, &r))
-        ThrowError("expected rotation value");
-
-    if (bone_index == -1)
-        return;
-
-    SetRotation(GetFrameTransform(en, bone_index, frame_index), r);
-}
-
-static void ParseFrameScale(AnimationData* en, Tokenizer& tk, int bone_index, int frame_index)
-{
-    float s;
-    if (!ExpectFloat(tk, &s))
-        ThrowError("expected scale value");
-
-    if (bone_index == -1)
-        return;
-
-    SetScale(GetFrameTransform(en, bone_index, frame_index), s);
-}
-
-static void ParseFrame(AnimationData* en, Tokenizer& tk, int* bone_map)
-{
-    int bone_index = -1;
-    en->frame_count++;
-    while (!IsEOF(tk))
-    {
-        if (ExpectIdentifier(tk, "b"))
-            bone_index = ParseFrameBone(en, tk, bone_map);
-        else if (ExpectIdentifier(tk, "r"))
-            ParseFrameRotation(en, tk, bone_index, en->frame_count - 1);
-        else if (ExpectIdentifier(tk, "s"))
-            ParseFrameScale(en, tk, bone_index, en->frame_count - 1);
-        else if (ExpectIdentifier(tk, "p"))
-            ParseFramePosition(en, tk, bone_index, en->frame_count - 1);
-        else if (ExpectIdentifier(tk, "h"))
-            ParseFrameHold(en, tk, en->frame_count - 1);
-        else
-            break;
-    }
-}
-
-void UpdateBounds(AnimationData* en)
-{
-    en->bounds = GetEditorSkeleton(en)->bounds;
-}
-
-static void EditorAnimationPostLoad(AssetData* ea)
-{
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-
-    en->skeleton = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, en->skeleton_name);
-    if (!en->skeleton)
-        return;
-
-    UpdateTransforms(GetEditorSkeleton(en));
-    UpdateTransforms(en);
-    UpdateBounds(en);
-}
-
-static void EditorAnimationLoad(AssetData* ea)
-{
+    AssetData* ea = GetAssetData();
     assert(ea);
     assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    en->frame_count = 0;
+    return (AnimationData*)ea;
+}
 
-    std::filesystem::path path = ea->path;
-    std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
-    Tokenizer tk;
-    Init(tk, contents.c_str());
+static SkeletonData* GetSkeletonData() { return GetEditingAnimation()->skeleton; }
+static bool IsBoneSelected(int bone_index) { return GetEditingAnimation()->bones[bone_index].selected; }
+static bool IsAncestorSelected(int bone_index) {
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+    int parent_index = es->bones[bone_index].parent_index;
+    while (parent_index >= 0) {
+        if (en->bones[parent_index].selected)
+            return true;
+        parent_index = es->bones[parent_index].parent_index;
+    }
 
-    int bone_map[MAX_BONES];
-    for (int i=0; i<MAX_BONES; i++)
-        bone_map[i] = -1;
+    return false;
+}
 
-    while (!IsEOF(tk))
+static void SetBoneSelected(int bone_index, bool selected) {
+    if (IsBoneSelected(bone_index) == selected)
+        return;
+
+    AnimationData* en = GetEditingAnimation();
+    en->bones[bone_index].selected = selected;
+    en->selected_bone_count += selected ? 1 : -1;
+}
+
+static void UpdateSelectionCenter()
+{
+    AssetData& ea = *GetAssetData();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+
+    Vec2 center = VEC2_ZERO;
+    float center_count = 0.0f;
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
     {
-        if (ExpectIdentifier(tk, "s"))
-            ParseSkeleton(en, tk, bone_map);
-        else if (ExpectIdentifier(tk, "f"))
-            ParseFrame(en, tk, bone_map);
-        else
+        if (!IsBoneSelected(bone_index))
+            continue;
+        center += TransformPoint(en->animator.bones[bone_index]);
+        center_count += 1.0f;
+    }
+
+    g_animation_view.selection_center =
+        center_count < F32_EPSILON
+            ? center
+            : center / center_count;
+    g_animation_view.selection_center_world = g_animation_view.selection_center + ea.position;
+}
+
+static void SaveState()
+{
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+    for (int bone_index=1; bone_index<es->bone_count; bone_index++)
+        g_animation_view.bones[bone_index].transform = GetFrameTransform(en, bone_index, en->current_frame);
+
+    UpdateSelectionCenter();
+}
+
+static void RevertToSavedState()
+{
+    SkeletonData* es = GetSkeletonData();
+    AnimationData* en = GetEditingAnimation();
+    for (int bone_index=1; bone_index<es->bone_count; bone_index++)
+    {
+        AnimationViewBone& vb = g_animation_view.bones[bone_index];
+        GetFrameTransform(en, bone_index, en->current_frame) = vb.transform;
+    }
+
+    UpdateTransforms(en);
+    UpdateSelectionCenter();
+}
+
+static void SetState(AnimationViewState state, void (*state_update)(), void (*state_draw)())
+{
+    g_animation_view.state = state;
+    g_animation_view.state_update = state_update;
+    g_animation_view.state_draw = state_draw;
+    g_animation_view.command_world_position = g_view.mouse_world_position;
+
+    SetCursor(SYSTEM_CURSOR_DEFAULT);
+}
+
+static void ClearSelection() {
+    SkeletonData* es = GetSkeletonData();
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+        SetBoneSelected(bone_index, false);
+}
+
+static bool TrySelect() {
+    AnimationData* en = GetEditingAnimation();
+    int bone_index = HitTestBone(en, g_view.mouse_world_position);
+    if (bone_index == -1)
+        return false;
+
+    BoneData* eb = &GetSkeletonData()->bones[bone_index];
+    if (IsShiftDown(g_view.input)) {
+        SetBoneSelected(bone_index, !eb->selected);
+    } else {
+        ClearSelection();
+        SetBoneSelected(bone_index, true);
+    }
+
+    return true;
+}
+
+static void UpdateRotateState() {
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+
+    Vec2 dir_start = Normalize(g_animation_view.command_world_position - g_animation_view.selection_center_world);
+    Vec2 dir_current = Normalize(g_view.mouse_world_position - g_animation_view.selection_center_world);
+    float angle = SignedAngleDelta(dir_start, dir_current);
+    if (fabsf(angle) < F32_EPSILON)
+        return;
+
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
+            continue;
+
+        AnimationViewBone& sb = g_animation_view.bones[bone_index];
+        SetRotation(GetFrameTransform(en, bone_index, en->current_frame), sb.transform.rotation + angle);
+    }
+
+    UpdateTransforms(en);
+}
+
+static void UpdateMoveState() {
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+
+    Vec2 world_delta = g_view.mouse_world_position - g_animation_view.command_world_position;
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
+            continue;
+
+        AnimationViewBone& sb = g_animation_view.bones[bone_index];
+        SetPosition(GetFrameTransform(en, bone_index, en->current_frame), sb.transform.position + world_delta);
+    }
+
+    UpdateTransforms(en);
+}
+
+static void UpdateBoneNames() {
+    if (!IsAltDown(g_view.input) && !g_view.show_names)
+        return;
+
+    AssetData* ea = GetAssetData();
+    SkeletonData* es = GetSkeletonData();
+    for (u16 i=0; i<es->bone_count; i++) {
+        Mat3 transform = es->bones[i].local_to_world * Rotate(es->bones[i].transform.rotation);
+        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{0.25f, 0})) * 0.5f + ea->position;
+        const char* name = es->bones[i].name->value;
+        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [name] {
+            Align({.alignment=ALIGNMENT_CENTER}, [name] {
+                Label(name, {.font = FONT_SEGUISB, .font_size=12, .color=COLOR_WHITE} );
+            });
+        });
+    }
+}
+
+static void UpdatePlayState() {
+    AssetData& ea = *GetAssetData();
+    AnimationData* en = GetEditingAnimation();
+    if (!en->animation)
+        en->animation = ToAnimation(ALLOCATOR_DEFAULT, en, ea.name);
+
+    if (!en->animation)
+        return;
+
+    Update(en->animator);
+}
+
+static void HandleBoxSelect(const Bounds2& bounds) {
+    if (!IsShiftDown(g_view.input))
+        ClearSelection();
+
+    AssetData* ea = GetAssetData();
+    SkeletonData* es = GetSkeletonData();
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        AnimationData* en = GetEditingAnimation();
+        BoneData* eb = &es->bones[bone_index];
+        Mat3 collider_transform =
+            Translate(ea->position) *
+            en->animator.bones[bone_index] *
+            Rotate(eb->transform.rotation) *
+            Scale(eb->length);
+        if (OverlapBounds(g_view.bone_collider, bounds, collider_transform))
+            SetBoneSelected(bone_index, true);
+    }
+}
+
+static void UpdateDefaultState() {
+    // If a drag has started then switch to box select
+    if (g_view.drag) {
+        BeginBoxSelect(HandleBoxSelect);
+        return;
+    }
+
+    if (!g_animation_view.ignore_up && !g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
+    {
+        g_animation_view.clear_selection_on_up = false;
+
+        if (TrySelect())
+            return;
+
+        g_animation_view.clear_selection_on_up = true;
+    }
+
+    g_animation_view.ignore_up &= !WasButtonReleased(g_view.input, MOUSE_LEFT);
+
+    if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_animation_view.clear_selection_on_up && !IsShiftDown(g_view.input))
+        ClearSelection();
+}
+
+void AnimationViewUpdate()
+{
+    AnimationData* ea = GetEditingAnimation();
+    CheckShortcuts(g_animation_editor_shortcuts);
+    UpdateBounds(ea);
+    UpdateBoneNames();
+
+    // Commit the tool
+    if (g_animation_view.state == ANIMATION_VIEW_STATE_MOVE ||
+        g_animation_view.state == ANIMATION_VIEW_STATE_ROTATE)
+    {
+        if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
         {
-            char error[1024];
-            GetString(tk, error, sizeof(error) - 1);
-            ThrowError("invalid token '%s' in animation", error);
+            MarkModified();
+            g_animation_view.ignore_up = true;
+            SetState(ANIMATION_VIEW_STATE_DEFAULT, nullptr, nullptr);
+            return;
+        }
+
+        // Cancel the tool
+        if (WasButtonPressed(g_view.input, KEY_ESCAPE) || WasButtonPressed(g_view.input, MOUSE_RIGHT))
+        {
+            CancelUndo();
+            RevertToSavedState();
+            SetState(ANIMATION_VIEW_STATE_DEFAULT, nullptr, nullptr);
+            return;
         }
     }
 
-    if (en->frame_count == 0)
-    {
-        EditorAnimationFrame& enf = en->frames[0];
-        for (int i=0; i<MAX_BONES; i++)
-            enf.transforms[i] = {
-                .position = VEC2_ZERO,
-                .scale = VEC2_ONE,
-                .rotation = 0,
-                .local_to_world = MAT3_IDENTITY,
-                .world_to_local = MAT3_IDENTITY
-            };
-        en->frame_count = 1;
-    }
+    if (g_animation_view.state_update)
+        g_animation_view.state_update();
 
-    en->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
+    if (g_animation_view.state == ANIMATION_VIEW_STATE_DEFAULT)
+        UpdateDefaultState();
 }
 
-void Serialize(AnimationData* en, Stream* output_stream, SkeletonData* es)
-{
-    assert(es);
+static void DrawOnionSkin() {
+    AssetData& ea = *GetAssetData();
+    SkeletonData* es = GetSkeletonData();
+    AnimationData* en = GetEditingAnimation();
 
-    AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_ANIMATION;
-    header.version = 1;
-    WriteAssetHeader(output_stream, &header);
+    if (!g_animation_view.onion_skin || en->frame_count <= 1)
+        return;
+
+    int frame = en->current_frame;
+
+    en->current_frame = (frame - 1 + en->frame_count) % en->frame_count;
+    UpdateTransforms(en);
+
+    BindMaterial(g_view.vertex_material);
+    BindColor(SetAlpha(COLOR_RED, 0.25f));
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        BoneData* eb = &es->bones[bone_index];
+        DrawBone(
+            en->animator.bones[bone_index] * Rotate(eb->transform.rotation),
+            eb->parent_index < 0
+                ? en->animator.bones[bone_index]
+                : en->animator.bones[eb->parent_index],
+            ea.position,
+            eb->length
+            );
+    }
+
+    en->current_frame = (frame + 1 + en->frame_count) % en->frame_count;
+    UpdateTransforms(en);
+
+    BindColor(SetAlpha(COLOR_GREEN, 0.25f));
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        BoneData* eb = &es->bones[bone_index];
+        DrawBone(
+            en->animator.bones[bone_index] * Rotate(eb->transform.rotation),
+            eb->parent_index < 0
+                ? en->animator.bones[bone_index]
+                : en->animator.bones[eb->parent_index],
+            ea.position,
+            eb->length);
+    }
+
+    en->current_frame = frame;
+    UpdateTransforms(en);
+}
+
+static void DrawRotateState() {
+    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
+    DrawVertex(g_animation_view.selection_center_world, CENTER_SIZE * 0.75f);
+    BindColor(COLOR_CENTER);
+    DrawDashedLine(g_view.mouse_world_position, g_animation_view.selection_center_world);
+    BindColor(COLOR_ORIGIN);
+    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
+}
+
+static void DrawTimeline() {
+    AssetData& ea = *GetAssetData();
+    AnimationData* en = GetEditingAnimation();
 
     int real_frame_count = en->frame_count;
     for (int frame_index=0; frame_index<en->frame_count; frame_index++)
         real_frame_count += en->frames[frame_index].hold;
 
-    WriteU8(output_stream, (u8)es->bone_count);
-    WriteU8(output_stream, (u8)real_frame_count);
+    Vec2 h1 =
+        ScreenToWorld(g_view.camera, {g_view.dpi * FRAME_SIZE_X, g_view.dpi * -FRAME_SIZE_Y}) -
+        ScreenToWorld(g_view.camera, VEC2_ZERO);
+    float h2 =
+        (ScreenToWorld(g_view.camera, {g_view.dpi * FRAME_BORDER_SIZE, 0}) -
+         ScreenToWorld(g_view.camera, VEC2_ZERO)).x;
 
-    for (int i=0; i<es->bone_count; i++)
-        WriteU8(output_stream, (u8)en->bones[i].index);
+    Vec2 pos = ea.position + Vec2 { 0, en->bounds.min.y + FRAME_LINE_OFFSET };
+    pos.x -= h1.x * real_frame_count * 0.5f;
+    pos.x -= h2 * 0.5f;
+    pos.y -= h2 * 0.5f;
+    pos.y -= h1.y;
+    int current_frame = en->current_frame;
 
-    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
+    BindMaterial(g_view.vertex_material);
+    int ii = 0;
+    for (int i=0; i<en->frame_count; i++) {
+        Rect frame_rect = Rect {
+            pos.x + h1.x * ii,
+            pos.y,
+            h1.x + h2 + en->frames[i].hold * h1.x,
+            h1.y + h2};
+        BindColor(COLOR_BLACK);
+        DrawRect(frame_rect);
+        BindColor(i == current_frame ? FRAME_SELECTED_COLOR : FRAME_COLOR);
+        DrawRect(Expand(frame_rect, -h2));
+        BindColor(COLOR_BLACK);
+        DrawVertex(Vec2{frame_rect.x + h2 + h1.x * 0.5f, frame_rect.y + frame_rect.height * 0.25f}, FRAME_DOT_SIZE);
+
+        ii += (1 + en->frames[i].hold);
+    }
+
+    if (IsPlaying(en->animator)) {
+        current_frame = GetFrame(en->animator);
+        BindColor({0.02f, 0.02f, 0.02f, 1.0f});
+        //DrawLine(pos + left, pos + left + h1);
+        //DrawVertex(pos + left + h1, FRAME_SIZE * 0.9f);
+    }
+
+    // BindColor(COLOR_ORIGIN);
+    // DrawVertex({pos.x - left.x + h1.x * current_frame, pos.y}, FRAME_SELECTED_SIZE);
+    //
+    // if (IsPlaying(en->animator))
+    // {
+    //     Vec2 s2 =
+    //             ScreenToWorld(g_view.camera, {0, g_view.dpi * FRAME_TIME_SIZE}) -
+    //             ScreenToWorld(g_view.camera, VEC2_ZERO);
+    //
+    //
+    //     BindColor(COLOR_WHITE);
+    //     float time = GetNormalizedTime(en->animator);
+    //     Vec2 tpos = pos + Mix(right, left, time);
+    //     DrawLine(tpos - s2, tpos + s2);
+    // }
+}
+
+void AnimationViewDraw()
+{
+    AssetData& ea = *GetAssetData();
+    SkeletonData* es = GetSkeletonData();
+    AnimationData* en = GetEditingAnimation();
+
+    BindColor(COLOR_WHITE);
+    for (int i=0; i<es->skinned_mesh_count; i++)
     {
-        EditorAnimationFrame& enf = en->frames[frame_index];
-        for (int hold_index=0; hold_index<enf.hold + 1; hold_index++)
-        {
-            for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-            {
-                Transform& transform = enf.transforms[bone_index];
-                BoneTransform bone_transform = {
-                    .position = transform.position,
-                    .scale = transform.scale,
-                    .rotation = transform.rotation
-                };
-
-                WriteStruct(output_stream, bone_transform);
-            }
-        }
-    }
-}
-
-Animation* ToAnimation(Allocator* allocator, AnimationData* en, const Name* name) {
-    SkeletonData* es = GetEditorSkeleton(en);
-    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
-    if (!stream)
-        return nullptr;
-
-    Serialize(en, stream, es);
-    SeekBegin(stream, 0);
-
-    Animation* animation = (Animation*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_ANIMATION, LoadAnimation, stream);
-    Free(stream);
-
-    return animation;
-}
-
-static void EditorAnimationSave(AssetData* ea, const std::filesystem::path& path) {
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    SkeletonData* es = GetEditorSkeleton(en);
-
-    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
-
-    WriteCSTR(stream, "s \"%s\"\n", en->skeleton_name->value);
-
-    for (int i=0; i<es->bone_count; i++) {
-        const EditorAnimationBone& eab = en->bones[i];
-        WriteCSTR(stream, "b \"%s\"\n", eab.name->value);
-    }
-
-    for (int frame_index=0; frame_index<en->frame_count; frame_index++) {
-        WriteCSTR(stream, "f\n");
-        for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-            Transform& bt = GetFrameTransform(en, bone_index, frame_index);
-
-            bool has_pos = bt.position != VEC2_ZERO;
-            bool has_rot = bt.rotation != 0.0f;
-
-            if (!has_pos && !has_rot)
-                continue;
-
-            if (en->frames[frame_index].hold > 0)
-                WriteCSTR(stream, "h %d", en->frames[frame_index].hold);
-
-            WriteCSTR(stream, "b %d", bone_index);
-
-            if (has_pos)
-                WriteCSTR(stream, " p %f %f", bt.position.x, bt.position.y);
-
-            if (has_rot)
-                WriteCSTR(stream, " r %f", bt.rotation);
-
-            WriteCSTR(stream, "\n");
-        }
-    }
-
-    SaveStream(stream, path);
-    Free(stream);
-}
-
-int InsertFrame(AnimationData* en, int frame_index) {
-    int copy_frame = Max(0,frame_index - 1);
-
-    SkeletonData* es = GetEditorSkeleton(en);
-    for (int i=frame_index + 1; i<=en->frame_count; i++)
-        en->frames[i] = en->frames[i - 1];
-
-    en->frame_count++;
-
-    if (copy_frame >= 0)
-        for (int j=0; j<es->bone_count; j++)
-            GetFrameTransform(en, j, frame_index) = GetFrameTransform(en, j, copy_frame);
-
-    en->frames[frame_index].hold = 0;
-
-    return frame_index;
-}
-
-int DeleteFrame(AnimationData* en, int frame_index) {
-    if (en->frame_count <= 1)
-        return frame_index;
-
-    for (int i=frame_index; i<en->frame_count - 1; i++)
-        en->frames[i] = en->frames[i + 1];
-
-    en->frame_count--;
-
-    return Min(frame_index, en->frame_count - 1);
-}
-
-Transform& GetFrameTransform(AnimationData* en, int bone_index, int frame_index) {
-    assert(bone_index >= 0 && bone_index < MAX_BONES);
-    assert(frame_index >= 0 && frame_index < en->frame_count);
-    return en->frames[frame_index].transforms[bone_index];
-}
-
-int HitTestBone(AnimationData* en, const Vec2& world_pos) {
-    SkeletonData* es = GetEditorSkeleton(en);
-    UpdateTransforms(en);
-
-    int best_bone_index = -1;
-    float best_dist = F32_MAX;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        BoneData* eb = &es->bones[bone_index];
-        Mat3 collider_transform = Translate(GetAssetData()->position) * en->animator.bones[bone_index] * Scale(eb->length);
-        if (!OverlapPoint(g_view.bone_collider, world_pos, collider_transform))
+        MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+        if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
-        Mat3 local_to_world = en->animator.bones[bone_index] * Rotate(eb->transform.rotation);
-        Vec2 b0 = TransformPoint(local_to_world);
-        Vec2 b1 = TransformPoint(local_to_world, {eb->length, 0});
-        float dist = DistanceFromLine(b0, b1, world_pos);
-        if (dist < best_dist) {
-            best_dist = dist;
-            best_bone_index = bone_index;
-        }
+        DrawMesh(skinned_mesh, Translate(ea.position) * en->animator.bones[es->skinned_meshes[i].bone_index]);
     }
 
-    return best_bone_index;
-}
+    DrawOnionSkin();
 
-AssetData* NewEditorAnimation(const std::filesystem::path& path)
-{
-    (void)path;
+    BindMaterial(g_view.vertex_material);
+    BindColor(COLOR_EDGE);
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+        DrawEditorAnimationBone(en, bone_index, ea.position);
 
-    if (g_view.selected_asset_count != 1)
-    {
-        LogError("no skeleton selected");
-        return nullptr;
+    // Draw selected bones
+    BindColor(COLOR_EDGE_SELECTED);
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index))
+            continue;
+
+        DrawEditorAnimationBone(en, bone_index, ea.position);
     }
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "animations" / path : path;
-    full_path += ".anim";
+    DrawTimeline();
 
-    AssetData* skeleton_asset = GetFirstSelectedAsset();
-    if (!skeleton_asset || skeleton_asset->type != ASSET_TYPE_SKELETON)
-    {
-        LogError("no skeleton selected");
-        return nullptr;
-    }
-
-    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
-    WriteCSTR(stream, "s \"%s\"\n", skeleton_asset->name->value);
-    SaveStream(stream, full_path);
-    Free(stream);
-
-    // todo: wait for import, find the asset, and return it
-    QueueImport(full_path);
-    WaitForImportJobs();
-
-    const Name* asset_name = MakeCanonicalAssetName(full_path);
-    return GetAssetData(ASSET_TYPE_ANIMATION, asset_name);
+    if (g_animation_view.state_draw)
+        g_animation_view.state_draw();
 }
 
-static bool EditorAnimationOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
+static void HandlePrevFrameCommand()
 {
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    return Contains(en->bounds + position, overlap_point);
-}
-
-static bool EditorAnimationOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
-{
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    return Intersects(en->bounds + ea->position, overlap_bounds);
-}
-
-static void EditorAnimationClone(AssetData* ea)
-{
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    en->animation = nullptr;
-    en->animator = {};
-    UpdateTransforms(en);
-    UpdateBounds(en);
-}
-
-static void EditorAnimationUndoRedo(AssetData* ea)
-{
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    UpdateSkeleton(en);
+    AnimationData* en = GetEditingAnimation();
+    en->current_frame = (en->current_frame - 1 + en->frame_count) % en->frame_count;
     UpdateTransforms(en);
 }
 
-static void Init(AnimationData* ea)
+static void HandleNextFrameCommand()
 {
-    extern void AnimationViewInit();
-    extern void AnimationViewDraw();
-    extern void AnimationViewUpdate();
-    extern void AnimationViewShutdown();
+    AnimationData* en = GetEditingAnimation();
+    en->current_frame = (en->current_frame + 1) % en->frame_count;
+    UpdateTransforms(en);
+}
 
-    ea->vtable = {
-        .load = EditorAnimationLoad,
-        .post_load = EditorAnimationPostLoad,
-        .save = EditorAnimationSave,
-        .draw = DrawEditorAnimation,
-        .overlap_point = EditorAnimationOverlapPoint,
-        .overlap_bounds = EditorAnimationOverlapBounds,
-        .clone = EditorAnimationClone,
-        .undo_redo = EditorAnimationUndoRedo,
-        .editor_begin = AnimationViewInit
+static void BeginMoveTool()
+{
+    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+        return;
+
+    if (GetEditingAnimation()->selected_bone_count <= 0)
+        return;
+
+    RecordUndo();
+    SaveState();
+    SetState(ANIMATION_VIEW_STATE_MOVE, UpdateMoveState, nullptr);
+    SetCursor(SYSTEM_CURSOR_MOVE);
+}
+
+static void BeginRotateTool() {
+    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+        return;
+
+    if (GetEditingAnimation()->selected_bone_count <= 0)
+        return;
+
+    RecordUndo();
+    SaveState();
+    SetState(ANIMATION_VIEW_STATE_ROTATE, UpdateRotateState, DrawRotateState);
+}
+
+static void HandleResetRotate() {
+    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+        return;
+
+    RecordUndo();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index))
+            continue;
+
+        SetRotation(GetFrameTransform(en, bone_index, en->current_frame), 0);
+    }
+
+    UpdateTransforms(en);
+}
+
+static void HandlePlayCommand()
+{
+    AnimationData* en = GetEditingAnimation();
+    if (g_animation_view.state == ANIMATION_VIEW_STATE_PLAY)
+    {
+        Stop(en->animator);
+        UpdateTransforms(en);
+        SetState(ANIMATION_VIEW_STATE_DEFAULT, nullptr, nullptr);
+        return;
+    }
+
+    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+        return;
+
+    AssetData& ea = *GetAssetData();
+    SkeletonData* es = GetSkeletonData();
+
+    Init(
+        en->animator,
+        ToSkeleton(ALLOCATOR_DEFAULT, es, NAME_NONE));
+    Play(en->animator, ToAnimation(ALLOCATOR_DEFAULT, en, ea.name), 1.0f, true);
+    SetState(ANIMATION_VIEW_STATE_PLAY, UpdatePlayState, nullptr);
+}
+
+static void HandleResetMoveCommand() {
+    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+        return;
+
+    RecordUndo();
+
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index))
+            continue;
+
+        SetPosition(GetFrameTransform(en, bone_index, en->current_frame), VEC2_ZERO);
+    }
+
+    UpdateTransforms(en);
+}
+
+static void HandleSelectAll() {
+    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+        return;
+
+    SkeletonData* es = GetSkeletonData();
+    for (int i=0; i<es->bone_count; i++)
+        SetBoneSelected(i, true);
+}
+
+static void HandleInsertBeforeFrame()
+{
+    RecordUndo();
+    AnimationData* en = GetEditingAnimation();
+    en->current_frame = InsertFrame(en, en->current_frame);
+    UpdateTransforms(en);
+}
+
+static void HandleInsertAfterFrame()
+{
+    RecordUndo();
+    AnimationData* en = GetEditingAnimation();
+    en->current_frame = InsertFrame(en, en->current_frame + 1);
+    UpdateTransforms(en);
+}
+
+static void HandleDeleteFrame()
+{
+    RecordUndo();
+    AnimationData* en = GetEditingAnimation();
+    en->current_frame = DeleteFrame(en, en->current_frame);
+    UpdateTransforms(en);
+}
+
+static void HandleToggleOnionSkin()
+{
+    g_animation_view.onion_skin = !g_animation_view.onion_skin;
+}
+
+void AnimationViewShutdown()
+{
+    AnimationData* en = GetEditingAnimation();
+    Stop(en->animator);
+    UpdateTransforms(en);
+}
+
+static void AddHoldFrame()
+{
+    AnimationData* en = GetEditingAnimation();
+    RecordUndo();
+    en->frames[en->current_frame].hold++;
+    MarkModified();
+}
+
+static void RemoveHoldFrame()
+{
+    AnimationData* en = GetEditingAnimation();
+    if (en->frames[en->current_frame].hold <= 0)
+        return;
+
+    RecordUndo();
+    en->frames[en->current_frame].hold = Max(0, en->frames[en->current_frame].hold - 1);
+    MarkModified();
+}
+
+void AnimationViewInit()
+{
+    g_view.vtable = {
+        .update = AnimationViewUpdate,
+        .draw = AnimationViewDraw,
+        .shutdown = AnimationViewShutdown,
     };
-}
 
-void InitEditorAnimation(AssetData* ea)
-{
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    Init(en);
+    g_animation_view.state = ANIMATION_VIEW_STATE_DEFAULT;
+    g_animation_view.state_update = nullptr;
+    g_animation_view.state_draw = nullptr;
+
+    if (g_animation_editor_shortcuts == nullptr)
+    {
+        static Shortcut shortcuts[] = {
+            { KEY_G, false, false, false, BeginMoveTool },
+            { KEY_G, true, false, false, HandleResetMoveCommand },
+            { KEY_R, false, false, false, BeginRotateTool },
+            { KEY_R, true, false, false, HandleResetRotate },
+            { KEY_A, false, false, false, HandleSelectAll },
+            { KEY_Q, false, false, false, HandlePrevFrameCommand },
+            { KEY_E, false, false, false, HandleNextFrameCommand },
+            { KEY_SPACE, false, false, false, HandlePlayCommand },
+            { KEY_I, false, false, false, HandleInsertBeforeFrame },
+            { KEY_O, false, false, false, HandleInsertAfterFrame },
+            { KEY_O, true, false, false, HandleToggleOnionSkin },
+            { KEY_X, false, false, false, HandleDeleteFrame },
+            { KEY_H, false, false, false, AddHoldFrame },
+            { KEY_H, false, true, false, RemoveHoldFrame },
+            { INPUT_CODE_NONE }
+        };
+
+        g_animation_editor_shortcuts = shortcuts;
+        EnableShortcuts(g_animation_editor_shortcuts);
+    }
 }

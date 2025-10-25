@@ -85,9 +85,6 @@ void InitTextureEditor() {
     static Shortcut shortcuts[] = {
         { KEY_G, false, false, false, BeginTextureMove },
         { KEY_S, false, false, false, BeginTextureScale },
-        { KEY_TAB, false, false, false, EndTextureEditor },
-        { KEY_Z, false, true, false, HandleUndo },
-        { KEY_Y, false, true, false, HandleRedo },
         { KEY_ESCAPE, false, false, false, CancelTextureEditor },
         { INPUT_CODE_NONE }
     };

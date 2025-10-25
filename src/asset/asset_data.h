@@ -39,6 +39,7 @@ struct AssetData {
     bool meta_modified;
     bool clipped;
     bool loaded;
+    bool post_loaded;
     bool editor_only;
     AssetVtable vtable;
     Bounds2 bounds;
@@ -65,19 +66,20 @@ inline int GetIndex(AssetData* ea) {
     return (int)GetIndex(g_editor.asset_allocator, ea);
 }
 
-extern void InitEditorAssets();
-extern void LoadEditorAsset(AssetData* ea);
+extern void InitAssetData();
+extern void LoadAssetData(AssetData* a);
+extern void PostLoadAssetData(AssetData* a);
 extern void HotloadEditorAsset(const Name* name);
 extern void MarkModified(AssetData* a);
 inline void MarkModified() { MarkModified(GetAssetData()); }
 extern void MarkMetaModified();
 extern void MarkMetaModified(AssetData* a);
 inline void MarkMetaModified() { MarkMetaModified(GetAssetData()); }
-extern AssetData* CreateEditorAsset(const std::filesystem::path& path);
+extern AssetData* CreateAssetData(const std::filesystem::path& path);
 extern std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext);
 extern void Clone(AssetData* dst, AssetData* src);
-extern void LoadEditorAssets();
-extern void SaveEditorAssets();
+extern void LoadAssetData();
+extern void SaveAssetData();
 extern bool OverlapPoint(AssetData* ea, const Vec2& overlap_point);
 extern bool OverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point);
 extern bool OverlapBounds(AssetData* ea, const Bounds2& overlap_bounds);
@@ -95,16 +97,16 @@ extern bool InitImporter(AssetData* ea);
 extern const Name* MakeCanonicalAssetName(const char* name);
 extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);
 extern void DeleteAsset(AssetData* ea);
-extern void SortAssets();
+extern void SortAssets(bool notify=true);
 inline bool IsEditing(AssetData* a) { return a->editing; }
 
 inline Bounds2 GetBounds(AssetData* a) { return a->bounds; }
 
-#include "animation_editor.h"
+#include "animation_data.h"
 #include "mesh_data.h"
 #include "texture_data.h"
 #include "skeleton_data.h"
-#include "vfx_editor.h"
+#include "vfx_data.h"
 
 union FatAssetData {
     AssetData asset;

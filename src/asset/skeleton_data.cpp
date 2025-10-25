@@ -17,26 +17,25 @@ void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& positio
         eb->length);
 }
 
-static void SortSkin(SkeletonData* s) {
+void SortSkin(SkeletonData* s) {
     qsort(s->skinned_meshes, s->skinned_mesh_count, sizeof(SkinnedMesh),
-        [](void const* p, void const* arg) {
-            SkinnedMesh* a = (SkinnedMesh*)p;
-            SkinnedMesh* b = (SkinnedMesh*)arg;
-            return a->mesh->sort_order - b->mesh->sort_order;
+        [](void const* a, void const* b) {
+            SkinnedMesh* sma = (SkinnedMesh*)a;
+            SkinnedMesh* smb = (SkinnedMesh*)b;
+            return sma->mesh->sort_order - smb->mesh->sort_order;
         });
 }
 
-void DrawEditorSkeleton(SkeletonData* s, const Vec2& position, bool) {
-    if (g_view.draw_mode != VIEW_DRAW_MODE_WIREFRAME) {
-        BindColor(COLOR_WHITE);
-        for (int i=0; i<s->skinned_mesh_count; i++) {
-            BoneData& bone = s->bones[s->skinned_meshes[i].bone_index];
-            MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
-            if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
-                continue;
+void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
+    BindColor(COLOR_WHITE);
+    BindDepth(0.0);
+    for (int i=0; i<s->skinned_mesh_count; i++) {
+        BoneData& bone = s->bones[s->skinned_meshes[i].bone_index];
+        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
+        if (!skinned_mesh)
+            continue;
 
-            DrawMesh(skinned_mesh, Translate(s->position) * bone.local_to_world);
-        }
+        DrawMesh(skinned_mesh, Translate(s->position) * bone.local_to_world);
     }
 
     BindMaterial(g_view.vertex_material);
@@ -45,25 +44,24 @@ void DrawEditorSkeleton(SkeletonData* s, const Vec2& position, bool) {
         DrawEditorSkeletonBone(s, bone_index, position);
 }
 
-static void EditorSkeletonDraw(AssetData* a) {
-    SkeletonData* es = (SkeletonData*)a;
-    assert(es);
-    assert(es->type == ASSET_TYPE_SKELETON);
-    DrawEditorSkeleton(es, es->position, a->selected && !a->editing);
+static void DrawSkeletonData(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* s = static_cast<SkeletonData*>(a);
+    DrawSkeletonData(s, a->position);
 }
 
 int HitTestBone(SkeletonData* s, const Vec2& world_pos) {
     float best_dist = F32_MAX;
     int best_bone_index = -1;
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
-        BoneData* eb = s->bones + bone_index;
-
-        Mat3 local_to_world = Translate(GetAssetData()->position) * eb->local_to_world * Rotate(eb->transform.rotation);
-        if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world * Scale(eb->length)))
+        BoneData* b = s->bones + bone_index;
+        Mat3 local_to_world = Translate(GetAssetData()->position) * b->local_to_world * Rotate(b->transform.rotation);
+        if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world * Scale(b->length)))
             continue;
 
         Vec2 b0 = TransformPoint(local_to_world);
-        Vec2 b1 = TransformPoint(local_to_world, {eb->length, 0});
+        Vec2 b1 = TransformPoint(local_to_world, {b->length, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
         if (dist < best_dist) {
             best_dist = dist;
@@ -71,7 +69,7 @@ int HitTestBone(SkeletonData* s, const Vec2& world_pos) {
         }
     }
 
-        return best_bone_index;
+    return best_bone_index;
 }
 
 static void ParseBonePosition(BoneData& eb, Tokenizer& tk)
@@ -119,8 +117,7 @@ static void ParseBone(SkeletonData* es, Tokenizer& tk) {
     bone.transform.scale = VEC2_ONE;
     bone.length = 0.25f;
 
-    while (!IsEOF(tk))
-    {
+    while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "p"))
             ParseBonePosition(bone, tk);
         else if (ExpectIdentifier(tk, "r"))
@@ -135,7 +132,7 @@ static void ParseBone(SkeletonData* es, Tokenizer& tk) {
 static void LoadSkeletonData(AssetData* a) {
     assert(a);
     assert(a->type == ASSET_TYPE_SKELETON);
-    SkeletonData* es = (SkeletonData*)a;
+    SkeletonData* s = static_cast<SkeletonData*>(a);
 
     std::filesystem::path path = a->path;
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
@@ -144,7 +141,7 @@ static void LoadSkeletonData(AssetData* a) {
 
     while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "b")) {
-            ParseBone(es, tk);
+            ParseBone(s, tk);
         } else {
             char error[1024];
             GetString(tk, error, sizeof(error) - 1);
@@ -152,7 +149,7 @@ static void LoadSkeletonData(AssetData* a) {
         }
     }
 
-    UpdateTransforms(es);
+    UpdateTransforms(s);
 }
 
 static void SaveSkeletonData(AssetData* a, const std::filesystem::path& path) {
@@ -234,7 +231,7 @@ void UpdateTransforms(SkeletonData* s) {
 static void LoadSkeletonMetaData(AssetData* a, Props* meta) {
     assert(a);
     assert(a->type == ASSET_TYPE_SKELETON);
-    SkeletonData* s = (SkeletonData*)a;
+    SkeletonData* s = static_cast<SkeletonData*>(a);
 
     for (auto& key : meta->GetKeys("skin")) {
         std::string bones = meta->GetString("skin", key.c_str(), "");
@@ -242,8 +239,7 @@ static void LoadSkeletonMetaData(AssetData* a, Props* meta) {
         Init(tk, bones.c_str());
 
         int bone_index = -1;
-        while (ExpectInt(tk, &bone_index))
-        {
+        while (ExpectInt(tk, &bone_index)) {
             s->skinned_meshes[s->skinned_mesh_count++] = {
                 GetName(key.c_str()),
                 nullptr,
@@ -256,17 +252,19 @@ static void LoadSkeletonMetaData(AssetData* a, Props* meta) {
     }
 }
 
-static void SkeletonDataPostLoad(AssetData* a) {
+static void PostLoadSkeleton(AssetData* a) {
     assert(a);
     assert(a->type == ASSET_TYPE_SKELETON);
-    SkeletonData* s = (SkeletonData*)a;
+    SkeletonData* s = static_cast<SkeletonData*>(a);
 
     for (int i=0; i<s->skinned_mesh_count; i++) {
         SkinnedMesh& sm = s->skinned_meshes[i];
         sm.mesh = (MeshData*)GetAssetData(ASSET_TYPE_MESH, sm.asset_name);
+        PostLoadAssetData(sm.mesh);
     }
 
     SortSkin(s);
+    UpdateTransforms(s);
 }
 
 int FindBoneIndex(SkeletonData* s, const Name* name) {
@@ -321,8 +319,7 @@ int ReparentBone(SkeletonData* s, int bone_index, int parent_index) {
         s->bones[i].index = i;
     }
 
-    for (int i=0; i<s->skinned_mesh_count; i++)
-    {
+    for (int i=0; i<s->skinned_mesh_count; i++) {
         SkinnedMesh& esm = s->skinned_meshes[i];
         esm.bone_index = bone_map[esm.bone_index];
     }
@@ -352,21 +349,18 @@ void RemoveBone(SkeletonData* s, int bone_index) {
     }
 
     // Remove any skinned meshes attached to this bone
-    for (int i=0; i<s->skinned_mesh_count; )
-    {
+    for (int i=0; i<s->skinned_mesh_count; ) {
         SkinnedMesh& esm = s->skinned_meshes[i];
-        if (esm.bone_index == bone_index)
-        {
+        if (esm.bone_index == bone_index) {
             s->skinned_meshes[i] = s->skinned_meshes[--s->skinned_mesh_count];
-        }
-        else
+        } else {
             i++;
+        }
     }
 
     s->bone_count--;
 
-    for (int i=bone_index; i<s->bone_count; i++)
-    {
+    for (int i=bone_index; i<s->bone_count; i++) {
         BoneData& enb = s->bones[i];
         enb = s->bones[i + 1];
         enb.index = i;
@@ -376,8 +370,7 @@ void RemoveBone(SkeletonData* s, int bone_index) {
             enb.parent_index--;
     }
 
-    for (int i=0; i<s->skinned_mesh_count; i++)
-    {
+    for (int i=0; i<s->skinned_mesh_count; i++) {
         SkinnedMesh& esm = s->skinned_meshes[i];
         if (esm.bone_index > bone_index)
             esm.bone_index--;
@@ -438,14 +431,13 @@ Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* es, const Name* name) {
     return skeleton;
 }
 
-static void EditorSkeletonSaveMetadata(AssetData* a, Props* meta) {
+static void SaveSkeletonMetadata(AssetData* a, Props* meta) {
     assert(a);
     assert(a->type == ASSET_TYPE_SKELETON);
     SkeletonData* es = (SkeletonData*)a;
     meta->ClearGroup("skin");
 
-    for (int i=0; i<es->skinned_mesh_count; i++)
-    {
+    for (int i=0; i<es->skinned_mesh_count; i++) {
         if (es->skinned_meshes[i].mesh == nullptr)
             continue;
 
@@ -479,11 +471,10 @@ static void SkeletonUndoRedo(AssetData* a) {
     UpdateTransforms(s);
 }
 
-static void EditorSkeletonSortOrderChanged(AssetData* a) {
+static void HandleSortOrderChanged(AssetData* a) {
     assert(a);
     assert(a->type == ASSET_TYPE_SKELETON);
-    SkeletonData* es = (SkeletonData*)a;
-    SortSkin(es);
+    SortSkin(static_cast<SkeletonData*>(a));
 }
 
 static void Init(SkeletonData* s) {
@@ -491,15 +482,15 @@ static void Init(SkeletonData* s) {
 
     s->vtable = {
         .load = LoadSkeletonData,
-        .post_load = SkeletonDataPostLoad,
+        .post_load = PostLoadSkeleton,
         .save = SaveSkeletonData,
         .load_metadata = LoadSkeletonMetaData,
-        .save_metadata = EditorSkeletonSaveMetadata,
-        .draw = EditorSkeletonDraw,
+        .save_metadata = SaveSkeletonMetadata,
+        .draw = DrawSkeletonData,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds,
         .undo_redo = SkeletonUndoRedo,
-        .on_sort_order_changed = EditorSkeletonSortOrderChanged
+        .on_sort_order_changed = HandleSortOrderChanged
     };
 
     InitSkeletonEditor(s);

@@ -102,7 +102,6 @@ extern void EndEdit();
 extern void BeginDrag();
 extern void EndDrag();
 extern void EnableCommonShortcuts(InputSet* input_set);
-extern void CheckCommonShortcuts();
 
 // @grid
 extern void InitGrid(Allocator* allocator);

@@ -169,13 +169,13 @@ void RemoveFromUndoRedo(AssetData* a) {
     for (u32 i=GetCount(g_undo.undo); i>0; i--) {
         UndoItem& undo_item = *(UndoItem*)GetAt(g_undo.undo, i-1);
         if (undo_item.asset != a) continue;
-        RemoveAt(g_undo.undo, i);
+        RemoveAt(g_undo.undo, i-1);
     }
 
     for (u32 i=GetCount(g_undo.redo); i>0; i--) {
         UndoItem& undo_item = *(UndoItem*)GetAt(g_undo.redo, i-1);
         if (undo_item.asset != a) continue;
-        RemoveAt(g_undo.redo, i);
+        RemoveAt(g_undo.redo, i-1);
     }
 }
 

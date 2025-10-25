@@ -133,8 +133,6 @@ extern void ShowConfirmDialog(const char* message, const std::function<void()>& 
 // @editor
 inline AssetData* GetAssetData() { return g_editor.editing_asset; }
 inline bool IsToolActive() { return g_editor.tool.type != TOOL_TYPE_NONE; }
-extern void HandleUndo();
-extern void HandleRedo();
 
 // @server
 extern void InitEditorServer(Props* config);
