@@ -15,7 +15,7 @@ struct EditorVfxEmitter
     VfxEmitterDef def;
 };
 
-struct EditorVfx : AssetData
+struct VfxData : AssetData
 {
     VfxFloat duration;
     bool loop;
@@ -26,8 +26,8 @@ struct EditorVfx : AssetData
 };
 
 extern void InitEditorVfx(AssetData* ea);
-extern EditorVfx* LoadEditorVfx(const std::filesystem::path& path);
-extern Vfx* ToVfx(Allocator* allocator, EditorVfx* evfx, const Name* name);
-extern void Serialize(EditorVfx* evfx, Stream* stream);
-extern EditorVfx* Clone(Allocator* allocator, EditorVfx* evfx);
+extern VfxData* LoadEditorVfx(const std::filesystem::path& path);
+extern Vfx* ToVfx(Allocator* allocator, VfxData* evfx, const Name* name);
+extern void Serialize(VfxData* evfx, Stream* stream);
+extern VfxData* Clone(Allocator* allocator, VfxData* evfx);
 extern void DrawEditorVfx(AssetData* ea);

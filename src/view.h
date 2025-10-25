@@ -59,13 +59,10 @@ struct View {
     float ui_scale;
     float dpi;
     InputSet* input;
-    InputSet* input_command;
     InputSet* input_tool;
     bool clear_selection_on_release;
     Vec2 pan_position_camera;
     Vec2 pan_position;
-    Command command;
-    const Name* command_preview;
 
     u32 selected_asset_count;
 
@@ -115,7 +112,6 @@ extern void DrawGrid(Camera* camera);
 // @undo
 extern void InitUndo();
 extern void ShutdownUndo();
-extern void HandleCommand(const Command& command);
 extern void RecordUndo(AssetData* a);
 extern void RecordUndo();
 extern void BeginUndoGroup();

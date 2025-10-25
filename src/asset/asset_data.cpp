@@ -61,7 +61,7 @@ AssetData* CreateEditorAsset(const std::filesystem::path& path)
         break;
 
     case ASSET_TYPE_SKELETON:
-        InitEditorSkeleton(a);
+        InitSkeletonData(a);
         break;
 
     default:

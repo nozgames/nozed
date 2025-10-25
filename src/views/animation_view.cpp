@@ -50,19 +50,19 @@ static AnimationView g_animation_view = {};
 
 static Shortcut* g_animation_editor_shortcuts;
 
-static EditorAnimation* GetEditingAnimation()
+static AnimationData* GetEditingAnimation()
 {
     AssetData* ea = GetAssetData();
     assert(ea);
     assert(ea->type == ASSET_TYPE_ANIMATION);
-    return (EditorAnimation*)ea;
+    return (AnimationData*)ea;
 }
 
-static EditorSkeleton* GetEditingSkeleton() { return GetEditingAnimation()->skeleton; }
+static SkeletonData* GetSkeletonData() { return GetEditingAnimation()->skeleton; }
 static bool IsBoneSelected(int bone_index) { return GetEditingAnimation()->bones[bone_index].selected; }
 static bool IsAncestorSelected(int bone_index) {
-    EditorAnimation* en = GetEditingAnimation();
-    EditorSkeleton* es = GetEditingSkeleton();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
     int parent_index = es->bones[bone_index].parent_index;
     while (parent_index >= 0) {
         if (en->bones[parent_index].selected)
@@ -77,7 +77,7 @@ static void SetBoneSelected(int bone_index, bool selected) {
     if (IsBoneSelected(bone_index) == selected)
         return;
 
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     en->bones[bone_index].selected = selected;
     en->selected_bone_count += selected ? 1 : -1;
 }
@@ -85,8 +85,8 @@ static void SetBoneSelected(int bone_index, bool selected) {
 static void UpdateSelectionCenter()
 {
     AssetData& ea = *GetAssetData();
-    EditorAnimation* en = GetEditingAnimation();
-    EditorSkeleton* es = GetEditingSkeleton();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
 
     Vec2 center = VEC2_ZERO;
     float center_count = 0.0f;
@@ -107,8 +107,8 @@ static void UpdateSelectionCenter()
 
 static void SaveState()
 {
-    EditorAnimation* en = GetEditingAnimation();
-    EditorSkeleton* es = GetEditingSkeleton();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
     for (int bone_index=1; bone_index<es->bone_count; bone_index++)
         g_animation_view.bones[bone_index].transform = GetFrameTransform(en, bone_index, en->current_frame);
 
@@ -117,8 +117,8 @@ static void SaveState()
 
 static void RevertToSavedState()
 {
-    EditorSkeleton* es = GetEditingSkeleton();
-    EditorAnimation* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+    AnimationData* en = GetEditingAnimation();
     for (int bone_index=1; bone_index<es->bone_count; bone_index++)
     {
         AnimationViewBone& vb = g_animation_view.bones[bone_index];
@@ -140,18 +140,18 @@ static void SetState(AnimationViewState state, void (*state_update)(), void (*st
 }
 
 static void ClearSelection() {
-    EditorSkeleton* es = GetEditingSkeleton();
+    SkeletonData* es = GetSkeletonData();
     for (int bone_index=0; bone_index<es->bone_count; bone_index++)
         SetBoneSelected(bone_index, false);
 }
 
 static bool TrySelect() {
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     int bone_index = HitTestBone(en, g_view.mouse_world_position);
     if (bone_index == -1)
         return false;
 
-    EditorBone* eb = &GetEditingSkeleton()->bones[bone_index];
+    BoneData* eb = &GetSkeletonData()->bones[bone_index];
     if (IsShiftDown(g_view.input)) {
         SetBoneSelected(bone_index, !eb->selected);
     } else {
@@ -163,8 +163,8 @@ static bool TrySelect() {
 }
 
 static void UpdateRotateState() {
-    EditorAnimation* en = GetEditingAnimation();
-    EditorSkeleton* es = GetEditingSkeleton();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
 
     Vec2 dir_start = Normalize(g_animation_view.command_world_position - g_animation_view.selection_center_world);
     Vec2 dir_current = Normalize(g_view.mouse_world_position - g_animation_view.selection_center_world);
@@ -184,8 +184,8 @@ static void UpdateRotateState() {
 }
 
 static void UpdateMoveState() {
-    EditorAnimation* en = GetEditingAnimation();
-    EditorSkeleton* es = GetEditingSkeleton();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
 
     Vec2 world_delta = g_view.mouse_world_position - g_animation_view.command_world_position;
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
@@ -204,7 +204,7 @@ static void UpdateBoneNames() {
         return;
 
     AssetData* ea = GetAssetData();
-    EditorSkeleton* es = GetEditingSkeleton();
+    SkeletonData* es = GetSkeletonData();
     for (u16 i=0; i<es->bone_count; i++) {
         Mat3 transform = es->bones[i].local_to_world * Rotate(es->bones[i].transform.rotation);
         Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{0.25f, 0})) * 0.5f + ea->position;
@@ -219,7 +219,7 @@ static void UpdateBoneNames() {
 
 static void UpdatePlayState() {
     AssetData& ea = *GetAssetData();
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     if (!en->animation)
         en->animation = ToAnimation(ALLOCATOR_DEFAULT, en, ea.name);
 
@@ -234,10 +234,10 @@ static void HandleBoxSelect(const Bounds2& bounds) {
         ClearSelection();
 
     AssetData* ea = GetAssetData();
-    EditorSkeleton* es = GetEditingSkeleton();
+    SkeletonData* es = GetSkeletonData();
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        EditorAnimation* en = GetEditingAnimation();
-        EditorBone* eb = &es->bones[bone_index];
+        AnimationData* en = GetEditingAnimation();
+        BoneData* eb = &es->bones[bone_index];
         Mat3 collider_transform =
             Translate(ea->position) *
             en->animator.bones[bone_index] *
@@ -273,7 +273,7 @@ static void UpdateDefaultState() {
 
 void AnimationViewUpdate()
 {
-    EditorAnimation* ea = GetEditingAnimation();
+    AnimationData* ea = GetEditingAnimation();
     CheckShortcuts(g_animation_editor_shortcuts);
     UpdateBounds(ea);
     UpdateBoneNames();
@@ -309,8 +309,8 @@ void AnimationViewUpdate()
 
 static void DrawOnionSkin() {
     AssetData& ea = *GetAssetData();
-    EditorSkeleton* es = GetEditingSkeleton();
-    EditorAnimation* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+    AnimationData* en = GetEditingAnimation();
 
     if (!g_animation_view.onion_skin || en->frame_count <= 1)
         return;
@@ -323,7 +323,7 @@ static void DrawOnionSkin() {
     BindMaterial(g_view.vertex_material);
     BindColor(SetAlpha(COLOR_RED, 0.25f));
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        EditorBone* eb = &es->bones[bone_index];
+        BoneData* eb = &es->bones[bone_index];
         DrawBone(
             en->animator.bones[bone_index] * Rotate(eb->transform.rotation),
             eb->parent_index < 0
@@ -339,7 +339,7 @@ static void DrawOnionSkin() {
 
     BindColor(SetAlpha(COLOR_GREEN, 0.25f));
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        EditorBone* eb = &es->bones[bone_index];
+        BoneData* eb = &es->bones[bone_index];
         DrawBone(
             en->animator.bones[bone_index] * Rotate(eb->transform.rotation),
             eb->parent_index < 0
@@ -364,7 +364,7 @@ static void DrawRotateState() {
 
 static void DrawTimeline() {
     AssetData& ea = *GetAssetData();
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
 
     int real_frame_count = en->frame_count;
     for (int frame_index=0; frame_index<en->frame_count; frame_index++)
@@ -429,8 +429,8 @@ static void DrawTimeline() {
 void AnimationViewDraw()
 {
     AssetData& ea = *GetAssetData();
-    EditorSkeleton* es = GetEditingSkeleton();
-    EditorAnimation* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
+    AnimationData* en = GetEditingAnimation();
 
     BindColor(COLOR_WHITE);
     for (int i=0; i<es->skinned_mesh_count; i++)
@@ -466,19 +466,19 @@ void AnimationViewDraw()
 
 static void HandlePrevFrameCommand()
 {
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     en->current_frame = (en->current_frame - 1 + en->frame_count) % en->frame_count;
     UpdateTransforms(en);
 }
 
 static void HandleNextFrameCommand()
 {
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     en->current_frame = (en->current_frame + 1) % en->frame_count;
     UpdateTransforms(en);
 }
 
-static void BeginMove()
+static void BeginMoveTool()
 {
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
@@ -492,7 +492,7 @@ static void BeginMove()
     SetCursor(SYSTEM_CURSOR_MOVE);
 }
 
-static void HandleRotate() {
+static void BeginRotateTool() {
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
@@ -509,8 +509,8 @@ static void HandleResetRotate() {
         return;
 
     RecordUndo();
-    EditorAnimation* en = GetEditingAnimation();
-    EditorSkeleton* es = GetEditingSkeleton();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
@@ -523,7 +523,7 @@ static void HandleResetRotate() {
 
 static void HandlePlayCommand()
 {
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     if (g_animation_view.state == ANIMATION_VIEW_STATE_PLAY)
     {
         Stop(en->animator);
@@ -536,7 +536,7 @@ static void HandlePlayCommand()
         return;
 
     AssetData& ea = *GetAssetData();
-    EditorSkeleton* es = GetEditingSkeleton();
+    SkeletonData* es = GetSkeletonData();
 
     Init(
         en->animator,
@@ -551,8 +551,8 @@ static void HandleResetMoveCommand() {
 
     RecordUndo();
 
-    EditorAnimation* en = GetEditingAnimation();
-    EditorSkeleton* es = GetEditingSkeleton();
+    AnimationData* en = GetEditingAnimation();
+    SkeletonData* es = GetSkeletonData();
     for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
@@ -567,7 +567,7 @@ static void HandleSelectAll() {
     if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    EditorSkeleton* es = GetEditingSkeleton();
+    SkeletonData* es = GetSkeletonData();
     for (int i=0; i<es->bone_count; i++)
         SetBoneSelected(i, true);
 }
@@ -575,7 +575,7 @@ static void HandleSelectAll() {
 static void HandleInsertBeforeFrame()
 {
     RecordUndo();
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     en->current_frame = InsertFrame(en, en->current_frame);
     UpdateTransforms(en);
 }
@@ -583,7 +583,7 @@ static void HandleInsertBeforeFrame()
 static void HandleInsertAfterFrame()
 {
     RecordUndo();
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     en->current_frame = InsertFrame(en, en->current_frame + 1);
     UpdateTransforms(en);
 }
@@ -591,7 +591,7 @@ static void HandleInsertAfterFrame()
 static void HandleDeleteFrame()
 {
     RecordUndo();
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     en->current_frame = DeleteFrame(en, en->current_frame);
     UpdateTransforms(en);
 }
@@ -603,14 +603,14 @@ static void HandleToggleOnionSkin()
 
 void AnimationViewShutdown()
 {
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     Stop(en->animator);
     UpdateTransforms(en);
 }
 
 static void AddHoldFrame()
 {
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     RecordUndo();
     en->frames[en->current_frame].hold++;
     MarkModified();
@@ -618,7 +618,7 @@ static void AddHoldFrame()
 
 static void RemoveHoldFrame()
 {
-    EditorAnimation* en = GetEditingAnimation();
+    AnimationData* en = GetEditingAnimation();
     if (en->frames[en->current_frame].hold <= 0)
         return;
 
@@ -642,9 +642,9 @@ void AnimationViewInit()
     if (g_animation_editor_shortcuts == nullptr)
     {
         static Shortcut shortcuts[] = {
-            { KEY_G, false, false, false, BeginMove },
+            { KEY_G, false, false, false, BeginMoveTool },
             { KEY_G, true, false, false, HandleResetMoveCommand },
-            { KEY_R, false, false, false, HandleRotate },
+            { KEY_R, false, false, false, BeginRotateTool },
             { KEY_R, true, false, false, HandleResetRotate },
             { KEY_A, false, false, false, HandleSelectAll },
             { KEY_Q, false, false, false, HandlePrevFrameCommand },

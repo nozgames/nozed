@@ -96,21 +96,21 @@ extern const Name* MakeCanonicalAssetName(const char* name);
 extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);
 extern void DeleteAsset(AssetData* ea);
 extern void SortAssets();
+inline bool IsEditing(AssetData* a) { return a->editing; }
 
 inline Bounds2 GetBounds(AssetData* a) { return a->bounds; }
-
 
 #include "animation_editor.h"
 #include "mesh_data.h"
 #include "texture_data.h"
-#include "skeleton_editor.h"
+#include "skeleton_data.h"
 #include "vfx_editor.h"
 
 union FatAssetData {
     AssetData asset;
     MeshData mesh;
     TextureData texture;
-    EditorVfx vfx;
-    EditorSkeleton skeleton;
-    EditorAnimation animation;
+    SkeletonData skeleton;
+    VfxData vfx;
+    AnimationData animation;
 };

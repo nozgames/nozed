@@ -42,6 +42,10 @@ void Props::SetFloat(const char* group, const char* key, float value)
     SetString(group, key, value_str);
 }
 
+void Props::SetBool(const char* group, const char* key, bool value) {
+    SetString(group, key, value ? "true" : "false");
+}
+
 void Props::SetVec2(const char* group, const char* key, const Vec2& value)
 {
     char value_str[128];

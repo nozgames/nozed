@@ -11,7 +11,7 @@ static void ImportSkeleton(AssetData* ea, Stream* output_stream, Props* config, 
 
     assert(ea);
     assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+    SkeletonData* es = (SkeletonData*)ea;
     Serialize(es, output_stream);
 }
 

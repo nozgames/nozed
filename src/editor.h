@@ -11,7 +11,7 @@ constexpr int MAX_ASSET_PATHS = 8;
 constexpr float BONE_WIDTH = 0.10f;
 constexpr float BONE_DEFAULT_LENGTH = 0.25f;
 constexpr float BONE_ORIGIN_SIZE = 0.12f;
-constexpr float BOUNDS_PADDING = 0.01f;
+constexpr float BOUNDS_PADDING = 0.02f;
 
 struct TextInputBox;
 struct AssetImporter;
@@ -30,6 +30,7 @@ enum ToolType {
     TOOL_TYPE_MOVE,
     TOOL_TYPE_ROTATE,
     TOOL_TYPE_SCALE,
+    TOOL_TYPE_SELECT,
     TOOL_TYPE_WEIGHT,
 };
 
@@ -73,15 +74,30 @@ extern Editor g_editor;
 constexpr int MAX_COMMAND_ARGS = 4;
 constexpr int MAX_COMMAND_ARG_SIZE = 128;
 
-struct Command
-{
+struct Command {
     const Name* name;
     int arg_count;
     char args[MAX_COMMAND_ARGS][MAX_COMMAND_ARG_SIZE];
 };
 
-extern void InitCommands();
-extern bool ParseCommand(const char* str, Command& command);
+struct CommandHandler {
+    const Name* short_name;
+    const Name* name;
+    void (*handler)(const Command&);
+};
+
+struct CommandInputOptions {
+    const CommandHandler* commands;
+    const char* prefix;
+    const char* placeholder;
+    bool hide_empty;
+};
+
+extern void InitCommandInput();
+extern void ShutdownCommandInput();
+extern void BeginCommandInput(const CommandInputOptions& options);
+extern void UpdateCommandInput();
+extern void EndCommandInput();
 extern const char* GetVarTypeNameFromSignature(AssetSignature signature);
 
 // @import
@@ -91,8 +107,20 @@ struct ImportEvent {
     std::filesystem::path target_path;
 };
 
+extern void InitImporter();
+extern void ShutdownImporter();
+extern void UpdateImporter();
 extern void QueueImport(const std::filesystem::path& path);
 extern void WaitForImportJobs();
+
+extern AssetImporter GetShaderImporter();
+extern AssetImporter GetTextureImporter();
+extern AssetImporter GetFontImporter();
+extern AssetImporter GetMeshImporter();
+extern AssetImporter GetVfxImporter();
+extern AssetImporter GetSoundImporter();
+extern AssetImporter GetSkeletonImporter();
+extern AssetImporter GetAnimationImporter();
 
 // @grid
 extern Vec2 SnapToGrid(const Vec2& position, bool secondary=false);
@@ -107,6 +135,11 @@ inline AssetData* GetAssetData() { return g_editor.editing_asset; }
 inline bool IsToolActive() { return g_editor.tool.type != TOOL_TYPE_NONE; }
 extern void HandleUndo();
 extern void HandleRedo();
+
+// @server
+extern void InitEditorServer(Props* config);
+extern void UpdateEditorServer();
+extern void ShutdownEditorServer();
 
 #include "asset/asset_data.h"
 #include "view.h"

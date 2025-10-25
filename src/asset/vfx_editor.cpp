@@ -3,11 +3,11 @@
 //
 
 
-static void Init(EditorVfx* evfx);
+static void Init(VfxData* evfx);
 
 static void EditorVfxDraw(AssetData* ea)
 {
-    EditorVfx* evfx = (EditorVfx*)ea;
+    VfxData* evfx = (VfxData*)ea;
     assert(evfx);
     assert(evfx->type == ASSET_TYPE_VFX);
     if (!IsPlaying(evfx->handle) && evfx->vfx)
@@ -258,7 +258,7 @@ static VfxColorCurve ParseColorCurve(const std::string& str, const VfxColorCurve
     return value;
 }
 
-static Bounds2 CalculateBounds(EditorVfx* evfx)
+static Bounds2 CalculateBounds(VfxData* evfx)
 {
     Bounds2 bounds;
     for (int i=0, c=evfx->emitter_count; i<c; i++)
@@ -284,7 +284,7 @@ static Bounds2 CalculateBounds(EditorVfx* evfx)
     return bounds;
 }
 
-void Serialize(EditorVfx* evfx, Stream* stream)
+void Serialize(VfxData* evfx, Stream* stream)
 {
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_VFX;
@@ -320,7 +320,7 @@ void Serialize(EditorVfx* evfx, Stream* stream)
     }
 }
 
-Vfx* ToVfx(Allocator* allocator, EditorVfx* evfx, const Name* name)
+Vfx* ToVfx(Allocator* allocator, VfxData* evfx, const Name* name)
 {
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
@@ -338,7 +338,7 @@ static void EditorVfxLoad(AssetData* ea)
 {
     assert(ea);
     assert(ea->type == ASSET_TYPE_VFX);
-    EditorVfx* evfx = (EditorVfx*)ea;
+    VfxData* evfx = (VfxData*)ea;
 
     Stream* input_stream = LoadStream(ALLOCATOR_DEFAULT, ea->path);
     if (!input_stream)
@@ -391,7 +391,7 @@ static void EditorVfxLoad(AssetData* ea)
 
 static bool EditorVfxOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
 {
-    EditorVfx* evfx = (EditorVfx*)ea;
+    VfxData* evfx = (VfxData*)ea;
     assert(evfx);
     assert(evfx->type == ASSET_TYPE_VFX);
     return Contains(GetBounds(evfx->vfx) + position, overlap_point);
@@ -399,7 +399,7 @@ static bool EditorVfxOverlapPoint(AssetData* ea, const Vec2& position, const Vec
 
 static bool EditorVfxOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
 {
-    EditorVfx* evfx = (EditorVfx*)ea;
+    VfxData* evfx = (VfxData*)ea;
     assert(evfx);
     assert(evfx->type == ASSET_TYPE_VFX);
     return Intersects(GetBounds(evfx->vfx) + ea->position, overlap_bounds);
@@ -407,14 +407,14 @@ static bool EditorVfxOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
 
 static void EditorVfxClone(AssetData* ea)
 {
-    EditorVfx* evfx = (EditorVfx*)ea;
+    VfxData* evfx = (VfxData*)ea;
     assert(evfx);
     assert(evfx->type == ASSET_TYPE_VFX);
     evfx->vfx = nullptr;
     evfx->handle = INVALID_VFX_HANDLE;
 }
 
-static void Init(EditorVfx* evfx)
+static void Init(VfxData* evfx)
 {
     evfx->vfx = nullptr;
     evfx->handle = INVALID_VFX_HANDLE;
@@ -431,6 +431,6 @@ void InitEditorVfx(AssetData* ea)
 {
     assert(ea);
     assert(ea->type == ASSET_TYPE_VFX);
-    EditorVfx* evfx = (EditorVfx*)ea;
+    VfxData* evfx = (VfxData*)ea;
     Init(evfx);
 }

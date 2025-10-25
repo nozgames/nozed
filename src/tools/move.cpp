@@ -3,7 +3,7 @@
 //
 
 struct MoveTool {
-    Vec2 last_delta;
+    Vec2 delta_position;
     MoveToolOptions options;
 };
 
@@ -11,7 +11,7 @@ static MoveTool g_move = {};
 
 static void EndMove(bool commit) {
     if (commit && g_move.options.commit)
-        g_move.options.commit(g_move.last_delta);
+        g_move.options.commit(g_move.delta_position);
     else if (!commit && g_move.options.cancel)
         g_move.options.cancel();
 
@@ -31,16 +31,16 @@ static void UpdateMove() {
     }
 
     Vec2 delta = g_view.drag_world_delta;
-    if (g_move.last_delta == delta)
+    if (g_move.delta_position == delta)
         return;
 
-    g_move.last_delta = delta;
+    g_move.delta_position = delta;
 
     if (g_move.options.update)
         g_move.options.update(delta);
 }
 
-void BeginMove(const MoveToolOptions& options) {
+void BeginMoveTool(const MoveToolOptions& options) {
     static ToolVtable vtable = {
         .update = UpdateMove
     };

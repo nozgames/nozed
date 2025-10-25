@@ -2,64 +2,61 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "asset_data.h"
-#include "utils/file_helpers.h"
+static void Init(SkeletonData* s);
+extern void InitSkeletonEditor(SkeletonData* s);
 
-static void Init(EditorSkeleton* es);
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
 
-void DrawEditorSkeletonBone(EditorSkeleton* es, int bone_index, const Vec2& position) {
-    EditorBone* eb = es->bones + bone_index;
+void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& position) {
+    BoneData* eb = s->bones + bone_index;
     Mat3 local_to_world = eb->local_to_world * Rotate(eb->transform.rotation);
     DrawBone(
         local_to_world,
-        GetParentLocalToWorld(es, eb, local_to_world),
+        GetParentLocalToWorld(s, eb, local_to_world),
         position,
         eb->length);
 }
 
-static void SortSkin(EditorSkeleton* es) {
-    qsort(es->skinned_meshes, es->skinned_mesh_count, sizeof(EditorSkinnedMesh),
+static void SortSkin(SkeletonData* s) {
+    qsort(s->skinned_meshes, s->skinned_mesh_count, sizeof(SkinnedMesh),
         [](void const* p, void const* arg) {
-            EditorSkinnedMesh* a = (EditorSkinnedMesh*)p;
-            EditorSkinnedMesh* b = (EditorSkinnedMesh*)arg;
+            SkinnedMesh* a = (SkinnedMesh*)p;
+            SkinnedMesh* b = (SkinnedMesh*)arg;
             return a->mesh->sort_order - b->mesh->sort_order;
         });
 }
 
-void DrawEditorSkeleton(EditorSkeleton* es, const Vec2& position, bool) {
-    UpdateTransforms(es);
-
+void DrawEditorSkeleton(SkeletonData* s, const Vec2& position, bool) {
     if (g_view.draw_mode != VIEW_DRAW_MODE_WIREFRAME) {
         BindColor(COLOR_WHITE);
-        for (int i=0; i<es->skinned_mesh_count; i++) {
-            EditorBone& bone = es->bones[es->skinned_meshes[i].bone_index];
-            MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+        for (int i=0; i<s->skinned_mesh_count; i++) {
+            BoneData& bone = s->bones[s->skinned_meshes[i].bone_index];
+            MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
             if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
                 continue;
 
-            DrawMesh(skinned_mesh, Translate(es->position) * bone.local_to_world);
+            DrawMesh(skinned_mesh, Translate(s->position) * bone.local_to_world);
         }
     }
 
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BONE);
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-        DrawEditorSkeletonBone(es, bone_index, position);
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        DrawEditorSkeletonBone(s, bone_index, position);
 }
 
-static void EditorSkeletonDraw(AssetData* ea) {
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+static void EditorSkeletonDraw(AssetData* a) {
+    SkeletonData* es = (SkeletonData*)a;
     assert(es);
     assert(es->type == ASSET_TYPE_SKELETON);
-    DrawEditorSkeleton(es, es->position, ea->selected && !ea->editing);
+    DrawEditorSkeleton(es, es->position, a->selected && !a->editing);
 }
 
-int HitTestBone(EditorSkeleton* es, const Vec2& world_pos) {
+int HitTestBone(SkeletonData* s, const Vec2& world_pos) {
     float best_dist = F32_MAX;
     int best_bone_index = -1;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        EditorBone* eb = es->bones + bone_index;
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        BoneData* eb = s->bones + bone_index;
 
         Mat3 local_to_world = Translate(GetAssetData()->position) * eb->local_to_world * Rotate(eb->transform.rotation);
         if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world * Scale(eb->length)))
@@ -74,10 +71,10 @@ int HitTestBone(EditorSkeleton* es, const Vec2& world_pos) {
         }
     }
 
-    return best_bone_index;
+        return best_bone_index;
 }
 
-static void ParseBonePosition(EditorBone& eb, Tokenizer& tk)
+static void ParseBonePosition(BoneData& eb, Tokenizer& tk)
 {
     float x;
     if (!ExpectFloat(tk, &x))
@@ -89,7 +86,7 @@ static void ParseBonePosition(EditorBone& eb, Tokenizer& tk)
     eb.transform.position = {x,y};
 }
 
-static void ParseBoneRotation(EditorBone& eb, Tokenizer& tk) {
+static void ParseBoneRotation(BoneData& eb, Tokenizer& tk) {
     float r;
     if (!ExpectFloat(tk, &r))
         ThrowError("misssing bone rotation value");
@@ -97,7 +94,7 @@ static void ParseBoneRotation(EditorBone& eb, Tokenizer& tk) {
     eb.transform.rotation = r;
 }
 
-static void ParseBoneLength(EditorBone& eb, Tokenizer& tk) {
+static void ParseBoneLength(BoneData& eb, Tokenizer& tk) {
     float l;
     if (!ExpectFloat(tk, &l))
         ThrowError("misssing bone length value");
@@ -105,7 +102,7 @@ static void ParseBoneLength(EditorBone& eb, Tokenizer& tk) {
     eb.length = l;
 }
 
-static void ParseBone(EditorSkeleton* es, Tokenizer& tk) {
+static void ParseBone(SkeletonData* es, Tokenizer& tk) {
     if (!ExpectQuotedString(tk))
         ThrowError("expected bone name as quoted string");
 
@@ -115,7 +112,7 @@ static void ParseBone(EditorSkeleton* es, Tokenizer& tk) {
     if (!ExpectInt(tk, &parent_index))
         ThrowError("expected parent index");
 
-    EditorBone& bone = es->bones[es->bone_count++];
+    BoneData& bone = es->bones[es->bone_count++];
     bone.name = bone_name;
     bone.parent_index = parent_index;
     bone.index = es->bone_count - 1;
@@ -135,13 +132,12 @@ static void ParseBone(EditorSkeleton* es, Tokenizer& tk) {
     }
 }
 
-static void EditorSkeletonLoad(AssetData* ea)
-{
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+static void LoadSkeletonData(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* es = (SkeletonData*)a;
 
-    std::filesystem::path path = ea->path;
+    std::filesystem::path path = a->path;
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
@@ -159,14 +155,14 @@ static void EditorSkeletonLoad(AssetData* ea)
     UpdateTransforms(es);
 }
 
-static void EditorSkeletonSave(AssetData* ea, const std::filesystem::path& path) {
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+static void SaveSkeletonData(AssetData* a, const std::filesystem::path& path) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* es = (SkeletonData*)a;
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
     for (int i=0; i<es->bone_count; i++) {
-        const EditorBone& eb = es->bones[i];
+        const BoneData& eb = es->bones[i];
         WriteCSTR(stream, "b \"%s\" %d p %f %f r %f l %f\n",
             eb.name->value,
             eb.parent_index,
@@ -180,8 +176,7 @@ static void EditorSkeletonSave(AssetData* ea, const std::filesystem::path& path)
     Free(stream);
 }
 
-AssetData* NewEditorSkeleton(const std::filesystem::path& path)
-{
+AssetData* NewEditorSkeleton(const std::filesystem::path& path) {
     const char* default_mesh = "b \"root\" -1 p 0 0\n";
 
     std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "skeletons" / path : path;
@@ -196,36 +191,36 @@ AssetData* NewEditorSkeleton(const std::filesystem::path& path)
     return nullptr;
 }
 
-void UpdateTransforms(EditorSkeleton* es) {
-    if (es->bone_count <= 0)
+void UpdateTransforms(SkeletonData* s) {
+    if (s->bone_count <= 0)
         return;
 
-    EditorBone& root = es->bones[0];
+    BoneData& root = s->bones[0];
     root.local_to_world = Translate(root.transform.position);
     root.world_to_local = Inverse(root.local_to_world);
 
-    for (int bone_index=1; bone_index<es->bone_count; bone_index++) {
-        EditorBone& bone = es->bones[bone_index];
-        EditorBone& parent = es->bones[bone.parent_index];
+    for (int bone_index=1; bone_index<s->bone_count; bone_index++) {
+        BoneData& bone = s->bones[bone_index];
+        BoneData& parent = s->bones[bone.parent_index];
         bone.local_to_world = parent.local_to_world * Translate(bone.transform.position);
         bone.world_to_local = Inverse(bone.local_to_world);
     }
 
-    Vec2 root_position = TransformPoint(es->bones[0].local_to_world);
+    Vec2 root_position = TransformPoint(s->bones[0].local_to_world);
     Bounds2 bounds = Bounds2 { root_position, root_position };
-    for (int i=0; i<es->bone_count; i++) {
-        EditorBone* eb = es->bones + i;
-        float bone_width = eb->length * BONE_WIDTH;
-        Mat3 bone_transform = eb->local_to_world * Rotate(eb->transform.rotation);
-        bounds = Union(bounds, TransformPoint(eb->local_to_world));
-        bounds = Union(bounds, TransformPoint(bone_transform, Vec2{eb->length, 0}));
+    for (int i=0; i<s->bone_count; i++) {
+        BoneData* b = s->bones + i;
+        float bone_width = b->length * BONE_WIDTH;
+        Mat3 bone_transform = b->local_to_world * Rotate(b->transform.rotation);
+        bounds = Union(bounds, TransformPoint(b->local_to_world));
+        bounds = Union(bounds, TransformPoint(bone_transform, Vec2{b->length, 0}));
         bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, bone_width}));
         bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, -bone_width}));
     }
 
-    for (int i=0; i<es->skinned_mesh_count; i++) {
-        EditorBone& bone = es->bones[es->skinned_meshes[i].bone_index];
-        MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+    for (int i=0; i<s->skinned_mesh_count; i++) {
+        BoneData& bone = s->bones[s->skinned_meshes[i].bone_index];
+        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
@@ -233,13 +228,13 @@ void UpdateTransforms(EditorSkeleton* es) {
         bounds = Union(bounds, {mesh_bounds.min, mesh_bounds.max});
     }
 
-    es->bounds = Expand(bounds, BOUNDS_PADDING);
+    s->bounds = Expand(bounds, BOUNDS_PADDING);
 }
 
-static void EditorSkeletonLoadMetadata(AssetData* ea, Props* meta) {
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+static void LoadSkeletonMetaData(AssetData* a, Props* meta) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* s = (SkeletonData*)a;
 
     for (auto& key : meta->GetKeys("skin")) {
         std::string bones = meta->GetString("skin", key.c_str(), "");
@@ -249,7 +244,7 @@ static void EditorSkeletonLoadMetadata(AssetData* ea, Props* meta) {
         int bone_index = -1;
         while (ExpectInt(tk, &bone_index))
         {
-            es->skinned_meshes[es->skinned_mesh_count++] = {
+            s->skinned_meshes[s->skinned_mesh_count++] = {
                 GetName(key.c_str()),
                 nullptr,
                 bone_index
@@ -261,39 +256,34 @@ static void EditorSkeletonLoadMetadata(AssetData* ea, Props* meta) {
     }
 }
 
-static void EditorSkeletonPostLoad(AssetData* ea)
-{
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+static void SkeletonDataPostLoad(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* s = (SkeletonData*)a;
 
-    for (int i=0; i<es->skinned_mesh_count; i++)
-    {
-        EditorSkinnedMesh& esm = es->skinned_meshes[i];
-        esm.mesh = (MeshData*)GetAssetData(ASSET_TYPE_MESH, esm.asset_name);
+    for (int i=0; i<s->skinned_mesh_count; i++) {
+        SkinnedMesh& sm = s->skinned_meshes[i];
+        sm.mesh = (MeshData*)GetAssetData(ASSET_TYPE_MESH, sm.asset_name);
     }
 
-    SortSkin(es);
+    SortSkin(s);
 }
 
-int FindBoneIndex(EditorSkeleton* es, const Name* name)
-{
-    for (int i=0; i<es->bone_count; i++)
-        if (es->bones[i].name == name)
+int FindBoneIndex(SkeletonData* s, const Name* name) {
+    for (int i=0; i<s->bone_count; i++)
+        if (s->bones[i].name == name)
             return i;
 
     return -1;
 }
 
-static int CompareBoneParentIndex(void const* p, void const* arg)
-{
-    EditorBone* a = (EditorBone*)p;
-    EditorBone* b = (EditorBone*)arg;
+static int CompareBoneParentIndex(void const* p, void const* arg) {
+    BoneData* a = (BoneData*)p;
+    BoneData* b = (BoneData*)arg;
     return a->parent_index - b->parent_index;
 }
 
-static void ReparentBoneTransform(EditorBone& b, EditorBone& p)
-{
+static void ReparentBoneTransform(BoneData& b, BoneData& p) {
     Mat3 new_local = p.world_to_local * b.local_to_world;
 
     b.transform.position.x = new_local.m[6];
@@ -314,73 +304,71 @@ static void ReparentBoneTransform(EditorBone& b, EditorBone& p)
             new_local.m[0] / scale_x));
 }
 
-int ReparentBone(EditorSkeleton* es, int bone_index, int parent_index)
-{
-    EditorBone& eb = es->bones[bone_index];
+int ReparentBone(SkeletonData* s, int bone_index, int parent_index) {
+    BoneData& eb = s->bones[bone_index];
 
     eb.parent_index = parent_index;
 
-    qsort(es->bones, es->bone_count, sizeof(EditorBone), CompareBoneParentIndex);
+    qsort(s->bones, s->bone_count, sizeof(BoneData), CompareBoneParentIndex);
 
     int bone_map[MAX_BONES];
-    for (int i=0; i<es->bone_count; i++)
-        bone_map[es->bones[i].index] = i;
+    for (int i=0; i<s->bone_count; i++)
+        bone_map[s->bones[i].index] = i;
 
-    for (int i=1; i<es->bone_count; i++)
+    for (int i=1; i<s->bone_count; i++)
     {
-        es->bones[i].parent_index = bone_map[es->bones[i].parent_index];
-        es->bones[i].index = i;
+        s->bones[i].parent_index = bone_map[s->bones[i].parent_index];
+        s->bones[i].index = i;
     }
 
-    for (int i=0; i<es->skinned_mesh_count; i++)
+    for (int i=0; i<s->skinned_mesh_count; i++)
     {
-        EditorSkinnedMesh& esm = es->skinned_meshes[i];
+        SkinnedMesh& esm = s->skinned_meshes[i];
         esm.bone_index = bone_map[esm.bone_index];
     }
 
-    ReparentBoneTransform(es->bones[bone_map[bone_index]], es->bones[bone_map[parent_index]]);
-    UpdateTransforms(es);
+    ReparentBoneTransform(s->bones[bone_map[bone_index]], s->bones[bone_map[parent_index]]);
+    UpdateTransforms(s);
 
     return bone_map[bone_index];
 }
 
-void RemoveBone(EditorSkeleton* es, int bone_index)
-{
-    if (bone_index <= 0 || bone_index >= es->bone_count)
+void RemoveBone(SkeletonData* s, int bone_index) {
+    if (bone_index <= 0 || bone_index >= s->bone_count)
         return;
 
-    EditorBone& eb = es->bones[bone_index];
+    BoneData& eb = s->bones[bone_index];
     int parent_index = eb.parent_index;
 
     // Reparent children to parent
-    for (int i=0; i<es->bone_count; i++)
+    for (int i=0; i<s->bone_count; i++)
     {
-        EditorBone& child = es->bones[i];
+        BoneData& child = s->bones[i];
         if (child.parent_index == bone_index)
         {
             child.parent_index = parent_index;
-            ReparentBoneTransform(child, es->bones[parent_index]);
+            ReparentBoneTransform(child, s->bones[parent_index]);
         }
     }
 
     // Remove any skinned meshes attached to this bone
-    for (int i=0; i<es->skinned_mesh_count; )
+    for (int i=0; i<s->skinned_mesh_count; )
     {
-        EditorSkinnedMesh& esm = es->skinned_meshes[i];
+        SkinnedMesh& esm = s->skinned_meshes[i];
         if (esm.bone_index == bone_index)
         {
-            es->skinned_meshes[i] = es->skinned_meshes[--es->skinned_mesh_count];
+            s->skinned_meshes[i] = s->skinned_meshes[--s->skinned_mesh_count];
         }
         else
             i++;
     }
 
-    es->bone_count--;
+    s->bone_count--;
 
-    for (int i=bone_index; i<es->bone_count; i++)
+    for (int i=bone_index; i<s->bone_count; i++)
     {
-        EditorBone& enb = es->bones[i];
-        enb = es->bones[i + 1];
+        BoneData& enb = s->bones[i];
+        enb = s->bones[i + 1];
         enb.index = i;
         if (enb.parent_index == bone_index)
             enb.parent_index = parent_index;
@@ -388,22 +376,21 @@ void RemoveBone(EditorSkeleton* es, int bone_index)
             enb.parent_index--;
     }
 
-    for (int i=0; i<es->skinned_mesh_count; i++)
+    for (int i=0; i<s->skinned_mesh_count; i++)
     {
-        EditorSkinnedMesh& esm = es->skinned_meshes[i];
+        SkinnedMesh& esm = s->skinned_meshes[i];
         if (esm.bone_index > bone_index)
             esm.bone_index--;
     }
 
-    UpdateTransforms(es);
+    UpdateTransforms(s);
 }
 
-const Name* GetUniqueBoneName(EditorSkeleton* es)
-{
+const Name* GetUniqueBoneName(SkeletonData* s) {
     const Name* bone_name = GetName("Bone");
 
     int bone_postfix = 2;
-    while (FindBoneIndex(es, bone_name) != -1)
+    while (FindBoneIndex(s, bone_name) != -1)
     {
         char name[64];
         Format(name, sizeof(name), "Bone%d", bone_postfix++);
@@ -413,24 +400,22 @@ const Name* GetUniqueBoneName(EditorSkeleton* es)
     return bone_name;
 }
 
-void Serialize(EditorSkeleton* es, Stream* stream)
-{
+void Serialize(SkeletonData* s, Stream* stream) {
     const Name* bone_names[MAX_BONES];
-    for (int i=0; i<es->bone_count; i++)
-        bone_names[i] = es->bones[i].name;
+    for (int i=0; i<s->bone_count; i++)
+        bone_names[i] = s->bones[i].name;
 
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_SKELETON;
     header.version = 1;
     header.flags = 0;
-    header.names = es->bone_count;
+    header.names = s->bone_count;
     WriteAssetHeader(stream, &header, bone_names);
 
-    WriteU8(stream, (u8)es->bone_count);
+    WriteU8(stream, (u8)s->bone_count);
 
-    for (int i=0; i<es->bone_count; i++)
-    {
-        EditorBone& eb = es->bones[i];
+    for (int i=0; i<s->bone_count; i++) {
+        BoneData& eb = s->bones[i];
         WriteI8(stream, (char)eb.parent_index);
         WriteStruct(stream, eb.local_to_world);
         WriteStruct(stream, eb.world_to_local);
@@ -440,8 +425,7 @@ void Serialize(EditorSkeleton* es, Stream* stream)
     }
 }
 
-Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton* es, const Name* name)
-{
+Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* es, const Name* name) {
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
         return nullptr;
@@ -454,11 +438,10 @@ Skeleton* ToSkeleton(Allocator* allocator, EditorSkeleton* es, const Name* name)
     return skeleton;
 }
 
-static void EditorSkeletonSaveMetadata(AssetData* ea, Props* meta)
-{
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+static void EditorSkeletonSaveMetadata(AssetData* a, Props* meta) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* es = (SkeletonData*)a;
     meta->ClearGroup("skin");
 
     for (int i=0; i<es->skinned_mesh_count; i++)
@@ -475,61 +458,56 @@ static void EditorSkeletonSaveMetadata(AssetData* ea, Props* meta)
     }
 }
 
-static bool EditorSkeletonOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
-{
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+static bool EditorSkeletonOverlapPoint(AssetData* a, const Vec2& position, const Vec2& overlap_point) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* es = (SkeletonData*)a;
     return Contains(es->bounds + position, overlap_point);
 }
 
-static bool EditorSkeletonOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
-{
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
-    return Intersects(es->bounds + ea->position, overlap_bounds);
+static bool EditorSkeletonOverlapBounds(AssetData* a, const Bounds2& overlap_bounds) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* es = (SkeletonData*)a;
+    return Intersects(es->bounds + a->position, overlap_bounds);
 }
 
-static void EditorSkeletonUndoRedo(AssetData* ea) {
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
-    UpdateTransforms(es);
+static void SkeletonUndoRedo(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* s = (SkeletonData*)a;
+    UpdateTransforms(s);
 }
 
-static void EditorSkeletonSortOrderChanged(AssetData* ea) {
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+static void EditorSkeletonSortOrderChanged(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* es = (SkeletonData*)a;
     SortSkin(es);
 }
 
-extern void SkeletonViewInit();
-extern void SkeletonViewDraw();
-extern void SkeletonViewUpdate();
+static void Init(SkeletonData* s) {
+    assert(s);
 
-static void Init(EditorSkeleton* es) {
-    assert(es);
-
-    es->vtable = {
-        .load = EditorSkeletonLoad,
-        .post_load = EditorSkeletonPostLoad,
-        .save = EditorSkeletonSave,
-        .load_metadata = EditorSkeletonLoadMetadata,
+    s->vtable = {
+        .load = LoadSkeletonData,
+        .post_load = SkeletonDataPostLoad,
+        .save = SaveSkeletonData,
+        .load_metadata = LoadSkeletonMetaData,
         .save_metadata = EditorSkeletonSaveMetadata,
         .draw = EditorSkeletonDraw,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds,
-        .undo_redo = EditorSkeletonUndoRedo,
-        .on_sort_order_changed = EditorSkeletonSortOrderChanged,
-        .editor_begin = SkeletonViewInit,
+        .undo_redo = SkeletonUndoRedo,
+        .on_sort_order_changed = EditorSkeletonSortOrderChanged
     };
+
+    InitSkeletonEditor(s);
 }
 
-void InitEditorSkeleton(AssetData* ea) {
+void InitSkeletonData(AssetData* ea) {
     assert(ea);
     assert(ea->type == ASSET_TYPE_SKELETON);
-    EditorSkeleton* es = (EditorSkeleton*)ea;
+    SkeletonData* es = (SkeletonData*)ea;
     Init(es);
 }

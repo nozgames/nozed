@@ -30,6 +30,7 @@ public:
     void SetFloat(const char* group, const char* key, float value);
     void SetVec3(const char* group, const char* key, Vec3 value);
     void SetVec2(const char* group, const char* key, const Vec2& value);
+    void SetBool(const char* group, const char* key, bool value);
     void SetColor(const char* group, const char* key, Color value);
 
     // @get

@@ -11,7 +11,7 @@ void ImportVfx(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
 
     assert(ea);
     assert(ea->type == ASSET_TYPE_VFX);
-    EditorVfx* evfx = (EditorVfx*)ea;
+    VfxData* evfx = (VfxData*)ea;
     Serialize(evfx, output_stream);
 }
 

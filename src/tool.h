@@ -14,7 +14,7 @@ struct MoveToolOptions {
     void (*cancel)();
 };
 
-extern void BeginMove(const MoveToolOptions& options);
+extern void BeginMoveTool(const MoveToolOptions& options);
 
 // @scale
 struct ScaleToolOptions {
@@ -34,7 +34,7 @@ struct RotateToolOptions {
     void (*cancel)();
 };
 
-extern void BeginRotate(const RotateToolOptions& options);
+extern void BeginRotateTool(const RotateToolOptions& options);
 
 // @weight
 struct WeightToolVertex {
@@ -56,3 +56,12 @@ struct WeightToolOptions {
 };
 
 extern void BeginWeightTool(const WeightToolOptions& options);
+
+// @select
+struct SelectToolOptions {
+    void (*update)(const Vec2& position);
+    void (*commit)(const Vec2& position);
+    void (*cancel)();
+};
+
+extern void BeginSelectTool(const SelectToolOptions& options);

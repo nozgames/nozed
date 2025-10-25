@@ -8,27 +8,6 @@
 
 namespace fs = std::filesystem;
 
-extern void InitEvent(ApplicationTraits* traits);
-extern void RequestStats();
-extern void InitEditorServer(Props* config);
-extern void UpdateEditorServer();
-extern void ShutdownEditorServer();
-extern void HandleCommand(const std::string& str);
-
-extern void InitImporter();
-extern void ShutdownImporter();
-extern void UpdateImporter();
-
-extern AssetImporter GetShaderImporter();
-extern AssetImporter GetTextureImporter();
-extern AssetImporter GetFontImporter();
-extern AssetImporter GetMeshImporter();
-extern AssetImporter GetVfxImporter();
-extern AssetImporter GetSoundImporter();
-extern AssetImporter GetSkeletonImporter();
-extern AssetImporter GetAnimationImporter();
-
-
 Editor g_editor = {};
 Props* g_config = nullptr;
 
@@ -246,6 +225,7 @@ void EndTool() {
     assert(g_editor.tool.type != TOOL_TYPE_NONE);
     g_editor.tool = {};
     PopInputSet();
+    SetCursor(SYSTEM_CURSOR_DEFAULT);
 }
 
 void CancelTool() {
@@ -281,11 +261,10 @@ int main(int argc, const char* argv[]) {
     InitImporter();
     InitWindow();
     InitView();
-    InitCommands();
+    InitCommandInput();
     InitUserConfig();
     InitEditorServer(g_config);
-
-
+    
     while (UpdateApplication())
     {
         UpdateImporter();
@@ -294,6 +273,7 @@ int main(int argc, const char* argv[]) {
     }
 
     SaveUserConfig();
+    ShutdownCommandInput();
 
     if (IsWindowCreated())
         ShutdownView();

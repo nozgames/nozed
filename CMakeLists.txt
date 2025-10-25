@@ -18,12 +18,12 @@ set(SOURCE_FILES
     src/views/animation_view.cpp
     src/views/mesh_editor.cpp
     src/views/texture_editor.cpp
-    src/views/skeleton_view.cpp
+    src/views/skeleton_editor.cpp
 
     src/asset/asset_data.cpp
     src/asset/mesh_data.cpp
     src/asset/texture_data.cpp
-    src/asset/skeleton_editor.cpp
+    src/asset/skeleton_data.cpp
     src/asset/vfx_editor.cpp
     src/asset/animation_editor.cpp
 
@@ -39,6 +39,7 @@ set(SOURCE_FILES
     src/tools/move.cpp
     src/tools/scale.cpp
     src/tools/rotate.cpp
+    src/tools/select.cpp
     src/tools/weight.cpp
 
     src/import/importer.cpp
@@ -67,7 +68,7 @@ set(SOURCE_FILES
     src/nozed_assets.cpp
     src/editor_server.cpp
     src/editor.cpp
-    src/commands.cpp
+    src/command.cpp
 )
 
 

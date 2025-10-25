@@ -103,7 +103,7 @@ static void DrawRotate() {
     DrawVertex(g_view.mouse_world_position, ROTATE_TOOL_CENTER_SIZE);
 }
 
-void BeginRotate(const RotateToolOptions& options) {
+void BeginRotateTool(const RotateToolOptions& options) {
     static ToolVtable vtable = {
         .update = UpdateRotate,
         .draw = DrawRotate,

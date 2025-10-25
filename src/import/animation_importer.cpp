@@ -11,9 +11,9 @@ static void ImportAnimation(AssetData* ea, Stream* output_stream, Props* config,
 
     assert(ea);
     assert(ea->type == ASSET_TYPE_ANIMATION);
-    EditorAnimation* en = (EditorAnimation*)ea;
+    AnimationData* en = (AnimationData*)ea;
 
-    EditorSkeleton* es = (EditorSkeleton*)GetAssetData(ASSET_TYPE_SKELETON, en->skeleton_name);
+    SkeletonData* es = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, en->skeleton_name);
     if (!es)
         ThrowError("invalid skeleton");
 
@@ -30,7 +30,7 @@ static bool DoesAnimationDependOn(AssetData* ea, AssetData* dependency)
         return false;
 
 #if 0
-    EditorAnimation* en = LoadEditorAnimation(ea->path);
+    AnimationData* en = LoadEditorAnimation(ea->path);
     if (!en)
         return false;
 

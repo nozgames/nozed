@@ -4,7 +4,7 @@
 
 #pragma once
 
-struct EditorSkeleton;
+struct SkeletonData;
 
 struct EditorAnimationBone
 {
@@ -19,7 +19,7 @@ struct EditorAnimationFrame
     int hold;
 };
 
-struct EditorAnimation : AssetData
+struct AnimationData : AssetData
 {
     const Name* skeleton_name;
     int frame_count;
@@ -27,7 +27,7 @@ struct EditorAnimation : AssetData
     EditorAnimationBone bones[MAX_BONES];
     int bone_count;
     EditorAnimationFrame frames[MAX_ANIMATION_FRAMES];
-    EditorSkeleton* skeleton;
+    SkeletonData* skeleton;
     Animation* animation;
     Animator animator;
     int selected_bone_count;
@@ -35,15 +35,15 @@ struct EditorAnimation : AssetData
 
 extern void InitEditorAnimation(AssetData* ea);
 extern AssetData* NewEditorAnimation(const std::filesystem::path& path);
-extern void PostLoadEditorAssets(EditorAnimation* en);
-extern void UpdateBounds(EditorAnimation* en);
-extern void Serialize(EditorAnimation* en, Stream* output_stream, EditorSkeleton* es);
-extern Animation* ToAnimation(Allocator* allocator, EditorAnimation* en, const Name* name);
-extern int InsertFrame(EditorAnimation* en, int frame_index);
-extern int DeleteFrame(EditorAnimation* en, int frame_index);
-extern Transform& GetFrameTransform(EditorAnimation* en, int bone_index, int frame_index);
-extern int HitTestBone(EditorAnimation* en, const Vec2& world_pos);
-extern void UpdateTransforms(EditorAnimation* en);
-extern void UpdateSkeleton(EditorAnimation* en);
+extern void PostLoadEditorAssets(AnimationData* en);
+extern void UpdateBounds(AnimationData* en);
+extern void Serialize(AnimationData* en, Stream* output_stream, SkeletonData* es);
+extern Animation* ToAnimation(Allocator* allocator, AnimationData* en, const Name* name);
+extern int InsertFrame(AnimationData* en, int frame_index);
+extern int DeleteFrame(AnimationData* en, int frame_index);
+extern Transform& GetFrameTransform(AnimationData* en, int bone_index, int frame_index);
+extern int HitTestBone(AnimationData* en, const Vec2& world_pos);
+extern void UpdateTransforms(AnimationData* en);
+extern void UpdateSkeleton(AnimationData* en);
 extern void DrawEditorAnimation(AssetData* ea);
-extern void DrawEditorAnimationBone(EditorAnimation* en, int bone_index, const Vec2& position);
+extern void DrawEditorAnimationBone(AnimationData* en, int bone_index, const Vec2& position);

@@ -93,12 +93,12 @@ static void CommitBoxSelect(const Bounds2& bounds) {
 }
 
 static void UpdatePanState() {
-    if (WasButtonPressed(g_view.input, MOUSE_RIGHT)) {
+    if (WasButtonPressed(GetInputSet(), MOUSE_RIGHT)) {
         g_view.pan_position = g_view.mouse_position;
         g_view.pan_position_camera = GetPosition(g_view.camera);
     }
 
-    if (IsButtonDown(g_view.input, MOUSE_RIGHT)) {
+    if (IsButtonDown(GetInputSet(), MOUSE_RIGHT)) {
         Vec2 delta = g_view.mouse_position - g_view.pan_position;
         Vec2 world_delta = ScreenToWorld(g_view.camera, delta) - ScreenToWorld(g_view.camera, VEC2_ZERO);
         SetPosition(g_view.camera, g_view.pan_position_camera - world_delta);
@@ -138,10 +138,6 @@ static void UpdateMoveTool(const Vec2& delta) {
     }
 }
 
-static void CommitMoveTool(const Vec2&) {
-    EndTextInput();
-}
-
 static void CancelMoveTool() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
         AssetData* ea = GetSortedAssetData(i);
@@ -152,11 +148,13 @@ static void CancelMoveTool() {
     }
 
     CancelUndo();
-    EndTextInput();
 }
 
-static void BeginEdit() {
-    assert(g_view.state == VIEW_STATE_DEFAULT);
+static void ToggleEdit() {
+    if (g_view.state == VIEW_STATE_EDIT) {
+        EndEdit();
+        return;
+    }
 
     if (g_view.selected_asset_count != 1)
         return;
@@ -174,6 +172,8 @@ static void BeginEdit() {
 }
 
 static void UpdateDefaultState() {
+    CheckShortcuts(g_view.shortcuts);
+
     if (WasButtonPressed(g_view.input, MOUSE_LEFT)) {
         AssetData* hit_asset = HitTestAssets(g_view.mouse_world_position);
         if (hit_asset != nullptr) {
@@ -212,27 +212,11 @@ void SetState(ViewState state) {
         g_view.vtable = {};
         break;
 
-    case VIEW_STATE_COMMAND:
-        PopInputSet();
-        EndTextInput();
-        break;
-
     default:
         break;
     }
 
     g_view.state = state;
-
-    switch (state)
-    {
-    case VIEW_STATE_COMMAND:
-        BeginTextInput();
-        PushInputSet(g_view.input_command);
-        break;
-
-    default:
-        break;
-    }
 }
 
 static void UpdateDrag() {
@@ -276,36 +260,23 @@ static void UpdateMouse() {
     }
 }
 
-static void UpdateCommon()
-{
+static void UpdateCommon() {
     CheckCommonShortcuts();
-    CheckShortcuts(g_view.shortcuts);
-
+    UpdateCamera();
+    UpdateMouse();
     UpdatePanState();
 
-    if (IsButtonDown(g_view.input, MOUSE_MIDDLE))
-    {
+    if (IsButtonDown(g_view.input, MOUSE_MIDDLE)) {
         Vec2 dir = Normalize(GetScreenCenter() - g_view.mouse_position);
         g_view.light_dir = Vec2{-dir.x, dir.y};
     }
 }
 
 static void UpdateViewInternal() {
-    UpdateCamera();
-    UpdateMouse();
     UpdateCommon();
 
     switch (GetState()) {
     case VIEW_STATE_EDIT:
-        // if (WasButtonPressed(g_view.input, KEY_TAB) && !IsAltDown(g_view.input)) {
-        //     if (g_view.vtable.shutdown)
-        //         g_view.vtable.shutdown();
-        //
-        //     SetCursor(SYSTEM_CURSOR_DEFAULT);
-        //     SetState(VIEW_STATE_DEFAULT);
-        //     return;
-        // }
-
         assert(g_editor.editing_asset);
         if (g_editor.editing_asset->vtable.editor_update)
             g_editor.editing_asset->vtable.editor_update();
@@ -336,7 +307,7 @@ void DrawView() {
         a->clipped = !Intersects(camera_bounds, GetBounds(a) + a->position);
     }
 
-    bool show_names = g_view.show_names || IsAltDown(g_view.input);
+    bool show_names = g_view.state == VIEW_STATE_DEFAULT && (g_view.show_names || IsAltDown(g_view.input));
     if (show_names) {
         for (u32 i=0, c=GetAssetCount(); i<c; i++) {
             AssetData* a = GetSortedAssetData(i);
@@ -371,14 +342,8 @@ void DrawView() {
         DrawOrigin(a);
     }
 
-    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetAssetData(i);
-        assert(a);
-        if (!a->selected || a->editing)
-            continue;
-
-        DrawBounds(a, 0, COLOR_VERTEX_SELECTED);
-    }
+    if (g_view.state == VIEW_STATE_EDIT && g_editor.editing_asset)
+        DrawBounds(g_editor.editing_asset, 0, COLOR_VERTEX_SELECTED);
 
     if (IsButtonDown(g_view.input, MOUSE_MIDDLE)) {
         Bounds2 bounds = GetBounds(g_view.camera);
@@ -390,61 +355,6 @@ void DrawView() {
 
     if (g_editor.tool.type != TOOL_TYPE_NONE && g_editor.tool.vtable.draw)
         g_editor.tool.vtable.draw();
-}
-
-static void UpdateCommandModifier(const TextInput& input) {
-    (void) input;
-#if 0
-    if (GetState() != VIEW_STATE_MODIFIER)
-        SetState(VIEW_STATE_MODIFIER);
-
-    if (input.length == 0)
-        return;
-
-    Canvas([] {
-        Align({.alignment={.y=1}, .margin=EdgeInsetsBottom(40)}, [] {
-            Container({.width=300, .height=50, .padding=EdgeInsetsTopLeft(10, 10), .color=Color24ToColor(0x343c4a)}, [] {
-                Row([]{
-                    const TextInput& i = GetTextInput();
-                    Label(i.value, {.font = FONT_SEGUISB, .font_size = 30, .color = Color24ToColor(0xc5c5cb) });
-                    Container({.width=4, .height=30, .color=COLOR_WHITE});
-                });
-            });
-        });
-    });
-#endif
-}
-
-static void UpdateCommandPalette() {
-    const TextInput& input = GetTextInput();
-
-    if (g_view.vtable.allow_text_input && g_view.vtable.allow_text_input()) {
-        UpdateCommandModifier(input);
-        return;
-    }
-
-    if (GetState() != VIEW_STATE_COMMAND)
-        return;
-
-    Canvas([] {
-        Align({.alignment={.y=1}, .margin=EdgeInsetsBottom(40)}, [] {
-            Container({.width=600, .height=50, .padding=EdgeInsetsTopLeft(10, 10), .color=COLOR_UI_BACKGROUND}, [] {
-                Row([]{
-                    const TextInput& i = GetTextInput();
-                    Label(":", {.font = FONT_SEGUISB, .font_size = 30, .color = Color24ToColor(0x777776), .align=ALIGNMENT_CENTER_LEFT});
-                    SizedBox({.width = 5.0f});
-                    Label(i.value, {.font = FONT_SEGUISB, .font_size = 30, .color = COLOR_UI_TEXT });
-                    if (g_view.command_preview) {
-                        Container({.color = COLOR_UI_TEXT}, [] {
-                            Label(g_view.command_preview->value, {.font = FONT_SEGUISB, .font_size = 30, .color = COLOR_UI_BACKGROUND });
-                        });
-                    }
-                    else
-                        Container({.width=4, .height=30, .color=COLOR_WHITE});
-                });
-            });
-        });
-    });
 }
 
 static void UpdateAssetNames() {
@@ -473,7 +383,7 @@ static void UpdateAssetNames() {
 void UpdateView() {
     BeginUI(UI_REF_WIDTH, UI_REF_HEIGHT);
     UpdateViewInternal();
-    UpdateCommandPalette();
+    UpdateCommandInput();
     UpdateAssetNames();
     UpdateConfirmDialog();
     EndUI();
@@ -501,62 +411,19 @@ void HandleRename(const Name* name)
         g_view.vtable.rename(name);
 }
 
-static void HandleTextInputChange(EventId event_id, const void* event_data)
-{
-    (void)event_id;
-
-    g_view.command_preview = nullptr;
-
-    if (GetState() == VIEW_STATE_COMMAND) {
-        TextInput* input = (TextInput*)event_data;
-        if (!ParseCommand(input->value, g_view.command))
-            return;
-
-        if (g_view.command.name == NAME_R || g_view.command.name == NAME_RENAME)
-            if (g_view.vtable.preview_command)
-                g_view.command_preview = g_view.vtable.preview_command(g_view.command);
-
-        return;
-    }
-}
-
-static void HandleTextInputCancel(EventId event_id, const void* event_data) {
-    (void) event_id;
-    (void) event_data;
-
-    if (GetState() == VIEW_STATE_COMMAND) {
-        EndTextInput();
-        SetState(VIEW_STATE_DEFAULT);
-        return;
-    }
-}
-
-static void HandleTextInputCommit(EventId event_id, const void* event_data)
-{
-    (void) event_id;
-    (void) event_data;
-
-    if (GetState() == VIEW_STATE_COMMAND) {
-        SetState(VIEW_STATE_DEFAULT);
-        HandleCommand(g_view.command);
-        return;
-    }
-}
-
-
-void InitViewUserConfig(Props* user_config)
-{
+void InitViewUserConfig(Props* user_config){
     g_view.light_dir = user_config->GetVec2("view", "light_direction", g_view.light_dir);
     SetPosition(g_view.camera, user_config->GetVec2("view", "camera_position", VEC2_ZERO));
     g_view.zoom = user_config->GetFloat("view", "camera_zoom", ZOOM_DEFAULT);
+    g_view.show_names = user_config->GetBool("view", "show_names", false);
     UpdateCamera();
 }
 
-void SaveViewUserConfig(Props* user_config)
-{
+void SaveViewUserConfig(Props* user_config) {
     user_config->SetVec2("view", "light_direction", g_view.light_dir);
     user_config->SetVec2("view", "camera_position", GetPosition(g_view.camera));
     user_config->SetFloat("view", "camera_zoom", g_view.zoom);
+    user_config->SetBool("view", "show_names", g_view.show_names);
 }
 
 static void HandleToggleNames()
@@ -655,10 +522,6 @@ static void HandleSendToBack()
     SortAssets();
 }
 
-static void SetCommandState() {
-    SetState(VIEW_STATE_COMMAND);
-}
-
 static void DeleteSelectedAsset() {
     if (g_view.selected_asset_count == 0)
         return;
@@ -677,13 +540,19 @@ static void DeleteSelectedAsset() {
 }
 
 void EndEdit() {
+    AssetData* a = GetAssetData();
+    assert(a);
+    if (a->vtable.editor_end)
+        a->vtable.editor_end();
+
+    SetCursor(SYSTEM_CURSOR_DEFAULT);
     SetState(VIEW_STATE_DEFAULT);
 }
 
 void HandleUndo() { Undo(); }
 void HandleRedo() { Redo(); }
 
-static void BeginMove() {
+static void BeginMoveTool() {
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount(); i<c; i++)
     {
@@ -695,10 +564,68 @@ static void BeginMove() {
         a->saved_position = a->position;
     }
     EndUndoGroup();
-    BeginTextInput();
-    BeginMove({.update=UpdateMoveTool, .commit=CommitMoveTool, .cancel=CancelMoveTool});
+    BeginMoveTool({.update=UpdateMoveTool, .cancel=CancelMoveTool});
 }
 
+// @command
+static void SaveAssetsCommand(const Command& command) {
+    (void)command;
+    SaveEditorAssets();
+}
+
+static void NewAssetCommand(const Command& command) {
+    if (command.arg_count < 1) {
+        LogError("missing asset type (mesh, etc)");
+        return;
+    }
+
+    const Name* type = GetName(command.args[0]);
+    if (command.arg_count < 2) {
+        LogError("missing asset name");
+        return;
+    }
+
+    const Name* asset_name = GetName(command.args[1]);
+
+    AssetData* a = nullptr;
+    if (type == NAME_MESH || type == NAME_M)
+        a = NewEditorMesh(asset_name->value);
+    else if (type == NAME_SKELETON || type == NAME_S)
+        a = NewEditorSkeleton(asset_name->value);
+    else if (type == NAME_ANIMATION || type == NAME_A)
+        a = NewEditorAnimation(asset_name->value);
+
+    if (a == nullptr)
+        return;
+
+    a->position = GetCenter(GetBounds(g_view.camera));
+    a->meta_modified = true;
+
+    if (a->vtable.post_load)
+        a->vtable.post_load(a);
+}
+
+static void RenameAssetCommand(const Command& command) {
+    if (command.arg_count < 1) {
+        LogError("missing name");
+        return;
+    }
+
+    HandleRename(GetName(command.args[0]));
+}
+
+static void BeginCommandInput() {
+    static CommandHandler commands[] = {
+        { NAME_S, NAME_SAVE, SaveAssetsCommand },
+        { NAME_N, NAME_NEW, NewAssetCommand },
+        { NAME_R, NAME_RENAME, RenameAssetCommand },
+        { nullptr, nullptr, nullptr }
+    };
+
+    BeginCommandInput({.commands=commands, .prefix=":"});
+}
+
+// @shortcut
 static Shortcut g_common_shortcuts[] = {
     { KEY_S, false, true, false, SaveEditorAssets },
     { KEY_F, false, false, false, FrameSelected },
@@ -708,8 +635,8 @@ static Shortcut g_common_shortcuts[] = {
     { KEY_3, true, false, false, HandleSetDrawModeShaded },
     { KEY_Z, false, true, false, HandleUndo },
     { KEY_Y, false, true, false, HandleRedo },
-    { KEY_SEMICOLON, false, false, true, SetCommandState },
-    { KEY_S, false, false, true, SetCommandState },
+    { KEY_S, false, false, true, BeginCommandInput },
+    { KEY_TAB, false, false, false, ToggleEdit },
     { INPUT_CODE_NONE }
 };
 
@@ -747,35 +674,11 @@ void InitView() {
     EnableButton(g_view.input, KEY_RIGHT_CTRL);
     EnableButton(g_view.input, KEY_RIGHT_SHIFT);
     EnableButton(g_view.input, KEY_RIGHT_ALT);
-
     EnableButton(g_view.input, MOUSE_LEFT);
     EnableButton(g_view.input, MOUSE_RIGHT);
     EnableButton(g_view.input, MOUSE_MIDDLE);
-    EnableButton(g_view.input, KEY_X);
-    EnableButton(g_view.input, KEY_F);
-    EnableButton(g_view.input, KEY_G);
-    EnableButton(g_view.input, KEY_R);
-    EnableButton(g_view.input, KEY_M);
-    EnableButton(g_view.input, KEY_Q);
-    EnableButton(g_view.input, KEY_0);
-    EnableButton(g_view.input, KEY_1);
-    EnableButton(g_view.input, KEY_A);
-    EnableButton(g_view.input, KEY_V);
-    EnableButton(g_view.input, KEY_ESCAPE);
-    EnableButton(g_view.input, KEY_ENTER);
-    EnableButton(g_view.input, KEY_SPACE);
-    EnableButton(g_view.input, KEY_SEMICOLON);
-    EnableButton(g_view.input, KEY_TAB);
-    EnableButton(g_view.input, KEY_S);
-    EnableButton(g_view.input, KEY_Z);
-    EnableButton(g_view.input, KEY_Y);
-    EnableButton(g_view.input, KEY_EQUALS);
-    EnableButton(g_view.input, KEY_MINUS);
+    EnableCommonShortcuts(g_view.input);
     PushInputSet(g_view.input);
-
-    g_view.input_command = CreateInputSet(ALLOCATOR_DEFAULT);
-    EnableButton(g_view.input_command, KEY_ESCAPE);
-    EnableButton(g_view.input_command, KEY_ENTER);
 
     g_view.input_tool = CreateInputSet(ALLOCATOR_DEFAULT);
     EnableButton(g_view.input_tool, KEY_ESCAPE);
@@ -840,13 +743,8 @@ void InitView() {
     SortAssets();
     g_view.state = VIEW_STATE_DEFAULT;
 
-    Listen(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
-    Listen(EVENT_TEXTINPUT_CANCEL, HandleTextInputCancel);
-    Listen(EVENT_TEXTINPUT_COMMIT, HandleTextInputCommit);
-
     static Shortcut shortcuts[] = {
-        { KEY_TAB, false, false, false, BeginEdit },
-        { KEY_G, false, false, false, BeginMove },
+        { KEY_G, false, false, false, BeginMoveTool },
         { KEY_X, false, false, false, DeleteSelectedAsset },
         { KEY_EQUALS, false, true, false, HandleUIZoomIn },
         { KEY_MINUS, false, true, false, HandleUIZoomOut },
@@ -854,29 +752,29 @@ void InitView() {
         { KEY_RIGHT_BRACKET, false, false, false, HandleBringForward },
         { KEY_RIGHT_BRACKET, false, true, false, HandleBringToFront },
         { KEY_LEFT_BRACKET, false, true, false, HandleSendToBack },
+        { KEY_SEMICOLON, false, false, true, BeginCommandInput },
         { INPUT_CODE_NONE }
     };
 
     g_view.shortcuts = shortcuts;
     EnableShortcuts(shortcuts);
 
-    extern void MeshEditorInit();
+    extern void InitMeshEditor();
     extern void InitTextureEditor();
+    extern void InitSkeletonEditor();
 
-    MeshEditorInit();
+    InitMeshEditor();
     InitTextureEditor();
+    InitSkeletonEditor();
 }
 
 
 void ShutdownView() {
-    extern void MeshEditorShutdown();
+    extern void ShutdownMeshEditor();
 
-    MeshEditorShutdown();
+    ShutdownMeshEditor();
 
     g_view = {};
-
-    Unlisten(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
-    Unlisten(EVENT_TEXTINPUT_CANCEL, HandleTextInputCancel);
 
     ShutdownGrid();
     ShutdownWindow();
