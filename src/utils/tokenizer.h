@@ -42,8 +42,7 @@ struct Token
     } value;
 };
 
-struct Tokenizer
-{
+struct Tokenizer {
     const char* input;
     u32 position;
     u32 length;

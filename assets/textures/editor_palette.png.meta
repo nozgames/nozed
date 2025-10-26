@@ -1,9 +1,0 @@
-[texture]
-filter = point
-srgb = true
-clamp = true
-
-[editor]
-sort_order = 30
-position = (2.508049,-30.515554)
-

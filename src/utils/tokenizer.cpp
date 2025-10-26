@@ -650,8 +650,7 @@ bool ExpectVec4(Tokenizer& tk, Vec4* out_value)
     return true;
 }
 
-bool ExpectToken(Tokenizer& tk, Token* out_value)
-{
+bool ExpectToken(Tokenizer& tk, Token* out_value) {
     if (Equals(tk.next_token, TOKEN_TYPE_EOF))
         return false;
 
@@ -699,3 +698,11 @@ void Init(Tokenizer& tk, const char* input)
 
     tk.current_token = tk.next_token;
 }
+
+#if defined(_STRING_)
+std::string ToString(const Token& token) {
+    char temp[4096];
+    GetString(token, temp, sizeof(temp));
+    return std::string(temp);
+}
+#endif

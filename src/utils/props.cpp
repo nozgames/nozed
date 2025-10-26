@@ -209,8 +209,7 @@ Props* Props::Load(const char* content, size_t content_length)
     std::string group_name;
     char line_raw[4096];
 
-    while (!IsEOF(tk))
-    {
+    while (!IsEOF(tk)) {
         if (!ExpectLine(tk))
             break;
 
@@ -220,8 +219,7 @@ Props* Props::Load(const char* content, size_t content_length)
         if (line_str.size() == 0)
             continue;
 
-        if (line_str[0] == '[' && line_str[line_str.length() - 1] == ']')
-        {
+        if (line_str[0] == '[' && line_str[line_str.length() - 1] == ']') {
             group_name = line_str.substr(1, line_str.size() - 2);
             continue;
         }
@@ -229,18 +227,17 @@ Props* Props::Load(const char* content, size_t content_length)
         Tokenizer tk_line;
         Init(tk_line, line_str.c_str());
 
-        if (!ExpectIdentifier(tk_line))
+        Token tk_name;
+        if (!ExpectToken(tk_line, &tk_name))
             continue;
 
-        ::GetString(tk_line, line_raw, sizeof(line_raw));
-        std::string key = line_raw;
+        std::string key = ToString(tk_name);
         if (key.size() == 0)
             continue;
 
         // value
         std::string value;
-        if (ExpectDelimiter(tk_line, '='))
-        {
+        if (ExpectDelimiter(tk_line, '=')) {
             ExpectLine(tk_line);
             ::GetString(tk_line, line_raw, sizeof(line_raw));
             value = line_raw;

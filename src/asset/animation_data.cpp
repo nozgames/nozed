@@ -54,9 +54,6 @@ void DrawAnimationData(AssetData* a) {
 
         DrawMesh(skinned_mesh, Translate(a->position) * n->animator.bones[s->skinned_meshes[i].bone_index]);
     }
-
-    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
-        DrawEditorAnimationBone(n, bone_index, a->position);
 }
 
 static void ParseSkeletonBone(Tokenizer& tk, SkeletonData* es, int bone_index, int* bone_map) {

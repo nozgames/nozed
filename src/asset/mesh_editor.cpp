@@ -1073,9 +1073,14 @@ static void DrawMeshEditor() {
     }
 }
 
+void UpdateMeshEditorPalette() {
+    SetTexture(g_mesh_editor.color_material, g_view.palettes[g_view.active_palette_index].texture->texture, 0);
+}
+
 void InitMeshEditor() {
     g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
-    SetTexture(g_mesh_editor.color_material, TEXTURE_EDITOR_PALETTE, 0);
+    if (g_view.palette_count > 0)
+        SetTexture(g_mesh_editor.color_material, g_view.palettes[0].texture->texture, 0);
 
     static Shortcut shortcuts[] = {
         { KEY_G, false, false, false, BeginMoveTool },

@@ -23,7 +23,6 @@ struct AnimationEditor {
     bool clear_selection_on_up;
     bool ignore_up;
     void (*state_update)();
-    void (*state_draw)();
     Vec2 selection_center;
     Vec2 selection_center_world;
     bool onion_skin;
@@ -207,7 +206,6 @@ static void SetDefaultState() {
 
     g_animation_editor.state = ANIMATION_VIEW_STATE_DEFAULT;
     g_animation_editor.state_update = UpdateDefaultState;
-    g_animation_editor.state_draw = nullptr;
 }
 
 void UpdateAnimationEditor() {
@@ -300,11 +298,14 @@ void DrawAnimationEditor() {
     BindColor(COLOR_WHITE);
     for (int i=0; i<s->skinned_mesh_count; i++) {
         MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
-        if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
+        if (!skinned_mesh)
             continue;
 
         DrawMesh(skinned_mesh, Translate(n->position) * n->animator.bones[s->skinned_meshes[i].bone_index]);
     }
+
+    if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)
+        return;
 
     DrawOnionSkin();
 
@@ -320,9 +321,6 @@ void DrawAnimationEditor() {
 
         DrawEditorAnimationBone(n, bone_index, n->position);
     }
-
-    if (g_animation_editor.state_draw)
-        g_animation_editor.state_draw();
 }
 
 static void HandlePrevFrameCommand() {
@@ -356,13 +354,18 @@ static void UpdateMoveTool(const Vec2& delta) {
     UpdateTransforms(n);
 }
 
+static void CommitMoveTool(const Vec2&) {
+    UpdateTransforms(GetAnimationData());
+    MarkModified();
+}
+
 static void BeginMoveTool() {
     if (GetAnimationData()->selected_bone_count <= 0)
         return;
 
-    RecordUndo();
     SaveState();
-    BeginMoveTool({.update=UpdateMoveTool, .cancel=CancelAnimationTool});
+    RecordUndo();
+    BeginMoveTool({.update=UpdateMoveTool, .commit=CommitMoveTool, .cancel=CancelAnimationTool});
 }
 
 static void UpdateRotateTool(float angle) {
@@ -381,13 +384,18 @@ static void UpdateRotateTool(float angle) {
     UpdateTransforms(n);
 }
 
+static void CommitRotateTool(float) {
+    UpdateTransforms(GetAnimationData());
+    MarkModified();
+}
+
 static void BeginRotateTool() {
     if (GetAnimationData()->selected_bone_count <= 0)
         return;
 
-    RecordUndo();
     SaveState();
-    BeginRotateTool({.origin=g_animation_editor.selection_center_world, .update=UpdateRotateTool, .cancel=CancelAnimationTool});
+    RecordUndo();
+    BeginRotateTool({.origin=g_animation_editor.selection_center_world, .update=UpdateRotateTool, .commit=CommitRotateTool, .cancel=CancelAnimationTool});
 }
 
 static void ResetRotate() {
@@ -423,7 +431,6 @@ static void PlayAnimation() {
 
     g_animation_editor.state = ANIMATION_VIEW_STATE_PLAY;
     g_animation_editor.state_update = UpdatePlayState;
-    g_animation_editor.state_draw = nullptr;
 }
 
 static void ResetMove() {

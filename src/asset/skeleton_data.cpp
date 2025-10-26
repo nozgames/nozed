@@ -257,11 +257,17 @@ static void PostLoadSkeleton(AssetData* a) {
     assert(a->type == ASSET_TYPE_SKELETON);
     SkeletonData* s = static_cast<SkeletonData*>(a);
 
+    int loaded_skinned_mesh = 0;
     for (int i=0; i<s->skinned_mesh_count; i++) {
         SkinnedMesh& sm = s->skinned_meshes[i];
-        sm.mesh = (MeshData*)GetAssetData(ASSET_TYPE_MESH, sm.asset_name);
+        sm.mesh = static_cast<MeshData*>(GetAssetData(ASSET_TYPE_MESH, sm.asset_name));
+        if (!sm.mesh)
+            continue;
+        s->skinned_meshes[loaded_skinned_mesh++] = sm;
         PostLoadAssetData(sm.mesh);
     }
+
+    s->skinned_mesh_count = loaded_skinned_mesh;
 
     SortSkin(s);
     UpdateTransforms(s);

@@ -2,8 +2,10 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "editor.h"
-#include "nozed_assets.h"
+extern void InitMeshEditor();
+extern void InitTextureEditor();
+extern void InitSkeletonEditor();
+extern void InitAnimationEditor();
 
 constexpr float SELECT_SIZE = 60.0f;
 constexpr float DRAG_MIN = 5;
@@ -128,24 +130,24 @@ static void UpdateZoom() {
 
 static void UpdateMoveTool(const Vec2& delta) {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* ea = GetSortedAssetData(i);
-        assert(ea);
-        if (!ea->selected)
+        AssetData* a = GetSortedAssetData(i);
+        assert(a);
+        if (!a->selected)
             continue;
 
-        SetPosition(ea, IsCtrlDown(GetInputSet())
-            ? SnapToGrid(ea->saved_position + delta)
-            : ea->saved_position + delta);
+        SetPosition(a, IsCtrlDown(GetInputSet())
+            ? SnapToGrid(a->saved_position + delta)
+            : a->saved_position + delta);
     }
 }
 
 static void CancelMoveTool() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* ea = GetSortedAssetData(i);
-        assert(ea);
-        if (!ea->selected)
+        AssetData* a = GetSortedAssetData(i);
+        assert(a);
+        if (!a->selected)
             continue;
-        ea->position = ea->saved_position;
+        a->position = a->saved_position;
     }
 
     CancelUndo();
@@ -347,7 +349,7 @@ void DrawView() {
     }
 
     if (g_view.state == VIEW_STATE_EDIT && g_editor.editing_asset)
-        DrawBounds(g_editor.editing_asset, 0, COLOR_VERTEX_SELECTED);
+        DrawBounds(g_editor.editing_asset, 0, COLOR_EDGE);
 
     if (IsButtonDown(g_view.input, MOUSE_MIDDLE)) {
         Bounds2 bounds = GetBounds(g_view.camera);
@@ -399,8 +401,7 @@ void UpdateView() {
     EndRenderFrame();
 }
 
-void HandleRename(const Name* name)
-{
+void HandleRename(const Name* name) {
     if (g_view.vtable.rename)
         g_view.vtable.rename(name);
 }
@@ -615,6 +616,29 @@ static void BeginCommandInput() {
     BeginCommandInput({.commands=commands, .prefix=":"});
 }
 
+static void SetPalette(u32 index) {
+    if (index >= g_view.palette_count)
+        return;
+
+    g_view.active_palette_index = index;
+    Texture* palette_texture = g_view.palettes[g_view.active_palette_index].texture->texture;
+    SetTexture(g_view.editor_material, palette_texture);
+    SetTexture(g_view.shaded_material, palette_texture);
+    SetTexture(g_view.solid_material, palette_texture);
+
+    extern void UpdateMeshEditorPalette();
+
+    UpdateMeshEditorPalette();
+}
+
+static void PrevPalette() {
+    SetPalette((g_view.active_palette_index + g_view.palette_count - 1) % g_view.palette_count);
+}
+
+static void NextPalette() {
+    SetPalette((g_view.active_palette_index + 1) % g_view.palette_count);
+}
+
 // @shortcut
 static Shortcut g_common_shortcuts[] = {
     { KEY_S, false, true, false, SaveAssetData },
@@ -627,6 +651,8 @@ static Shortcut g_common_shortcuts[] = {
     { KEY_Y, false, true, false, HandleRedo },
     { KEY_S, false, false, true, BeginCommandInput },
     { KEY_TAB, false, false, false, ToggleEdit },
+    { KEY_COMMA, false, false, false, PrevPalette },
+    { KEY_PERIOD, false, false, false, NextPalette },
     { INPUT_CODE_NONE }
 };
 
@@ -655,9 +681,6 @@ void InitView() {
     g_view.draw_mode = VIEW_DRAW_MODE_SHADED;
 
     UpdateCamera();
-    SetTexture(g_view.shaded_material, TEXTURE_EDITOR_PALETTE, 0);
-    SetTexture(g_view.solid_material, TEXTURE_EDITOR_PALETTE, 0);
-    SetTexture(g_view.editor_material, TEXTURE_EDITOR_PALETTE, 0);
 
     g_view.input = CreateInputSet(ALLOCATOR_DEFAULT);
     EnableButton(g_view.input, KEY_LEFT_CTRL);
@@ -694,8 +717,7 @@ void InitView() {
     AddCircle(builder, VEC2_ZERO, 2.0f, 32, VEC2_ZERO);
     g_view.circle_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
-    for (int i=0; i<=100; i++)
-    {
+    for (int i=0; i<=100; i++) {
         Clear(builder);
         AddArc(builder, VEC2_ZERO, 2.0f, -270, -270 + 360.0f * (i / 100.0f), 32, VEC2_ZERO);
         g_view.arc_mesh[i] = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
@@ -747,15 +769,37 @@ void InitView() {
     g_view.shortcuts = shortcuts;
     EnableShortcuts(shortcuts);
 
-    extern void InitMeshEditor();
-    extern void InitTextureEditor();
-    extern void InitSkeletonEditor();
-    extern void InitAnimationEditor();
+    for (auto& palette_key : g_config->GetKeys("palettes")) {
+        std::string palette_value = g_config->GetString("palettes", palette_key.c_str(), nullptr);
+
+        Tokenizer tk;
+        Init(tk, palette_value.c_str());
+        Token name_token;
+        float uv_x = 0.0f;
+        float uv_y = 0.0f;
+        ExpectToken(tk, &name_token);
+        const Name* palette_name = GetName(tk);
+        if (ExpectDelimiter(tk, ','))
+            ExpectFloat(tk, &uv_x);
+        if (ExpectDelimiter(tk, ','))
+            ExpectFloat(tk, &uv_y);
+
+        TextureData* palette_texture = static_cast<TextureData*>(GetAssetData(ASSET_TYPE_TEXTURE, palette_name));
+        if (!palette_texture)
+            continue;
+
+        g_view.palettes[g_view.palette_count++] = {
+            .texture = palette_texture,
+            .color_offset_uv = Vec2{uv_x, uv_y}
+        };
+    }
 
     InitMeshEditor();
     InitTextureEditor();
     InitSkeletonEditor();
     InitAnimationEditor();
+
+    SetPalette(0);
 }
 
 

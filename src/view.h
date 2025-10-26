@@ -8,6 +8,7 @@ constexpr int STATE_STACK_SIZE = 16;
 
 constexpr int UI_REF_WIDTH = 1920;
 constexpr int UI_REF_HEIGHT = 1080;
+constexpr int MAX_PALETTES = 16;
 
 #include <asset/asset_data.h>
 
@@ -38,6 +39,11 @@ struct ViewVtable
 };
 
 struct Shortcut;
+
+struct PaletteDef {
+    TextureData* texture;
+    Vec2 color_offset_uv;
+};
 
 struct View {
     ViewState state;
@@ -79,10 +85,12 @@ struct View {
 
     ViewVtable vtable;
 
-
     Shortcut* shortcuts;
     bool show_names;
     ViewDrawMode draw_mode;
+    PaletteDef palettes[MAX_PALETTES];
+    u32 palette_count;
+    u32 active_palette_index;
 };
 
 extern View g_view;
@@ -102,6 +110,7 @@ extern void EndEdit();
 extern void BeginDrag();
 extern void EndDrag();
 extern void EnableCommonShortcuts(InputSet* input_set);
+inline const PaletteDef& GetActivePalette() { return g_view.palettes[g_view.active_palette_index]; }
 
 // @grid
 extern void InitGrid(Allocator* allocator);

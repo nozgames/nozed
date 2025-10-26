@@ -138,27 +138,23 @@ static void InitUserConfig()
     }
 }
 
-static void InitConfig()
-{
+static void InitConfig() {
     std::filesystem::path config_path = "./editor.cfg";
 
     g_editor.config_timestamp = std::filesystem::last_write_time(config_path);
 
-    if (Stream* config_stream = LoadStream(nullptr, config_path))
-    {
+    if (Stream* config_stream = LoadStream(nullptr, config_path)) {
         g_config = Props::Load(config_stream);
         Free(config_stream);
     }
 
-    if (g_config == nullptr)
-    {
+    if (g_config == nullptr) {
         LogError("missing configuration '%s'", config_path.string().c_str());
         g_config = new Props();
     }
 
     // Read in the source paths
-    for (auto& path : g_config->GetKeys("source"))
-    {
+    for (auto& path : g_config->GetKeys("source")) {
         std::filesystem::path full_path = std::filesystem::current_path() / path;
         full_path = canonical(full_path);
         Copy(g_editor.asset_paths[g_editor.asset_path_count++], 4096, full_path.string().c_str());
@@ -260,13 +256,13 @@ int main(int argc, const char* argv[]) {
     LoadAssetData();
     InitImporter();
     InitWindow();
+    PostLoadAssetData();
     InitView();
     InitCommandInput();
     InitUserConfig();
     InitEditorServer(g_config);
 
-    while (UpdateApplication())
-    {
+    while (UpdateApplication()) {
         UpdateImporter();
         UpdateEditor();
         UpdateView();

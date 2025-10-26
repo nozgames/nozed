@@ -9,11 +9,8 @@ void DrawTextureData(AssetData* a) {
     assert(a->type == ASSET_TYPE_TEXTURE);
 
     TextureData* t = static_cast<TextureData*>(a);
-    if (!t->texture) {
-        t->texture = (Texture*)LoadAssetInternal(ALLOCATOR_DEFAULT, a->name, ASSET_SIGNATURE_TEXTURE, LoadTexture);
-        t->material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
-        SetTexture(t->material, t->texture, 0);
-    }
+    if (!t)
+        return;
 
     BindColor(COLOR_WHITE);
     BindMaterial(t->material);
@@ -44,6 +41,15 @@ static void SaveTextureMetaData(AssetData* a, Props* meta) {
     meta->SetString("editor", "scale", std::to_string(t->scale).c_str());
 }
 
+void PostLoadTextureData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_TEXTURE);
+    TextureData* t = static_cast<TextureData*>(a);
+    t->texture = (Texture*)LoadAssetInternal(ALLOCATOR_DEFAULT, a->name, ASSET_SIGNATURE_TEXTURE, LoadTexture);
+    t->material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
+    SetTexture(t->material, t->texture, 0);
+}
+
+
 void InitTextureData(AssetData* a) {
     assert(a);
     assert(a->type == ASSET_TYPE_TEXTURE);
@@ -52,6 +58,7 @@ void InitTextureData(AssetData* a) {
     t->bounds = Bounds2{Vec2{-0.5f, -0.5f}, Vec2{0.5f, 0.5f}};
     t->scale = 1.0f;
     t->vtable = {
+        .post_load = PostLoadTextureData,
         .load_metadata = LoadTextureMetaData,
         .save_metadata = SaveTextureMetaData,
         .draw = DrawTextureData,

@@ -13,10 +13,8 @@ static void MergeFaces(MeshData* em, const EdgeData& shared_edge);
 static void DeleteFace(MeshData* em, int face_index);
 static void DeleteVertex(MeshData* em, int vertex_index);
 
-static int GetFaceEdgeIndex(MeshData* em, const FaceData& ef, const EdgeData& ee)
-{
-    for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++)
-    {
+static int GetFaceEdgeIndex(MeshData* em, const FaceData& ef, const EdgeData& ee) {
+    for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++) {
         int v0 = em->face_vertices[ef.vertex_offset + vertex_index];
         int v1 = em->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
 
@@ -29,24 +27,24 @@ static int GetFaceEdgeIndex(MeshData* em, const FaceData& ef, const EdgeData& ee
 
 static void DrawMesh(AssetData* a) {
     assert(a->type == ASSET_TYPE_MESH);
-    MeshData* em = static_cast<MeshData*>(a);
+    MeshData* m = static_cast<MeshData*>(a);
 
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
         BindColor(COLOR_EDGE);
-        DrawEdges(em, a->position);
+        DrawEdges(m, a->position);
     } else {
-        BindColor(COLOR_WHITE);
-        DrawMesh(em, Translate(a->position));
+        DrawMesh(m, Translate(a->position));
     }
 }
 
 void DrawMesh(MeshData* m, const Mat3& transform) {
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
         BindColor(COLOR_EDGE);
-        DrawEdges(m, TransformPoint(transform));
+        DrawEdges(m, transform);
         return;
     }
 
+    BindColor(COLOR_WHITE, GetActivePalette().color_offset_uv);
     BindMaterial(g_view.draw_mode == VIEW_DRAW_MODE_SHADED
         ? g_view.shaded_material
         : g_view.solid_material);
@@ -195,27 +193,24 @@ void MarkDirty(MeshData* em)
     em->mesh = nullptr;
 }
 
-Mesh* ToMesh(MeshData* em, bool upload)
+Mesh* ToMesh(MeshData* m, bool upload)
 {
-    if (em->mesh)
-        return em->mesh;
+    if (m->mesh)
+        return m->mesh;
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
 
-    // Generate the mesh body
-    for (int i = 0; i < em->face_count; i++)
-        TriangulateFace(em, em->faces + i, builder);
+    for (int i = 0; i < m->face_count; i++)
+        TriangulateFace(m, m->faces + i, builder);
 
-    // Generate outline
-    Vec2 edge_uv = ColorUV(em->edge_color.x, em->edge_color.y);
-    for (int i=0; i < em->edge_count; i++)
-    {
-        const EdgeData& ee = em->edges[i];
+    Vec2 edge_uv = ColorUV(m->edge_color.x, m->edge_color.y);
+    for (int i=0; i < m->edge_count; i++) {
+        const EdgeData& ee = m->edges[i];
         if (ee.face_count > 1)
             continue;
 
-        const VertexData& v0 = em->vertices[ee.v0];
-        const VertexData& v1 = em->vertices[ee.v1];
+        const VertexData& v0 = m->vertices[ee.v0];
+        const VertexData& v1 = m->vertices[ee.v1];
 
         if (v0.edge_size < 0.01f && v1.edge_size < 0.01f)
             continue;
@@ -232,12 +227,12 @@ Mesh* ToMesh(MeshData* em, bool upload)
         AddTriangle(builder, base+1, base+2, base+3);
     }
 
-    em->mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
+    m->mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
+    m->bounds = GetBounds(m->mesh);
+
     Free(builder);
 
-    em->bounds = GetBounds(em->mesh);
-
-    return em->mesh;
+    return m->mesh;
 }
 
 void SetEdgeColor(MeshData* em, const Vec2Int& color)

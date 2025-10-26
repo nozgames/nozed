@@ -301,8 +301,7 @@ void InitImporter() {
     g_importer.running = true;
     g_importer.thread_running = true;
     g_importer.manifest_path = g_config->GetString("manifest", "output_file", "src/assets.cpp");
-    g_importer.thread = std::make_unique<std::thread>([]
-    {
+    g_importer.thread = std::make_unique<std::thread>([] {
         RunImporter();
         g_importer.thread_running = false;
     });

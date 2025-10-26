@@ -132,12 +132,23 @@ void DrawSelectedEdges(MeshData* em, const Vec2& position)
     }
 }
 
-void DrawEdges(MeshData* em, const Vec2& position) {
+void DrawEdges(MeshData* m, const Vec2& position) {
     BindMaterial(g_view.vertex_material);
 
-    for (i32 edge_index=0; edge_index < em->edge_count; edge_index++) {
-        const EdgeData& ee = em->edges[edge_index];
-        DrawLine(em->vertices[ee.v0].position + position, em->vertices[ee.v1].position + position);
+    for (i32 edge_index=0; edge_index < m->edge_count; edge_index++) {
+        const EdgeData& ee = m->edges[edge_index];
+        DrawLine(m->vertices[ee.v0].position + position, m->vertices[ee.v1].position + position);
+    }
+}
+
+void DrawEdges(MeshData* m, const Mat3& transform) {
+    BindMaterial(g_view.vertex_material);
+
+    for (i32 edge_index=0; edge_index < m->edge_count; edge_index++) {
+        const EdgeData& ee = m->edges[edge_index];
+        Vec2 p1 = TransformPoint(transform, m->vertices[ee.v0].position);
+        Vec2 p2 = TransformPoint(transform, m->vertices[ee.v1].position);
+        DrawLine(p1, p2);
     }
 }
 
@@ -368,7 +379,9 @@ void LoadAssetData() {
         assert(a);
         LoadAssetData(a);
     }
+}
 
+void PostLoadAssetData() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
         PostLoadAssetData(GetSortedAssetData(i));
     }

@@ -80,6 +80,7 @@ extern std::filesystem::path GetEditorAssetPath(const Name* name, const char* ex
 extern void Clone(AssetData* dst, AssetData* src);
 extern void LoadAssetData();
 extern void SaveAssetData();
+extern void PostLoadAssetData();
 extern bool OverlapPoint(AssetData* ea, const Vec2& overlap_point);
 extern bool OverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point);
 extern bool OverlapBounds(AssetData* ea, const Bounds2& overlap_bounds);

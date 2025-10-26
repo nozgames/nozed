@@ -21,24 +21,7 @@ Shader* SHADER_TEXT = nullptr;
 Shader* SHADER_LIT = nullptr;
 Shader* SHADER_SOLID = nullptr;
 
-// @Texture
-Texture* TEXTURE_EDITOR_PALETTE = nullptr;
-
 // @name
-const Name* NAME_TEXT = nullptr;
-const Name* NAME_CONTAINER = nullptr;
-const Name* NAME_INPUT = nullptr;
-const Name* NAME_INPUT_SMALL = nullptr;
-const Name* NAME_COLON = nullptr;
-const Name* NAME_CURSOR = nullptr;
-const Name* NAME_PREVIEW = nullptr;
-const Name* NAME_COLORS = nullptr;
-const Name* NAME_COLOR_IMAGE = nullptr;
-const Name* NAME_SELECTED_COLOR = nullptr;
-const Name* NAME_ITEM = nullptr;
-const Name* NAME_ITEM_TEXT = nullptr;
-const Name* NAME_ASSET_NAME_CONTAINER = nullptr;
-const Name* NAME_ASSET_NAME = nullptr;
 const Name* NAME_A = nullptr;
 const Name* NAME_E = nullptr;
 const Name* NAME_M = nullptr;
@@ -59,11 +42,6 @@ const Name* PATH_SHADER_UI_VIGNETTE = nullptr;
 const Name* PATH_SHADER_UI = nullptr;
 const Name* PATH_SHADER_TEXT = nullptr;
 const Name* PATH_SHADER_LIT = nullptr;
-const Name* PATH_STYLESHEET_VIEW = nullptr;
-const Name* PATH_STYLESHEET_NOTIFICATIONS = nullptr;
-const Name* PATH_STYLESHEET_MESH_EDITOR = nullptr;
-const Name* PATH_STYLESHEET_COMMAND_PALETTE = nullptr;
-const Name* PATH_TEXTURE_EDITOR_PALETTE = nullptr;
 const Name* PATH_SHADER_SOLID = nullptr;
 const Name* PATH_MESH_SHADER = nullptr;
 const Name* PATH_FONT_SEGUISB = nullptr;
@@ -72,20 +50,6 @@ const Name* PATH_FONT_SEGUISB = nullptr;
 bool LoadAssets(Allocator* allocator)
 {
     // @name
-    NAME_TEXT = GetName("text");
-    NAME_CONTAINER = GetName("container");
-    NAME_INPUT = GetName("input");
-    NAME_INPUT_SMALL = GetName("input_small");
-    NAME_COLON = GetName("colon");
-    NAME_CURSOR = GetName("cursor");
-    NAME_PREVIEW = GetName("preview");
-    NAME_COLORS = GetName("colors");
-    NAME_COLOR_IMAGE = GetName("color_image");
-    NAME_SELECTED_COLOR = GetName("selected_color");
-    NAME_ITEM = GetName("item");
-    NAME_ITEM_TEXT = GetName("item_text");
-    NAME_ASSET_NAME_CONTAINER = GetName("asset_name_container");
-    NAME_ASSET_NAME = GetName("asset_name");
     NAME_A = GetName("a");
     NAME_E = GetName("e");
     NAME_M = GetName("m");
@@ -106,11 +70,6 @@ bool LoadAssets(Allocator* allocator)
     PATH_SHADER_UI = GetName("ui");
     PATH_SHADER_TEXT = GetName("text");
     PATH_SHADER_LIT = GetName("lit");
-    PATH_STYLESHEET_VIEW = GetName("view");
-    PATH_STYLESHEET_NOTIFICATIONS = GetName("notifications");
-    PATH_STYLESHEET_MESH_EDITOR = GetName("mesh_editor");
-    PATH_STYLESHEET_COMMAND_PALETTE = GetName("command_palette");
-    PATH_TEXTURE_EDITOR_PALETTE = GetName("editor_palette");
     PATH_SHADER_SOLID = GetName("solid");
     PATH_MESH_SHADER = GetName("shader");
     PATH_FONT_SEGUISB = GetName("seguisb");
@@ -155,16 +114,6 @@ bool LoadAssets(Allocator* allocator)
 
     SHADER = _SHADER;
 
-    // @Texture
-    NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_EDITOR_PALETTE, TEXTURE_EDITOR_PALETTE);
-
-    static Texture* _TEXTURE[] = {
-        TEXTURE_EDITOR_PALETTE,
-        nullptr
-    };
-
-    TEXTURE = _TEXTURE;
-
     return true;
 }
 
@@ -184,9 +133,6 @@ void UnloadAssets()
     Free(SHADER_TEXT);
     Free(SHADER_LIT);
     Free(SHADER_SOLID);
-
-    // @Texture
-    Free(TEXTURE_EDITOR_PALETTE);
 }
 
 #ifdef NOZ_EDITOR
@@ -206,9 +152,6 @@ void HotloadAsset(const Name* incoming_name, AssetSignature incoming_signature)
     NOZ_RELOAD_SHADER(PATH_SHADER_TEXT, SHADER_TEXT);
     NOZ_RELOAD_SHADER(PATH_SHADER_LIT, SHADER_LIT);
     NOZ_RELOAD_SHADER(PATH_SHADER_SOLID, SHADER_SOLID);
-
-    // @Texture
-    NOZ_RELOAD_TEXTURE(PATH_TEXTURE_EDITOR_PALETTE, TEXTURE_EDITOR_PALETTE);
 }
 
 #endif // NOZ_EDITOR

@@ -3,37 +3,33 @@
 //
 // @STL
 
-#include "../../../src/internal.h"
-
 namespace fs = std::filesystem;
 using namespace noz;
 
 constexpr Vec2 OUTLINE_COLOR = ColorUV(0, 10);
 
-struct OutlineConfig
-{
+struct OutlineConfig {
     float width;
     float offset;
     float boundary_taper;
 };
 
-static void ImportMesh(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
-{
+static void ImportMesh(AssetData* a, Stream* output_stream, Props* config, Props* meta) {
     (void)config;
     (void)meta;
 
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_MESH);
-    MeshData* em = (MeshData*)ea;
+    assert(a);
+    assert(a->type == ASSET_TYPE_MESH);
+    MeshData* mesh_data = static_cast<MeshData*>(a);
 
-    Mesh* m = ToMesh(em, false);
+    Mesh* m = ToMesh(mesh_data, false);
 
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_MESH;
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
 
-    WriteStruct(output_stream, em->bounds);
+    WriteStruct(output_stream, mesh_data->bounds);
     WriteU16(output_stream, GetVertexCount(m));
     WriteU16(output_stream, GetIndexCount(m));
 
@@ -44,8 +40,7 @@ static void ImportMesh(AssetData* ea, Stream* output_stream, Props* config, Prop
     WriteBytes(output_stream, i, sizeof(u16) * GetIndexCount(m));
 }
 
-AssetImporter GetMeshImporter()
-{
+AssetImporter GetMeshImporter() {
     return {
         .type = ASSET_TYPE_MESH,
         .signature = ASSET_SIGNATURE_MESH,
