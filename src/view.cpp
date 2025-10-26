@@ -399,16 +399,6 @@ void UpdateView() {
     EndRenderFrame();
 }
 
-static void HandleUIZoomIn()
-{
-    g_view.ui_scale = Min(g_view.ui_scale + 0.1f, 3.0f);
-}
-
-static void HandleUIZoomOut()
-{
-    g_view.ui_scale = Max(g_view.ui_scale - 0.1f, 0.3f);
-}
-
 void HandleRename(const Name* name)
 {
     if (g_view.vtable.rename)
@@ -430,23 +420,19 @@ void SaveViewUserConfig(Props* user_config) {
     user_config->SetBool("view", "show_names", g_view.show_names);
 }
 
-static void HandleToggleNames()
-{
+static void ToggleNames() {
     g_view.show_names = !g_view.show_names;
 }
 
-static void HandleSetDrawModeShaded()
-{
+static void SetDrawModeShaded() {
     g_view.draw_mode = VIEW_DRAW_MODE_SHADED;
 }
 
-static void HandleSetDrawModeWireframe()
-{
+static void SetDrawModeWireframe() {
     g_view.draw_mode = VIEW_DRAW_MODE_WIREFRAME;
 }
 
-static void HandleSetDrawModeSolid()
-{
+static void SetDrawModeSolid() {
     g_view.draw_mode = VIEW_DRAW_MODE_SOLID;
 }
 
@@ -633,10 +619,10 @@ static void BeginCommandInput() {
 static Shortcut g_common_shortcuts[] = {
     { KEY_S, false, true, false, SaveAssetData },
     { KEY_F, false, false, false, FrameSelected },
-    { KEY_N, true, false, false, HandleToggleNames },
-    { KEY_1, true, false, false, HandleSetDrawModeWireframe },
-    { KEY_2, true, false, false, HandleSetDrawModeSolid },
-    { KEY_3, true, false, false, HandleSetDrawModeShaded },
+    { KEY_N, true, false, false, ToggleNames },
+    { KEY_1, true, false, false, SetDrawModeWireframe },
+    { KEY_2, true, false, false, SetDrawModeSolid },
+    { KEY_3, true, false, false, SetDrawModeShaded },
     { KEY_Z, false, true, false, HandleUndo },
     { KEY_Y, false, true, false, HandleRedo },
     { KEY_S, false, false, true, BeginCommandInput },
@@ -750,8 +736,6 @@ void InitView() {
     static Shortcut shortcuts[] = {
         { KEY_G, false, false, false, BeginMoveTool },
         { KEY_X, false, false, false, DeleteSelectedAsset },
-        { KEY_EQUALS, false, true, false, HandleUIZoomIn },
-        { KEY_MINUS, false, true, false, HandleUIZoomOut },
         { KEY_LEFT_BRACKET, false, false, false, SendBackward },
         { KEY_RIGHT_BRACKET, false, false, false, BringForward },
         { KEY_RIGHT_BRACKET, false, true, false, BringToFront },
@@ -766,10 +750,12 @@ void InitView() {
     extern void InitMeshEditor();
     extern void InitTextureEditor();
     extern void InitSkeletonEditor();
+    extern void InitAnimationEditor();
 
     InitMeshEditor();
     InitTextureEditor();
     InitSkeletonEditor();
+    InitAnimationEditor();
 }
 
 

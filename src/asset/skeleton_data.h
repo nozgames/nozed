@@ -51,7 +51,7 @@ extern void UpdateTransforms(SkeletonData* s);
 extern void PostLoadEditorAssets(SkeletonData* es);
 extern int FindBoneIndex(SkeletonData* s, const Name* name);
 extern void Serialize(SkeletonData* s, Stream* stream);
-extern Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* es, const Name* name);
+extern Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* s);
 extern int ReparentBone(SkeletonData* s, int bone_index, int parent_index);
 extern const Name* GetUniqueBoneName(SkeletonData* s);
 extern void RemoveBone(SkeletonData* s, int bone_index);

@@ -10,6 +10,7 @@ struct AnimationBoneData {
     const Name* name;
     int index;
     bool selected;
+    Transform saved_transform;
 };
 
 struct AnimationFrameData {
@@ -30,17 +31,17 @@ struct AnimationData : AssetData {
     int selected_bone_count;
 };
 
-extern void InitAnimationData(AssetData* ea);
+extern void InitAnimationData(AssetData* a);
 extern AssetData* NewAnimationData(const std::filesystem::path& path);
-extern void PostLoadEditorAssets(AnimationData* en);
-extern void UpdateBounds(AnimationData* en);
-extern void Serialize(AnimationData* en, Stream* output_stream, SkeletonData* es);
-extern Animation* ToAnimation(Allocator* allocator, AnimationData* en, const Name* name);
-extern int InsertFrame(AnimationData* en, int frame_index);
-extern int DeleteFrame(AnimationData* en, int frame_index);
-extern Transform& GetFrameTransform(AnimationData* en, int bone_index, int frame_index);
-extern int HitTestBone(AnimationData* en, const Vec2& world_pos);
-extern void UpdateTransforms(AnimationData* en);
-extern void UpdateSkeleton(AnimationData* en);
-extern void DrawAnimationData(AssetData* ea);
-extern void DrawEditorAnimationBone(AnimationData* en, int bone_index, const Vec2& position);
+extern void PostLoadEditorAssets(AnimationData* n);
+extern void UpdateBounds(AnimationData* n);
+extern void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s);
+extern Animation* ToAnimation(Allocator* allocator, AnimationData* n);
+extern int InsertFrame(AnimationData* n, int frame_index);
+extern int DeleteFrame(AnimationData* n, int frame_index);
+extern Transform& GetFrameTransform(AnimationData* n, int bone_index, int frame_index);
+extern int HitTestBone(AnimationData* n, const Vec2& world_pos);
+extern void UpdateTransforms(AnimationData* n);
+extern void UpdateSkeleton(AnimationData* n);
+extern void DrawAnimationData(AssetData* a);
+extern void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& position);

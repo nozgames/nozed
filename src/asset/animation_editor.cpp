@@ -2,35 +2,20 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "nozed_assets.h"
-
-#include <editor.h>
-
-constexpr float FRAME_LINE_SIZE = 0.5f;
-constexpr float FRAME_LINE_OFFSET = -0.2f;
-constexpr float FRAME_SIZE_X = 0.3f;
-constexpr float FRAME_SIZE_Y = 0.8f;
-constexpr float FRAME_BORDER_SIZE = 0.025f;
-constexpr float FRAME_SELECTED_SIZE = 0.32f;
-constexpr float FRAME_TIME_SIZE = 0.32f;
-constexpr float FRAME_DOT_SIZE = 0.1f;
+constexpr float FRAME_SIZE_X = 20;
+constexpr float FRAME_SIZE_Y = 40;
+constexpr float FRAME_BORDER_SIZE = 1;
+constexpr Color FRAME_BORDER_COLOR = Color24ToColor(32,32,32);
+constexpr float FRAME_DOT_SIZE = 5;
+constexpr float FRAME_DOT_OFFSET_X = FRAME_SIZE_X * 0.5f - FRAME_DOT_SIZE * 0.5f;
+constexpr float FRAME_DOT_OFFSET_Y = 5;
+constexpr Color FRAME_DOT_COLOR = FRAME_BORDER_COLOR;
 constexpr Color FRAME_COLOR = Color32ToColor(100, 100, 100, 255);
 constexpr Color FRAME_SELECTED_COLOR = COLOR_VERTEX_SELECTED;
 
-constexpr float CENTER_SIZE = 0.2f;
-constexpr float ORIGIN_SIZE = 0.1f;
-constexpr float ORIGIN_BORDER_SIZE = 0.12f;
-constexpr float ROTATE_TOOL_WIDTH = 0.02f;
-
 enum AnimationViewState {
     ANIMATION_VIEW_STATE_DEFAULT,
-    ANIMATION_VIEW_STATE_MOVE,
-    ANIMATION_VIEW_STATE_ROTATE,
     ANIMATION_VIEW_STATE_PLAY,
-};
-
-struct AnimationViewBone {
-    Transform transform;
 };
 
 struct AnimationEditor {
@@ -39,35 +24,34 @@ struct AnimationEditor {
     bool ignore_up;
     void (*state_update)();
     void (*state_draw)();
-    Vec2 command_world_position;
     Vec2 selection_center;
     Vec2 selection_center_world;
-    AnimationViewBone bones[MAX_BONES];
     bool onion_skin;
+    InputSet* input;
+    Shortcut* shortcuts;
 };
 
-static AnimationEditor g_animation_view = {};
+static AnimationEditor g_animation_editor = {};
 
-static Shortcut* g_animation_editor_shortcuts;
-
-static AnimationData* GetEditingAnimation()
-{
-    AssetData* ea = GetAssetData();
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    return (AnimationData*)ea;
+static AnimationData* GetAnimationData() {
+    AssetData* a = GetAssetData();
+    assert(a);
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    return static_cast<AnimationData*>(a);
 }
 
-static SkeletonData* GetSkeletonData() { return GetEditingAnimation()->skeleton; }
-static bool IsBoneSelected(int bone_index) { return GetEditingAnimation()->bones[bone_index].selected; }
+static SkeletonData* GetSkeletonData() { return GetAnimationData()->skeleton; }
+
+static bool IsBoneSelected(int bone_index) { return GetAnimationData()->bones[bone_index].selected; }
+
 static bool IsAncestorSelected(int bone_index) {
-    AnimationData* en = GetEditingAnimation();
-    SkeletonData* es = GetSkeletonData();
-    int parent_index = es->bones[bone_index].parent_index;
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+    int parent_index = s->bones[bone_index].parent_index;
     while (parent_index >= 0) {
-        if (en->bones[parent_index].selected)
+        if (n->bones[parent_index].selected)
             return true;
-        parent_index = es->bones[parent_index].parent_index;
+        parent_index = s->bones[parent_index].parent_index;
     }
 
     return false;
@@ -77,83 +61,46 @@ static void SetBoneSelected(int bone_index, bool selected) {
     if (IsBoneSelected(bone_index) == selected)
         return;
 
-    AnimationData* en = GetEditingAnimation();
-    en->bones[bone_index].selected = selected;
-    en->selected_bone_count += selected ? 1 : -1;
+    AnimationData* n = GetAnimationData();
+    n->bones[bone_index].selected = selected;
+    n->selected_bone_count += selected ? 1 : -1;
 }
 
-static void UpdateSelectionCenter()
-{
-    AssetData& ea = *GetAssetData();
-    AnimationData* en = GetEditingAnimation();
-    SkeletonData* es = GetSkeletonData();
+static void UpdateSelectionCenter() {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
 
     Vec2 center = VEC2_ZERO;
     float center_count = 0.0f;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-    {
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
-        center += TransformPoint(en->animator.bones[bone_index]);
+        center += TransformPoint(n->animator.bones[bone_index]);
         center_count += 1.0f;
     }
 
-    g_animation_view.selection_center =
+    g_animation_editor.selection_center =
         center_count < F32_EPSILON
             ? center
             : center / center_count;
-    g_animation_view.selection_center_world = g_animation_view.selection_center + ea.position;
-}
-
-static void SaveState()
-{
-    AnimationData* en = GetEditingAnimation();
-    SkeletonData* es = GetSkeletonData();
-    for (int bone_index=1; bone_index<es->bone_count; bone_index++)
-        g_animation_view.bones[bone_index].transform = GetFrameTransform(en, bone_index, en->current_frame);
-
-    UpdateSelectionCenter();
-}
-
-static void RevertToSavedState()
-{
-    SkeletonData* es = GetSkeletonData();
-    AnimationData* en = GetEditingAnimation();
-    for (int bone_index=1; bone_index<es->bone_count; bone_index++)
-    {
-        AnimationViewBone& vb = g_animation_view.bones[bone_index];
-        GetFrameTransform(en, bone_index, en->current_frame) = vb.transform;
-    }
-
-    UpdateTransforms(en);
-    UpdateSelectionCenter();
-}
-
-static void SetState(AnimationViewState state, void (*state_update)(), void (*state_draw)())
-{
-    g_animation_view.state = state;
-    g_animation_view.state_update = state_update;
-    g_animation_view.state_draw = state_draw;
-    g_animation_view.command_world_position = g_view.mouse_world_position;
-
-    SetCursor(SYSTEM_CURSOR_DEFAULT);
+    g_animation_editor.selection_center_world = g_animation_editor.selection_center + n->position;
 }
 
 static void ClearSelection() {
-    SkeletonData* es = GetSkeletonData();
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+    SkeletonData* s = GetSkeletonData();
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
         SetBoneSelected(bone_index, false);
 }
 
 static bool TrySelect() {
-    AnimationData* en = GetEditingAnimation();
-    int bone_index = HitTestBone(en, g_view.mouse_world_position);
+    AnimationData* n = GetAnimationData();
+    int bone_index = HitTestBone(n, g_view.mouse_world_position);
     if (bone_index == -1)
         return false;
 
-    BoneData* eb = &GetSkeletonData()->bones[bone_index];
-    if (IsShiftDown(g_view.input)) {
-        SetBoneSelected(bone_index, !eb->selected);
+    BoneData* b = &GetSkeletonData()->bones[bone_index];
+    if (IsShiftDown(g_animation_editor.input)) {
+        SetBoneSelected(bone_index, !b->selected);
     } else {
         ClearSelection();
         SetBoneSelected(bone_index, true);
@@ -162,53 +109,35 @@ static bool TrySelect() {
     return true;
 }
 
-static void UpdateRotateState() {
-    AnimationData* en = GetEditingAnimation();
-    SkeletonData* es = GetSkeletonData();
+static void SaveState() {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        n->bones[bone_index].saved_transform = GetFrameTransform(n, bone_index, n->current_frame);
 
-    Vec2 dir_start = Normalize(g_animation_view.command_world_position - g_animation_view.selection_center_world);
-    Vec2 dir_current = Normalize(g_view.mouse_world_position - g_animation_view.selection_center_world);
-    float angle = SignedAngleDelta(dir_start, dir_current);
-    if (fabsf(angle) < F32_EPSILON)
-        return;
-
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
-            continue;
-
-        AnimationViewBone& sb = g_animation_view.bones[bone_index];
-        SetRotation(GetFrameTransform(en, bone_index, en->current_frame), sb.transform.rotation + angle);
-    }
-
-    UpdateTransforms(en);
+    UpdateSelectionCenter();
 }
 
-static void UpdateMoveState() {
-    AnimationData* en = GetEditingAnimation();
-    SkeletonData* es = GetSkeletonData();
+static void RevertToSavedState() {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        GetFrameTransform(n, bone_index, n->current_frame) = n->bones[bone_index].saved_transform;
 
-    Vec2 world_delta = g_view.mouse_world_position - g_animation_view.command_world_position;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
-            continue;
-
-        AnimationViewBone& sb = g_animation_view.bones[bone_index];
-        SetPosition(GetFrameTransform(en, bone_index, en->current_frame), sb.transform.position + world_delta);
-    }
-
-    UpdateTransforms(en);
+    UpdateTransforms(n);
+    UpdateSelectionCenter();
 }
 
 static void UpdateBoneNames() {
-    if (!IsAltDown(g_view.input) && !g_view.show_names)
+    if (!IsAltDown(g_animation_editor.input) && !g_view.show_names)
         return;
 
-    AssetData* ea = GetAssetData();
-    SkeletonData* es = GetSkeletonData();
-    for (u16 i=0; i<es->bone_count; i++) {
-        Mat3 transform = es->bones[i].local_to_world * Rotate(es->bones[i].transform.rotation);
-        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{0.25f, 0})) * 0.5f + ea->position;
-        const char* name = es->bones[i].name->value;
+    AssetData* a = GetAssetData();
+    SkeletonData* s = GetSkeletonData();
+    for (u16 i=0; i<s->bone_count; i++) {
+        Mat3 transform = s->bones[i].local_to_world * Rotate(s->bones[i].transform.rotation);
+        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{0.25f, 0})) * 0.5f + a->position;
+        const char* name = s->bones[i].name->value;
         Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [name] {
             Align({.alignment=ALIGNMENT_CENTER}, [name] {
                 Label(name, {.font = FONT_SEGUISB, .font_size=12, .color=COLOR_WHITE} );
@@ -218,29 +147,27 @@ static void UpdateBoneNames() {
 }
 
 static void UpdatePlayState() {
-    AssetData& ea = *GetAssetData();
-    AnimationData* en = GetEditingAnimation();
-    if (!en->animation)
-        en->animation = ToAnimation(ALLOCATOR_DEFAULT, en, ea.name);
+    AnimationData* n = GetAnimationData();
+    if (!n->animation)
+        n->animation = ToAnimation(ALLOCATOR_DEFAULT, n);
 
-    if (!en->animation)
+    if (!n->animation)
         return;
 
-    Update(en->animator);
+    Update(n->animator);
 }
 
 static void HandleBoxSelect(const Bounds2& bounds) {
-    if (!IsShiftDown(g_view.input))
+    if (!IsShiftDown(g_animation_editor.input))
         ClearSelection();
 
-    AssetData* ea = GetAssetData();
-    SkeletonData* es = GetSkeletonData();
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        AnimationData* en = GetEditingAnimation();
-        BoneData* eb = &es->bones[bone_index];
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        BoneData* eb = &s->bones[bone_index];
         Mat3 collider_transform =
-            Translate(ea->position) *
-            en->animator.bones[bone_index] *
+            Translate(n->position) *
+            n->animator.bones[bone_index] *
             Rotate(eb->transform.rotation) *
             Scale(eb->length);
         if (OverlapBounds(g_view.bone_collider, bounds, collider_transform))
@@ -249,417 +176,368 @@ static void HandleBoxSelect(const Bounds2& bounds) {
 }
 
 static void UpdateDefaultState() {
-    // If a drag has started then switch to box select
-    if (g_view.drag) {
+    if (!IsToolActive() && g_view.drag_started) {
         BeginBoxSelect(HandleBoxSelect);
         return;
     }
 
-    if (!g_animation_view.ignore_up && !g_view.drag && WasButtonReleased(g_view.input, MOUSE_LEFT))
-    {
-        g_animation_view.clear_selection_on_up = false;
-
+    if (!g_animation_editor.ignore_up && !g_view.drag && WasButtonReleased(g_animation_editor.input, MOUSE_LEFT)) {
+        g_animation_editor.clear_selection_on_up = false;
         if (TrySelect())
             return;
 
-        g_animation_view.clear_selection_on_up = true;
+        g_animation_editor.clear_selection_on_up = true;
     }
 
-    g_animation_view.ignore_up &= !WasButtonReleased(g_view.input, MOUSE_LEFT);
+    g_animation_editor.ignore_up &= !WasButtonReleased(g_animation_editor.input, MOUSE_LEFT);
 
-    if (WasButtonReleased(g_view.input, MOUSE_LEFT) && g_animation_view.clear_selection_on_up && !IsShiftDown(g_view.input))
+    if (WasButtonReleased(g_animation_editor.input, MOUSE_LEFT) && g_animation_editor.clear_selection_on_up && !IsShiftDown(g_animation_editor.input))
         ClearSelection();
 }
 
-void AnimationViewUpdate()
-{
-    AnimationData* ea = GetEditingAnimation();
-    CheckShortcuts(g_animation_editor_shortcuts);
-    UpdateBounds(ea);
+static void SetDefaultState() {
+    if (g_animation_editor.state == ANIMATION_VIEW_STATE_DEFAULT)
+        return;
+
+    AnimationData* n = GetAnimationData();
+    if (IsPlaying(n->animator))
+        Stop(n->animator);
+
+    UpdateTransforms(n);
+
+    g_animation_editor.state = ANIMATION_VIEW_STATE_DEFAULT;
+    g_animation_editor.state_update = UpdateDefaultState;
+    g_animation_editor.state_draw = nullptr;
+}
+
+void UpdateAnimationEditor() {
+    AnimationData* n = GetAnimationData();
+    CheckShortcuts(g_animation_editor.shortcuts, g_animation_editor.input);
+    UpdateBounds(n);
     UpdateBoneNames();
 
-    // Commit the tool
-    if (g_animation_view.state == ANIMATION_VIEW_STATE_MOVE ||
-        g_animation_view.state == ANIMATION_VIEW_STATE_ROTATE)
-    {
-        if (WasButtonPressed(g_view.input, MOUSE_LEFT) || WasButtonPressed(g_view.input, KEY_ENTER))
-        {
-            MarkModified();
-            g_animation_view.ignore_up = true;
-            SetState(ANIMATION_VIEW_STATE_DEFAULT, nullptr, nullptr);
-            return;
-        }
+    if (g_animation_editor.state_update)
+        g_animation_editor.state_update();
 
-        // Cancel the tool
-        if (WasButtonPressed(g_view.input, KEY_ESCAPE) || WasButtonPressed(g_view.input, MOUSE_RIGHT))
-        {
-            CancelUndo();
-            RevertToSavedState();
-            SetState(ANIMATION_VIEW_STATE_DEFAULT, nullptr, nullptr);
-            return;
-        }
-    }
-
-    if (g_animation_view.state_update)
-        g_animation_view.state_update();
-
-    if (g_animation_view.state == ANIMATION_VIEW_STATE_DEFAULT)
+    if (g_animation_editor.state == ANIMATION_VIEW_STATE_DEFAULT)
         UpdateDefaultState();
+
+    Canvas([n] {
+        Align({.alignment=ALIGNMENT_BOTTOM_CENTER, .margin=EdgeInsetsBottom(20)}, [n] {
+            Row([n] {
+                int current_frame = n->current_frame;
+                for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
+                    AnimationFrameData* f = &n->frames[frame_index];
+                    Container({
+                        .width=FRAME_SIZE_X * (1 + f->hold) + FRAME_BORDER_SIZE * 2,
+                        .height=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
+                        .margin=EdgeInsetsLeft(-2),
+                        .color = frame_index == current_frame
+                            ? FRAME_SELECTED_COLOR
+                            : FRAME_COLOR,
+                        .border = {.width=FRAME_BORDER_SIZE, .color=FRAME_BORDER_COLOR}
+                    },
+                    [] {
+                        Align({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(FRAME_DOT_OFFSET_Y, FRAME_DOT_OFFSET_X)}, [] {
+                            Container({.width=FRAME_DOT_SIZE, .height=FRAME_DOT_SIZE, .color=FRAME_DOT_COLOR});
+                        });
+                    });
+                }
+            });
+        });
+    });
 }
 
 static void DrawOnionSkin() {
-    AssetData& ea = *GetAssetData();
-    SkeletonData* es = GetSkeletonData();
-    AnimationData* en = GetEditingAnimation();
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
 
-    if (!g_animation_view.onion_skin || en->frame_count <= 1)
+    if (!g_animation_editor.onion_skin || n->frame_count <= 1)
         return;
 
-    int frame = en->current_frame;
+    int frame = n->current_frame;
 
-    en->current_frame = (frame - 1 + en->frame_count) % en->frame_count;
-    UpdateTransforms(en);
+    n->current_frame = (frame - 1 + n->frame_count) % n->frame_count;
+    UpdateTransforms(n);
 
     BindMaterial(g_view.vertex_material);
     BindColor(SetAlpha(COLOR_RED, 0.25f));
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        BoneData* eb = &es->bones[bone_index];
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        BoneData* eb = &s->bones[bone_index];
         DrawBone(
-            en->animator.bones[bone_index] * Rotate(eb->transform.rotation),
+            n->animator.bones[bone_index] * Rotate(eb->transform.rotation),
             eb->parent_index < 0
-                ? en->animator.bones[bone_index]
-                : en->animator.bones[eb->parent_index],
-            ea.position,
+                ? n->animator.bones[bone_index]
+                : n->animator.bones[eb->parent_index],
+            n->position,
             eb->length
             );
     }
 
-    en->current_frame = (frame + 1 + en->frame_count) % en->frame_count;
-    UpdateTransforms(en);
+    n->current_frame = (frame + 1 + n->frame_count) % n->frame_count;
+    UpdateTransforms(n);
 
     BindColor(SetAlpha(COLOR_GREEN, 0.25f));
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        BoneData* eb = &es->bones[bone_index];
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        BoneData* eb = &s->bones[bone_index];
         DrawBone(
-            en->animator.bones[bone_index] * Rotate(eb->transform.rotation),
+            n->animator.bones[bone_index] * Rotate(eb->transform.rotation),
             eb->parent_index < 0
-                ? en->animator.bones[bone_index]
-                : en->animator.bones[eb->parent_index],
-            ea.position,
+                ? n->animator.bones[bone_index]
+                : n->animator.bones[eb->parent_index],
+            n->position,
             eb->length);
     }
 
-    en->current_frame = frame;
-    UpdateTransforms(en);
+    n->current_frame = frame;
+    UpdateTransforms(n);
 }
 
-static void DrawRotateState() {
-    BindColor(SetAlpha(COLOR_CENTER, 0.75f));
-    DrawVertex(g_animation_view.selection_center_world, CENTER_SIZE * 0.75f);
-    BindColor(COLOR_CENTER);
-    DrawDashedLine(g_view.mouse_world_position, g_animation_view.selection_center_world);
-    BindColor(COLOR_ORIGIN);
-    DrawVertex(g_view.mouse_world_position, CENTER_SIZE);
-}
-
-static void DrawTimeline() {
-    AssetData& ea = *GetAssetData();
-    AnimationData* en = GetEditingAnimation();
-
-    int real_frame_count = en->frame_count;
-    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
-        real_frame_count += en->frames[frame_index].hold;
-
-    Vec2 h1 =
-        ScreenToWorld(g_view.camera, {g_view.dpi * FRAME_SIZE_X, g_view.dpi * -FRAME_SIZE_Y}) -
-        ScreenToWorld(g_view.camera, VEC2_ZERO);
-    float h2 =
-        (ScreenToWorld(g_view.camera, {g_view.dpi * FRAME_BORDER_SIZE, 0}) -
-         ScreenToWorld(g_view.camera, VEC2_ZERO)).x;
-
-    Vec2 pos = ea.position + Vec2 { 0, en->bounds.min.y + FRAME_LINE_OFFSET };
-    pos.x -= h1.x * real_frame_count * 0.5f;
-    pos.x -= h2 * 0.5f;
-    pos.y -= h2 * 0.5f;
-    pos.y -= h1.y;
-    int current_frame = en->current_frame;
-
-    BindMaterial(g_view.vertex_material);
-    int ii = 0;
-    for (int i=0; i<en->frame_count; i++) {
-        Rect frame_rect = Rect {
-            pos.x + h1.x * ii,
-            pos.y,
-            h1.x + h2 + en->frames[i].hold * h1.x,
-            h1.y + h2};
-        BindColor(COLOR_BLACK);
-        DrawRect(frame_rect);
-        BindColor(i == current_frame ? FRAME_SELECTED_COLOR : FRAME_COLOR);
-        DrawRect(Expand(frame_rect, -h2));
-        BindColor(COLOR_BLACK);
-        DrawVertex(Vec2{frame_rect.x + h2 + h1.x * 0.5f, frame_rect.y + frame_rect.height * 0.25f}, FRAME_DOT_SIZE);
-
-        ii += (1 + en->frames[i].hold);
-    }
-
-    if (IsPlaying(en->animator)) {
-        current_frame = GetFrame(en->animator);
-        BindColor({0.02f, 0.02f, 0.02f, 1.0f});
-        //DrawLine(pos + left, pos + left + h1);
-        //DrawVertex(pos + left + h1, FRAME_SIZE * 0.9f);
-    }
-
-    // BindColor(COLOR_ORIGIN);
-    // DrawVertex({pos.x - left.x + h1.x * current_frame, pos.y}, FRAME_SELECTED_SIZE);
-    //
-    // if (IsPlaying(en->animator))
-    // {
-    //     Vec2 s2 =
-    //             ScreenToWorld(g_view.camera, {0, g_view.dpi * FRAME_TIME_SIZE}) -
-    //             ScreenToWorld(g_view.camera, VEC2_ZERO);
-    //
-    //
-    //     BindColor(COLOR_WHITE);
-    //     float time = GetNormalizedTime(en->animator);
-    //     Vec2 tpos = pos + Mix(right, left, time);
-    //     DrawLine(tpos - s2, tpos + s2);
-    // }
-}
-
-void AnimationViewDraw()
-{
-    AssetData& ea = *GetAssetData();
-    SkeletonData* es = GetSkeletonData();
-    AnimationData* en = GetEditingAnimation();
+void DrawAnimationEditor() {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
 
     BindColor(COLOR_WHITE);
-    for (int i=0; i<es->skinned_mesh_count; i++)
-    {
-        MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+    for (int i=0; i<s->skinned_mesh_count; i++) {
+        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(ea.position) * en->animator.bones[es->skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh, Translate(n->position) * n->animator.bones[s->skinned_meshes[i].bone_index]);
     }
 
     DrawOnionSkin();
 
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_EDGE);
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-        DrawEditorAnimationBone(en, bone_index, ea.position);
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        DrawEditorAnimationBone(n, bone_index, n->position);
 
-    // Draw selected bones
     BindColor(COLOR_EDGE_SELECTED);
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
-        DrawEditorAnimationBone(en, bone_index, ea.position);
+        DrawEditorAnimationBone(n, bone_index, n->position);
     }
 
-    DrawTimeline();
-
-    if (g_animation_view.state_draw)
-        g_animation_view.state_draw();
+    if (g_animation_editor.state_draw)
+        g_animation_editor.state_draw();
 }
 
-static void HandlePrevFrameCommand()
-{
-    AnimationData* en = GetEditingAnimation();
-    en->current_frame = (en->current_frame - 1 + en->frame_count) % en->frame_count;
-    UpdateTransforms(en);
+static void HandlePrevFrameCommand() {
+    AnimationData* n = GetAnimationData();
+    n->current_frame = (n->current_frame - 1 + n->frame_count) % n->frame_count;
+    UpdateTransforms(n);
 }
 
-static void HandleNextFrameCommand()
-{
-    AnimationData* en = GetEditingAnimation();
-    en->current_frame = (en->current_frame + 1) % en->frame_count;
-    UpdateTransforms(en);
+static void HandleNextFrameCommand() {
+    AnimationData* n = GetAnimationData();
+    n->current_frame = (n->current_frame + 1) % n->frame_count;
+    UpdateTransforms(n);
 }
 
-static void BeginMoveTool()
-{
-    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
-        return;
+static void CancelAnimationTool() {
+    CancelUndo();
+    RevertToSavedState();
+}
 
-    if (GetEditingAnimation()->selected_bone_count <= 0)
+static void UpdateMoveTool(const Vec2& delta) {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
+            continue;
+
+        SetPosition(GetFrameTransform(n, bone_index, n->current_frame), n->bones[bone_index].saved_transform.position + delta);
+    }
+
+    UpdateTransforms(n);
+}
+
+static void BeginMoveTool() {
+    if (GetAnimationData()->selected_bone_count <= 0)
         return;
 
     RecordUndo();
     SaveState();
-    SetState(ANIMATION_VIEW_STATE_MOVE, UpdateMoveState, nullptr);
-    SetCursor(SYSTEM_CURSOR_MOVE);
+    BeginMoveTool({.update=UpdateMoveTool, .cancel=CancelAnimationTool});
+}
+
+static void UpdateRotateTool(float angle) {
+    if (fabsf(angle) < F32_EPSILON)
+        return;
+
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
+            continue;
+
+        SetRotation(GetFrameTransform(n, bone_index, n->current_frame), n->bones[bone_index].saved_transform.rotation + angle);
+    }
+
+    UpdateTransforms(n);
 }
 
 static void BeginRotateTool() {
-    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
-        return;
-
-    if (GetEditingAnimation()->selected_bone_count <= 0)
+    if (GetAnimationData()->selected_bone_count <= 0)
         return;
 
     RecordUndo();
     SaveState();
-    SetState(ANIMATION_VIEW_STATE_ROTATE, UpdateRotateState, DrawRotateState);
+    BeginRotateTool({.origin=g_animation_editor.selection_center_world, .update=UpdateRotateTool, .cancel=CancelAnimationTool});
 }
 
-static void HandleResetRotate() {
-    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+static void ResetRotate() {
+    if (g_animation_editor.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
     RecordUndo();
-    AnimationData* en = GetEditingAnimation();
-    SkeletonData* es = GetSkeletonData();
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
-        SetRotation(GetFrameTransform(en, bone_index, en->current_frame), 0);
+        SetRotation(GetFrameTransform(n, bone_index, n->current_frame), 0);
     }
 
-    UpdateTransforms(en);
+    UpdateTransforms(n);
 }
 
-static void HandlePlayCommand()
-{
-    AnimationData* en = GetEditingAnimation();
-    if (g_animation_view.state == ANIMATION_VIEW_STATE_PLAY)
-    {
-        Stop(en->animator);
-        UpdateTransforms(en);
-        SetState(ANIMATION_VIEW_STATE_DEFAULT, nullptr, nullptr);
+static void PlayAnimation() {
+    AnimationData* n = GetAnimationData();
+    if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY) {
+        SetDefaultState();
         return;
     }
 
-    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+    if (g_animation_editor.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    AssetData& ea = *GetAssetData();
-    SkeletonData* es = GetSkeletonData();
+    SkeletonData* s = GetSkeletonData();
+    Init(n->animator, ToSkeleton(ALLOCATOR_DEFAULT, s));
+    Play(n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 1.0f, true);
 
-    Init(
-        en->animator,
-        ToSkeleton(ALLOCATOR_DEFAULT, es, NAME_NONE));
-    Play(en->animator, ToAnimation(ALLOCATOR_DEFAULT, en, ea.name), 1.0f, true);
-    SetState(ANIMATION_VIEW_STATE_PLAY, UpdatePlayState, nullptr);
+    g_animation_editor.state = ANIMATION_VIEW_STATE_PLAY;
+    g_animation_editor.state_update = UpdatePlayState;
+    g_animation_editor.state_draw = nullptr;
 }
 
-static void HandleResetMoveCommand() {
-    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+static void ResetMove() {
+    if (g_animation_editor.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
     RecordUndo();
 
-    AnimationData* en = GetEditingAnimation();
-    SkeletonData* es = GetSkeletonData();
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
-        SetPosition(GetFrameTransform(en, bone_index, en->current_frame), VEC2_ZERO);
+        SetPosition(GetFrameTransform(n, bone_index, n->current_frame), VEC2_ZERO);
     }
 
-    UpdateTransforms(en);
+    UpdateTransforms(n);
 }
 
 static void HandleSelectAll() {
-    if (g_animation_view.state != ANIMATION_VIEW_STATE_DEFAULT)
+    if (g_animation_editor.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    SkeletonData* es = GetSkeletonData();
-    for (int i=0; i<es->bone_count; i++)
+    SkeletonData* s = GetSkeletonData();
+    for (int i=0; i<s->bone_count; i++)
         SetBoneSelected(i, true);
 }
 
-static void HandleInsertBeforeFrame()
-{
+static void InsertFrameBefore() {
     RecordUndo();
-    AnimationData* en = GetEditingAnimation();
-    en->current_frame = InsertFrame(en, en->current_frame);
-    UpdateTransforms(en);
+    AnimationData* n = GetAnimationData();
+    n->current_frame = InsertFrame(n, n->current_frame);
+    UpdateTransforms(n);
 }
 
-static void HandleInsertAfterFrame()
-{
+static void InsertFrameAfter() {
     RecordUndo();
-    AnimationData* en = GetEditingAnimation();
-    en->current_frame = InsertFrame(en, en->current_frame + 1);
-    UpdateTransforms(en);
+    AnimationData* n = GetAnimationData();
+    n->current_frame = InsertFrame(n, n->current_frame + 1);
+    UpdateTransforms(n);
 }
 
-static void HandleDeleteFrame()
-{
+static void DeleteFrame() {
     RecordUndo();
-    AnimationData* en = GetEditingAnimation();
-    en->current_frame = DeleteFrame(en, en->current_frame);
-    UpdateTransforms(en);
+    AnimationData* n = GetAnimationData();
+    n->current_frame = DeleteFrame(n, n->current_frame);
+    UpdateTransforms(n);
 }
 
-static void HandleToggleOnionSkin()
-{
-    g_animation_view.onion_skin = !g_animation_view.onion_skin;
+static void ToggleOnionSkin() {
+    g_animation_editor.onion_skin = !g_animation_editor.onion_skin;
 }
 
-void AnimationViewShutdown()
-{
-    AnimationData* en = GetEditingAnimation();
-    Stop(en->animator);
-    UpdateTransforms(en);
-}
-
-static void AddHoldFrame()
-{
-    AnimationData* en = GetEditingAnimation();
+static void AddHoldFrame() {
+    AnimationData* n = GetAnimationData();
     RecordUndo();
-    en->frames[en->current_frame].hold++;
+    n->frames[n->current_frame].hold++;
     MarkModified();
 }
 
-static void RemoveHoldFrame()
-{
-    AnimationData* en = GetEditingAnimation();
-    if (en->frames[en->current_frame].hold <= 0)
+static void RemoveHoldFrame() {
+    AnimationData* n = GetAnimationData();
+    if (n->frames[n->current_frame].hold <= 0)
         return;
 
     RecordUndo();
-    en->frames[en->current_frame].hold = Max(0, en->frames[en->current_frame].hold - 1);
+    n->frames[n->current_frame].hold = Max(0, n->frames[n->current_frame].hold - 1);
     MarkModified();
 }
 
-void AnimationViewInit()
-{
-    g_view.vtable = {
-        .update = AnimationViewUpdate,
-        .draw = AnimationViewDraw,
-        .shutdown = AnimationViewShutdown,
+void BeginAnimationEditor() {
+    ClearSelection();
+    SetDefaultState();
+    PushInputSet(g_animation_editor.input);
+}
+
+void EndAnimationEditor() {
+    SetDefaultState();
+    PopInputSet();
+}
+
+void InitAnimationEditor() {
+    g_animation_editor = {};
+
+    static Shortcut shortcuts[] = {
+        { KEY_G, false, false, false, BeginMoveTool },
+        { KEY_R, false, false, false, BeginRotateTool },
+        { KEY_G, true, false, false, ResetMove },
+        { KEY_R, true, false, false, ResetRotate },
+        { KEY_A, false, false, false, HandleSelectAll },
+        { KEY_Q, false, false, false, HandlePrevFrameCommand },
+        { KEY_E, false, false, false, HandleNextFrameCommand },
+        { KEY_SPACE, false, false, false, PlayAnimation },
+        { KEY_I, false, false, false, InsertFrameBefore },
+        { KEY_O, false, false, false, InsertFrameAfter },
+        { KEY_X, false, false, false, DeleteFrame },
+        { KEY_H, false, false, false, AddHoldFrame },
+        { KEY_H, false, true, false, RemoveHoldFrame },
+        { KEY_O, true, false, false, ToggleOnionSkin },
+        { INPUT_CODE_NONE }
     };
 
-    g_animation_view.state = ANIMATION_VIEW_STATE_DEFAULT;
-    g_animation_view.state_update = nullptr;
-    g_animation_view.state_draw = nullptr;
+    g_animation_editor.shortcuts = shortcuts;
+    g_animation_editor.input = CreateInputSet(ALLOCATOR_DEFAULT);
+    EnableButton(g_animation_editor.input, MOUSE_LEFT);
+    EnableModifiers(g_animation_editor.input);
+    EnableShortcuts(shortcuts, g_animation_editor.input);
+    EnableCommonShortcuts(g_animation_editor.input);
+}
 
-    if (g_animation_editor_shortcuts == nullptr)
-    {
-        static Shortcut shortcuts[] = {
-            { KEY_G, false, false, false, BeginMoveTool },
-            { KEY_G, true, false, false, HandleResetMoveCommand },
-            { KEY_R, false, false, false, BeginRotateTool },
-            { KEY_R, true, false, false, HandleResetRotate },
-            { KEY_A, false, false, false, HandleSelectAll },
-            { KEY_Q, false, false, false, HandlePrevFrameCommand },
-            { KEY_E, false, false, false, HandleNextFrameCommand },
-            { KEY_SPACE, false, false, false, HandlePlayCommand },
-            { KEY_I, false, false, false, HandleInsertBeforeFrame },
-            { KEY_O, false, false, false, HandleInsertAfterFrame },
-            { KEY_O, true, false, false, HandleToggleOnionSkin },
-            { KEY_X, false, false, false, HandleDeleteFrame },
-            { KEY_H, false, false, false, AddHoldFrame },
-            { KEY_H, false, true, false, RemoveHoldFrame },
-            { INPUT_CODE_NONE }
-        };
-
-        g_animation_editor_shortcuts = shortcuts;
-        EnableShortcuts(g_animation_editor_shortcuts);
-    }
+void InitAnimationEditor(AnimationData* n) {
+    n->vtable.editor_begin = BeginAnimationEditor;
+    n->vtable.editor_end = EndAnimationEditor;
+    n->vtable.editor_draw = DrawAnimationEditor;
+    n->vtable.editor_update = UpdateAnimationEditor;
 }

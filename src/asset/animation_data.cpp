@@ -3,59 +3,60 @@
 //
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
-static void Init(AnimationData* a);
+static void InitAnimationData(AnimationData* a);
+extern void InitAnimationEditor(AnimationData* a);
 
 inline SkeletonData* GetSkeletonData(AnimationData* en) { return en->skeleton; }
 
-void UpdateTransforms(AnimationData* en) {
-    SkeletonData* es = GetSkeletonData(en);
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        BoneData& eb = es->bones[bone_index];
-        Transform& frame = GetFrameTransform(en, bone_index, en->current_frame);
+void UpdateTransforms(AnimationData* n) {
+    SkeletonData* s = GetSkeletonData(n);
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        BoneData* b = &s->bones[bone_index];
+        Transform& frame = GetFrameTransform(n, bone_index, n->current_frame);
 
-        en->animator.bones[bone_index] = TRS(
-            eb.transform.position + frame.position,
+        n->animator.bones[bone_index] = TRS(
+            b->transform.position + frame.position,
             frame.rotation,
-            eb.transform.scale);
+            b->transform.scale);
     }
 
-    for (int bone_index=1; bone_index<es->bone_count; bone_index++)
-        en->animator.bones[bone_index] = en->animator.bones[es->bones[bone_index].parent_index] * en->animator.bones[bone_index];
+    for (int bone_index=1; bone_index<s->bone_count; bone_index++)
+        n->animator.bones[bone_index] = n->animator.bones[s->bones[bone_index].parent_index] * n->animator.bones[bone_index];
 }
 
-void DrawEditorAnimationBone(AnimationData* en, int bone_index, const Vec2& position) {
-    SkeletonData* es = GetSkeletonData(en);
-    int parent_index = es->bones[bone_index].parent_index;
+void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& position) {
+    SkeletonData* s = GetSkeletonData(n);
+    int parent_index = s->bones[bone_index].parent_index;
     if (parent_index < 0)
         parent_index = bone_index;
 
-    Mat3 eb = en->animator.bones[bone_index] * Rotate(es->bones[bone_index].transform.rotation);
-    Mat3 ep = en->animator.bones[parent_index];
+    Mat3 eb = n->animator.bones[bone_index] * Rotate(s->bones[bone_index].transform.rotation);
+    Mat3 ep = n->animator.bones[parent_index];
 
     Vec2 p0 = TransformPoint(eb);
-    Vec2 p1 = TransformPoint(eb, Vec2 {es->bones[bone_index].length, 0});
+    Vec2 p1 = TransformPoint(eb, Vec2 {s->bones[bone_index].length, 0});
     Vec2 pp = TransformPoint(ep);
     DrawDashedLine(pp + position, p0 + position);
     DrawBone(p0 + position, p1 + position);
 }
 
-void DrawAnimationData(AssetData* ea) {
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    SkeletonData* es = GetSkeletonData(en);
+void DrawAnimationData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    AnimationData* n = static_cast<AnimationData*>(a);
+    SkeletonData* s = GetSkeletonData(n);
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
-    for (int i=0; i<es->skinned_mesh_count; i++) {
-        MeshData* skinned_mesh = es->skinned_meshes[i].mesh;
+    for (int i=0; i<s->skinned_mesh_count; i++) {
+        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(ea->position) * en->animator.bones[es->skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh, Translate(a->position) * n->animator.bones[s->skinned_meshes[i].bone_index]);
     }
 
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++)
-        DrawEditorAnimationBone(en, bone_index, ea->position);
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        DrawEditorAnimationBone(n, bone_index, a->position);
 }
 
 static void ParseSkeletonBone(Tokenizer& tk, SkeletonData* es, int bone_index, int* bone_map) {
@@ -65,53 +66,45 @@ static void ParseSkeletonBone(Tokenizer& tk, SkeletonData* es, int bone_index, i
     bone_map[bone_index] = FindBoneIndex(es, GetName(tk));
 }
 
-void UpdateSkeleton(AnimationData* en)
-{
-    SkeletonData* es = GetSkeletonData(en);
+void UpdateSkeleton(AnimationData* n) {
+    SkeletonData* s = GetSkeletonData(n);
 
-    // Create a mapping table based on the name
     int bone_map[MAX_BONES];
     for (int i=0; i<MAX_BONES; i++)
         bone_map[i] = -1;
 
-    for (int i=0; i<en->bone_count; i++)
-    {
-        int new_bone_index = FindBoneIndex(es, en->bones[i].name);
+    for (int i=0; i<n->bone_count; i++) {
+        int new_bone_index = FindBoneIndex(s, n->bones[i].name);
         if (new_bone_index == -1)
             continue;
         bone_map[new_bone_index] = i;
     }
 
-    // recreate the frames using the new bone indicies and then fix the bones
     AnimationFrameData new_frames[MAX_ANIMATION_FRAMES];
-    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
-        new_frames[frame_index] = en->frames[frame_index];
+    for (int frame_index=0; frame_index<n->frame_count; frame_index++)
+        new_frames[frame_index] = n->frames[frame_index];
 
-    // copy the new frames back
-    memcpy(en->frames, new_frames, sizeof(new_frames));
+    memcpy(n->frames, new_frames, sizeof(new_frames));
 
-    // fix the bones
-    for (int i=0; i<es->bone_count; i++)
-    {
-        AnimationBoneData& enb = en->bones[i];
-        enb.index = i;
-        enb.name = es->bones[i].name;
+    for (int i=0; i<s->bone_count; i++) {
+        AnimationBoneData& ab = n->bones[i];
+        ab.index = i;
+        ab.name = s->bones[i].name;
     }
 
-    en->bone_count = es->bone_count;
+    n->bone_count = s->bone_count;
 
-    UpdateBounds(en);
-    UpdateTransforms(en);
+    UpdateBounds(n);
+    UpdateTransforms(n);
 }
 
-static void ParseSkeleton(AnimationData* en, Tokenizer& tk, int* bone_map)
-{
+static void ParseSkeleton(AnimationData* n, Tokenizer& tk, int* bone_map) {
     if (!ExpectQuotedString(tk))
         throw std::exception("missing quoted skeleton name");
 
-    en->skeleton_name = GetName(tk);
+    n->skeleton_name = GetName(tk);
 
-    SkeletonData* s = static_cast<SkeletonData*>(GetAssetData(ASSET_TYPE_SKELETON, en->skeleton_name));
+    SkeletonData* s = static_cast<SkeletonData*>(GetAssetData(ASSET_TYPE_SKELETON, n->skeleton_name));
     assert(s);
 
     if (!s->loaded)
@@ -119,17 +112,17 @@ static void ParseSkeleton(AnimationData* en, Tokenizer& tk, int* bone_map)
 
     for (int i=0; i<s->bone_count; i++)
     {
-        AnimationBoneData& enb = en->bones[i];
+        AnimationBoneData& enb = n->bones[i];
         BoneData& eb = s->bones[i];
         enb.name = eb.name;
         enb.index = i;
     }
 
-    en->bone_count = s->bone_count;
+    n->bone_count = s->bone_count;
 
     for (int frame_index=0; frame_index<MAX_ANIMATION_FRAMES; frame_index++)
         for (int bone_index=0; bone_index<MAX_BONES; bone_index++)
-            SetIdentity(en->frames[frame_index].transforms[bone_index]);
+            SetIdentity(n->frames[frame_index].transforms[bone_index]);
 
     int bone_index = 0;
     while (!IsEOF(tk))
@@ -141,9 +134,8 @@ static void ParseSkeleton(AnimationData* en, Tokenizer& tk, int* bone_map)
     }
 }
 
-static int ParseFrameBone(AnimationData* ea, Tokenizer& tk, int* bone_map)
-{
-    (void)ea;
+static int ParseFrameBone(AnimationData* a, Tokenizer& tk, int* bone_map) {
+    (void)a;
     int bone_index;
     if (!ExpectInt(tk, &bone_index))
         ThrowError("expected bone index");
@@ -151,8 +143,7 @@ static int ParseFrameBone(AnimationData* ea, Tokenizer& tk, int* bone_map)
     return bone_map[bone_index];
 }
 
-static void ParseFramePosition(AnimationData* en, Tokenizer& tk, int bone_index, int frame_index)
-{
+static void ParseFramePosition(AnimationData* n, Tokenizer& tk, int bone_index, int frame_index) {
     float x;
     if (!ExpectFloat(tk, &x))
         ThrowError("expected position 'x' value");
@@ -163,20 +154,18 @@ static void ParseFramePosition(AnimationData* en, Tokenizer& tk, int bone_index,
     if (bone_index == -1)
         return;
 
-    SetPosition(GetFrameTransform(en, bone_index, frame_index), {x,y});
+    SetPosition(GetFrameTransform(n, bone_index, frame_index), {x,y});
 }
 
-static void ParseFrameHold(AnimationData* en, Tokenizer& tk, int frame_index)
-{
+static void ParseFrameHold(AnimationData* n, Tokenizer& tk, int frame_index) {
     int hold;
     if (!ExpectInt(tk, &hold))
         ThrowError("expected hold value");
 
-    en->frames[frame_index].hold = Max(0, hold);
+    n->frames[frame_index].hold = Max(0, hold);
 }
 
-static void ParseFrameRotation(AnimationData* en, Tokenizer& tk, int bone_index, int frame_index)
-{
+static void ParseFrameRotation(AnimationData* n, Tokenizer& tk, int bone_index, int frame_index) {
     float r;
     if (!ExpectFloat(tk, &r))
         ThrowError("expected rotation value");
@@ -184,11 +173,10 @@ static void ParseFrameRotation(AnimationData* en, Tokenizer& tk, int bone_index,
     if (bone_index == -1)
         return;
 
-    SetRotation(GetFrameTransform(en, bone_index, frame_index), r);
+    SetRotation(GetFrameTransform(n, bone_index, frame_index), r);
 }
 
-static void ParseFrameScale(AnimationData* en, Tokenizer& tk, int bone_index, int frame_index)
-{
+static void ParseFrameScale(AnimationData* n, Tokenizer& tk, int bone_index, int frame_index) {
     float s;
     if (!ExpectFloat(tk, &s))
         ThrowError("expected scale value");
@@ -196,39 +184,38 @@ static void ParseFrameScale(AnimationData* en, Tokenizer& tk, int bone_index, in
     if (bone_index == -1)
         return;
 
-    SetScale(GetFrameTransform(en, bone_index, frame_index), s);
+    SetScale(GetFrameTransform(n, bone_index, frame_index), s);
 }
 
-static void ParseFrame(AnimationData* en, Tokenizer& tk, int* bone_map)
-{
+static void ParseFrame(AnimationData* n, Tokenizer& tk, int* bone_map) {
     int bone_index = -1;
-    en->frame_count++;
+    n->frame_count++;
     while (!IsEOF(tk))
     {
         if (ExpectIdentifier(tk, "b"))
-            bone_index = ParseFrameBone(en, tk, bone_map);
+            bone_index = ParseFrameBone(n, tk, bone_map);
         else if (ExpectIdentifier(tk, "r"))
-            ParseFrameRotation(en, tk, bone_index, en->frame_count - 1);
+            ParseFrameRotation(n, tk, bone_index, n->frame_count - 1);
         else if (ExpectIdentifier(tk, "s"))
-            ParseFrameScale(en, tk, bone_index, en->frame_count - 1);
+            ParseFrameScale(n, tk, bone_index, n->frame_count - 1);
         else if (ExpectIdentifier(tk, "p"))
-            ParseFramePosition(en, tk, bone_index, en->frame_count - 1);
+            ParseFramePosition(n, tk, bone_index, n->frame_count - 1);
         else if (ExpectIdentifier(tk, "h"))
-            ParseFrameHold(en, tk, en->frame_count - 1);
+            ParseFrameHold(n, tk, n->frame_count - 1);
         else
             break;
     }
 }
 
-void UpdateBounds(AnimationData* en) {
-    en->bounds = GetSkeletonData(en)->bounds;
+void UpdateBounds(AnimationData* n) {
+    n->bounds = GetSkeletonData(n)->bounds;
 }
 
-static void PostLoadAnimationData(AssetData* ea) {
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* n = (AnimationData*)ea;
+static void PostLoadAnimationData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    AnimationData* n = static_cast<AnimationData*>(a);
 
-    n->skeleton = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, n->skeleton_name);
+    n->skeleton = static_cast<SkeletonData*>(GetAssetData(ASSET_TYPE_SKELETON, n->skeleton_name));
     if (!n->skeleton)
         return;
 
@@ -238,13 +225,13 @@ static void PostLoadAnimationData(AssetData* ea) {
     UpdateBounds(n);
 }
 
-static void LoadAnimationData(AssetData* ea) {
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    en->frame_count = 0;
+static void LoadAnimationData(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    AnimationData* n = static_cast<AnimationData*>(a);
+    n->frame_count = 0;
 
-    std::filesystem::path path = ea->path;
+    std::filesystem::path path = a->path;
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
     Init(tk, contents.c_str());
@@ -255,9 +242,9 @@ static void LoadAnimationData(AssetData* ea) {
 
     while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "s"))
-            ParseSkeleton(en, tk, bone_map);
+            ParseSkeleton(n, tk, bone_map);
         else if (ExpectIdentifier(tk, "f"))
-            ParseFrame(en, tk, bone_map);
+            ParseFrame(n, tk, bone_map);
         else
         {
             char error[1024];
@@ -266,8 +253,8 @@ static void LoadAnimationData(AssetData* ea) {
         }
     }
 
-    if (en->frame_count == 0) {
-        AnimationFrameData& enf = en->frames[0];
+    if (n->frame_count == 0) {
+        AnimationFrameData& enf = n->frames[0];
         for (int i=0; i<MAX_BONES; i++)
             enf.transforms[i] = {
                 .position = VEC2_ZERO,
@@ -276,10 +263,10 @@ static void LoadAnimationData(AssetData* ea) {
                 .local_to_world = MAT3_IDENTITY,
                 .world_to_local = MAT3_IDENTITY
             };
-        en->frame_count = 1;
+        n->frame_count = 1;
     }
 
-    en->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
+    n->bounds = { VEC2_NEGATIVE_ONE, VEC2_ONE };
 }
 
 static AnimationData* LoadAnimationData(const std::filesystem::path& path) {
@@ -289,37 +276,36 @@ static AnimationData* LoadAnimationData(const std::filesystem::path& path) {
 
     AnimationData* n = static_cast<AnimationData*>(CreateAssetData(path));
     assert(n);
-    Init(n);
+    InitAnimationData(n);
     LoadAssetData(n);
     MarkModified(n);
     return n;
 }
 
-void Serialize(AnimationData* en, Stream* output_stream, SkeletonData* es)
-{
-    assert(es);
+void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
+    assert(s);
 
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE_ANIMATION;
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
 
-    int real_frame_count = en->frame_count;
-    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
-        real_frame_count += en->frames[frame_index].hold;
+    int real_frame_count = n->frame_count;
+    for (int frame_index=0; frame_index<n->frame_count; frame_index++)
+        real_frame_count += n->frames[frame_index].hold;
 
-    WriteU8(output_stream, (u8)es->bone_count);
+    WriteU8(output_stream, (u8)s->bone_count);
     WriteU8(output_stream, (u8)real_frame_count);
 
-    for (int i=0; i<es->bone_count; i++)
-        WriteU8(output_stream, (u8)en->bones[i].index);
+    for (int i=0; i<s->bone_count; i++)
+        WriteU8(output_stream, (u8)n->bones[i].index);
 
-    for (int frame_index=0; frame_index<en->frame_count; frame_index++)
+    for (int frame_index=0; frame_index<n->frame_count; frame_index++)
     {
-        AnimationFrameData& enf = en->frames[frame_index];
+        AnimationFrameData& enf = n->frames[frame_index];
         for (int hold_index=0; hold_index<enf.hold + 1; hold_index++)
         {
-            for (int bone_index=0; bone_index<es->bone_count; bone_index++)
+            for (int bone_index=0; bone_index<s->bone_count; bone_index++)
             {
                 Transform& transform = enf.transforms[bone_index];
                 BoneTransform bone_transform = {
@@ -334,16 +320,16 @@ void Serialize(AnimationData* en, Stream* output_stream, SkeletonData* es)
     }
 }
 
-Animation* ToAnimation(Allocator* allocator, AnimationData* en, const Name* name) {
-    SkeletonData* es = GetSkeletonData(en);
+Animation* ToAnimation(Allocator* allocator, AnimationData* n) {
+    SkeletonData* es = GetSkeletonData(n);
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
         return nullptr;
 
-    Serialize(en, stream, es);
+    Serialize(n, stream, es);
     SeekBegin(stream, 0);
 
-    Animation* animation = (Animation*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_ANIMATION, LoadAnimation, stream);
+    Animation* animation = static_cast<Animation*>(LoadAssetInternal(allocator, n->name, ASSET_SIGNATURE_ANIMATION, LoadAnimation, stream));
     Free(stream);
 
     return animation;
@@ -393,20 +379,20 @@ static void SaveAnimationData(AssetData* ea, const std::filesystem::path& path) 
     Free(stream);
 }
 
-int InsertFrame(AnimationData* en, int frame_index) {
+int InsertFrame(AnimationData* n, int frame_index) {
     int copy_frame = Max(0,frame_index - 1);
 
-    SkeletonData* es = GetSkeletonData(en);
-    for (int i=frame_index + 1; i<=en->frame_count; i++)
-        en->frames[i] = en->frames[i - 1];
+    SkeletonData* s = GetSkeletonData(n);
+    for (int i=frame_index + 1; i<=n->frame_count; i++)
+        n->frames[i] = n->frames[i - 1];
 
-    en->frame_count++;
+    n->frame_count++;
 
     if (copy_frame >= 0)
-        for (int j=0; j<es->bone_count; j++)
-            GetFrameTransform(en, j, frame_index) = GetFrameTransform(en, j, copy_frame);
+        for (int j=0; j<s->bone_count; j++)
+            GetFrameTransform(n, j, frame_index) = GetFrameTransform(n, j, copy_frame);
 
-    en->frames[frame_index].hold = 0;
+    n->frames[frame_index].hold = 0;
 
     return frame_index;
 }
@@ -423,27 +409,30 @@ int DeleteFrame(AnimationData* en, int frame_index) {
     return Min(frame_index, en->frame_count - 1);
 }
 
-Transform& GetFrameTransform(AnimationData* en, int bone_index, int frame_index) {
+Transform& GetFrameTransform(AnimationData* n, int bone_index, int frame_index) {
     assert(bone_index >= 0 && bone_index < MAX_BONES);
-    assert(frame_index >= 0 && frame_index < en->frame_count);
-    return en->frames[frame_index].transforms[bone_index];
+    assert(frame_index >= 0 && frame_index < n->frame_count);
+    return n->frames[frame_index].transforms[bone_index];
 }
 
-int HitTestBone(AnimationData* en, const Vec2& world_pos) {
-    SkeletonData* es = GetSkeletonData(en);
-    UpdateTransforms(en);
+int HitTestBone(AnimationData* n, const Vec2& world_pos) {
+    SkeletonData* s = GetSkeletonData(n);
+    UpdateTransforms(n);
 
     int best_bone_index = -1;
     float best_dist = F32_MAX;
-    for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
-        BoneData* eb = &es->bones[bone_index];
-        Mat3 collider_transform = Translate(GetAssetData()->position) * en->animator.bones[bone_index] * Scale(eb->length);
-        if (!OverlapPoint(g_view.bone_collider, world_pos, collider_transform))
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        BoneData* b = &s->bones[bone_index];
+        Mat3 local_to_world =
+            Translate(n->position) *
+            n->animator.bones[bone_index] *
+            Rotate(s->bones[bone_index].transform.rotation) *
+            Scale(b->length);
+        if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world))
             continue;
 
-        Mat3 local_to_world = en->animator.bones[bone_index] * Rotate(eb->transform.rotation);
         Vec2 b0 = TransformPoint(local_to_world);
-        Vec2 b1 = TransformPoint(local_to_world, {eb->length, 0});
+        Vec2 b1 = TransformPoint(local_to_world, {b->length, 0});
         float dist = DistanceFromLine(b0, b1, world_pos);
         if (dist < best_dist) {
             best_dist = dist;
@@ -496,30 +485,23 @@ static bool EditorAnimationOverlapBounds(AssetData* ea, const Bounds2& overlap_b
     return Intersects(en->bounds + ea->position, overlap_bounds);
 }
 
-static void EditorAnimationClone(AssetData* ea)
-{
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    en->animation = nullptr;
-    en->animator = {};
-    UpdateTransforms(en);
-    UpdateBounds(en);
+static void CloneAnimationData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    AnimationData* n = static_cast<AnimationData*>(a);
+    n->animation = nullptr;
+    n->animator = {};
+    UpdateTransforms(n);
+    UpdateBounds(n);
 }
 
-static void EditorAnimationUndoRedo(AssetData* ea)
-{
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    UpdateSkeleton(en);
-    UpdateTransforms(en);
+static void HandleAnimationUndoRedo(AssetData* a) {
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    AnimationData* n = static_cast<AnimationData*>(a);
+    UpdateSkeleton(n);
+    UpdateTransforms(n);
 }
 
-static void Init(AnimationData* a) {
-    extern void AnimationViewInit();
-    extern void AnimationViewDraw();
-    extern void AnimationViewUpdate();
-    extern void AnimationViewShutdown();
-
+static void InitAnimationData(AnimationData* a) {
     a->vtable = {
         .load = LoadAnimationData,
         .post_load = PostLoadAnimationData,
@@ -527,15 +509,15 @@ static void Init(AnimationData* a) {
         .draw = DrawAnimationData,
         .overlap_point = EditorAnimationOverlapPoint,
         .overlap_bounds = EditorAnimationOverlapBounds,
-        .clone = EditorAnimationClone,
-        .undo_redo = EditorAnimationUndoRedo,
-        .editor_begin = AnimationViewInit
+        .clone = CloneAnimationData,
+        .undo_redo = HandleAnimationUndoRedo
     };
+
+    InitAnimationEditor(a);
 }
 
-void InitAnimationData(AssetData* ea) {
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    Init(en);
+void InitAnimationData(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    InitAnimationData(static_cast<AnimationData*>(a));
 }

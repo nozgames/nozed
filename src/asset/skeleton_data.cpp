@@ -56,7 +56,7 @@ int HitTestBone(SkeletonData* s, const Vec2& world_pos) {
     int best_bone_index = -1;
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* b = s->bones + bone_index;
-        Mat3 local_to_world = Translate(GetAssetData()->position) * b->local_to_world * Rotate(b->transform.rotation);
+        Mat3 local_to_world = Translate(s->position) * b->local_to_world * Rotate(b->transform.rotation);
         if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world * Scale(b->length)))
             continue;
 
@@ -418,14 +418,14 @@ void Serialize(SkeletonData* s, Stream* stream) {
     }
 }
 
-Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* es, const Name* name) {
+Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* s) {
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
         return nullptr;
-    Serialize(es, stream);
+    Serialize(s, stream);
     SeekBegin(stream, 0);
 
-    Skeleton* skeleton = (Skeleton*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_SKELETON, LoadSkeleton, stream);
+    Skeleton* skeleton = static_cast<Skeleton*>(LoadAssetInternal(allocator, s->name, ASSET_SIGNATURE_SKELETON, LoadSkeleton, stream));
     Free(stream);
 
     return skeleton;
