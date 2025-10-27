@@ -47,7 +47,7 @@ struct AssetData {
     const AssetImporter* importer;
 };
 
-inline AssetData* GetAssetData(int index, AssetType type=ASSET_TYPE_UNKNOWN) {
+inline AssetData* GetAssetDataInternal(int index, AssetType type=ASSET_TYPE_UNKNOWN) {
     assert(index >= 0 && index < (int)MAX_ASSETS);
     if (!IsValid(g_editor.asset_allocator, index))
         return nullptr;
@@ -56,14 +56,18 @@ inline AssetData* GetAssetData(int index, AssetType type=ASSET_TYPE_UNKNOWN) {
     return ea;
 }
 
-inline AssetData* GetSortedAssetData(int index) { return GetAssetData(g_editor.sorted_assets[index]); }
-
 inline u32 GetAssetCount() {
     return GetCount(g_editor.asset_allocator);
 }
 
-inline int GetIndex(AssetData* ea) {
-    return (int)GetIndex(g_editor.asset_allocator, ea);
+extern AssetData* GetAssetData(AssetType type, const Name* name);
+extern AssetData* GetAssetData(const std::filesystem::path& path);
+
+inline AssetData* GetAssetData(u32 index) {
+    assert(index < GetAssetCount());
+    AssetData* a = GetAssetDataInternal(g_editor.sorted_assets[index]);
+    assert(a);
+    return a;
 }
 
 extern void InitAssetData();
@@ -92,8 +96,6 @@ extern void SetPosition(AssetData* ea, const Vec2& position);
 extern void ClearAssetSelection();
 extern void SetSelected(AssetData* a, bool selected);
 extern void ToggleSelected(AssetData* a);
-extern AssetData* GetAssetData(AssetType type, const Name* name);
-extern AssetData* GetAssetData(const std::filesystem::path& path);
 extern bool InitImporter(AssetData* ea);
 extern const Name* MakeCanonicalAssetName(const char* name);
 extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);

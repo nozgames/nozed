@@ -238,16 +238,9 @@ void WaitForImportJobs()
         ThreadYield();
 }
 
-static void InitialImport()
-{
-    for (int i=0; i<MAX_ASSETS; i++)
-    {
-        AssetData* ea = GetAssetData(i);
-        if (!ea)
-            continue;
-
-        QueueImport(ea, false);
-    }
+static void InitialImport() {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++)
+        QueueImport(GetAssetData(i), false);
 
     WaitForImportJobs();
 }

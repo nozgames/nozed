@@ -54,21 +54,12 @@ struct MeshData : AssetData {
     float opacity;
 };
 
-inline MeshData* GetMeshData(int index) {
-    AssetData* ea = GetAssetData(index);
-    if (!ea)
-        return nullptr;
-
-    assert(ea->type == ASSET_TYPE_MESH);
-    return (MeshData*)ea;
-}
-
 extern void InitEditorMesh(AssetData* a);
 extern AssetData* NewMeshData(const std::filesystem::path& path);
 extern MeshData* Clone(Allocator* allocator, MeshData* m);
 extern MeshData* LoadEditorMesh(const std::filesystem::path& path);
 extern Mesh* ToMesh(MeshData* m, bool upload=true);
-extern int HitTestFace(MeshData* m, const Vec2& position, const Vec2& hit_pos, Vec2* where = nullptr);
+extern int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* where = nullptr);
 extern int HitTestVertex(MeshData* m, const Vec2& world_pos, float size_mult=1.0f);
 extern int HitTestEdge(MeshData* m, const Vec2& hit_pos, float* where=nullptr);
 extern Bounds2 GetSelectedBounds(MeshData* m);

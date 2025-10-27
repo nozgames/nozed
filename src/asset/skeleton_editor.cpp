@@ -56,19 +56,17 @@ static int GetFirstSelectedBoneIndex() {
 static void UpdateAllAnimations(SkeletonData* s) {
     extern void UpdateSkeleton(AnimationData* en);
 
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
-        AssetData* other = GetAssetData(i);
-        if (!other || other->type != ASSET_TYPE_ANIMATION)
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AnimationData* a = static_cast<AnimationData*>(GetAssetData(i));
+        if (a->type != ASSET_TYPE_ANIMATION)
             continue;
 
-        AnimationData* a = (AnimationData*)other;
         if (s != a->skeleton)
             continue;
 
-        RecordUndo(other);
+        RecordUndo(a);
         UpdateSkeleton(a);
-        MarkModified(other);
+        MarkModified(a);
     }
 }
 

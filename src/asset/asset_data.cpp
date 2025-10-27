@@ -77,7 +77,7 @@ static void LoadAssetMetadata(AssetData* ea, const std::filesystem::path& path) 
         return;
 
     ea->position = props->GetVec2("editor", "position", VEC2_ZERO);
-    ea->sort_order = props->GetInt("editor", "sort_order", 0);
+    ea->sort_order = props->GetInt("editor", "sort_order", -1);
 
     if (ea->vtable.load_metadata)
         ea->vtable.load_metadata(ea, props);
@@ -99,7 +99,7 @@ static void SaveAssetMetadata(AssetData* a) {
 
 static void SaveAssetMetadata() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         if (!a->modified && !a->meta_modified)
             continue;
@@ -187,7 +187,7 @@ void SaveAssetData() {
 
     u32 count = 0;
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);;
+        AssetData* a = GetAssetData(i);;
         if (!a || !a->modified)
             continue;
 
@@ -234,7 +234,7 @@ bool OverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
 
 AssetData* HitTestAssets(const Vec2& overlap_point) {
     for (u32 i=GetAssetCount(); i>0; i--) {
-        AssetData* a = GetSortedAssetData(i-1);
+        AssetData* a = GetAssetData(i-1);
         if (!a)
             continue;
 
@@ -247,7 +247,7 @@ AssetData* HitTestAssets(const Vec2& overlap_point) {
 
 AssetData* HitTestAssets(const Bounds2& hit_bounds) {
     for (u32 i=GetAssetCount(); i>0; i--) {
-        AssetData* a = GetSortedAssetData(i-1);
+        AssetData* a = GetAssetData(i-1);
         if (!a)
             continue;
 
@@ -267,7 +267,7 @@ void DrawAsset(AssetData* ea) {
 AssetData* GetFirstSelectedAsset() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++)
     {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         if (a->selected)
             return a;
@@ -278,7 +278,7 @@ AssetData* GetFirstSelectedAsset() {
 
 void ClearAssetSelection() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* ea = GetSortedAssetData(i);
+        AssetData* ea = GetAssetData(i);
         assert(ea);
         ea->selected = false;
     }
@@ -303,23 +303,17 @@ void ToggleSelected(AssetData* a) {
         g_view.selected_asset_count--;
 }
 
-AssetData* GetAssetData(AssetType type, const Name* name)
-{
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
-        AssetData* ea = GetAssetData(i);
-        if (!ea)
-            continue;
-
-        if ((type == ASSET_TYPE_UNKNOWN || ea->type == type) && ea->name == name)
-            return ea;
+AssetData* GetAssetData(AssetType type, const Name* name) {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* a = GetAssetData(i);
+        if ((type == ASSET_TYPE_UNKNOWN || a->type == type) && a->name == name)
+            return a;
     }
 
     return nullptr;
 }
 
-void Clone(AssetData* dst, AssetData* src)
-{
+void Clone(AssetData* dst, AssetData* src) {
     *(FatAssetData*)dst = *(FatAssetData*)src;
 
     if (dst->vtable.clone)
@@ -375,7 +369,7 @@ void PostLoadAssetData(AssetData* a) {
 
 void LoadAssetData() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         LoadAssetData(a);
     }
@@ -383,19 +377,17 @@ void LoadAssetData() {
 
 void PostLoadAssetData() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        PostLoadAssetData(GetSortedAssetData(i));
+        PostLoadAssetData(GetAssetData(i));
     }
 }
 
-void HotloadEditorAsset(const Name* name)
-{
-    for (u32 i=0; i<MAX_ASSETS; i++)
-    {
-        AssetData* ea = GetAssetData(i);
-        if (!ea || ea->name != name)
+void HotloadEditorAsset(const Name* name){
+    for (u32 i=0,c=GetAssetCount(); i<c; i++) {
+        AssetData* a = GetAssetData(i);
+        if (a->name != name)
             continue;
 
-        switch (ea->type)
+        switch (a->type)
         {
         case ASSET_TYPE_VFX:
             // Stop(ea->vfx_handle);
@@ -446,27 +438,26 @@ void DeleteAsset(AssetData* ea) {
     Free(ea);
 }
 
-static int AssetSortFunc(const void* a, const void* b)
-{
-    int index_a = *(int*)a;
-    int index_b = *(int*)b;
+static int AssetSortFunc(const void* av, const void* bv) {
+    int index_a = *(int*)av;
+    int index_b = *(int*)bv;
 
-    AssetData* ea_a = GetAssetData(index_a);
-    AssetData* ea_b = GetAssetData(index_b);
-    if (!ea_a && !ea_b)
+    AssetData* a = GetAssetDataInternal(index_a);
+    AssetData* b = GetAssetDataInternal(index_b);
+    if (!a && !b)
         return 0;
 
-    if (!ea_a)
+    if (!a)
         return 1;
 
-    if (!ea_b)
+    if (!b)
         return 0;
 
-    if (ea_a->sort_order != ea_b->sort_order)
-        return ea_a->sort_order - ea_b->sort_order;
+    if (a->sort_order != b->sort_order)
+        return a->sort_order - b->sort_order;
 
-    if (ea_a->type != ea_b->type)
-        return ea_a->type - ea_b->type;
+    if (a->type != b->type)
+        return a->type - b->type;
 
     return index_a - index_b;
 }
@@ -474,19 +465,17 @@ static int AssetSortFunc(const void* a, const void* b)
 void SortAssets(bool notify) {
     u32 asset_index = 0;
     for (u32 i=0; i<MAX_ASSETS; i++) {
-        AssetData* ea = GetAssetData(i);
-        if (!ea)
-            continue;
-
+        AssetData* a = GetAssetDataInternal(i);
+        if (!a) continue;
         g_editor.sorted_assets[asset_index++] = i;
     }
+
+    assert(asset_index == GetAssetCount());
 
     qsort(g_editor.sorted_assets, asset_index, sizeof(int), AssetSortFunc);
 
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
-        assert(a);
-
+        AssetData* a = GetAssetData(i);
         if (a->sort_order != (int)i * 10)
             MarkMetaModified(a);
 
@@ -497,7 +486,7 @@ void SortAssets(bool notify) {
         return;
 
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         if (a->vtable.on_sort_order_changed)
             a->vtable.on_sort_order_changed(a);
     }

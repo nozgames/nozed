@@ -35,12 +35,6 @@ struct SkeletonData : AssetData {
     float opacity;
 };
 
-inline SkeletonData* GetEditorSkeleton(int index) {
-    AssetData* ea = GetAssetData(index);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    return (SkeletonData*)ea;
-}
-
 extern void InitSkeletonData(AssetData* ea);
 extern AssetData* NewEditorSkeleton(const std::filesystem::path& path);
 extern AssetData* CreateEditorSkeletonAsset(const std::filesystem::path& path, SkeletonData* skeleton);

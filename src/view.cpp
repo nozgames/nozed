@@ -53,7 +53,7 @@ static void FrameSelected() {
 
     if (first) {
         for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-            AssetData* ea = GetSortedAssetData(i);
+            AssetData* ea = GetAssetData(i);
             assert(ea);
             if (!ea->selected)
                 continue;
@@ -87,7 +87,7 @@ static void CommitBoxSelect(const Bounds2& bounds) {
         ClearAssetSelection();
 
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
 
         if (OverlapBounds(a, bounds))
@@ -130,7 +130,7 @@ static void UpdateZoom() {
 
 static void UpdateMoveTool(const Vec2& delta) {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         if (!a->selected)
             continue;
@@ -143,7 +143,7 @@ static void UpdateMoveTool(const Vec2& delta) {
 
 static void CancelMoveTool() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         if (!a->selected)
             continue;
@@ -305,7 +305,7 @@ void DrawView() {
 
     Bounds2 camera_bounds = GetBounds(g_view.camera);
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         a->clipped = !Intersects(camera_bounds, GetBounds(a) + a->position);
     }
@@ -313,7 +313,7 @@ void DrawView() {
     bool show_names = g_view.state == VIEW_STATE_DEFAULT && (g_view.show_names || IsAltDown(g_view.input));
     if (show_names) {
         for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-            AssetData* a = GetSortedAssetData(i);
+            AssetData* a = GetAssetData(i);
             assert(a);
             DrawBounds(a);
         }
@@ -322,7 +322,7 @@ void DrawView() {
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         if (a->clipped)
             continue;
@@ -337,7 +337,7 @@ void DrawView() {
         g_editor.editing_asset->vtable.editor_draw();
 
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         if (a->clipped)
             continue;
@@ -371,9 +371,9 @@ static void UpdateAssetNames() {
     if (!IsAltDown(g_view.input) && !g_view.show_names)
         return;
 
-    for (u32 i=0; i<MAX_ASSETS; i++) {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
         AssetData* a = GetAssetData(i);
-        if (!a || a->clipped)
+        if (a->clipped)
             continue;
 
         Bounds2 bounds = GetBounds(a);
@@ -443,7 +443,7 @@ static void BringForward() {
 
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount();i<c;i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         RecordUndo(a);
         if (!a->selected)
             continue;
@@ -461,7 +461,7 @@ static void BringToFront() {
 
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount();i<c;i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         RecordUndo(a);
         if (!a->selected)
             continue;
@@ -479,7 +479,7 @@ static void SendBackward() {
 
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount();i<c;i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         RecordUndo(a);
         if (!a->selected)
             continue;
@@ -497,7 +497,7 @@ static void SendToBack() {
 
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount();i<c;i++) {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         RecordUndo(a);
         if (!a->selected)
             continue;
@@ -515,7 +515,7 @@ static void DeleteSelectedAsset() {
 
     ShowConfirmDialog("Delete asset?", [] {
         for (u32 i=GetAssetCount(); i > 0; i--) {
-            AssetData* a = GetSortedAssetData(i-1);
+            AssetData* a = GetAssetData(i-1);
             assert(a);
             if (!a->selected) continue;
             RemoveFromUndoRedo(a);
@@ -543,7 +543,7 @@ static void BeginMoveTool() {
     BeginUndoGroup();
     for (u32 i=0, c=GetAssetCount(); i<c; i++)
     {
-        AssetData* a = GetSortedAssetData(i);
+        AssetData* a = GetAssetData(i);
         assert(a);
         if (!a->selected)
             continue;

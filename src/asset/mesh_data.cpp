@@ -761,22 +761,20 @@ bool OverlapBounds(MeshData* em, const Vec2& position, const Bounds2& hit_bounds
     return Intersects(em->bounds + position, hit_bounds);
 }
 
-int HitTestFace(MeshData* em, const Vec2& position, const Vec2& hit_pos, Vec2* where)
-{
-    for (int i = em->face_count - 1; i >= 0; i--)
-    {
-        FaceData& ef = em->faces[i];
+int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* where) {
+    for (int i = m->face_count - 1; i >= 0; i--) {
+        FaceData& ef = m->faces[i];
 
         // Ray casting algorithm - works for both convex and concave polygons
         int intersections = 0;
 
         for (int vertex_index = 0; vertex_index < ef.vertex_count; vertex_index++)
         {
-            int v0_idx = em->face_vertices[ef.vertex_offset + vertex_index];
-            int v1_idx = em->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
+            int v0_idx = m->face_vertices[ef.vertex_offset + vertex_index];
+            int v1_idx = m->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
 
-            Vec2 v0 = em->vertices[v0_idx].position + position;
-            Vec2 v1 = em->vertices[v1_idx].position + position;
+            Vec2 v0 = TransformPoint(transform, m->vertices[v0_idx].position);
+            Vec2 v1 = TransformPoint(transform, m->vertices[v1_idx].position);
 
             // Cast horizontal ray to the right from hit_pos
             // Check if this edge intersects the ray
@@ -799,14 +797,13 @@ int HitTestFace(MeshData* em, const Vec2& position, const Vec2& hit_pos, Vec2* w
         // Point is inside if odd number of intersections
         bool inside = (intersections % 2) == 1;
 
-        if (inside)
-        {
+        if (inside) {
             // Calculate barycentric coordinates for the first triangle if needed
             if (where && ef.vertex_count >= 3)
             {
-                Vec2 v0 = em->vertices[em->face_vertices[ef.vertex_offset + 0]].position + position;
-                Vec2 v1 = em->vertices[em->face_vertices[ef.vertex_offset + 1]].position + position;
-                Vec2 v2 = em->vertices[em->face_vertices[ef.vertex_offset + 2]].position + position;
+                Vec2 v0 = TransformPoint(transform, m->vertices[m->face_vertices[ef.vertex_offset + 0]].position);
+                Vec2 v1 = TransformPoint(transform, m->vertices[m->face_vertices[ef.vertex_offset + 1]].position);
+                Vec2 v2 = TransformPoint(transform, m->vertices[m->face_vertices[ef.vertex_offset + 2]].position);
 
                 Vec2 v0v1 = v1 - v0;
                 Vec2 v0v2 = v2 - v0;

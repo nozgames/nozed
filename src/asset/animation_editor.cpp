@@ -91,7 +91,7 @@ static void ClearSelection() {
         SetBoneSelected(bone_index, false);
 }
 
-static bool TrySelect() {
+static bool TrySelectBone() {
     AnimationData* n = GetAnimationData();
     int bone_index = HitTestBone(n, g_view.mouse_world_position);
     if (bone_index == -1)
@@ -106,6 +106,47 @@ static bool TrySelect() {
     }
 
     return true;
+}
+
+static bool TrySelectMesh() {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+    for (int i=s->skinned_mesh_count-1; i>=0; i--) {
+        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
+        if (!skinned_mesh)
+            continue;
+
+        Mat3 mesh_transform = Translate(n->position) * n->animator.bones[s->skinned_meshes[i].bone_index];
+
+        int face_index = HitTestFace(
+            skinned_mesh,
+            mesh_transform,
+            g_view.mouse_world_position,
+            nullptr);
+
+        if (face_index == -1)
+            continue;
+
+        int bone_index = s->skinned_meshes[i].bone_index;
+        BoneData* b = &s->bones[bone_index];
+        if (IsShiftDown(g_animation_editor.input)) {
+            SetBoneSelected(bone_index, !b->selected);
+        } else {
+            ClearSelection();
+            SetBoneSelected(bone_index, true);
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+static bool TrySelect() {
+    if (TrySelectBone())
+        return true;
+
+    return TrySelectMesh();
 }
 
 static void SaveState() {

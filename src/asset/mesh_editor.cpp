@@ -318,7 +318,7 @@ static bool TrySelectFace() {
     MeshData* m = GetMeshData();
     int face_index = HitTestFace(
         m,
-        a->position,
+        Translate(a->position),
         g_view.mouse_world_position,
         nullptr);
 
