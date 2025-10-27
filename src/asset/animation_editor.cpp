@@ -348,7 +348,15 @@ static void UpdateMoveTool(const Vec2& delta) {
         if (!IsBoneSelected(bone_index) || IsAncestorSelected(bone_index))
             continue;
 
-        SetPosition(GetFrameTransform(n, bone_index, n->current_frame), n->bones[bone_index].saved_transform.position + delta);
+        Transform& frame = GetFrameTransform(n, bone_index, n->current_frame);
+        AnimationBoneData* bone = &n->bones[bone_index];
+        int parent_index = s->bones[bone_index].parent_index;
+        if (parent_index == -1) {
+            SetPosition(frame, bone->saved_transform.position + delta);
+        } else {
+            Vec2 rotated_delta = TransformVector(Inverse(n->animator.bones[parent_index]), delta);
+            SetPosition(frame, bone->saved_transform.position + rotated_delta);
+        }
     }
 
     UpdateTransforms(n);
