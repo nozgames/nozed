@@ -333,6 +333,9 @@ void DrawView() {
         DrawAsset(a);
     }
 
+    if (g_view.state == VIEW_STATE_EDIT && g_editor.editing_asset)
+        DrawBounds(g_editor.editing_asset, 0, COLOR_EDGE);
+
     if (g_editor.editing_asset && g_editor.editing_asset->vtable.editor_draw)
         g_editor.editing_asset->vtable.editor_draw();
 
@@ -347,9 +350,6 @@ void DrawView() {
 
         DrawOrigin(a);
     }
-
-    if (g_view.state == VIEW_STATE_EDIT && g_editor.editing_asset)
-        DrawBounds(g_editor.editing_asset, 0, COLOR_EDGE);
 
     if (IsButtonDown(g_view.input, MOUSE_MIDDLE)) {
         Bounds2 bounds = GetBounds(g_view.camera);
@@ -695,12 +695,11 @@ void InitView() {
     EnableCommonShortcuts(g_view.input);
     PushInputSet(g_view.input);
 
-    g_view.input_tool = CreateInputSet(ALLOCATOR_DEFAULT);
+    g_view.input_tool = CreateInputSet(ALLOCATOR_DEFAULT, GetName("tool"));
+    EnableModifiers(g_view.input_tool);
     EnableButton(g_view.input_tool, KEY_ESCAPE);
     EnableButton(g_view.input_tool, KEY_ENTER);
     EnableButton(g_view.input_tool, MOUSE_LEFT);
-    EnableButton(g_view.input_tool, KEY_LEFT_CTRL);
-    EnableButton(g_view.input_tool, KEY_RIGHT_CTRL);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
     AddCircle(builder, VEC2_ZERO, 0.5f, 8, VEC2_ZERO);

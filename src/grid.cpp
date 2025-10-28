@@ -150,10 +150,8 @@ void InitGrid(Allocator* allocator)
     Free(builder);
 }
 
-Vec2 SnapToGrid(const Vec2& position, bool secondary)
-{
-    float spacing = secondary ? 0.1f : 0.25f;
-    
+Vec2 SnapToGrid(const Vec2& position) {
+    constexpr float spacing = 0.1f;
     return Vec2{
         roundf(position.x / spacing) * spacing,
         roundf(position.y / spacing) * spacing

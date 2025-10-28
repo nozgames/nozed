@@ -123,7 +123,7 @@ extern AssetImporter GetSkeletonImporter();
 extern AssetImporter GetAnimationImporter();
 
 // @grid
-extern Vec2 SnapToGrid(const Vec2& position, bool secondary=false);
+extern Vec2 SnapToGrid(const Vec2& position);
 
 // @ui
 extern Color GetButtonHoverColor(ElementState state, float time, void* user_data);

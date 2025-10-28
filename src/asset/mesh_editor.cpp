@@ -623,11 +623,12 @@ static void CancelMeshTool() {
 
 static void UpdateMoveTool(const Vec2& delta) {
     MeshData* m = GetMeshData();
+    bool snap = IsCtrlDown(GetInputSet());
     for (int i=0; i<m->vertex_count; i++) {
         VertexData& v = m->vertices[i];
         MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
         if (v.selected)
-            v.position = mvv.saved_position + delta;
+            v.position = snap ? SnapToGrid(m->position + mvv.saved_position + delta) - m->position : mvv.saved_position + delta;
     }
 
     UpdateEdges(m);
@@ -1101,9 +1102,8 @@ void InitMeshEditor() {
     };
 
     g_mesh_editor.input = CreateInputSet(ALLOCATOR_DEFAULT);
+    EnableModifiers(g_mesh_editor.input);
     EnableButton(g_mesh_editor.input, MOUSE_LEFT);
-    EnableButton(g_mesh_editor.input, KEY_LEFT_SHIFT);
-    EnableButton(g_mesh_editor.input, KEY_RIGHT_SHIFT);
 
     g_mesh_editor.shortcuts = shortcuts;
     EnableShortcuts(shortcuts, g_mesh_editor.input);
