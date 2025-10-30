@@ -381,7 +381,13 @@ void PostLoadAssetData() {
     }
 }
 
-void HotloadEditorAsset(const Name* name){
+void HotloadEditorAsset(AssetType type, const Name* name){
+    AssetData* a = GetAssetData(type, name);
+    if (a != nullptr && a->vtable.reload) {
+        a->vtable.reload(a);
+    }
+
+#if 0
     for (u32 i=0,c=GetAssetCount(); i<c; i++) {
         AssetData* a = GetAssetData(i);
         if (a->name != name)
@@ -400,6 +406,7 @@ void HotloadEditorAsset(const Name* name){
             break;
         }
     }
+#endif
 }
 
 void MarkModified(AssetData* a) {

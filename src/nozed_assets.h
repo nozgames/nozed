@@ -7,11 +7,11 @@
 
 #include <noz/core_assets.h>
 
-// @Font
-extern Font* FONT_SEGUISB;
-
 // @Mesh
 extern Mesh* MESH_SHADER;
+
+// @Font
+extern Font* FONT_SEGUISB;
 
 // @Shader
 extern Shader* SHADER_VFX;
@@ -41,5 +41,5 @@ extern bool LoadAssets(Allocator* allocator);
 extern void UnloadAssets();
 
 #ifdef NOZ_EDITOR
-extern void HotloadAsset(const Name* incoming_name, AssetSignature incoming_signature);
+extern void HotloadAsset(const Name* incoming_name, AssetType incoming_type);
 #endif

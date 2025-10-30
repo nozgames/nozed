@@ -20,27 +20,24 @@ void GetFilesInDirectory(const fs::path& directory, std::vector<fs::path>& resul
     }
 }
 
-static AssetSignature GetAssetSignatureInternal(Stream* stream)
-{
+static AssetType GetAssetTypeInternal(Stream* stream) {
     assert(stream);
 
     AssetHeader header = {};
     if (!ReadAssetHeader(stream, &header))
-        return ASSET_SIGNATURE_UNKNOWN;
+        return ASSET_TYPE_UNKNOWN;
 
-    return header.signature;
+    return header.type;
 }
 
-AssetSignature GetAssetSignature(const fs::path& path)
-{
+AssetType GetAssetType(const fs::path& path) {
     Stream* stream = LoadStream(ALLOCATOR_DEFAULT, path);
-    AssetSignature result = GetAssetSignatureInternal(stream);
+    AssetType result = GetAssetTypeInternal(stream);
     Free(stream);
     return result;
 }
 
-fs::path FixSlashes(const fs::path& path)
-{
+fs::path FixSlashes(const fs::path& path) {
     std::string result = path.string();
     for (char& c : result)
         if (c == '\\')

@@ -5,7 +5,7 @@
 static void Init(SkeletonData* s);
 extern void InitSkeletonEditor(SkeletonData* s);
 
-extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
+extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetType asset_type, AssetLoaderFunc loader, Stream* stream);
 
 void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& position) {
     BoneData* eb = s->bones + bone_index;
@@ -405,7 +405,8 @@ void Serialize(SkeletonData* s, Stream* stream) {
         bone_names[i] = s->bones[i].name;
 
     AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_SKELETON;
+    header.signature = ASSET_SIGNATURE;
+    header.type = ASSET_TYPE_SKELETON;
     header.version = 1;
     header.flags = 0;
     header.names = s->bone_count;
@@ -431,7 +432,7 @@ Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* s) {
     Serialize(s, stream);
     SeekBegin(stream, 0);
 
-    Skeleton* skeleton = static_cast<Skeleton*>(LoadAssetInternal(allocator, s->name, ASSET_SIGNATURE_SKELETON, LoadSkeleton, stream));
+    Skeleton* skeleton = static_cast<Skeleton*>(LoadAssetInternal(allocator, s->name, ASSET_TYPE_SKELETON, LoadSkeleton, stream));
     Free(stream);
 
     return skeleton;

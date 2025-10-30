@@ -19,7 +19,6 @@ AssetImporter GetVfxImporter()
 {
     return {
         .type = ASSET_TYPE_VFX,
-        .signature = ASSET_SIGNATURE_VFX,
         .ext = ".vfx",
         .import_func = ImportVfx
     };

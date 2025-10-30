@@ -19,7 +19,6 @@ AssetImporter GetSkeletonImporter()
 {
     return {
         .type = ASSET_TYPE_SKELETON,
-        .signature = ASSET_SIGNATURE_SKELETON,
         .ext = ".skel",
         .import_func = ImportSkeleton
     };

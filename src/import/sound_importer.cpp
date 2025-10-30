@@ -155,7 +155,8 @@ static void ImportSound(AssetData* ea, Stream* output_stream, Props* config, Pro
     
     // Write NoZ sound asset header
     AssetHeader asset_header = {};
-    asset_header.signature = ASSET_SIGNATURE_SOUND;
+    asset_header.signature = ASSET_SIGNATURE;
+    asset_header.type = ASSET_TYPE_SOUND;
     asset_header.version = 1;
     asset_header.flags = 0;
     
@@ -183,7 +184,6 @@ AssetImporter GetSoundImporter()
 {
     return {
         .type = ASSET_TYPE_SOUND,
-        .signature = ASSET_SIGNATURE_SOUND,
         .ext = ".wav",
         .import_func = ImportSound
     };

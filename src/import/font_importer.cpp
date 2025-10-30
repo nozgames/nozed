@@ -35,7 +35,8 @@ static void WriteFontData(
     float font_size_inv = 1.0f / (f32)font_size;
 
     AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_FONT;
+    header.signature = ASSET_SIGNATURE;
+    header.type = ASSET_TYPE_FONT;
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);
@@ -194,7 +195,6 @@ AssetImporter GetFontImporter()
 {
     return {
         .type = ASSET_TYPE_FONT,
-        .signature = ASSET_SIGNATURE_FONT,
         .ext = ".ttf",
         .import_func = ImportFont
     };

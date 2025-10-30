@@ -18,7 +18,6 @@ static void BeginTextureEditor() {
 
 static void EndTextureEditor() {
     PopInputSet();
-    EndEdit();
 }
 
 static void CancelTextureEditor() {
@@ -90,9 +89,8 @@ void InitTextureEditor() {
     };
 
     g_texture_editor.input = CreateInputSet(ALLOCATOR_DEFAULT);
+    EnableCommonShortcuts(g_texture_editor.input);
     EnableButton(g_texture_editor.input, MOUSE_LEFT);
-    EnableButton(g_texture_editor.input, KEY_LEFT_SHIFT);
-    EnableButton(g_texture_editor.input, KEY_RIGHT_SHIFT);
     EnableButton(g_texture_editor.input, MOUSE_SCROLL_Y);
 
     g_texture_editor.shortcuts = shortcuts;

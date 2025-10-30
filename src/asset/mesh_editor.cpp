@@ -799,6 +799,43 @@ static void CenterMesh() {
     Center(GetMeshData());
 }
 
+static void CircleMesh() {
+    if (GetMeshData()->selected_count < 2)
+        return;
+
+    BeginSelectTool({.commit= [](const Vec2& position ) {
+        MeshData* m = GetMeshData();
+        // find average distance of selected points to the given world position
+        Vec2 center = position - GetAssetData()->position;
+        float total_distance = 0.0f;
+        int count = 0;
+        for (int i=0; i<m->vertex_count; i++) {
+            VertexData& v = m->vertices[i];
+            if (!v.selected)
+                continue;
+            total_distance += Length(v.position - center);
+            count++;
+        }
+
+        float radius = total_distance / (float)count;
+
+        RecordUndo(m);
+
+        // move selected vertices to form a circle around the center point
+        for (int i=0; i<m->vertex_count; i++) {
+            VertexData& v = m->vertices[i];
+            if (!v.selected)
+                continue;
+            Vec2 dir = Normalize(v.position - center);
+            v.position = center + dir * radius;
+        }
+
+        UpdateEdges(m);
+        MarkDirty(m);
+        MarkModified();
+    }});
+}
+
 static bool ExtrudeSelectedEdges(MeshData* em) {
     if (em->edge_count == 0)
         return false;
@@ -1096,6 +1133,7 @@ void InitMeshEditor() {
         { KEY_2, false, false, false, SetEdgeMode },
         { KEY_3, false, false, false, SetFaceMode },
         { KEY_C, false, false, false, CenterMesh },
+        { KEY_C, false, false, true, CircleMesh },
         { KEY_E, false, false, false, ExtrudeSelected },
         { KEY_N, false, false, false, AddNewFace },
         { INPUT_CODE_NONE }

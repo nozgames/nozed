@@ -25,7 +25,8 @@ static void ImportMesh(AssetData* a, Stream* output_stream, Props* config, Props
     Mesh* m = ToMesh(mesh_data, false);
 
     AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_MESH;
+    header.signature = ASSET_SIGNATURE;
+    header.type = ASSET_TYPE_MESH;
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
 
@@ -43,7 +44,6 @@ static void ImportMesh(AssetData* a, Stream* output_stream, Props* config, Props
 AssetImporter GetMeshImporter() {
     return {
         .type = ASSET_TYPE_MESH,
-        .signature = ASSET_SIGNATURE_MESH,
         .ext = ".mesh",
         .import_func = ImportMesh
     };

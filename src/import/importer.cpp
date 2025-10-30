@@ -72,7 +72,7 @@ static void QueueImport(AssetData* ea, bool force)
     if (!ea->importer)
         return;
 
-    std::string type_name_lower = GetTypeNameFromSignature(ea->importer->signature);
+    std::string type_name_lower = ToString(ea->importer->type);
     Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
 
     fs::path source_relative_path = fs::relative(path, g_editor.asset_paths[ea->asset_path_index]);
@@ -169,7 +169,7 @@ static void ExecuteJob(void* data)
 
     fs::path target_dir =
         g_editor.output_dir /
-        GetTypeNameFromSignature(job->ea->importer->signature) /
+        ToString(job->ea->importer->type) /
         job->ea->name->value;
 
     std::string target_dir_lower = target_dir.string();
@@ -186,7 +186,7 @@ static void ExecuteJob(void* data)
     g_importer.mutex.lock();
     g_importer.import_events.push_back({
         .name =  job->ea->name,
-        .signature = job->ea->importer->signature,
+        .type = job->ea->importer->type,
         .target_path = job->target_short_path
     });
     g_importer.mutex.unlock();

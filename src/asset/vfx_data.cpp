@@ -287,7 +287,8 @@ static Bounds2 CalculateBounds(VfxData* evfx)
 void Serialize(VfxData* evfx, Stream* stream)
 {
     AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_VFX;
+    header.signature = ASSET_SIGNATURE;
+    header.type = ASSET_TYPE_VFX;
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(stream, &header);
@@ -328,7 +329,7 @@ Vfx* ToVfx(Allocator* allocator, VfxData* evfx, const Name* name)
     Serialize(evfx, stream);
     SeekBegin(stream, 0);
 
-    Vfx* vfx = (Vfx*)LoadAssetInternal(allocator, name, ASSET_SIGNATURE_VFX, LoadVfx, stream);
+    Vfx* vfx = (Vfx*)LoadAssetInternal(allocator, name, ASSET_TYPE_VFX, LoadVfx, stream);
     Free(stream);
 
     return vfx;

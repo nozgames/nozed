@@ -7,7 +7,7 @@
 #include <string>
 
 // @broadcast
-void BroadcastAssetChange(const Name* name, AssetSignature signature);
+void BroadcastAssetChange(const Name* name, AssetType asset_type);
 
 // @connection
 bool HasConnectedClient();

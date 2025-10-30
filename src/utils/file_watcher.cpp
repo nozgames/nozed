@@ -6,18 +6,17 @@
 
 namespace fs = std::filesystem;
 
-struct FileInfo
-{
+struct FileInfo {
     fs::path path;
     fs::path relative_path;
     fs::path watch_path;
     fs::file_time_type time;
     uint64_t size;
     bool exists;
+    uint64_t hash;
 };
 
-struct FileWatcher
-{
+struct FileWatcher {
     int poll_interval_ms;
     std::vector<fs::path> watched_dirs;
     std::map<fs::path, FileInfo> file_map;
@@ -29,8 +28,7 @@ struct FileWatcher
 
 static FileWatcher g_watcher = {};
 
-static void QueueEvent(const FileInfo& file_info, FileChangeType type)
-{
+static void QueueEvent(const FileInfo& file_info, FileChangeType type) {
     std::lock_guard lock(g_watcher.mutex);
     g_watcher.event_queue.push_back({
         .path = file_info.path,
@@ -40,8 +38,7 @@ static void QueueEvent(const FileInfo& file_info, FileChangeType type)
     });
 }
 
-static void AddFile(const fs::path& watch_path, const fs::path& path)
-{
+static void AddFile(const fs::path& watch_path, const fs::path& path) {
     FileInfo& file_info = g_watcher.file_map[path];
     file_info = {
         .path = path,
@@ -76,8 +73,18 @@ static void ProcessFile(const fs::path& watch_path, const fs::path& path)
 
     FileInfo& existing = it->second;
     existing.exists = true;
-    if (CompareModifiedTime(file_time, existing.time) <= 0 && file_size == existing.size)
+
+    if (file_size == existing.size && file_time == existing.time)
         return;
+
+    if (file_size == existing.size && existing.hash != 0) {
+        uint64_t hash = HashFile(path);
+        if (hash == existing.hash)
+            return;
+    }
+
+    existing.time = file_time;
+    existing.size = file_size;
 
     QueueEvent(existing, FILE_CHANGE_TYPE_MODIFIED);
 }

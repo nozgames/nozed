@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetSignature signature, AssetLoaderFunc loader, Stream* stream);
+extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetType asset_type, AssetLoaderFunc loader, Stream* stream);
 static void InitAnimationData(AnimationData* a);
 extern void InitAnimationEditor(AnimationData* a);
 
@@ -283,7 +283,8 @@ void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
     assert(s);
 
     AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_ANIMATION;
+    header.signature = ASSET_SIGNATURE;
+    header.type = ASSET_TYPE_ANIMATION;
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
 
@@ -326,7 +327,7 @@ Animation* ToAnimation(Allocator* allocator, AnimationData* n) {
     Serialize(n, stream, es);
     SeekBegin(stream, 0);
 
-    Animation* animation = static_cast<Animation*>(LoadAssetInternal(allocator, n->name, ASSET_SIGNATURE_ANIMATION, LoadAnimation, stream));
+    Animation* animation = static_cast<Animation*>(LoadAssetInternal(allocator, n->name, ASSET_TYPE_ANIMATION, LoadAnimation, stream));
     Free(stream);
 
     return animation;

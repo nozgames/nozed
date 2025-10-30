@@ -76,13 +76,12 @@ static void UpdateBoneNames() {
 
     SkeletonData* s = GetSkeletonData();
     for (u16 i=0; i<s->bone_count; i++) {
-        BoneData* eb = s->bones + i;
-        Mat3 transform = eb->local_to_world * Rotate(s->bones[i].transform.rotation);
-        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{eb->length, 0})) * 0.5f + s->position;
-        const char* name = s->bones[i].name->value;
-        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [name] {
-            Align({.alignment=ALIGNMENT_CENTER}, [name] {
-                Label(name, {.font = FONT_SEGUISB, .font_size=12, .color=COLOR_WHITE} );
+        BoneData* b = s->bones + i;
+        Mat3 transform = b->local_to_world * Rotate(s->bones[i].transform.rotation);
+        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{b->length, 0})) * 0.5f + s->position;
+        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [b] {
+            Align({.alignment=ALIGNMENT_CENTER}, [b] {
+                Label(b->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=b->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
             });
         });
     }
@@ -157,12 +156,12 @@ static void HandleBoxSelect(const Bounds2& bounds) {
 
     SkeletonData* s = GetSkeletonData();
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
-        BoneData* eb = &s->bones[bone_index];
+        BoneData* b = &s->bones[bone_index];
         Mat3 collider_transform =
             Translate(s->position) *
-            eb->local_to_world *
-            Rotate(eb->transform.rotation) *
-            Scale(eb->length);
+            b->local_to_world *
+            Rotate(b->transform.rotation) *
+            Scale(b->length);
         if (OverlapBounds(g_view.bone_collider, bounds, collider_transform))
             SetBoneSelected(bone_index, true);
     }
@@ -243,6 +242,12 @@ static void UpdateMoveTool(const Vec2& delta) {
     UpdateTransforms(s);
 }
 
+static void CommitMoveTool(const Vec2&) {
+    SkeletonData* s = GetSkeletonData();
+    UpdateTransforms(s);
+    MarkModified();
+}
+
 static void BeginMoveTool(bool record_undo) {
     if (GetSkeletonData()->selected_bone_count <= 0)
         return;
@@ -252,7 +257,7 @@ static void BeginMoveTool(bool record_undo) {
         RecordUndo();
 
     SetCursor(SYSTEM_CURSOR_MOVE);
-    BeginMoveTool({.update=UpdateMoveTool, .cancel=CancelSkeletonTool});
+    BeginMoveTool({.update=UpdateMoveTool, .commit=CommitMoveTool, .cancel=CancelSkeletonTool});
 }
 
 static void BeginMoveTool() {

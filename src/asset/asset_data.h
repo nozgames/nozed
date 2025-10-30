@@ -7,17 +7,18 @@
 struct AssetData;
 
 struct AssetVtable {
-    void (*load)(AssetData* ea);
-    void (*post_load)(AssetData* ea);
-    void (*save)(AssetData* ea, const std::filesystem::path& path);
-    void (*load_metadata)(AssetData* ea, Props* meta);
-    void (*save_metadata)(AssetData* ea, Props* meta);
-    void (*draw)(AssetData* ea);
-    bool (*overlap_point)(AssetData* ea, const Vec2& position, const Vec2& hit_pos);
-    bool (*overlap_bounds)(AssetData* ea, const Bounds2& hit_bounds);
-    void (*clone)(AssetData* ea);
-    void (*undo_redo)(AssetData* ea);
-    void (*on_sort_order_changed)(AssetData* ea);
+    void (*load)(AssetData* a);
+    void (*reload)(AssetData* a);
+    void (*post_load)(AssetData* a);
+    void (*save)(AssetData* a, const std::filesystem::path& path);
+    void (*load_metadata)(AssetData* a, Props* meta);
+    void (*save_metadata)(AssetData* a, Props* meta);
+    void (*draw)(AssetData* a);
+    bool (*overlap_point)(AssetData* a, const Vec2& position, const Vec2& hit_pos);
+    bool (*overlap_bounds)(AssetData* a, const Bounds2& hit_bounds);
+    void (*clone)(AssetData* a);
+    void (*undo_redo)(AssetData* a);
+    void (*on_sort_order_changed)(AssetData* a);
 
     void (*editor_begin)();
     void (*editor_end)();
@@ -51,9 +52,9 @@ inline AssetData* GetAssetDataInternal(int index, AssetType type=ASSET_TYPE_UNKN
     assert(index >= 0 && index < (int)MAX_ASSETS);
     if (!IsValid(g_editor.asset_allocator, index))
         return nullptr;
-    AssetData* ea = (AssetData*)GetAt(g_editor.asset_allocator, index);
-    assert(type == ASSET_TYPE_UNKNOWN || (ea && ea->type == type));
-    return ea;
+    AssetData* a = (AssetData*)GetAt(g_editor.asset_allocator, index);
+    assert(type == ASSET_TYPE_UNKNOWN || (a && a->type == type));
+    return a;
 }
 
 inline u32 GetAssetCount() {
@@ -73,7 +74,7 @@ inline AssetData* GetAssetData(u32 index) {
 extern void InitAssetData();
 extern void LoadAssetData(AssetData* a);
 extern void PostLoadAssetData(AssetData* a);
-extern void HotloadEditorAsset(const Name* name);
+extern void HotloadEditorAsset(AssetType type, const Name* name);
 extern void MarkModified(AssetData* a);
 inline void MarkModified() { MarkModified(GetAssetData()); }
 extern void MarkMetaModified();
@@ -85,21 +86,21 @@ extern void Clone(AssetData* dst, AssetData* src);
 extern void LoadAssetData();
 extern void SaveAssetData();
 extern void PostLoadAssetData();
-extern bool OverlapPoint(AssetData* ea, const Vec2& overlap_point);
-extern bool OverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point);
-extern bool OverlapBounds(AssetData* ea, const Bounds2& overlap_bounds);
+extern bool OverlapPoint(AssetData* a, const Vec2& overlap_point);
+extern bool OverlapPoint(AssetData* a, const Vec2& position, const Vec2& overlap_point);
+extern bool OverlapBounds(AssetData* a, const Bounds2& overlap_bounds);
 extern AssetData* HitTestAssets(const Vec2& overlap_point);
 extern AssetData* HitTestAssets(const Bounds2& bit_bounds);
-extern void DrawAsset(AssetData* ea);
+extern void DrawAsset(AssetData* a);
 extern AssetData* GetFirstSelectedAsset();
-extern void SetPosition(AssetData* ea, const Vec2& position);
+extern void SetPosition(AssetData* a, const Vec2& position);
 extern void ClearAssetSelection();
 extern void SetSelected(AssetData* a, bool selected);
 extern void ToggleSelected(AssetData* a);
-extern bool InitImporter(AssetData* ea);
+extern bool InitImporter(AssetData* a);
 extern const Name* MakeCanonicalAssetName(const char* name);
 extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);
-extern void DeleteAsset(AssetData* ea);
+extern void DeleteAsset(AssetData* a);
 extern void SortAssets(bool notify=true);
 inline bool IsEditing(AssetData* a) { return a->editing; }
 

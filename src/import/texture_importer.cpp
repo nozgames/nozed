@@ -36,7 +36,8 @@ static void WriteTextureData(
     const std::string& clamp) {
 
     AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_TEXTURE;
+    header.signature = ASSET_SIGNATURE;
+    header.type = ASSET_TYPE_TEXTURE;
     header.version = 1;
     header.flags = ASSET_FLAG_NONE;
     WriteAssetHeader(stream, &header);
@@ -107,7 +108,6 @@ static void ImportTexture(AssetData* ea, Stream* output_stream, Props* config, P
 AssetImporter GetTextureImporter() {
     return {
         .type = ASSET_TYPE_TEXTURE,
-        .signature = ASSET_SIGNATURE_TEXTURE,
         .ext = ".png",
         .import_func = ImportTexture
     };

@@ -98,12 +98,12 @@ extern void ShutdownCommandInput();
 extern void BeginCommandInput(const CommandInputOptions& options);
 extern void UpdateCommandInput();
 extern void EndCommandInput();
-extern const char* GetVarTypeNameFromSignature(AssetSignature signature);
+extern const char* GetVarTypeNameFromAssetType(AssetType asset_type);
 
 // @import
 struct ImportEvent {
     const Name* name;
-    AssetSignature signature;
+    AssetType type;
     std::filesystem::path target_path;
 };
 

@@ -84,17 +84,16 @@ void HandleStatsEvents(EventId event_id, const void* event_data)
     g_editor.stats_requested = false;
 }
 
-void HandleImported(EventId event_id, const void* event_data)
-{
+void HandleImported(EventId event_id, const void* event_data) {
     (void)event_id;
 
     ImportEvent* import_event = (ImportEvent*)event_data;
-    AssetLoadedEvent event = { import_event->name, import_event->signature };
+    AssetLoadedEvent event = { import_event->name, import_event->type };
     Send(EVENT_HOTLOAD, &event);
 
     AddNotification("imported '%s'", import_event->name->value);
 
-    BroadcastAssetChange(import_event->name, import_event->signature);
+    BroadcastAssetChange(import_event->name, import_event->type);
 }
 
 static void SaveUserConfig(Props* user_config)
@@ -201,10 +200,9 @@ void ShutdownEditor() {
     ShutdownImporter();
 }
 
-void EditorHotLoad(const Name* name, AssetSignature signature)
-{
-    HotloadAsset(name, signature);
-    HotloadEditorAsset(name);
+void EditorHotLoad(const Name* name, AssetType asset_type) {
+    HotloadAsset(name, asset_type);
+    HotloadEditorAsset( asset_type, name);
 }
 
 void BeginTool(const Tool& tool) {

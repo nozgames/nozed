@@ -7,11 +7,11 @@
 #include "nozed_assets.h"
 
 
-// @Font
-Font* FONT_SEGUISB = nullptr;
-
 // @Mesh
 Mesh* MESH_SHADER = nullptr;
+
+// @Font
+Font* FONT_SEGUISB = nullptr;
 
 // @Shader
 Shader* SHADER_VFX = nullptr;
@@ -74,16 +74,6 @@ bool LoadAssets(Allocator* allocator)
     PATH_MESH_SHADER = GetName("shader");
     PATH_FONT_SEGUISB = GetName("seguisb");
 
-    // @Font
-    NOZ_LOAD_FONT(allocator, PATH_FONT_SEGUISB, FONT_SEGUISB);
-
-    static Font* _FONT[] = {
-        FONT_SEGUISB,
-        nullptr
-    };
-
-    FONT = _FONT;
-
     // @Mesh
     NOZ_LOAD_MESH(allocator, PATH_MESH_SHADER, MESH_SHADER);
 
@@ -93,6 +83,16 @@ bool LoadAssets(Allocator* allocator)
     };
 
     MESH = _MESH;
+
+    // @Font
+    NOZ_LOAD_FONT(allocator, PATH_FONT_SEGUISB, FONT_SEGUISB);
+
+    static Font* _FONT[] = {
+        FONT_SEGUISB,
+        nullptr
+    };
+
+    FONT = _FONT;
 
     // @Shader
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_VFX, SHADER_VFX);
@@ -120,11 +120,11 @@ bool LoadAssets(Allocator* allocator)
 // @unload
 void UnloadAssets()
 {
-    // @Font
-    Free(FONT_SEGUISB);
-
     // @Mesh
     Free(MESH_SHADER);
+
+    // @Font
+    Free(FONT_SEGUISB);
 
     // @Shader
     Free(SHADER_VFX);
@@ -137,13 +137,13 @@ void UnloadAssets()
 
 #ifdef NOZ_EDITOR
 
-void HotloadAsset(const Name* incoming_name, AssetSignature incoming_signature)
+void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
 {
-    // @Font
-    NOZ_RELOAD_FONT(PATH_FONT_SEGUISB, FONT_SEGUISB);
-
     // @Mesh
     NOZ_RELOAD_MESH(PATH_MESH_SHADER, MESH_SHADER);
+
+    // @Font
+    NOZ_RELOAD_FONT(PATH_FONT_SEGUISB, FONT_SEGUISB);
 
     // @Shader
     NOZ_RELOAD_SHADER(PATH_SHADER_VFX, SHADER_VFX);

@@ -101,7 +101,8 @@ static void WriteCompiledShader(
 
     // Write asset header
     AssetHeader header = {};
-    header.signature = ASSET_SIGNATURE_SHADER;
+    header.signature = ASSET_SIGNATURE;
+    header.type = ASSET_TYPE_SHADER;
     header.version = 1;
     header.flags = 0;
     WriteAssetHeader(output_stream, &header);
@@ -392,7 +393,6 @@ AssetImporter GetShaderImporter()
 {
     return {
         .type = ASSET_TYPE_SHADER,
-        .signature = ASSET_SIGNATURE_SHADER,
         .ext = ".glsl",
         .import_func = ImportShader
     };

@@ -119,30 +119,26 @@ void UpdateEditorServer()
 }
 
 // @broadcast
-void BroadcastAssetChange(const Name* name, AssetSignature signature)
-{
+void BroadcastAssetChange(const Name* name, AssetType asset_type) {
     if (!HasConnectedClient())
         return;
 
     auto msg = CreateEditorMessage(EDITOR_MESSAGE_HOTLOAD);
 
-    WriteU32(msg, signature);
+    WriteU8(msg, (u8)asset_type);
     WriteString(msg, name->value);
     SendEditorMessage(msg);
 }
 
-void RequestStats()
-{
+void RequestStats() {
     SendEditorMessage(CreateEditorMessage(EDITOR_MESSAGE_STATS));
 }
 
 // @init
-void InitEditorServer(Props* config)
-{
+void InitEditorServer(Props* config) {
     u16 port = (u16)config->GetInt("server", "port", 8080);
 
-    if (enet_initialize() != 0)
-    {
+    if (enet_initialize() != 0) {
         LogWarning("Failed to create server on port %d", port);
         return;
     }
@@ -153,8 +149,7 @@ void InitEditorServer(Props* config)
 
     // Create a server with up to 32 clients and 2 channels
     g_server = enet_host_create(&address, 32, 2, 0, 0);
-    if (!g_server)
-    {
+    if (!g_server) {
         LogWarning("Failed to create server on port %d", address.port);
         enet_deinitialize();
         return;
@@ -163,10 +158,8 @@ void InitEditorServer(Props* config)
     LogInfo("Server started on port %d", address.port);
 }
 
-void ShutdownEditorServer()
-{
-    if (g_server)
-    {
+void ShutdownEditorServer() {
+    if (g_server) {
         enet_host_destroy(g_server);
         g_server = nullptr;
     }

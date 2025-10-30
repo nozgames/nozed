@@ -172,15 +172,20 @@ static void UpdateBoneNames() {
     if (!IsAltDown(g_animation_editor.input) && !g_view.show_names)
         return;
 
-    AssetData* a = GetAssetData();
+    AnimationData* n = GetAnimationData();
     SkeletonData* s = GetSkeletonData();
-    for (u16 i=0; i<s->bone_count; i++) {
-        Mat3 transform = s->bones[i].local_to_world * Rotate(s->bones[i].transform.rotation);
-        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{0.25f, 0})) * 0.5f + a->position;
-        const char* name = s->bones[i].name->value;
-        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [name] {
-            Align({.alignment=ALIGNMENT_CENTER}, [name] {
-                Label(name, {.font = FONT_SEGUISB, .font_size=12, .color=COLOR_WHITE} );
+    for (u16 bone_index=0; bone_index<s->bone_count; bone_index++) {
+        BoneData* b = &s->bones[bone_index];
+        Mat3 local_to_world =
+            Translate(n->position) *
+            n->animator.bones[bone_index] *
+            Rotate(s->bones[bone_index].transform.rotation);
+
+        Vec2 p = TransformPoint(local_to_world, Vec2{b->length * 0.5f, 0});
+        AnimationBoneData* nb = &n->bones[bone_index];
+        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [b,nb] {
+            Align({.alignment=ALIGNMENT_CENTER}, [b,nb] {
+                Label(b->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=nb->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
             });
         });
     }

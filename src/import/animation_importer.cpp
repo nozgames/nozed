@@ -56,7 +56,6 @@ AssetImporter GetAnimationImporter()
 {
     return {
         .type = ASSET_TYPE_ANIMATION,
-        .signature = ASSET_SIGNATURE_ANIMATION,
         .ext = ".anim",
         .import_func = ImportAnimation,
         .does_depend_on = DoesAnimationDependOn,
