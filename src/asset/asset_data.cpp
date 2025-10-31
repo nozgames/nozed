@@ -20,8 +20,7 @@ const Name* MakeCanonicalAssetName(const char* name)
     return GetName(result.c_str());
 }
 
-AssetData* CreateAssetData(const std::filesystem::path& path)
-{
+AssetData* CreateAssetData(const std::filesystem::path& path) {
     AssetData* a = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData));
     Copy(a->path, sizeof(a->path), path.string().c_str());
     a->name = MakeCanonicalAssetName(path);
@@ -499,6 +498,15 @@ void SortAssets(bool notify) {
     }
 }
 
+fs::path GetTargetPath(AssetData* a) {
+    std::string type_name_lower = ToString(a->importer->type);
+    Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
+    fs::path source_relative_path = fs::relative(a->path, g_editor.asset_paths[a->asset_path_index]);
+    fs::path target_short_path = type_name_lower / GetSafeFilename(source_relative_path.filename().string().c_str());
+    fs::path target_path = g_editor.output_dir / target_short_path;
+    target_path.replace_extension("");
+    return target_path;
+}
 
 bool Rename(AssetData* a, const Name* new_name) {
     assert(a);
@@ -511,6 +519,7 @@ bool Rename(AssetData* a, const Name* new_name) {
     if (fs::exists(new_path))
         return false;
 
+    fs::rename(a->path, new_path);
     a->name = new_name;
 
     return true;

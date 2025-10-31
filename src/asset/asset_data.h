@@ -103,6 +103,7 @@ extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);
 extern void DeleteAsset(AssetData* a);
 extern void SortAssets(bool notify=true);
 extern bool Rename(AssetData* a, const Name* new_name);
+extern std::filesystem::path GetTargetPath(AssetData* a);
 inline bool IsEditing(AssetData* a) { return a->editing; }
 
 inline Bounds2 GetBounds(AssetData* a) { return a->bounds; }

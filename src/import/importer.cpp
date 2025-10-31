@@ -2,29 +2,20 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include <editor.h>
 #include <utils/file_watcher.h>
 #include "asset_manifest.h"
 
 namespace fs = std::filesystem;
 
-struct ImportJob
-{
-    AssetData* ea;
+struct ImportJob {
+    AssetData* asset;
     fs::path source_path;
-    fs::path source_relative_path;
-    fs::path source_meta_path;
-    const Name* source_name;
-    //fs::path target_path;
-    fs::path target_short_path;
-    bool force;
+    fs::path meta_path;
 };
 
-struct Importer
-{
+struct Importer {
     std::atomic<bool> running;
     std::atomic<bool> thread_running;
-    std::queue<ImportJob> queue;
     std::unique_ptr<std::thread> thread;
     std::filesystem::path manifest_path;
     std::mutex mutex;
@@ -37,10 +28,8 @@ static Importer g_importer = {};
 
 static void ExecuteJob(void* data);
 
-static const AssetImporter* FindImporter(const fs::path& ext)
-{
-    for (int i=0; i<ASSET_TYPE_COUNT; i++)
-    {
+static const AssetImporter* FindImporter(const fs::path& ext) {
+    for (int i=0; i<ASSET_TYPE_COUNT; i++) {
         AssetImporter* importer = &g_editor.importers[i];
         if (ext == importer->ext)
             return importer;
@@ -49,8 +38,8 @@ static const AssetImporter* FindImporter(const fs::path& ext)
     return nullptr;
 }
 
-bool InitImporter(AssetData* ea) {
-    fs::path path = ea->path;
+bool InitImporter(AssetData* a) {
+    fs::path path = a->path;
     if (!fs::exists(path))
         return false;
 
@@ -58,56 +47,40 @@ bool InitImporter(AssetData* ea) {
     if (!importer)
         return false;
 
-    ea->importer = importer;
-    ea->type = importer->type;
+    a->importer = importer;
+    a->type = importer->type;
     return true;
 }
 
-static void QueueImport(AssetData* ea, bool force)
-{
-    fs::path path = ea->path;
+static void QueueImport(AssetData* a) {
+    fs::path path = a->path;
     if (!fs::exists(path))
         return;
 
-    if (!ea->importer)
+    if (!a->importer)
         return;
 
-    std::string type_name_lower = ToString(ea->importer->type);
-    Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
-
-    fs::path source_relative_path = fs::relative(path, g_editor.asset_paths[ea->asset_path_index]);
-    fs::path target_short_path = type_name_lower / GetSafeFilename(source_relative_path.filename().string().c_str());
-    fs::path target_path = g_editor.output_dir / target_short_path;
+    fs::path target_path = GetTargetPath(a);
     fs::path source_meta_path = path;
     source_meta_path += ".meta";
-    target_path.replace_extension("");
-    target_short_path.replace_extension("");
 
     bool target_exists = fs::exists(target_path);
     bool meta_changed = !target_exists || (fs::exists(source_meta_path) && CompareModifiedTime(source_meta_path, target_path) > 0);
     bool source_changed = !target_exists || CompareModifiedTime(path, target_path) > 0;
     bool config_changed = !target_exists || CompareModifiedTime(g_editor.config_timestamp, fs::last_write_time(target_path)) > 0;
 
-    if (!force && !meta_changed && !source_changed && !config_changed)
+    if (!meta_changed && !source_changed && !config_changed)
         return;
-
-    fs::path source_name = source_relative_path;
-    source_name.replace_extension("");
 
     std::lock_guard lock(g_importer.mutex);
     g_importer.jobs.push_back(CreateJob(ExecuteJob, new ImportJob{
-        .ea = ea,
+        .asset = a,
         .source_path = fs::path(path).make_preferred(),
-        .source_relative_path = source_relative_path.make_preferred(),
-        .source_meta_path = source_meta_path.make_preferred(),
-        .source_name = GetName(source_name.string().c_str()),
-        .target_short_path = target_short_path,
-        .force = force
+        .meta_path = source_meta_path.make_preferred()
     }, g_importer.post_import_job));
 }
 
-void QueueImport(const fs::path& path)
-{
+void QueueImport(const fs::path& path) {
     const AssetImporter* importer = FindImporter(path.extension());
     if (!importer)
         return;
@@ -120,27 +93,24 @@ void QueueImport(const fs::path& path)
     if (!ea)
         return;
 
-    QueueImport(ea, false);
+    QueueImport(ea);
 }
 
-static void HandleFileChangeEvent(const FileChangeEvent& event)
-{
+static void HandleFileChangeEvent(const FileChangeEvent& event) {
     if (event.type == FILE_CHANGE_TYPE_DELETED)
         return;
 
     fs::path source_ext = event.path.extension();
-    if (source_ext == ".meta")
-    {
+    if (source_ext == ".meta") {
         fs::path target_path = event.path;
         target_path.replace_extension("");
         QueueImport(target_path);
-    }
-    else
+    } else {
         QueueImport(event.path);
+    }
 }
 
-static void ExecuteJob(void* data)
-{
+static void ExecuteJob(void* data) {
     ImportJob* job = (ImportJob*)data;
     std::unique_ptr<ImportJob> job_guard(job);
 
@@ -154,8 +124,7 @@ static void ExecuteJob(void* data)
     Props* meta = nullptr;
     std::filesystem::path meta_path = job->source_path;
     meta_path += ".meta";
-    if (auto meta_stream = LoadStream(nullptr, meta_path))
-    {
+    if (auto meta_stream = LoadStream(nullptr, meta_path)) {
         meta = Props::Load(meta_stream);
         Free(meta_stream);
     }
@@ -165,12 +134,12 @@ static void ExecuteJob(void* data)
 
     std::unique_ptr<Props> meta_guard(meta);
 
-    job->ea->importer->import_func(job->ea, target_stream, g_config, meta);
+    job->asset->importer->import_func(job->asset, target_stream, g_config, meta);
 
     fs::path target_dir =
         g_editor.output_dir /
-        ToString(job->ea->importer->type) /
-        job->ea->name->value;
+        ToString(job->asset->importer->type) /
+        job->asset->name->value;
 
     std::string target_dir_lower = target_dir.string();
     Lowercase(target_dir_lower.data(), (u32)target_dir_lower.size());
@@ -185,28 +154,36 @@ static void ExecuteJob(void* data)
 
     g_importer.mutex.lock();
     g_importer.import_events.push_back({
-        .name =  job->ea->name,
-        .type = job->ea->importer->type,
-        .target_path = job->target_short_path
+        .name =  job->asset->name,
+        .type = job->asset->importer->type
     });
     g_importer.mutex.unlock();
 }
 
-static void CleanupOrphanedAssets()
-{
-    // todo: handle deleted files.
+static void CleanupOrphanedAssets() {
+    std::set<fs::path> source_paths;
+    for (u32 i=0, c=GetAssetCount(); i<c; i++)
+        source_paths.insert(GetTargetPath(GetAssetData(i)));
+
+    std::vector<fs::path> target_paths;
+    GetFilesInDirectory(g_editor.output_dir, target_paths);
+
+    for (const fs::path& target_path : target_paths) {
+        if (!source_paths.contains(target_path)) {
+            fs::remove(target_path);
+            AddNotification(NOTIFICATION_TYPE_INFO, "Removed '%s'", target_path.filename().string().c_str());
+        }
+    }
 }
 
-static void PostImportJob(void *data)
-{
+static void PostImportJob(void *data) {
     (void)data;
 
     GenerateAssetManifest(g_editor.output_dir, g_importer.manifest_path, g_config);
     CleanupOrphanedAssets();
 }
 
-static bool UpdateJobs()
-{
+static bool UpdateJobs() {
     std::lock_guard lock(g_importer.mutex);
     int old_job_count = (int)g_importer.jobs.size();
     if (!IsDone(g_importer.post_import_job))
@@ -215,8 +192,7 @@ static bool UpdateJobs()
     if (old_job_count == 0)
         return false;
 
-    for (int i=0; i<g_importer.jobs.size(); )
-    {
+    for (int i=0; i<g_importer.jobs.size(); ) {
         if (IsDone(g_importer.jobs[i]))
             g_importer.jobs.erase(g_importer.jobs.begin() + i);
         else
@@ -232,21 +208,20 @@ static bool UpdateJobs()
     return true;
 }
 
-void WaitForImportJobs()
-{
+void WaitForImportJobs() {
     while (g_importer.running && UpdateJobs())
         ThreadYield();
 }
 
 static void InitialImport() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++)
-        QueueImport(GetAssetData(i), false);
+        QueueImport(GetAssetData(i));
 
     WaitForImportJobs();
+    CleanupOrphanedAssets();
 }
 
-static void RunImporter()
-{
+static void RunImporter() {
     if (g_editor.asset_path_count == 0)
         return;
 
@@ -257,8 +232,7 @@ static void RunImporter()
     dirs[g_editor.asset_path_count] = nullptr;
     InitFileWatcher(500, dirs);
 
-    while (g_importer.running)
-    {
+    while (g_importer.running) {
         ThreadYield();
 
         FileChangeEvent event;
@@ -269,8 +243,7 @@ static void RunImporter()
     ShutdownFileWatcher();
 }
 
-void UpdateImporter()
-{
+void UpdateImporter() {
     if (UpdateJobs())
         return;
 
@@ -302,8 +275,7 @@ void InitImporter() {
     InitialImport();
 }
 
-void ShutdownImporter()
-{
+void ShutdownImporter() {
     if (!g_importer.thread_running)
         return;
 

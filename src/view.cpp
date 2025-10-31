@@ -769,7 +769,6 @@ void InitView() {
     Free(builder);
 
     InitGrid(ALLOCATOR_DEFAULT);
-    InitNotifications();
     g_view.state = VIEW_STATE_DEFAULT;
 
     static Shortcut shortcuts[] = {

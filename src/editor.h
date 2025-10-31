@@ -104,7 +104,6 @@ extern const char* GetVarTypeNameFromAssetType(AssetType asset_type);
 struct ImportEvent {
     const Name* name;
     AssetType type;
-    std::filesystem::path target_path;
 };
 
 extern void InitImporter();

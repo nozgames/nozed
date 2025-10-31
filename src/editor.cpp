@@ -252,6 +252,7 @@ int main(int argc, const char* argv[]) {
 
     InitAssetData();
     LoadAssetData();
+    InitNotifications();
     InitImporter();
     InitWindow();
     PostLoadAssetData();
