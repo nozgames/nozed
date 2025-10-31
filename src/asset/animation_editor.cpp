@@ -28,6 +28,7 @@ struct AnimationEditor {
     bool onion_skin;
     InputSet* input;
     Shortcut* shortcuts;
+    AnimationFrameData clipboard;
 };
 
 static AnimationEditor g_animation_editor = {};
@@ -556,13 +557,33 @@ static void RemoveHoldFrame() {
     MarkModified();
 }
 
-void BeginAnimationEditor() {
+static void CopyKeys() {
+    AnimationData* n = GetAnimationData();
+    for (int bone_index=0; bone_index<MAX_BONES; bone_index++)
+        g_animation_editor.clipboard.transforms[bone_index] = n->frames[n->current_frame].transforms[bone_index];
+}
+
+static void PasteKeys() {
+    RecordUndo();
+
+    AnimationData* n = GetAnimationData();
+    for (int bone_index=0; bone_index<MAX_BONES; bone_index++) {
+        if (!IsBoneSelected(bone_index))
+            continue;
+        n->frames[n->current_frame].transforms[bone_index] = g_animation_editor.clipboard.transforms[bone_index];
+    }
+
+    MarkModified();
+    UpdateTransforms(n);
+}
+
+static void BeginAnimationEditor() {
     ClearSelection();
     SetDefaultState();
     PushInputSet(g_animation_editor.input);
 }
 
-void EndAnimationEditor() {
+static void EndAnimationEditor() {
     SetDefaultState();
     PopInputSet();
 }
@@ -585,6 +606,8 @@ void InitAnimationEditor() {
         { KEY_H, false, false, false, AddHoldFrame },
         { KEY_H, false, true, false, RemoveHoldFrame },
         { KEY_O, true, false, false, ToggleOnionSkin },
+        { KEY_C, false, true, false, CopyKeys },
+        { KEY_V, false, true, false, PasteKeys },
         { INPUT_CODE_NONE }
     };
 

@@ -202,7 +202,7 @@ void SaveAssetData() {
     }
 
     if (count > 0)
-        AddNotification("Saved %d asset(s)", count);
+        AddNotification(NOTIFICATION_TYPE_INFO, "Saved %d asset(s)", count);
 }
 
 bool OverlapPoint(AssetData* ea, const Vec2& overlap_point)
@@ -497,4 +497,21 @@ void SortAssets(bool notify) {
         if (a->vtable.on_sort_order_changed)
             a->vtable.on_sort_order_changed(a);
     }
+}
+
+
+bool Rename(AssetData* a, const Name* new_name) {
+    assert(a);
+    assert(new_name);
+
+    if (a->name == new_name)
+        return true;
+
+    fs::path new_path = fs::path(a->path).parent_path() / (std::string(new_name->value) + fs::path(a->path).extension().string());
+    if (fs::exists(new_path))
+        return false;
+
+    a->name = new_name;
+
+    return true;
 }

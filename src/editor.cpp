@@ -91,7 +91,7 @@ void HandleImported(EventId event_id, const void* event_data) {
     AssetLoadedEvent event = { import_event->name, import_event->type };
     Send(EVENT_HOTLOAD, &event);
 
-    AddNotification("imported '%s'", import_event->name->value);
+    AddNotification(NOTIFICATION_TYPE_INFO, "imported '%s'", import_event->name->value);
 
     BroadcastAssetChange(import_event->name, import_event->type);
 }

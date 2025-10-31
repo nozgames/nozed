@@ -12,17 +12,16 @@ struct Notification
 {
     char text[1024];
     float elapsed;
+    NotificationType type;
 };
 
-struct NotificationSystem
-{
+struct NotificationSystem {
     RingBuffer* buffer;
 };
 
 static NotificationSystem g_notifications = {};
 
-void AddNotification(const char* format, ...)
-{
+void AddNotification(NotificationType type, const char* format, ...) {
     assert(format);
     assert(g_notifications.buffer);
 
@@ -37,26 +36,41 @@ void AddNotification(const char* format, ...)
     va_end(args);
 
     n->elapsed = 0.0f;
+    n->type = type;
 }
 
 void UpdateNotifications() {
+    if (!IsWindowFocused())
+        return;
+
     Canvas([] {
         Align({.alignment = ALIGNMENT_BOTTOM_RIGHT, .margin = EdgeInsetsBottomRight(10)}, [] {
-           Column({.spacing = 10}, [] {
-               for (int i=0, c=g_notifications.buffer->count; i<c; i++) {
-                   Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
-                   n->elapsed += GetFrameTime();
-                   if (n->elapsed > NOTIFICATION_DURATION) {
+            Column({.spacing = 10}, [] {
+                for (int i=0, c=g_notifications.buffer->count; i<c; i++) {
+                    Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
+                    n->elapsed += GetFrameTime();
+                    if (n->elapsed > NOTIFICATION_DURATION) {
                        PopFront(g_notifications.buffer);
                        i--;
                        c--;
                        continue;
-                   }
+                    }
 
-                   Container({.width=300, .height=40, .padding=EdgeInsetsAll(10), .color=COLOR_UI_BACKGROUND}, [n] {
-                        Label(n->text, {.font = FONT_SEGUISB, .font_size=18, .color=COLOR_WHITE});
-                   });
-               }
+                    Container({
+                        .width=300,
+                        .height=40,
+                        .padding=EdgeInsetsAll(10),
+                        .color=COLOR_UI_BACKGROUND,
+                        .border={.width=UI_BORDER_WIDTH, .color=COLOR_UI_BORDER}},
+                    [n] {
+                        Label(n->text, {
+                            .font=FONT_SEGUISB,
+                            .font_size=18,
+                            .color=n->type == NOTIFICATION_TYPE_ERROR
+                                ? COLOR_UI_ERROR_TEXT
+                                : COLOR_UI_TEXT});
+                    });
+                }
            });
         });
     });

@@ -54,7 +54,13 @@ void UpdateCommandInput() {
 
     Canvas([] {
         Align({.alignment={.y=1}, .margin=EdgeInsetsBottom(40)}, [] {
-            Container({.width=600, .height=50, .padding=EdgeInsetsLeft(10), .color=COLOR_UI_BACKGROUND}, [] {
+            Container({
+                .width=600,
+                .height=50,
+                .padding=EdgeInsetsLeft(10),
+                .color=COLOR_UI_BACKGROUND,
+                .border={.width=UI_BORDER_WIDTH, .color=COLOR_UI_BORDER}},
+                [] {
                 Row([] {
                     const TextInput& i = GetTextInput();
                     if (g_command_input.prefix) {

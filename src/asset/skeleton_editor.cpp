@@ -440,20 +440,6 @@ static void RenameBoneCommand(const Command& command) {
     EndUndoGroup();
 }
 
-// static const Name* SkeletonViewCommandPreview(const Command& command) {
-//     SkeletonData* s = GetSkeletonData();
-//     if (s->selected_bone_count != 1)
-//         return NAME_NONE;
-//
-//     if (command.name != NAME_RENAME && command.name != NAME_R)
-//         return NAME_NONE;
-//
-//     if (command.arg_count <= 0)
-//         return s->bones[GetFirstSelectedBoneIndex()].name;
-//
-//     return NAME_NONE;
-// }
-
 static void BeginRenameCommand() {
     static CommandHandler commands[] = {
         {NAME_NONE, NAME_NONE, RenameBoneCommand},

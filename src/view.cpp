@@ -401,11 +401,6 @@ void UpdateView() {
     EndRenderFrame();
 }
 
-void HandleRename(const Name* name) {
-    if (g_view.vtable.rename)
-        g_view.vtable.rename(name);
-}
-
 void InitViewUserConfig(Props* user_config){
     g_view.light_dir = user_config->GetVec2("view", "light_direction", g_view.light_dir);
     SetPosition(g_view.camera, user_config->GetVec2("view", "camera_position", VEC2_ZERO));
@@ -596,20 +591,10 @@ static void NewAssetCommand(const Command& command) {
     SaveAssetData();
 }
 
-static void RenameAssetCommand(const Command& command) {
-    if (command.arg_count < 1) {
-        LogError("missing name");
-        return;
-    }
-
-    HandleRename(GetName(command.args[0]));
-}
-
 static void BeginCommandInput() {
     static CommandHandler commands[] = {
         { NAME_S, NAME_SAVE, SaveAssetsCommand },
         { NAME_N, NAME_NEW, NewAssetCommand },
-        { NAME_R, NAME_RENAME, RenameAssetCommand },
         { nullptr, nullptr, nullptr }
     };
 
@@ -638,6 +623,39 @@ static void PrevPalette() {
 static void NextPalette() {
     SetPalette((g_view.active_palette_index + 1) % g_view.palette_count);
 }
+
+static void HandleRenameCommand(const Command& command) {
+    AssetData* a = GetFirstSelectedAsset();
+    if (!a)
+        return;
+
+    if (!command.name) {
+        AddNotification(NOTIFICATION_TYPE_ERROR, "invalid name");
+        return;
+    }
+
+    MarkModified(a);
+    RecordUndo(a);
+    if (!Rename(a, command.name))
+        AddNotification(NOTIFICATION_TYPE_ERROR, "rename failed");
+}
+
+static void RenameAsset() {
+    static CommandHandler commands[] = {
+        {NAME_NONE, NAME_NONE, HandleRenameCommand},
+        {nullptr, nullptr, nullptr}
+    };
+
+    if (g_view.selected_asset_count != 1)
+        return;
+
+    AssetData* a = GetFirstSelectedAsset();
+    BeginCommandInput({
+        .commands = commands,
+        .placeholder = a->name->value
+    });
+}
+
 
 // @shortcut
 static Shortcut g_common_shortcuts[] = {
@@ -762,6 +780,7 @@ void InitView() {
         { KEY_RIGHT_BRACKET, false, true, false, BringToFront },
         { KEY_LEFT_BRACKET, false, true, false, SendToBack },
         { KEY_SEMICOLON, false, false, true, BeginCommandInput },
+        { KEY_F2, false, false, false, RenameAsset },
         { INPUT_CODE_NONE }
     };
 

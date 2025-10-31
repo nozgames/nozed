@@ -279,6 +279,15 @@ static AnimationData* LoadAnimationData(const std::filesystem::path& path) {
     return n;
 }
 
+static void SerializeTransform(Stream* stream, const Transform& transform) {
+    BoneTransform bone_transform = {
+        .position = transform.position,
+        .scale = transform.scale,
+        .rotation = transform.rotation
+    };
+    WriteStruct(stream, bone_transform);
+}
+
 void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
     assert(s);
 
@@ -298,21 +307,20 @@ void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
     for (int i=0; i<s->bone_count; i++)
         WriteU8(output_stream, (u8)n->bones[i].index);
 
-    for (int frame_index=0; frame_index<n->frame_count; frame_index++)
-    {
-        AnimationFrameData& enf = n->frames[frame_index];
-        for (int hold_index=0; hold_index<enf.hold + 1; hold_index++)
-        {
-            for (int bone_index=0; bone_index<s->bone_count; bone_index++)
-            {
-                Transform& transform = enf.transforms[bone_index];
-                BoneTransform bone_transform = {
-                    .position = transform.position,
-                    .scale = transform.scale,
-                    .rotation = transform.rotation
-                };
+    for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
+        AnimationFrameData& f = n->frames[frame_index];
+        for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+            SerializeTransform(output_stream, f.transforms[bone_index]);
 
-                WriteStruct(output_stream, bone_transform);
+        if (f.hold == 0)
+            continue;
+
+        AnimationFrameData& nf = n->frames[(frame_index + 1) % n->frame_count];
+        for (int i=0; i<f.hold; i++) {
+            for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+                const Transform& t = f.transforms[bone_index];
+                const Transform& nt = nf.transforms[bone_index];
+                SerializeTransform(output_stream, Mix(t, nt, (float)(i + 1) / (float)(f.hold + 1)));
             }
         }
     }

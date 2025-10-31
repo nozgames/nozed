@@ -12,6 +12,11 @@ constexpr int MAX_PALETTES = 16;
 
 #include <asset/asset_data.h>
 
+enum NotificationType {
+    NOTIFICATION_TYPE_INFO,
+    NOTIFICATION_TYPE_ERROR
+};
+
 enum ViewState
 {
     VIEW_STATE_DEFAULT,
@@ -132,7 +137,7 @@ extern void RemoveFromUndoRedo(AssetData* a);
 // @notifications
 extern void InitNotifications();
 extern void UpdateNotifications();
-extern void AddNotification(const char* format, ...);
+extern void AddNotification(NotificationType type, const char* format, ...);
 
 // @draw
 extern void DrawRect(const Rect& rect);
@@ -173,8 +178,12 @@ constexpr Color COLOR_SELECTED = { 1,1,1,1 };
 constexpr Color COLOR_CENTER = { 1, 1, 1, 0.5f};
 constexpr Color COLOR_BONE = COLOR_BLACK;
 constexpr Color COLOR_BONE_SELECTED = COLOR_EDGE_SELECTED;
-constexpr Color COLOR_UI_BACKGROUND = Color24ToColor(0x343c4a);
-constexpr Color COLOR_UI_TEXT = Color24ToColor(0xc5c5cb);
+constexpr Color COLOR_UI_BACKGROUND = Color24ToColor(0x303845);
+constexpr Color COLOR_UI_BORDER = Color24ToColor(0x2c323c);
+constexpr Color COLOR_UI_TEXT = Color24ToColor(0xdcdfe4);
+constexpr Color COLOR_UI_ERROR_TEXT = Color24ToColor(0xdf6b6d);
 constexpr Color COLOR_UI_BUTTON_HOVER = Color24ToColor(0x76a8ff);
 constexpr Color COLOR_UI_BUTTON = {0.9f, 0.9f, 0.9f, 1.0f};
 constexpr Color COLOR_UI_BUTTON_TEXT = COLOR_UI_BACKGROUND;
+
+constexpr float UI_BORDER_WIDTH = 2.0f;
