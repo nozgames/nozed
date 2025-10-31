@@ -85,15 +85,15 @@ void QueueImport(const fs::path& path) {
     if (!importer)
         return;
 
-    const Name* asset_name = MakeCanonicalAssetName(fs::path(path).replace_extension("").filename().string().c_str());
+    const Name* asset_name = MakeCanonicalAssetName(fs::path(path));
     if (!asset_name)
         return;
 
-    AssetData* ea = GetAssetData(importer->type, asset_name);
-    if (!ea)
+    AssetData* a = GetAssetData(importer->type, asset_name);
+    if (!a)
         return;
 
-    QueueImport(ea);
+    QueueImport(a);
 }
 
 static void HandleFileChangeEvent(const FileChangeEvent& event) {

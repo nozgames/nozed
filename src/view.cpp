@@ -504,15 +504,15 @@ static void SendToBack() {
     SortAssets();
 }
 
-static void DeleteSelectedAsset() {
+static void DeleteSelectedAssets() {
     if (g_view.selected_asset_count == 0)
         return;
 
     ShowConfirmDialog("Delete asset?", [] {
-        for (u32 i=GetAssetCount(); i > 0; i--) {
-            AssetData* a = GetAssetData(i-1);
-            assert(a);
-            if (!a->selected) continue;
+        AssetData* selected[MAX_ASSETS];
+        int selected_count = GetSelectedAssets(selected, MAX_ASSETS);
+        for (int i=0; i<selected_count; i++) {
+            AssetData* a = selected[i];
             RemoveFromUndoRedo(a);
             DeleteAsset(a);
         }
@@ -589,6 +589,33 @@ static void NewAssetCommand(const Command& command) {
 
     SortAssets();
     SaveAssetData();
+}
+
+static void DuplicateAsset() {
+    if (g_view.selected_asset_count == 0) {
+        AddNotification(NOTIFICATION_TYPE_ERROR, "NO ASSET SELECTED");
+        return;
+    }
+
+    AssetData* selected[MAX_ASSETS];
+    int selected_count = GetSelectedAssets(selected, MAX_ASSETS);
+
+    ClearAssetSelection();
+
+    for (int i=0; i<selected_count; i++) {
+        AssetData* a = selected[i];
+        AssetData* d = Duplicate(a);
+        if (!d) {
+            AddNotification(NOTIFICATION_TYPE_ERROR, "DUPLICATE FAILED");
+            continue;
+        }
+
+        d->position = a->position + Vec2{0.5f, -0.5f};
+        SetSelected(d, true);
+    }
+
+    SaveAssetData();
+    BeginMoveTool();
 }
 
 static void BeginCommandInput() {
@@ -773,7 +800,8 @@ void InitView() {
 
     static Shortcut shortcuts[] = {
         { KEY_G, false, false, false, BeginMoveTool },
-        { KEY_X, false, false, false, DeleteSelectedAsset },
+        { KEY_X, false, false, false, DeleteSelectedAssets },
+        { KEY_D, false, true, false, DuplicateAsset },
         { KEY_LEFT_BRACKET, false, false, false, SendBackward },
         { KEY_RIGHT_BRACKET, false, false, false, BringForward },
         { KEY_RIGHT_BRACKET, false, true, false, BringToFront },

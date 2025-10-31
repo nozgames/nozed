@@ -170,6 +170,9 @@ static void RevertToSavedState() {
 }
 
 static void UpdateBoneNames() {
+    if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)
+        return;
+    
     if (!IsAltDown(g_animation_editor.input) && !g_view.show_names)
         return;
 
@@ -467,6 +470,7 @@ static void ResetRotate() {
         SetRotation(GetFrameTransform(n, bone_index, n->current_frame), 0);
     }
 
+    MarkModified();
     UpdateTransforms(n);
 }
 
@@ -504,6 +508,7 @@ static void ResetMove() {
     }
 
     UpdateTransforms(n);
+    MarkModified();
 }
 
 static void HandleSelectAll() {

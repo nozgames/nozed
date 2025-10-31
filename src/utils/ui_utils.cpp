@@ -31,6 +31,7 @@ void UpdateConfirmDialog() {
     if (g_confirm.type == CONFIRM_TYPE_NONE) return;
 
     Canvas([] {
+        GestureBlocker([]{});
         Align({.alignment = ALIGNMENT_CENTER}, [] {
             Container({.width=400, .height=100, .color=COLOR_UI_BACKGROUND}, [] {
                 Column([] {

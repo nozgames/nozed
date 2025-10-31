@@ -433,15 +433,15 @@ std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext)
     return path;
 }
 
-void DeleteAsset(AssetData* ea) {
-    if (fs::exists(ea->path))
-        fs::remove(ea->path);
+void DeleteAsset(AssetData* a) {
+    if (fs::exists(a->path))
+        fs::remove(a->path);
 
-    fs::path meta_path = fs::path(std::string(ea->path) + ".meta");
+    fs::path meta_path = fs::path(std::string(a->path) + ".meta");
     if (fs::exists(meta_path))
         fs::remove(meta_path);
 
-    Free(ea);
+    Free(a);
 }
 
 static int AssetSortFunc(const void* av, const void* bv) {
@@ -520,7 +520,53 @@ bool Rename(AssetData* a, const Name* new_name) {
         return false;
 
     fs::rename(a->path, new_path);
+    Copy(a->path, sizeof(a->path), new_path.string().c_str());
     a->name = new_name;
 
     return true;
+}
+
+AssetData* Duplicate(AssetData* a) {
+    fs::path new_path = GetUniqueAssetPath(a->path);
+    fs::copy(a->path, new_path);
+
+    AssetData* d = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData));
+    Clone(d, a);
+    Copy(d->path, sizeof(d->path), new_path.string().c_str());
+    d->name = MakeCanonicalAssetName(new_path);
+    d->selected = false;
+    SortAssets();
+    QueueImport(new_path);
+    WaitForImportJobs();
+    MarkModified(d);
+    MarkMetaModified(d);
+    return d;
+}
+
+std::filesystem::path GetUniqueAssetPath(const std::filesystem::path& path) {
+    if (!fs::exists(path))
+        return path;
+
+    fs::path parent_path = path.parent_path();
+    fs::path file_name = path.filename();
+    fs::path ext = path.extension();
+    file_name.replace_extension("");
+
+    for (int i=0; ; i++) {
+        fs::path new_path = parent_path / (file_name.string() + "_" + std::to_string(i) + ext.string());
+        if (!fs::exists(new_path))
+            return new_path;
+    }
+}
+
+int GetSelectedAssets(AssetData** out_assets, int max_assets) {
+    int selected_count = 0;
+    for (u32 i=0, c=GetAssetCount(); i<c && selected_count < max_assets; i++) {
+        AssetData* a = GetAssetData(i);
+        assert(a);
+        if (!a->selected) continue;
+        out_assets[selected_count++] = a;
+    }
+
+    return selected_count;
 }

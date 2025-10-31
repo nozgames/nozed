@@ -68,6 +68,9 @@ static void ProcessFile(const fs::path& watch_path, const fs::path& path)
         return;
     }
 
+    if (!fs::exists(path))
+        return;
+    
     size_t file_size = fs::file_size(path);
     fs::file_time_type file_time = fs::last_write_time(path);
 

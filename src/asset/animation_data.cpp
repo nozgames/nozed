@@ -303,6 +303,7 @@ void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
 
     WriteU8(output_stream, (u8)s->bone_count);
     WriteU8(output_stream, (u8)real_frame_count);
+    WriteU8(output_stream, (u8)g_config->GetInt("animation", "frame_rate", ANIMATION_FRAME_RATE));
 
     for (int i=0; i<s->bone_count; i++)
         WriteU8(output_stream, (u8)n->bones[i].index);
