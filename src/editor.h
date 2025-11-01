@@ -61,7 +61,7 @@ struct Editor {
     std::filesystem::path output_dir;
 
     PoolAllocator* asset_allocator;
-    int sorted_assets[MAX_ASSETS];
+    int assets[MAX_ASSETS];
 
     AssetData* editing_asset;
 

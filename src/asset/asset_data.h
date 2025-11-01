@@ -18,7 +18,6 @@ struct AssetVtable {
     bool (*overlap_bounds)(AssetData* a, const Bounds2& hit_bounds);
     void (*clone)(AssetData* a);
     void (*undo_redo)(AssetData* a);
-    void (*on_sort_order_changed)(AssetData* a);
 
     void (*editor_begin)();
     void (*editor_end)();
@@ -44,7 +43,6 @@ struct AssetData {
     bool editor_only;
     AssetVtable vtable;
     Bounds2 bounds;
-    int sort_order;
     const AssetImporter* importer;
 };
 
@@ -66,7 +64,7 @@ extern AssetData* GetAssetData(const std::filesystem::path& path);
 
 inline AssetData* GetAssetData(u32 index) {
     assert(index < GetAssetCount());
-    AssetData* a = GetAssetDataInternal(g_editor.sorted_assets[index]);
+    AssetData* a = GetAssetDataInternal(g_editor.assets[index]);
     assert(a);
     return a;
 }
@@ -101,7 +99,7 @@ extern bool InitImporter(AssetData* a);
 extern const Name* MakeCanonicalAssetName(const char* name);
 extern const Name* MakeCanonicalAssetName(const std::filesystem::path& path);
 extern void DeleteAsset(AssetData* a);
-extern void SortAssets(bool notify=true);
+extern void SortAssets();
 extern bool Rename(AssetData* a, const Name* new_name);
 extern AssetData* Duplicate(AssetData* a);
 extern std::filesystem::path GetTargetPath(AssetData* a);

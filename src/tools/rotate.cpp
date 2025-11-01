@@ -36,9 +36,9 @@ static void UpdateArcMesh() {
         PushScratch();
         MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_SCRATCH, 128, 384);
         if (g_rotate.angle < 0)
-            AddArc(builder, VEC2_ZERO, g_rotate.radius, g_rotate.angle, 0.0f, 32, VEC2_ZERO);
+            AddArc(builder, VEC3_ZERO, g_rotate.radius, g_rotate.angle, 0.0f, 32, VEC2_ZERO);
         else
-            AddArc(builder, VEC2_ZERO, g_rotate.radius, 0.0f, g_rotate.angle, 32, VEC2_ZERO);
+            AddArc(builder, VEC3_ZERO, g_rotate.radius, 0.0f, g_rotate.angle, 32, VEC2_ZERO);
 
         g_rotate.arc_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, true);
         Free(builder);

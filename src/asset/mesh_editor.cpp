@@ -12,7 +12,6 @@ enum MeshEditorMode {
 };
 
 struct MeshEditorVertex {
-    float saved_height;
     float saved_edge_size;
     Vec2 saved_position;
 };
@@ -35,7 +34,7 @@ struct MeshEditor {
 
 static MeshEditor g_mesh_editor = {};
 
-extern int SplitFaces(MeshData* em, int v0, int v1);
+extern int SplitFaces(MeshData* m, int v0, int v1);
 static void HandleBoxSelect(const Bounds2& bounds);
 
 inline MeshData* GetMeshData() {
@@ -245,7 +244,6 @@ static void SaveMeshState() {
         VertexData& v = m->vertices[i];
         ev.saved_position = v.position;
         ev.saved_edge_size = v.edge_size;
-        ev.saved_height = v.height;
     }
 }
 
@@ -256,7 +254,6 @@ static void RevertMeshState() {
         VertexData& ev = em->vertices[i];
         MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
         ev.position = mvv.saved_position;
-        ev.height = mvv.saved_height;
         ev.edge_size = mvv.saved_edge_size;
     }
 

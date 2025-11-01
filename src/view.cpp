@@ -300,7 +300,6 @@ static void UpdateViewInternal() {
 
 void DrawView() {
     BindCamera(g_view.camera);
-    BindLight(Normalize(Vec3{g_view.light_dir.x, g_view.light_dir.y, 0.0f}), COLOR_WHITE, COLOR_BLACK);
     DrawGrid(g_view.camera);
 
     Bounds2 camera_bounds = GetBounds(g_view.camera);
@@ -443,8 +442,12 @@ static void BringForward() {
         if (!a->selected)
             continue;
 
-        a->sort_order += 11;
-        MarkMetaModified(a);
+        if (a->type == ASSET_TYPE_MESH) {
+            MeshData* m = static_cast<MeshData*>(a);
+            m->depth = Clamp(m->depth+1, MIN_DEPTH, MAX_DEPTH);
+            MarkDirty(m);
+            MarkModified(a);
+        }
     }
     EndUndoGroup();
     SortAssets();
@@ -461,7 +464,6 @@ static void BringToFront() {
         if (!a->selected)
             continue;
 
-        a->sort_order = 100000;
         MarkMetaModified(a);
     }
     EndUndoGroup();
@@ -479,8 +481,12 @@ static void SendBackward() {
         if (!a->selected)
             continue;
 
-        a->sort_order-=11;
-        MarkMetaModified(a);
+        if (a->type == ASSET_TYPE_MESH) {
+            MeshData* m = static_cast<MeshData*>(a);
+            m->depth = Clamp(m->depth-1, MIN_DEPTH, MAX_DEPTH);
+            MarkDirty(m);
+            MarkModified(a);
+        }
     }
     EndUndoGroup();
     SortAssets();
@@ -497,7 +503,6 @@ static void SendToBack() {
         if (!a->selected)
             continue;
 
-        a->sort_order = -100000;
         MarkModified(a);
     }
     EndUndoGroup();
@@ -581,7 +586,6 @@ static void NewAssetCommand(const Command& command) {
         return;
 
     a->position = GetCenter(GetBounds(g_view.camera));
-    a->sort_order = 100000;
     MarkMetaModified(a);
 
     if (a->vtable.post_load)
@@ -747,40 +751,40 @@ void InitView() {
     EnableButton(g_view.input_tool, MOUSE_LEFT);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
-    AddCircle(builder, VEC2_ZERO, 0.5f, 8, VEC2_ZERO);
+    AddCircle(builder, VEC3_ZERO, 0.5f, 8, VEC2_ZERO);
     g_view.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     Clear(builder);
-    AddVertex(builder, { 0.5f, 0.0f});
-    AddVertex(builder, { 0.0f, 0.4f});
-    AddVertex(builder, { 0.0f,-0.4f});
+    AddVertex(builder, Vec2{ 0.5f, 0.0f});
+    AddVertex(builder, Vec2{ 0.0f, 0.4f});
+    AddVertex(builder, Vec2{ 0.0f,-0.4f});
     AddTriangle(builder, 0, 1, 2);
     g_view.arrow_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     Clear(builder);
-    AddCircle(builder, VEC2_ZERO, 2.0f, 32, VEC2_ZERO);
+    AddCircle(builder, VEC3_ZERO, 2.0f, 32, VEC2_ZERO);
     g_view.circle_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     for (int i=0; i<=100; i++) {
         Clear(builder);
-        AddArc(builder, VEC2_ZERO, 2.0f, -270, -270 + 360.0f * (i / 100.0f), 32, VEC2_ZERO);
+        AddArc(builder, VEC3_ZERO, 2.0f, -270, -270 + 360.0f * (i / 100.0f), 32, VEC2_ZERO);
         g_view.arc_mesh[i] = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
     }
 
     Clear(builder);
-    AddVertex(builder, { -1, -1});
-    AddVertex(builder, {  1, -1});
-    AddVertex(builder, {  1,  1});
-    AddVertex(builder, { -1,  1});
+    AddVertex(builder, Vec2{ -1, -1});
+    AddVertex(builder, Vec2{  1, -1});
+    AddVertex(builder, Vec2{  1,  1});
+    AddVertex(builder, Vec2{ -1,  1});
     AddTriangle(builder, 0, 1, 2);
     AddTriangle(builder, 2, 3, 0);
     g_view.edge_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     Clear(builder);
-    AddVertex(builder, { -0.5f, -0.5f}, VEC3_FORWARD, Vec2{0,1});
-    AddVertex(builder, {  0.5f, -0.5f}, VEC3_FORWARD, Vec2{1,1});
-    AddVertex(builder, {  0.5f,  0.5f}, VEC3_FORWARD, Vec2{1,0});
-    AddVertex(builder, { -0.5f,  0.5f}, VEC3_FORWARD, Vec2{0,0});
+    AddVertex(builder, Vec2{ -0.5f, -0.5f}, Vec2{0,1});
+    AddVertex(builder, Vec2{  0.5f, -0.5f}, Vec2{1,1});
+    AddVertex(builder, Vec2{  0.5f,  0.5f}, Vec2{1,0});
+    AddVertex(builder, Vec2{ -0.5f,  0.5f}, Vec2{0,0});
     AddTriangle(builder, 0, 1, 2);
     AddTriangle(builder, 2, 3, 0);
     g_view.quad_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);

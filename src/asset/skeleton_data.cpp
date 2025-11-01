@@ -17,15 +17,6 @@ void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& positio
         eb->length);
 }
 
-void SortSkin(SkeletonData* s) {
-    qsort(s->skinned_meshes, s->skinned_mesh_count, sizeof(SkinnedMesh),
-        [](void const* a, void const* b) {
-            SkinnedMesh* sma = (SkinnedMesh*)a;
-            SkinnedMesh* smb = (SkinnedMesh*)b;
-            return sma->mesh->sort_order - smb->mesh->sort_order;
-        });
-}
-
 void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
     BindColor(COLOR_WHITE);
     BindDepth(0.0);
@@ -269,7 +260,6 @@ static void PostLoadSkeleton(AssetData* a) {
 
     s->skinned_mesh_count = loaded_skinned_mesh;
 
-    SortSkin(s);
     UpdateTransforms(s);
 }
 
@@ -478,12 +468,6 @@ static void SkeletonUndoRedo(AssetData* a) {
     UpdateTransforms(s);
 }
 
-static void HandleSortOrderChanged(AssetData* a) {
-    assert(a);
-    assert(a->type == ASSET_TYPE_SKELETON);
-    SortSkin(static_cast<SkeletonData*>(a));
-}
-
 static void Init(SkeletonData* s) {
     assert(s);
 
@@ -496,8 +480,7 @@ static void Init(SkeletonData* s) {
         .draw = DrawSkeletonData,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds,
-        .undo_redo = SkeletonUndoRedo,
-        .on_sort_order_changed = HandleSortOrderChanged
+        .undo_redo = SkeletonUndoRedo
     };
 
     InitSkeletonEditor(s);

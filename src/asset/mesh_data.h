@@ -8,10 +8,11 @@ constexpr int MAX_VERTICES = 1024;
 constexpr int MAX_FACES = MAX_VERTICES / 3;
 constexpr int MAX_INDICES = MAX_FACES * 3;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;
+constexpr int MIN_DEPTH = 0;
+constexpr int MAX_DEPTH = 100;
 
 struct VertexData {
     Vec2 position;
-    float height;
     Vec2 edge_normal;
     float edge_size;
     bool selected;
@@ -52,6 +53,7 @@ struct MeshData : AssetData {
     Mesh* mesh;
     Vec2Int edge_color;
     float opacity;
+    int depth;
 };
 
 extern void InitEditorMesh(AssetData* a);
@@ -86,6 +88,5 @@ extern void DrawEdges(MeshData* m, const Mat3& transform);
 extern void DrawSelectedEdges(MeshData* m, const Vec2& position);
 extern void DrawSelectedFaces(MeshData* m, const Vec2& position);
 extern void DrawFaceCenters(MeshData* m, const Vec2& position);
-extern void TriangulateFace(MeshData* m, FaceData* ef, MeshBuilder* builder);
 extern void DissolveEdge(MeshData* m, int edge_index);
 extern int CreateFace(MeshData* m);

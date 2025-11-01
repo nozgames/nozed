@@ -122,8 +122,7 @@ static void DrawGridInternal(Camera* camera, float min_pixels, float grid_spacin
     DrawGridLines(camera, grid_spacing, PRIMARY_GRID_COLOR, alpha);
 }
 
-void DrawGrid(Camera* camera)
-{
+void DrawGrid(Camera* camera) {
     BindDepth(-9.0f);
     BindMaterial(g_grid.material);
     DrawGridInternal(camera, 72.0f, 1.0f, 1, 1);
@@ -132,17 +131,15 @@ void DrawGrid(Camera* camera)
     BindDepth(0.0f);
 }
 
-void InitGrid(Allocator* allocator)
-{
+void InitGrid(Allocator* allocator) {
     g_grid.material = CreateMaterial(allocator, SHADER_UI);
     g_grid.grid_spacing = GRID_SPACING;
 
-    // Create a simple quad mesh for grid lines
     MeshBuilder* builder = CreateMeshBuilder(allocator, 4, 6);
-    AddVertex(builder, { -1, -1});
-    AddVertex(builder, {  1, -1});
-    AddVertex(builder, {  1,  1});
-    AddVertex(builder, { -1,  1});
+    AddVertex(builder, Vec2{-1,-1});
+    AddVertex(builder, Vec2{ 1,-1});
+    AddVertex(builder, Vec2{ 1, 1});
+    AddVertex(builder, Vec2{-1, 1});
     AddTriangle(builder, 0, 1, 2);
     AddTriangle(builder, 2, 3, 0);
     g_grid.quad_mesh = CreateMesh(allocator, builder, NAME_NONE);
@@ -158,7 +155,6 @@ Vec2 SnapToGrid(const Vec2& position) {
     };
 }
 
-void ShutdownGrid()
-{
+void ShutdownGrid() {
     g_grid = {};
 }

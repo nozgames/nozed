@@ -35,10 +35,10 @@ static void DrawTextureEditor() {
     const MeshVertex* vertices = GetVertices(g_view.quad_mesh);
     DrawTextureData(t);
     DrawBounds(t, 0, COLOR_VERTEX_SELECTED);
-    DrawVertex(t->position + vertices[0].position * t->scale);
-    DrawVertex(t->position + vertices[1].position * t->scale);
-    DrawVertex(t->position + vertices[2].position * t->scale);
-    DrawVertex(t->position + vertices[3].position * t->scale);
+    DrawVertex(t->position + XY(vertices[0].position * t->scale));
+    DrawVertex(t->position + XY(vertices[1].position * t->scale));
+    DrawVertex(t->position + XY(vertices[2].position * t->scale));
+    DrawVertex(t->position + XY(vertices[3].position * t->scale));
 }
 
 static void BeginTextureMove() {

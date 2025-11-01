@@ -360,7 +360,6 @@ static void CommitParentTool(const Vec2& position) {
         GetFirstSelectedBoneIndex()
     };
 
-    SortSkin(s);
     MarkModified();
 }
 
@@ -382,7 +381,6 @@ static void CommitUnparentTool(const Vec2& position) {
 
         s->skinned_mesh_count--;
 
-        SortSkin(s);
         MarkModified();
         return;
     }
