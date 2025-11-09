@@ -192,8 +192,8 @@ Mesh* ToMesh(MeshData* m, bool upload) {
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
 
-    float depth_step = 0.45f / (float)(MAX_DEPTH - MIN_DEPTH);
-    float depth = 0.45f * (m->depth - MIN_DEPTH) / (float)(MAX_DEPTH-MIN_DEPTH);
+    float depth = 0.01f + 0.99f * (m->depth - MIN_DEPTH) / (float)(MAX_DEPTH-MIN_DEPTH);
+    float edge_depth = depth - 0.01f * 0.5f;
     for (int i = 0; i < m->face_count; i++)
         TriangulateFace(m, m->faces + i, builder, depth);
 
@@ -209,8 +209,8 @@ Mesh* ToMesh(MeshData* m, bool upload) {
         if (v0.edge_size < 0.01f && v1.edge_size < 0.01f)
             continue;
 
-        Vec3 p0 = {v0.position.x, v0.position.y, depth - depth_step * 0.5f};
-        Vec3 p1 = {v1.position.x, v1.position.y, depth - depth_step * 0.5f};
+        Vec3 p0 = {v0.position.x, v0.position.y, edge_depth};
+        Vec3 p1 = {v1.position.x, v1.position.y, edge_depth};
         u16 base = GetVertexCount(builder);
         AddVertex(builder, p0, edge_uv);
         AddVertex(builder, p0 + ToVec3(v0.edge_normal * v0.edge_size * OUTLINE_WIDTH), edge_uv);

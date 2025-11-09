@@ -446,7 +446,7 @@ bool Rename(AssetData* a, const Name* new_name) {
     a->name = new_name;
 
     fs::path old_meta_path = fs::path(std::string(a->path) + ".meta");
-    fs::path new_meta_path = fs::path(new_meta_path.string() + ".meta");
+    fs::path new_meta_path = fs::path(new_path.string() + ".meta");
     if (fs::exists(old_meta_path)) {
         fs::rename(old_meta_path, new_meta_path);
         return false;

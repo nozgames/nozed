@@ -29,6 +29,7 @@ struct AnimationEditor {
     InputSet* input;
     Shortcut* shortcuts;
     AnimationFrameData clipboard;
+    Vec2 root_motion;
 };
 
 static AnimationEditor g_animation_editor = {};
@@ -204,6 +205,8 @@ static void UpdatePlayState() {
         return;
 
     Update(n->animator);
+    g_animation_editor.root_motion += n->animator.root_motion_delta;
+    LogInfo("%f %f", g_animation_editor.root_motion.x, g_animation_editor.root_motion.y);
 }
 
 static void HandleBoxSelect(const Bounds2& bounds) {
@@ -251,6 +254,8 @@ static void SetDefaultState() {
     AnimationData* n = GetAnimationData();
     if (IsPlaying(n->animator))
         Stop(n->animator);
+
+    g_animation_editor.root_motion = VEC2_ZERO;
 
     UpdateTransforms(n);
 
@@ -345,13 +350,15 @@ void DrawAnimationEditor() {
     AnimationData* n = GetAnimationData();
     SkeletonData* s = GetSkeletonData();
 
+    Vec2 position = n->position + g_animation_editor.root_motion;
+
     BindColor(COLOR_WHITE);
     for (int i=0; i<s->skinned_mesh_count; i++) {
         MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
         if (!skinned_mesh)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(n->position) * n->animator.bones[s->skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh, Translate(position) * n->animator.bones[s->skinned_meshes[i].bone_index]);
     }
 
     if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)
@@ -362,14 +369,14 @@ void DrawAnimationEditor() {
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_EDGE);
     for (int bone_index=0; bone_index<s->bone_count; bone_index++)
-        DrawEditorAnimationBone(n, bone_index, n->position);
+        DrawEditorAnimationBone(n, bone_index, position);
 
     BindColor(COLOR_EDGE_SELECTED);
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
-        DrawEditorAnimationBone(n, bone_index, n->position);
+        DrawEditorAnimationBone(n, bone_index, position);
     }
 }
 
@@ -483,6 +490,8 @@ static void PlayAnimation() {
 
     if (g_animation_editor.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
+
+    g_animation_editor.root_motion = VEC2_ZERO;
 
     SkeletonData* s = GetSkeletonData();
     Init(n->animator, ToSkeleton(ALLOCATOR_DEFAULT, s));

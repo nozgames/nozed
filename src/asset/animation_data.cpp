@@ -242,8 +242,7 @@ static void LoadAnimationData(AssetData* a) {
             ParseSkeleton(n, tk, bone_map);
         else if (ExpectIdentifier(tk, "f"))
             ParseFrame(n, tk, bone_map);
-        else
-        {
+        else {
             char error[1024];
             GetString(tk, error, sizeof(error) - 1);
             ThrowError("invalid token '%s' in animation", error);
@@ -282,8 +281,8 @@ static AnimationData* LoadAnimationData(const std::filesystem::path& path) {
 static void SerializeTransform(Stream* stream, const Transform& transform) {
     BoneTransform bone_transform = {
         .position = transform.position,
-        .scale = transform.scale,
-        .rotation = transform.rotation
+        .rotation = transform.rotation,
+        .scale = transform.scale
     };
     WriteStruct(stream, bone_transform);
 }
@@ -297,13 +296,21 @@ void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
 
+    bool looping = (n->flags & ANIMATION_FLAG_LOOPING) != 0;
+
     int real_frame_count = n->frame_count;
     for (int frame_index=0; frame_index<n->frame_count; frame_index++)
         real_frame_count += n->frames[frame_index].hold;
 
+    if (looping && n->frame_count > 1) {
+        real_frame_count--;
+        real_frame_count -= n->frames[n->frame_count - 1].hold;
+    }
+
     WriteU8(output_stream, (u8)s->bone_count);
     WriteU8(output_stream, (u8)real_frame_count);
     WriteU8(output_stream, (u8)g_config->GetInt("animation", "frame_rate", ANIMATION_FRAME_RATE));
+    WriteU8(output_stream, (u8)n->flags);
 
     for (int i=0; i<s->bone_count; i++)
         WriteU8(output_stream, (u8)n->bones[i].index);
@@ -313,10 +320,17 @@ void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
         for (int bone_index=0; bone_index<s->bone_count; bone_index++)
             SerializeTransform(output_stream, f.transforms[bone_index]);
 
+        if (looping && frame_index == n->frame_count - 1)
+            continue;
+
         if (f.hold == 0)
             continue;
 
-        AnimationFrameData& nf = n->frames[(frame_index + 1) % n->frame_count];
+        int next_frame_index = looping
+            ? (frame_index + 1) % n->frame_count
+            : Min(frame_index + 1, n->frame_count - 1);
+
+        AnimationFrameData& nf = n->frames[next_frame_index];
         for (int i=0; i<f.hold; i++) {
             for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
                 const Transform& t = f.transforms[bone_index];
@@ -324,6 +338,13 @@ void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
                 SerializeTransform(output_stream, Mix(t, nt, (float)(i + 1) / (float)(f.hold + 1)));
             }
         }
+    }
+
+    // Write one more frame at the end for non-looping animations
+    if (!looping || n->frame_count == 1) {
+        AnimationFrameData& f = n->frames[n->frame_count-1];
+        for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+            SerializeTransform(output_stream, f.transforms[bone_index]);
     }
 }
 
@@ -508,11 +529,21 @@ static void HandleAnimationUndoRedo(AssetData* a) {
     UpdateTransforms(n);
 }
 
+static void LoadAnimationMetadata(AssetData* a, Props* meta) {
+    AnimationData* n = static_cast<AnimationData*>(a);
+    n->flags = ANIMATION_FLAG_NONE;
+    if (meta->GetBool("animation", "loop", true))
+        n->flags |= ANIMATION_FLAG_LOOPING;
+    if (meta->GetBool("animation", "root_motion", false))
+        n->flags |= ANIMATION_FLAG_ROOT_MOTION;
+}
+
 static void InitAnimationData(AnimationData* a) {
     a->vtable = {
         .load = LoadAnimationData,
         .post_load = PostLoadAnimationData,
         .save = SaveAnimationData,
+        .load_metadata = LoadAnimationMetadata,
         .draw = DrawAnimationData,
         .overlap_point = EditorAnimationOverlapPoint,
         .overlap_bounds = EditorAnimationOverlapBounds,

@@ -29,6 +29,7 @@ struct AnimationData : AssetData {
     Animation* animation;
     Animator animator;
     int selected_bone_count;
+    AnimationFlags flags;
 };
 
 extern void InitAnimationData(AssetData* a);

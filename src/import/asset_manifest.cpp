@@ -25,6 +25,7 @@ struct BoneIndex {
     std::string skeleton_name;
     std::string name;
     int index;
+    bool last;
 };
 
 struct ManifestGenerator {
@@ -75,12 +76,12 @@ static AssetType ReadAssetHeader(AssetData* ea, ManifestGenerator& generator, st
                 for (uint32_t i = 0; i < header.names; i++) {
                     std::string bone_name = name_table[i]->value;
                     Uppercase(bone_name.data(), (u32)bone_name.size());
-
-                    BoneIndex bone_index;
-                    bone_index.skeleton_name = skeleton_name;
-                    bone_index.name = bone_name;
-                    bone_index.index = (int)i;
-                    generator.bones.push_back(bone_index);
+                    generator.bones.push_back({
+                        .skeleton_name = skeleton_name,
+                        .name = bone_name,
+                        .index = (int)i,
+                        .last = i == header.names - 1
+                    });
                 }
             }
         }
@@ -331,12 +332,14 @@ static void GenerateHeader(ManifestGenerator& generator) {
 
     if (!generator.bones.empty()) {
         WriteCSTR(stream, "\n");
-        for (BoneIndex& bone_index : generator.bones)
-        {
+        for (BoneIndex& bone_index : generator.bones) {
             if (bone_index.index == 0)
                 WriteCSTR(stream, "\n// @BONE_%s\n", bone_index.skeleton_name.c_str());
 
             WriteCSTR(stream, "constexpr int BONE_%s_%s = %d;\n", bone_index.skeleton_name.c_str(), bone_index.name.c_str(), bone_index.index);
+
+            if (bone_index.last)
+                WriteCSTR(stream, "constexpr int BONE_%s_COUNT = %d;\n", bone_index.skeleton_name.c_str(), bone_index.index + 1);
         }
     }
 
