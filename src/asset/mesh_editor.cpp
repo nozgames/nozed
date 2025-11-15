@@ -549,10 +549,8 @@ static void HandleBoxSelect(const Bounds2& bounds) {
     AssetData* ea = GetAssetData();
     MeshData* em = GetMeshData();
 
-    bool shift = IsShiftDown(g_mesh_editor.input);
-    bool ctrl = IsCtrlDown(g_mesh_editor.input);
-
-    if (!shift && !ctrl)
+    bool shift = IsShiftDown();
+    if (!shift)
         ClearSelection();
 
     switch (g_mesh_editor.mode) {
@@ -563,12 +561,8 @@ static void HandleBoxSelect(const Bounds2& bounds) {
             Vec2 vpos = ev.position + ea->position;
 
             if (vpos.x >= bounds.min.x && vpos.x <= bounds.max.x &&
-                vpos.y >= bounds.min.y && vpos.y <= bounds.max.y)
-            {
-                if (!ctrl)
-                    SelectVertex(i, true);
-                else
-                    SelectVertex(i, false);
+                vpos.y >= bounds.min.y && vpos.y <= bounds.max.y) {
+                SelectVertex(i, true);
             }
         }
         break;
@@ -579,12 +573,8 @@ static void HandleBoxSelect(const Bounds2& bounds) {
             EdgeData& ee = em->edges[edge_index];
             Vec2 ev0 = em->vertices[ee.v0].position + ea->position;
             Vec2 ev1 = em->vertices[ee.v1].position + ea->position;
-            if (Intersects(bounds, ev0, ev1))
-            {
-                if (!ctrl)
-                    SelectEdge(edge_index, true);
-                else
-                    SelectEdge(edge_index, false);
+            if (Intersects(bounds, ev0, ev1)) {
+                SelectEdge(edge_index, true);
             }
         }
         break;
@@ -597,12 +587,8 @@ static void HandleBoxSelect(const Bounds2& bounds) {
             Vec2 ev0 = em->vertices[ef.v0].position + ea->position;
             Vec2 ev1 = em->vertices[ef.v1].position + ea->position;
             Vec2 ev2 = em->vertices[ef.v2].position + ea->position;
-            if (Intersects(bounds, ev0, ev1, ev2))
-            {
-                if (!ctrl)
-                    SelectFace(face_index, true);
-                else
-                    SelectFace(face_index, false);
+            if (Intersects(bounds, ev0, ev1, ev2)) {
+                SelectFace(face_index, true);
             }
         }
 #endif

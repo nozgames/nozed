@@ -102,19 +102,16 @@ int GetOrAddEdge(MeshData* m, int v0, int v1, int face_index) {
     int fv0 = Min(v0, v1);
     int fv1 = Max(v0, v1);
 
-    for (int i = 0; i < m->edge_count; i++)
-    {
+    for (int i = 0; i < m->edge_count; i++) {
         EdgeData& ee = m->edges[i];
-        if (ee.v0 == fv0 && ee.v1 == fv1)
-        {
-            if (ee.face_index[0] > face_index)
-            {
+        if (ee.v0 == fv0 && ee.v1 == fv1) {
+            if (ee.face_index[0] > face_index) {
                 int temp = ee.face_index[0];
                 ee.face_index[0] = face_index;
                 ee.face_index[1] = temp;
-            }
-            else
+            } else {
                 ee.face_index[ee.face_count] = face_index;
+            }
 
             ee.face_count++;
             return i;

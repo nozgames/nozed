@@ -204,9 +204,14 @@ static void UpdatePlayState() {
     if (!n->animation)
         return;
 
-    Update(n->animator);
+    Update(n->animator, 1.0f);
+
+    if (!IsPlaying(n->animator)) {
+        Stop(n->animator);
+        Play(n->animator, n->animation, 0, 1.0f);
+    }
+
     g_animation_editor.root_motion += n->animator.root_motion_delta;
-    LogInfo("%f %f", g_animation_editor.root_motion.x, g_animation_editor.root_motion.y);
 }
 
 static void HandleBoxSelect(const Bounds2& bounds) {
@@ -252,8 +257,10 @@ static void SetDefaultState() {
         return;
 
     AnimationData* n = GetAnimationData();
-    if (IsPlaying(n->animator))
+    if (IsPlaying(n->animator)) {
         Stop(n->animator);
+        g_animation_editor.root_motion = VEC2_ZERO;
+    }
 
     g_animation_editor.root_motion = VEC2_ZERO;
 
@@ -495,7 +502,7 @@ static void PlayAnimation() {
 
     SkeletonData* s = GetSkeletonData();
     Init(n->animator, ToSkeleton(ALLOCATOR_DEFAULT, s));
-    Play(n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 1.0f, true);
+    Play(n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 0, 5.0f);
 
     g_animation_editor.state = ANIMATION_VIEW_STATE_PLAY;
     g_animation_editor.state_update = UpdatePlayState;
