@@ -176,6 +176,13 @@ static void GenerateSource(ManifestGenerator& generator)
     WriteCSTR(stream, "#include <noz/noz.h>\n");
     WriteCSTR(stream, "#include \"%s\"\n\n", header_path.filename().string().c_str());
 
+    fs::path build_path = generator.target_path.filename();
+    build_path.replace_extension("");
+
+    WriteCSTR(stream, "#if !defined(DEBUG)\n");
+    WriteCSTR(stream, "#include \"%s\"\n", (build_path.string() + "_build.cpp").c_str());
+    WriteCSTR(stream, "#endif\n");
+
     for (AssetType asset_type : generator.types) {
         const char* type_name = ToString(asset_type);
         std::string type_name_upper = type_name;
