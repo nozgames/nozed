@@ -22,11 +22,13 @@ struct VfxData : AssetData {
     int emitter_count;
     Vfx* vfx;
     VfxHandle handle;
+    bool playing;
 };
 
-extern void InitEditorVfx(AssetData* ea);
+extern void InitVfxData(AssetData* ea);
 extern VfxData* LoadEditorVfx(const std::filesystem::path& path);
 extern Vfx* ToVfx(Allocator* allocator, VfxData* v, const Name* name);
-extern void Serialize(VfxData* evfx, Stream* stream);
+extern void Serialize(VfxData* v, Stream* stream);
 extern VfxData* Clone(Allocator* allocator, VfxData* evfx);
 extern void DrawEditorVfx(AssetData* ea);
+extern AssetData* NewVfxData(const std::filesystem::path& path);

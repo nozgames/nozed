@@ -72,7 +72,7 @@ extern void DissolveSelectedVertices(MeshData* m);
 extern void DissolveSelectedEdges(MeshData* m);
 extern void DissolveSelectedFaces(MeshData* m);
 extern void SetHeight(MeshData* m, int index, float height);
-extern int SplitEdge(MeshData* m, int edge_index, float edge_pos);
+extern int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update=true);
 extern int SplitTriangle(MeshData* m, int triangle_index, const Vec2& position);
 extern int AddVertex(MeshData* m, const Vec2& position);
 extern int RotateEdge(MeshData* m, int edge_index);
@@ -90,3 +90,5 @@ extern void DrawSelectedFaces(MeshData* m, const Vec2& position);
 extern void DrawFaceCenters(MeshData* m, const Vec2& position);
 extern void DissolveEdge(MeshData* m, int edge_index);
 extern int CreateFace(MeshData* m);
+
+extern int GetSelectedEdges(MeshData* m, int edges[MAX_EDGES]);

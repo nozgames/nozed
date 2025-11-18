@@ -111,6 +111,7 @@ extern void ShutdownImporter();
 extern void UpdateImporter();
 extern void QueueImport(const std::filesystem::path& path);
 extern void WaitForImportJobs();
+extern const std::filesystem::path& GetManifestPath();
 
 extern AssetImporter GetShaderImporter();
 extern AssetImporter GetTextureImporter();
@@ -123,6 +124,7 @@ extern AssetImporter GetAnimationImporter();
 
 // @grid
 extern Vec2 SnapToGrid(const Vec2& position);
+extern float SnapAngle(float angle);
 
 // @ui
 extern Color GetButtonHoverColor(ElementState state, float time, void* user_data);
@@ -137,6 +139,9 @@ inline bool IsToolActive() { return g_editor.tool.type != TOOL_TYPE_NONE; }
 extern void InitEditorServer(Props* config);
 extern void UpdateEditorServer();
 extern void ShutdownEditorServer();
+
+// @build
+extern void Build();
 
 #include "asset/asset_data.h"
 #include "view.h"

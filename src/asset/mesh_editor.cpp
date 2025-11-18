@@ -63,8 +63,7 @@ static void UpdateSelection() {
     m->selected_count = 0;
     switch (g_mesh_editor.mode) {
     case MESH_EDITOR_MODE_VERTEX:
-        for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++)
-        {
+        for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
             const VertexData& ev = m->vertices[vertex_index];
             if (!ev.selected)
                 continue;
@@ -76,6 +75,14 @@ static void UpdateSelection() {
 
             m->selected_count++;
         }
+
+        for (int edge_index=0; edge_index<m->edge_count; edge_index++) {
+            EdgeData& ee = m->edges[edge_index];
+            VertexData& v0 = m->vertices[ee.v0];
+            VertexData& v1 = m->vertices[ee.v1];
+            ee.selected = v0.selected && v1.selected;
+        }
+
         break;
 
     case MESH_EDITOR_MODE_EDGE:
@@ -1098,6 +1105,23 @@ void UpdateMeshEditorPalette() {
     SetTexture(g_mesh_editor.color_material, g_view.palettes[g_view.active_palette_index].texture->texture, 0);
 }
 
+static void SubDivide() {
+    MeshData* m = GetMeshData();
+    RecordUndo(m);
+
+    int selected_edges[MAX_EDGES];
+    int selected_edge_count = GetSelectedEdges(m, selected_edges);
+
+    for (int edge_index=0; edge_index<selected_edge_count; edge_index++) {
+        int new_vertex = SplitEdge(GetMeshData(), selected_edges[edge_index], 0.5f, false);
+        SelectVertex(new_vertex, true);
+    }
+
+    UpdateEdges(m);
+    UpdateSelection();
+    MarkModified();
+}
+
 void InitMeshEditor() {
     g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
     if (g_view.palette_count > 0)
@@ -1107,6 +1131,7 @@ void InitMeshEditor() {
         { KEY_G, false, false, false, BeginMoveTool },
         { KEY_R, false, false, false, BeginRotateTool },
         { KEY_S, false, false, false, BeginScaleTool },
+        { KEY_S, false, false, true, SubDivide },
         { KEY_W, false, false, false, BeginOutlineTool },
         { KEY_O, false, false, false, BeginMeshOpacityTool },
         { KEY_A, false, false, false, SelectAll },

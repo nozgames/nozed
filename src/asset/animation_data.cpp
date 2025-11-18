@@ -472,8 +472,6 @@ int HitTestBone(AnimationData* n, const Vec2& world_pos) {
 }
 
 AssetData* NewAnimationData(const std::filesystem::path& path) {
-    (void)path;
-
     if (g_view.selected_asset_count != 1) {
         LogError("no skeleton selected");
         return nullptr;

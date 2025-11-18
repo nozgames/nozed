@@ -8,7 +8,14 @@
 
 
 // @Mesh
-Mesh* MESH_SHADER = nullptr;
+Mesh* MESH_ASSET_ICON_VFX = nullptr;
+Mesh* MESH_ASSET_ICON_SOUND = nullptr;
+Mesh* MESH_ASSET_ICON_SHADER = nullptr;
+Mesh* MESH_ASSET_ICON_FONT = nullptr;
+
+// @Texture
+Texture* TEXTURE_PALETTE = nullptr;
+Texture* TEXTURE_FX = nullptr;
 
 // @Font
 Font* FONT_SEGUISB = nullptr;
@@ -22,14 +29,17 @@ Shader* SHADER_LIT = nullptr;
 Shader* SHADER_SOLID = nullptr;
 
 // @name
+const Name* NAME_VFX = nullptr;
 const Name* NAME_A = nullptr;
 const Name* NAME_E = nullptr;
 const Name* NAME_M = nullptr;
+const Name* NAME_B = nullptr;
 const Name* NAME_R = nullptr;
 const Name* NAME_NEW = nullptr;
-const Name* NAME_N = nullptr;
 const Name* NAME_EDIT = nullptr;
+const Name* NAME_N = nullptr;
 const Name* NAME_S = nullptr;
+const Name* NAME_BUILD = nullptr;
 const Name* NAME_RENAME = nullptr;
 const Name* NAME_SAVE = nullptr;
 const Name* NAME_MESH = nullptr;
@@ -42,22 +52,30 @@ const Name* PATH_SHADER_UI_VIGNETTE = nullptr;
 const Name* PATH_SHADER_UI = nullptr;
 const Name* PATH_SHADER_TEXT = nullptr;
 const Name* PATH_SHADER_LIT = nullptr;
+const Name* PATH_TEXTURE_PALETTE = nullptr;
 const Name* PATH_SHADER_SOLID = nullptr;
-const Name* PATH_MESH_SHADER = nullptr;
+const Name* PATH_TEXTURE_FX = nullptr;
+const Name* PATH_MESH_ASSET_ICON_VFX = nullptr;
+const Name* PATH_MESH_ASSET_ICON_SOUND = nullptr;
+const Name* PATH_MESH_ASSET_ICON_SHADER = nullptr;
+const Name* PATH_MESH_ASSET_ICON_FONT = nullptr;
 const Name* PATH_FONT_SEGUISB = nullptr;
 
 // @load
 bool LoadAssets(Allocator* allocator)
 {
     // @name
+    NAME_VFX = GetName("vfx");
     NAME_A = GetName("a");
     NAME_E = GetName("e");
     NAME_M = GetName("m");
+    NAME_B = GetName("b");
     NAME_R = GetName("r");
     NAME_NEW = GetName("new");
-    NAME_N = GetName("n");
     NAME_EDIT = GetName("edit");
+    NAME_N = GetName("n");
     NAME_S = GetName("s");
+    NAME_BUILD = GetName("build");
     NAME_RENAME = GetName("rename");
     NAME_SAVE = GetName("save");
     NAME_MESH = GetName("mesh");
@@ -70,19 +88,42 @@ bool LoadAssets(Allocator* allocator)
     PATH_SHADER_UI = GetName("ui");
     PATH_SHADER_TEXT = GetName("text");
     PATH_SHADER_LIT = GetName("lit");
+    PATH_TEXTURE_PALETTE = GetName("palette");
     PATH_SHADER_SOLID = GetName("solid");
-    PATH_MESH_SHADER = GetName("shader");
+    PATH_TEXTURE_FX = GetName("fx");
+    PATH_MESH_ASSET_ICON_VFX = GetName("asset_icon_vfx");
+    PATH_MESH_ASSET_ICON_SOUND = GetName("asset_icon_sound");
+    PATH_MESH_ASSET_ICON_SHADER = GetName("asset_icon_shader");
+    PATH_MESH_ASSET_ICON_FONT = GetName("asset_icon_font");
     PATH_FONT_SEGUISB = GetName("seguisb");
 
     // @Mesh
-    NOZ_LOAD_MESH(allocator, PATH_MESH_SHADER, MESH_SHADER);
+    NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_VFX, MESH_ASSET_ICON_VFX);
+    NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_SOUND, MESH_ASSET_ICON_SOUND);
+    NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_SHADER, MESH_ASSET_ICON_SHADER);
+    NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_FONT, MESH_ASSET_ICON_FONT);
 
     static Mesh* _MESH[] = {
-        MESH_SHADER,
+        MESH_ASSET_ICON_VFX,
+        MESH_ASSET_ICON_SOUND,
+        MESH_ASSET_ICON_SHADER,
+        MESH_ASSET_ICON_FONT,
         nullptr
     };
 
     MESH = _MESH;
+
+    // @Texture
+    NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
+    NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_FX, TEXTURE_FX);
+
+    static Texture* _TEXTURE[] = {
+        TEXTURE_PALETTE,
+        TEXTURE_FX,
+        nullptr
+    };
+
+    TEXTURE = _TEXTURE;
 
     // @Font
     NOZ_LOAD_FONT(allocator, PATH_FONT_SEGUISB, FONT_SEGUISB);
@@ -121,7 +162,14 @@ bool LoadAssets(Allocator* allocator)
 void UnloadAssets()
 {
     // @Mesh
-    Free(MESH_SHADER);
+    Free(MESH_ASSET_ICON_VFX);
+    Free(MESH_ASSET_ICON_SOUND);
+    Free(MESH_ASSET_ICON_SHADER);
+    Free(MESH_ASSET_ICON_FONT);
+
+    // @Texture
+    Free(TEXTURE_PALETTE);
+    Free(TEXTURE_FX);
 
     // @Font
     Free(FONT_SEGUISB);
@@ -140,7 +188,14 @@ void UnloadAssets()
 void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
 {
     // @Mesh
-    NOZ_RELOAD_MESH(PATH_MESH_SHADER, MESH_SHADER);
+    NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_VFX, MESH_ASSET_ICON_VFX);
+    NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_SOUND, MESH_ASSET_ICON_SOUND);
+    NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_SHADER, MESH_ASSET_ICON_SHADER);
+    NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_FONT, MESH_ASSET_ICON_FONT);
+
+    // @Texture
+    NOZ_RELOAD_TEXTURE(PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
+    NOZ_RELOAD_TEXTURE(PATH_TEXTURE_FX, TEXTURE_FX);
 
     // @Font
     NOZ_RELOAD_FONT(PATH_FONT_SEGUISB, FONT_SEGUISB);

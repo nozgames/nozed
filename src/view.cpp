@@ -378,7 +378,7 @@ static void UpdateAssetNames() {
         Bounds2 bounds = GetBounds(a);
         Vec2 p = a->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(a).min.y};
         Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,0}}, [a] {
-            Align({.alignment=ALIGNMENT_CENTER, .margin=EdgeInsetsTop(16)}, [a] {
+            Align({.alignment=ALIGNMENT_CENTER_CENTER, .margin=EdgeInsetsTop(16)}, [a] {
                 Label(a->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=a->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
             });
         });
@@ -581,6 +581,8 @@ static void NewAssetCommand(const Command& command) {
         a = NewEditorSkeleton(asset_name->value);
     else if (type == NAME_ANIMATION || type == NAME_A)
         a = NewAnimationData(asset_name->value);
+    else if (type == NAME_VFX)
+        a = NewVfxData(asset_name->value);
 
     if (a == nullptr)
         return;
@@ -622,10 +624,15 @@ static void DuplicateAsset() {
     BeginMoveTool();
 }
 
+static void BuildAssets(const Command&) {
+    Build();
+}
+
 static void BeginCommandInput() {
     static CommandHandler commands[] = {
         { NAME_S, NAME_SAVE, SaveAssetsCommand },
         { NAME_N, NAME_NEW, NewAssetCommand },
+        { NAME_B, NAME_BUILD, BuildAssets },
         { nullptr, nullptr, nullptr }
     };
 
@@ -687,6 +694,18 @@ static void RenameAsset() {
     });
 }
 
+static void PlayAsset() {
+    for (u32 i=0, c=GetAssetCount(); i<c; i++) {
+        AssetData* a = GetAssetData(i);
+        assert(a);
+        if (!a->selected)
+            continue;
+
+        if (a->vtable.play)
+            a->vtable.play(a);
+    }
+}
+
 
 // @shortcut
 static Shortcut g_common_shortcuts[] = {
@@ -698,7 +717,6 @@ static Shortcut g_common_shortcuts[] = {
     { KEY_3, true, false, false, SetDrawModeShaded },
     { KEY_Z, false, true, false, HandleUndo },
     { KEY_Y, false, true, false, HandleRedo },
-    { KEY_S, false, false, true, BeginCommandInput },
     { KEY_TAB, false, false, false, ToggleEdit },
     { KEY_COMMA, false, false, false, PrevPalette },
     { KEY_PERIOD, false, false, false, NextPalette },
@@ -812,6 +830,7 @@ void InitView() {
         { KEY_LEFT_BRACKET, false, true, false, SendToBack },
         { KEY_SEMICOLON, false, false, true, BeginCommandInput },
         { KEY_F2, false, false, false, RenameAsset },
+        { KEY_SPACE, false, false, false, PlayAsset },
         { INPUT_CODE_NONE }
     };
 

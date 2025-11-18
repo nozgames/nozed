@@ -14,6 +14,7 @@ struct AssetVtable {
     void (*load_metadata)(AssetData* a, Props* meta);
     void (*save_metadata)(AssetData* a, Props* meta);
     void (*draw)(AssetData* a);
+    void (*play)(AssetData* a);
     bool (*overlap_point)(AssetData* a, const Vec2& position, const Vec2& hit_pos);
     bool (*overlap_bounds)(AssetData* a, const Bounds2& hit_bounds);
     void (*clone)(AssetData* a);
@@ -114,6 +115,9 @@ inline Bounds2 GetBounds(AssetData* a) { return a->bounds; }
 #include "texture_data.h"
 #include "skeleton_data.h"
 #include "vfx_data.h"
+#include "shader_data.h"
+#include "sound_data.h"
+#include "font_data.h"
 
 union FatAssetData {
     AssetData asset;
@@ -122,4 +126,7 @@ union FatAssetData {
     SkeletonData skeleton;
     VfxData vfx;
     AnimationData animation;
+    ShaderData shader;
+    FontData font;
+    SoundData sound;
 };

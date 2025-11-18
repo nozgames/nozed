@@ -9,6 +9,14 @@ static void DrawVfxData(AssetData* a) {
     VfxData* v = static_cast<VfxData*>(a);
     assert(v);
     assert(v->type == ASSET_TYPE_VFX);
+
+    if (!v->playing || v->emitter_count == 0 ) {
+        BindMaterial(g_view.shaded_material);
+        BindColor(COLOR_WHITE);
+        DrawMesh(MESH_ASSET_ICON_VFX, Translate(a->position));
+        return;
+    }
+
     if (!IsPlaying(v->handle) && v->vfx)
         v->handle = Play(v->vfx, a->position);
 }
@@ -256,12 +264,11 @@ static VfxColorCurve ParseColorCurve(const std::string& str, const VfxColorCurve
     return value;
 }
 
-static Bounds2 CalculateBounds(VfxData* evfx)
-{
-    Bounds2 bounds;
-    for (int i=0, c=evfx->emitter_count; i<c; i++)
-    {
-        const VfxEmitterDef& e = evfx->emitters[i].def;
+static Bounds2 CalculateBounds(VfxData* v) {
+    Bounds2 bounds = {-VEC2_ONE * 0.5f, VEC2_ONE * 0.5f};
+
+    for (int i=0, c=v->emitter_count; i<c; i++) {
+        const VfxEmitterDef& e = v->emitters[i].def;
         const VfxParticleDef& p = e.particle_def;
         Bounds2 eb = { e.spawn.min, e.spawn.max };
         float ssmax = Max(p.size.start.min,p.size.start.max);
@@ -282,8 +289,7 @@ static Bounds2 CalculateBounds(VfxData* evfx)
     return bounds;
 }
 
-void Serialize(VfxData* evfx, Stream* stream)
-{
+void Serialize(VfxData* v, Stream* stream) {
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE;
     header.type = ASSET_TYPE_VFX;
@@ -291,20 +297,17 @@ void Serialize(VfxData* evfx, Stream* stream)
     header.flags = 0;
     WriteAssetHeader(stream, &header);
 
-    WriteStruct<Bounds2>(stream, CalculateBounds(evfx));
+    WriteStruct<Bounds2>(stream, CalculateBounds(v));
+    WriteStruct(stream, v->duration);
+    WriteBool(stream, v->loop);
+    WriteU32(stream, v->emitter_count);
 
-    WriteStruct(stream, evfx->duration);
-    WriteBool(stream, evfx->loop);
-
-    WriteU32(stream, evfx->emitter_count);
-    for (int i=0, c=evfx->emitter_count; i<c; i++)
-    {
-        const EditorVfxEmitter& emitter = evfx->emitters[i];
+    for (int i=0, c=v->emitter_count; i<c; i++) {
+        const EditorVfxEmitter& emitter = v->emitters[i];
         WriteStruct(stream, emitter.def.rate);
         WriteStruct(stream, emitter.def.burst);
         WriteStruct(stream, emitter.def.duration);
         WriteStruct(stream, emitter.def.angle);
-        //WriteStruct(stream, emitter.def.radius);
         WriteStruct(stream, emitter.def.spawn);
 
         const VfxParticleDef& particle = emitter.def.particle_def;
@@ -386,6 +389,33 @@ static void LoadVfxData(AssetData* a) {
     v->bounds = GetBounds(v->vfx);
 }
 
+static VfxData* LoadVfxData(const std::filesystem::path& path) {
+    std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
+    Tokenizer tk;
+    Init(tk, contents.c_str());
+
+    VfxData* v = static_cast<VfxData*>(CreateAssetData(path));
+    assert(v);
+    InitVfxData(v);
+    LoadAssetData(v);
+    MarkModified(v);
+    return v;
+}
+
+AssetData* NewVfxData(const std::filesystem::path& path) {
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "vfx" / path : path;
+    full_path += ".vfx";
+
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+    WriteCSTR(stream, "[vfx]\nduration = 1\n");
+    SaveStream(stream, full_path);
+    Free(stream);
+
+    QueueImport(full_path);
+    WaitForImportJobs();
+    return LoadVfxData(full_path);
+}
+
 static bool EditorVfxOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point) {
     VfxData* evfx = (VfxData*)ea;
     assert(evfx);
@@ -422,6 +452,18 @@ static void ReloadVfxData(AssetData* a) {
     v->handle = INVALID_VFX_HANDLE;;
 }
 
+static void PlayVfxData(AssetData* a) {
+    VfxData* v = static_cast<VfxData*>(a);
+    assert(v);
+
+    v->playing = !v->playing;
+
+    if (!v->playing) {
+        Stop(v->handle);
+        v->handle = INVALID_VFX_HANDLE;
+    }
+}
+
 static void Init(VfxData* evfx) {
     evfx->vfx = nullptr;
     evfx->handle = INVALID_VFX_HANDLE;
@@ -429,13 +471,14 @@ static void Init(VfxData* evfx) {
         .load = LoadVfxData,
         .reload = ReloadVfxData,
         .draw = DrawVfxData,
+        .play = PlayVfxData,
         .overlap_point = EditorVfxOverlapPoint,
         .overlap_bounds = EditorVfxOverlapBounds,
         .clone = EditorVfxClone
     };
 }
 
-void InitEditorVfx(AssetData* ea) {
+void InitVfxData(AssetData* ea) {
     assert(ea);
     assert(ea->type == ASSET_TYPE_VFX);
     VfxData* evfx = (VfxData*)ea;

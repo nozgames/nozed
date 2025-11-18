@@ -136,14 +136,12 @@ int GetOrAddEdge(MeshData* m, int v0, int v1, int face_index) {
 void UpdateEdges(MeshData* m) {
     m->edge_count = 0;
 
-    for (int i = 0; i < m->vertex_count; i++)
-    {
+    for (int i = 0; i < m->vertex_count; i++) {
         m->vertices[i].edge_normal = VEC2_ZERO;
         m->vertices[i].ref_count = 0;
     }
 
-    for (int face_index = 0; face_index < m->face_count; face_index++)
-    {
+    for (int face_index = 0; face_index < m->face_count; face_index++) {
         FaceData& ef = m->faces[face_index];
 
         for (int vertex_index = 0; vertex_index<ef.vertex_count - 1; vertex_index++)
@@ -158,8 +156,7 @@ void UpdateEdges(MeshData* m) {
         GetOrAddEdge(m, vs, ve, face_index);
     }
 
-    for (int edge_index=0; edge_index<m->edge_count; edge_index++)
-    {
+    for (int edge_index=0; edge_index<m->edge_count; edge_index++) {
         EdgeData& ee = m->edges[edge_index];
         m->vertices[ee.v0].ref_count++;
         m->vertices[ee.v1].ref_count++;
@@ -170,8 +167,7 @@ void UpdateEdges(MeshData* m) {
         }
     }
 
-    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++)
-    {
+    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
         VertexData& ev = m->vertices[vertex_index];
         if (Length(ev.edge_normal) > F32_EPSILON)
             ev.edge_normal = Normalize(ev.edge_normal);
@@ -622,18 +618,18 @@ int SplitFaces(MeshData* m, int v0, int v1) {
     return GetEdge(m, m->face_vertices[old_face.vertex_offset + v0_pos], m->face_vertices[old_face.vertex_offset + (v0_pos + 1) % old_face.vertex_count]);
 }
 
-int SplitEdge(MeshData* m, int edge_index, float edge_pos) {
+int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update) {
     assert(edge_index >= 0 && edge_index < m->edge_count);
 
     if (m->vertex_count >= MAX_VERTICES)
         return -1;
 
-    if (m->face_count + 2 >= MAX_FACES)
+    if (m->edge_count >= MAX_VERTICES)
         return -1;
 
-    EdgeData& ee = m->edges[edge_index];
-    VertexData& v0 = m->vertices[ee.v0];
-    VertexData& v1 = m->vertices[ee.v1];
+    EdgeData& e = m->edges[edge_index];
+    VertexData& v0 = m->vertices[e.v0];
+    VertexData& v1 = m->vertices[e.v1];
 
     int new_vertex_index = m->vertex_count++;
     VertexData& new_vertex = m->vertices[new_vertex_index];
@@ -641,11 +637,10 @@ int SplitEdge(MeshData* m, int edge_index, float edge_pos) {
     new_vertex.position = (v0.position * (1.0f - edge_pos) + v1.position * edge_pos);
 
     int face_count = m->face_count;
-    for (int face_index = 0; face_index < face_count; face_index++)
-    {
+    for (int face_index = 0; face_index < face_count; face_index++) {
         FaceData& ef = m->faces[face_index];
 
-        int face_edge = GetFaceEdgeIndex(m, ef, ee);
+        int face_edge = GetFaceEdgeIndex(m, ef, e);
         if (face_edge == -1)
             continue;
 
@@ -653,8 +648,10 @@ int SplitEdge(MeshData* m, int edge_index, float edge_pos) {
         m->face_vertices[ef.vertex_offset + face_edge + 1] = new_vertex_index;
     }
 
-    UpdateEdges(m);
-    MarkDirty(m);
+    if (update) {
+        UpdateEdges(m);
+        MarkDirty(m);
+    }
 
     return new_vertex_index;
 }
@@ -1191,6 +1188,19 @@ static void TriangulateFace(MeshData* m, FaceData* ef, MeshBuilder* builder, flo
         }
         AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
     }
+}
+
+int GetSelectedEdges(MeshData* m, int edges[MAX_EDGES]) {
+    int selected_edge_count=0;
+    for (int edge_index=0; edge_index<m->edge_count; edge_index++) {
+        EdgeData& e = m->edges[edge_index];
+        if (!e.selected)
+            continue;
+
+        edges[selected_edge_count++] = edge_index;
+    }
+
+    return selected_edge_count;
 }
 
 static void Init(MeshData* m) {

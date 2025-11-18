@@ -155,6 +155,11 @@ Vec2 SnapToGrid(const Vec2& position) {
     };
 }
 
+float SnapAngle(float angle) {
+    constexpr float angle_step = 15.0f;
+    return roundf(angle / angle_step) * angle_step;
+}
+
 void ShutdownGrid() {
     g_grid = {};
 }

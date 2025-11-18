@@ -8,7 +8,14 @@
 #include <noz/core_assets.h>
 
 // @Mesh
-extern Mesh* MESH_SHADER;
+extern Mesh* MESH_ASSET_ICON_VFX;
+extern Mesh* MESH_ASSET_ICON_SOUND;
+extern Mesh* MESH_ASSET_ICON_SHADER;
+extern Mesh* MESH_ASSET_ICON_FONT;
+
+// @Texture
+extern Texture* TEXTURE_PALETTE;
+extern Texture* TEXTURE_FX;
 
 // @Font
 extern Font* FONT_SEGUISB;
@@ -22,14 +29,17 @@ extern Shader* SHADER_LIT;
 extern Shader* SHADER_SOLID;
 
 // @name
+extern const Name* NAME_VFX;
 extern const Name* NAME_A;
 extern const Name* NAME_E;
 extern const Name* NAME_M;
+extern const Name* NAME_B;
 extern const Name* NAME_R;
 extern const Name* NAME_NEW;
-extern const Name* NAME_N;
 extern const Name* NAME_EDIT;
+extern const Name* NAME_N;
 extern const Name* NAME_S;
+extern const Name* NAME_BUILD;
 extern const Name* NAME_RENAME;
 extern const Name* NAME_SAVE;
 extern const Name* NAME_MESH;

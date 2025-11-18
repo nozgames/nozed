@@ -261,6 +261,10 @@ void UpdateImporter() {
         Send(EDITOR_EVENT_IMPORTED, &event);
 }
 
+const std::filesystem::path& GetManifestPath() {
+    return g_importer.manifest_path;
+}
+
 void InitImporter() {
     assert(!g_importer.thread_running);
 

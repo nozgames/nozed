@@ -78,9 +78,9 @@ static void UpdateBoneNames() {
     for (u16 i=0; i<s->bone_count; i++) {
         BoneData* b = s->bones + i;
         Mat3 transform = b->local_to_world * Rotate(s->bones[i].transform.rotation);
-        Vec2 p = (TransformPoint(transform) + TransformPoint(transform, Vec2{b->length, 0})) * 0.5f + s->position;
+        Vec2 p = (TransformPoint(Translate(s->position) * transform, Vec2{b->length * 0.5f, }));
         Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [b] {
-            Align({.alignment=ALIGNMENT_CENTER}, [b] {
+            Align({.alignment=ALIGNMENT_CENTER_CENTER}, [b] {
                 Label(b->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=b->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
             });
         });
@@ -236,7 +236,11 @@ static void UpdateMoveTool(const Vec2& delta) {
             continue;
 
         BoneData& b = s->bones[bone_index];
-        b.transform.position = b.saved_transform.position + delta;
+
+        if (IsCtrlDown())
+            b.transform.position = SnapToGrid(s->position + b.saved_transform.position + delta) - s->position;
+        else
+            b.transform.position = b.saved_transform.position + delta;
     }
 
     UpdateTransforms(s);
@@ -272,7 +276,10 @@ static void UpdateRotateTool(float angle) {
             continue;
 
         BoneData& b = s->bones[bone_index];
-        b.transform.rotation = b.saved_transform.rotation + angle;
+        if (IsCtrlDown())
+            b.transform.rotation = SnapAngle(b.saved_transform.rotation + angle);
+        else
+            b.transform.rotation = b.saved_transform.rotation + angle;
     }
 
     UpdateTransforms(s);

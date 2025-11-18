@@ -189,7 +189,7 @@ static void UpdateBoneNames() {
         Vec2 p = TransformPoint(local_to_world, Vec2{b->length * 0.5f, 0});
         AnimationBoneData* nb = &n->bones[bone_index];
         Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [b,nb] {
-            Align({.alignment=ALIGNMENT_CENTER}, [b,nb] {
+            Align({.alignment=ALIGNMENT_CENTER_CENTER}, [b,nb] {
                 Label(b->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=nb->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
             });
         });
@@ -502,7 +502,7 @@ static void PlayAnimation() {
 
     SkeletonData* s = GetSkeletonData();
     Init(n->animator, ToSkeleton(ALLOCATOR_DEFAULT, s));
-    Play(n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 0, 5.0f);
+    Play(n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 0, 1.0f);
 
     g_animation_editor.state = ANIMATION_VIEW_STATE_PLAY;
     g_animation_editor.state_update = UpdatePlayState;

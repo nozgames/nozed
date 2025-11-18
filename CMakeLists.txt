@@ -12,6 +12,7 @@ add_subdirectory(noz noz)
 set(SOURCE_FILES
 
     src/grid.cpp
+    src/build.cpp
     src/view.cpp
     src/notifications.cpp
 
@@ -24,6 +25,9 @@ set(SOURCE_FILES
     src/asset/texture_editor.cpp
     src/asset/skeleton_data.cpp
     src/asset/skeleton_editor.cpp
+    src/asset/shader_data.cpp
+    src/asset/sound_data.cpp
+    src/asset/font_data.cpp
     src/asset/vfx_data.cpp
 
     src/utils/file_watcher.cpp
@@ -73,6 +77,7 @@ set(SOURCE_FILES
 
 add_executable(nozed ${SOURCE_FILES} res/windows/nozed.rc)
 
+target_compile_definitions(nozed PRIVATE _CRT_SECURE_NO_WARNINGS)
 target_link_libraries(nozed PRIVATE
     noz
     debug ${CMAKE_CURRENT_SOURCE_DIR}/external/glslang/glslangd.lib

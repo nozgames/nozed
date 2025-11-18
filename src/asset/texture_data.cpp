@@ -14,7 +14,7 @@ void DrawTextureData(AssetData* a) {
 
     BindColor(COLOR_WHITE);
     BindMaterial(t->material);
-    DrawMesh(g_view.quad_mesh, Translate(a->position) * Scale(t->scale));
+    DrawMesh(g_view.quad_mesh, Translate(a->position) * Scale(Vec2{GetSize(t->bounds).x, GetSize(t->bounds).y}));
 }
 
 void UpdateBounds(TextureData* t) {
@@ -22,6 +22,17 @@ void UpdateBounds(TextureData* t) {
         Vec2{-0.5f, -0.5f} * t->scale,
         Vec2{0.5f, 0.5f} * t->scale
     };
+
+    if (t->texture) {
+        float aspect = (float)GetSize(t->texture).x / (float)GetSize(t->texture).y;
+        if (aspect > 1.0f) {
+            t->bounds.min.y *= 1.0f / aspect;
+            t->bounds.max.y *= 1.0f / aspect;
+        } else {
+            t->bounds.min.x *= aspect;
+            t->bounds.max.x *= aspect;
+        }
+    }
 }
 
 static void LoadTextureMetaData(AssetData* a, Props* meta) {
@@ -47,6 +58,7 @@ void PostLoadTextureData(AssetData* a) {
     t->texture = (Texture*)LoadAssetInternal(ALLOCATOR_DEFAULT, a->name, ASSET_TYPE_TEXTURE, LoadTexture);
     t->material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
     SetTexture(t->material, t->texture, 0);
+    UpdateBounds(t);
 }
 
 static void ReloadTextureData(AssetData* a) {

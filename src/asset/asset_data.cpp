@@ -42,30 +42,22 @@ AssetData* CreateAssetData(const std::filesystem::path& path) {
         return nullptr;
     }
 
-    switch (a->type) {
-    case ASSET_TYPE_TEXTURE:
+    if (a->type == ASSET_TYPE_TEXTURE)
         InitTextureData(a);
-        break;
-
-    case ASSET_TYPE_MESH:
+    else if (a->type == ASSET_TYPE_MESH)
         InitEditorMesh(a);
-        break;
-
-    case ASSET_TYPE_VFX:
-        InitEditorVfx(a);
-        break;
-
-    case ASSET_TYPE_ANIMATION:
+    else if (a->type == ASSET_TYPE_VFX)
+        InitVfxData(a);
+    else if (a->type == ASSET_TYPE_ANIMATION)
         InitAnimationData(a);
-        break;
-
-    case ASSET_TYPE_SKELETON:
+    else if (a->type == ASSET_TYPE_SKELETON)
         InitSkeletonData(a);
-        break;
-
-    default:
-        break;
-    }
+    else if (a->type == ASSET_TYPE_SHADER)
+        InitShaderData(a);
+    else if (a->type == ASSET_TYPE_SOUND)
+        InitSoundData(a);
+    else if (a->type == ASSET_TYPE_FONT)
+        InitFontData(a);
 
     return a;
 }
