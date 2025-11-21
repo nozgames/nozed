@@ -6,6 +6,9 @@
 #include <noz/noz.h>
 #include "nozed_assets.h"
 
+#ifdef NDEBUG
+#include "nozed_assets_build.cpp"
+#endif
 
 // @Mesh
 Mesh* MESH_ASSET_ICON_VFX = nullptr;

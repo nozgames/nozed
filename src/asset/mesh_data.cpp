@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-constexpr float OUTLINE_WIDTH = 0.05f;
+constexpr float OUTLINE_WIDTH = 0.02f;
 
 static void Init(MeshData* m);
 extern void InitMeshEditor(MeshData* m);
@@ -30,27 +30,24 @@ static int GetFaceEdgeIndex(MeshData* m, const FaceData& ef, const EdgeData& ee)
 static void DrawMesh(AssetData* a) {
     assert(a->type == ASSET_TYPE_MESH);
     MeshData* m = static_cast<MeshData*>(a);
-
-    if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
-        BindColor(COLOR_EDGE);
-        DrawEdges(m, a->position);
-    } else {
-        DrawMesh(m, Translate(a->position));
-    }
+    DrawMesh(m, Translate(a->position));
 }
 
 void DrawMesh(MeshData* m, const Mat3& transform) {
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
         BindColor(COLOR_EDGE);
         DrawEdges(m, transform);
-        return;
+    } else {
+        BindColor(COLOR_WHITE, GetActivePalette().color_offset_uv);
+        BindMaterial(g_view.shaded_material);
+        DrawMesh(ToMesh(m), transform);
     }
 
-    BindColor(COLOR_WHITE, GetActivePalette().color_offset_uv);
-    BindMaterial(g_view.draw_mode == VIEW_DRAW_MODE_SHADED
-        ? g_view.shaded_material
-        : g_view.solid_material);
-    DrawMesh(ToMesh(m), transform);
+    BindColor(COLOR_BLACK);
+    BindDepth(GetApplicationTraits()->renderer.max_depth - 0.01f);
+    for (int i=0;i<m->anchor_count;i++)
+        DrawVertex(m->anchors[i].position + m->position);
+    BindDepth(0.0f);
 }
 
 Vec2 GetFaceCenter(MeshData* m, FaceData* ef) {
@@ -412,11 +409,12 @@ static void MergeFaces(MeshData* m, const EdgeData& shared_edge) {
 
 void DissolveSelectedVertices(MeshData* m) {
     for (int vertex_index=m->vertex_count - 1; vertex_index>=0; vertex_index--) {
-        VertexData& ev = m->vertices[vertex_index];
-        if (!ev.selected)
+        VertexData& v = m->vertices[vertex_index];
+        if (!v.selected)
             continue;
 
         DeleteVertex(m, vertex_index);
+        vertex_index = Min(m->vertex_count, vertex_index);
     }
 }
 
@@ -656,14 +654,14 @@ int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update) {
     return new_vertex_index;
 }
 
-int HitTestVertex(MeshData* m, const Vec2& world_pos, float size_mult) {
+int HitTestVertex(MeshData* m, const Vec2& position, float size_mult) {
     float size = g_view.select_size * size_mult;
     float best_dist = F32_MAX;
     int best_vertex = -1;
     for (int i = 0; i < m->vertex_count; i++)
     {
         const VertexData& ev = m->vertices[i];
-        float dist = Length(world_pos - ev.position);
+        float dist = Length(position - ev.position);
         if (dist < size && dist < best_dist)
         {
             best_vertex = i;
@@ -708,6 +706,8 @@ int HitTestEdge(MeshData* m, const Vec2& hit_pos, float* where) {
 }
 
 void Center(MeshData* m) {
+    RecordUndo(m);
+
     Vec2 size = GetSize(m->bounds);
     Vec2 min = m->bounds.min;
     Vec2 offset = min + size * 0.5f;
@@ -788,6 +788,18 @@ int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* w
     }
 
     return -1;
+}
+
+static void ParseAnchor(MeshData* m, Tokenizer& tk) {
+    float ax;
+    if (!ExpectFloat(tk, &ax))
+        ThrowError("missing anchor x value");
+
+    float ay;
+    if (!ExpectFloat(tk, &ay))
+        ThrowError("missing anchor y value");
+
+    m->anchors[m->anchor_count++] = { .position = { ax, ay} };
 }
 
 static void ParseVertexEdge(VertexData& ev, Tokenizer& tk) {
@@ -925,6 +937,8 @@ static void LoadMeshData(AssetData* a) {
     while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "v")) {
             ParseVertex(m, tk);
+        } else if (ExpectIdentifier(tk, "a")) {
+            ParseAnchor(m, tk);
         } else if (ExpectIdentifier(tk, "d")) {
             ParseDepth(m, tk);
         } else if (ExpectIdentifier(tk, "f")) {
@@ -969,6 +983,11 @@ static void SaveMeshData(AssetData* ea, const std::filesystem::path& path) {
     WriteCSTR(stream, "d %f\n", (em->depth - MIN_DEPTH) / (float)(MAX_DEPTH - MIN_DEPTH));
     WriteCSTR(stream, "e %d %d\n", em->edge_color.x, em->edge_color.y);
     WriteCSTR(stream, "\n");
+
+    for (int i=0; i<em->anchor_count; i++) {
+        const AnchorData& a = em->anchors[i];
+        WriteCSTR(stream, "a %f %f\n", a.position.x, a.position.y);
+    }
 
     for (int i=0; i<em->vertex_count; i++) {
         const VertexData& ev = em->vertices[i];
@@ -1201,6 +1220,54 @@ int GetSelectedEdges(MeshData* m, int edges[MAX_EDGES]) {
     }
 
     return selected_edge_count;
+}
+
+void AddAnchor(MeshData* m, const Vec2& position) {
+    if (m->anchor_count >= MAX_ANCHORS)
+        return;
+
+    m->anchors[m->anchor_count++].position = position;
+}
+
+void RemoveAnchor(MeshData* m, int anchor_index) {
+    assert(anchor_index >= 0 && anchor_index < m->anchor_count);
+   for (int i = anchor_index; i < m->anchor_count - 1; i++)
+        m->anchors[i] = m->anchors[i + 1];
+
+    m->anchor_count--;
+}
+
+int HitTestAnchor(MeshData* m, const Vec2& position, float size_mult) {
+    float size = g_view.select_size * size_mult;
+    float best_dist = F32_MAX;
+    int best_index = -1;
+    for (int i = 0; i < m->anchor_count; i++) {
+        const AnchorData& a = m->anchors[i];
+        float dist = Length(position - a.position);
+        if (dist < size && dist < best_dist) {
+            best_index = i;
+            best_dist = dist;
+        }
+    }
+
+    return best_index;
+}
+
+Vec2 HitTestSnap(MeshData* m, const Vec2& position) {
+    float best_dist_sqr = LengthSqr(position);
+    Vec2 best_snap = VEC2_ZERO;
+
+    for (int i = 0; i < m->anchor_count; i++) {
+        const AnchorData& a = m->anchors[i];
+        float dist_sqr = DistanceSqr(a.position, position);
+        if (dist_sqr < best_dist_sqr) {
+            best_dist_sqr = dist_sqr;
+            best_snap = a.position;
+        }
+    }
+
+    return best_snap;
+
 }
 
 static void Init(MeshData* m) {

@@ -26,7 +26,14 @@ void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
         if (!skinned_mesh)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(s->position) * bone.local_to_world);
+        Mat3 local_to_world = Translate(s->position) * bone.local_to_world;
+        DrawMesh(skinned_mesh, local_to_world);
+
+        BindColor(COLOR_BLACK);
+        BindDepth(GetApplicationTraits()->renderer.max_depth - 0.01f);
+        for (int anchor_index=0;anchor_index<skinned_mesh->anchor_count;anchor_index++)
+            DrawVertex(TransformPoint(local_to_world, skinned_mesh->anchors[anchor_index].position));
+        BindDepth(0.0f);
     }
 
     BindMaterial(g_view.vertex_material);

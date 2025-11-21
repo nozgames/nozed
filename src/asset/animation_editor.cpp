@@ -99,9 +99,8 @@ static bool TrySelectBone() {
     if (bone_index == -1)
         return false;
 
-    BoneData* b = &GetSkeletonData()->bones[bone_index];
-    if (IsShiftDown(g_animation_editor.input)) {
-        SetBoneSelected(bone_index, !b->selected);
+    if (IsShiftDown()) {
+        SetBoneSelected(bone_index, !IsBoneSelected(bone_index));
     } else {
         ClearSelection();
         SetBoneSelected(bone_index, true);
@@ -215,7 +214,7 @@ static void UpdatePlayState() {
 }
 
 static void HandleBoxSelect(const Bounds2& bounds) {
-    if (!IsShiftDown(g_animation_editor.input))
+    if (!IsShiftDown())
         ClearSelection();
 
     AnimationData* n = GetAnimationData();
@@ -248,7 +247,7 @@ static void UpdateDefaultState() {
 
     g_animation_editor.ignore_up &= !WasButtonReleased(g_animation_editor.input, MOUSE_LEFT);
 
-    if (WasButtonReleased(g_animation_editor.input, MOUSE_LEFT) && g_animation_editor.clear_selection_on_up && !IsShiftDown(g_animation_editor.input))
+    if (WasButtonReleased(g_animation_editor.input, MOUSE_LEFT) && g_animation_editor.clear_selection_on_up && !IsShiftDown())
         ClearSelection();
 }
 
@@ -541,6 +540,7 @@ static void InsertFrameBefore() {
     AnimationData* n = GetAnimationData();
     n->current_frame = InsertFrame(n, n->current_frame);
     UpdateTransforms(n);
+    MarkModified();
 }
 
 static void InsertFrameAfter() {
@@ -548,6 +548,7 @@ static void InsertFrameAfter() {
     AnimationData* n = GetAnimationData();
     n->current_frame = InsertFrame(n, n->current_frame + 1);
     UpdateTransforms(n);
+    MarkModified();
 }
 
 static void DeleteFrame() {
@@ -555,6 +556,7 @@ static void DeleteFrame() {
     AnimationData* n = GetAnimationData();
     n->current_frame = DeleteFrame(n, n->current_frame);
     UpdateTransforms(n);
+    MarkModified();
 }
 
 static void ToggleOnionSkin() {
@@ -607,6 +609,10 @@ static void BeginAnimationEditor() {
 static void EndAnimationEditor() {
     SetDefaultState();
     PopInputSet();
+
+    AnimationData* n = GetAnimationData();
+    n->current_frame = 0;
+    UpdateTransforms(n);
 }
 
 void InitAnimationEditor() {

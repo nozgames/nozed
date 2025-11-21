@@ -56,8 +56,7 @@ void DrawVertex(const Vec2& v)
     DrawVertex(v, DEFAULT_VERTEX_SIZE);
 }
 
-void DrawVertex(const Vec2& v, f32 size)
-{
+void DrawVertex(const Vec2& v, f32 size) {
     BindTransform(TRS(v, 0, VEC2_ONE * g_view.zoom_ref_scale * size));
     DrawMesh(g_view.vertex_mesh);
 }

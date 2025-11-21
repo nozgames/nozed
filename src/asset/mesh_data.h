@@ -8,6 +8,7 @@ constexpr int MAX_VERTICES = 1024;
 constexpr int MAX_FACES = MAX_VERTICES / 3;
 constexpr int MAX_INDICES = MAX_FACES * 3;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;
+constexpr int MAX_ANCHORS = 8;
 constexpr int MIN_DEPTH = 0;
 constexpr int MAX_DEPTH = 100;
 
@@ -40,16 +41,25 @@ struct FaceData {
     int vertex_count;
 };
 
+struct AnchorData {
+    Vec2 position;
+};
+
 struct MeshData : AssetData {
     VertexData vertices[MAX_VERTICES];
     EdgeData edges[MAX_EDGES];
     FaceData faces[MAX_FACES];
+    AnchorData anchors[MAX_ANCHORS];
+
     int face_vertices[MAX_INDICES];
     int face_vertex_count;
     int vertex_count;
     int edge_count;
     int face_count;
-    int selected_count;
+    int anchor_count;
+    int selected_vertex_count;
+    int selected_edge_count;
+    int selected_face_count;
     Mesh* mesh;
     Vec2Int edge_color;
     float opacity;
@@ -62,8 +72,12 @@ extern MeshData* Clone(Allocator* allocator, MeshData* m);
 extern MeshData* LoadEditorMesh(const std::filesystem::path& path);
 extern Mesh* ToMesh(MeshData* m, bool upload=true);
 extern int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* where = nullptr);
-extern int HitTestVertex(MeshData* m, const Vec2& world_pos, float size_mult=1.0f);
-extern int HitTestEdge(MeshData* m, const Vec2& hit_pos, float* where=nullptr);
+extern int HitTestVertex(MeshData* m, const Vec2& position, float size_mult=1.0f);
+extern int HitTestEdge(MeshData* m, const Vec2& position, float* where=nullptr);
+extern int HitTestAnchor(MeshData* m, const Vec2& position, float size_mult=1.0f);
+extern Vec2 HitTestSnap(MeshData* m, const Vec2& position);
+extern void AddAnchor(MeshData* m, const Vec2& position);
+extern void RemoveAnchor(MeshData* m, int anchor_index);
 extern Bounds2 GetSelectedBounds(MeshData* m);
 extern void MarkDirty(MeshData* m);
 extern void SetSelectedTrianglesColor(MeshData* m, const Vec2Int& color);

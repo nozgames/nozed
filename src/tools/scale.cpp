@@ -7,6 +7,7 @@ constexpr float SCALE_TOOL_WIDTH = 0.02f;
 
 struct ScaleTool {
     float last_scale;
+    bool last_ctrl;
     ScaleToolOptions options;
 };
 
@@ -37,10 +38,12 @@ static void UpdateScale() {
         Length(g_view.mouse_world_position - g_scale.options.origin) -
         Length(g_view.drag_world_position - g_scale.options.origin);
 
-    if (g_scale.last_scale == scale)
+    bool ctrl = IsCtrlDown();
+    if (g_scale.last_scale == scale && ctrl == g_scale.last_ctrl)
         return;
 
     g_scale.last_scale = scale;
+    g_scale.last_ctrl = ctrl;
 
     if (g_scale.options.update)
         g_scale.options.update(1.0f + scale);
@@ -71,4 +74,8 @@ void BeginScaleTool(const ScaleToolOptions& options) {
     g_scale.options = options;
 
     BeginDrag();
+}
+
+void SetScaleToolOrigin(const Vec2& origin) {
+    g_scale.options.origin = origin;
 }

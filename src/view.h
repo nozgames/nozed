@@ -17,24 +17,20 @@ enum NotificationType {
     NOTIFICATION_TYPE_ERROR
 };
 
-enum ViewState
-{
+enum ViewState {
     VIEW_STATE_DEFAULT,
     VIEW_STATE_EDIT,
     VIEW_STATE_COMMAND,
 };
 
-enum ViewDrawMode
-{
+enum ViewDrawMode {
     VIEW_DRAW_MODE_WIREFRAME,
-    VIEW_DRAW_MODE_SOLID,
     VIEW_DRAW_MODE_SHADED
 };
 
 typedef const Name* (*PreviewCommandFunc)(const Command& command);
 
-struct ViewVtable
-{
+struct ViewVtable {
     void (*update)();
     void (*draw)();
     void (*shutdown)();
@@ -54,7 +50,6 @@ struct View {
     ViewState state;
     Camera* camera;
     Material* shaded_material;
-    Material* solid_material;
     Material* vertex_material;
     Material* editor_material;
     Mesh* vertex_mesh;

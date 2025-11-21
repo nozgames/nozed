@@ -477,6 +477,23 @@ void InitSkeletonEditor(SkeletonData* s) {
     s->vtable.editor_update = UpdateSkeletonEditor;
 }
 
+static void FixSkeleton() {
+    SkeletonData* s = GetSkeletonData();
+    RecordUndo(s);
+
+    // scale evdrything by X
+    constexpr float FIX_SCALE = 2.0f;
+
+    for (int i=0; i<s->bone_count; i++) {
+        BoneData& b = s->bones[i];
+        b.transform.position *= FIX_SCALE;
+        b.length *= FIX_SCALE;
+    }
+
+    UpdateTransforms(s);
+    MarkModified();
+}
+
 void InitSkeletonEditor() {
     static Shortcut shortcuts[] = {
         { KEY_G, false, false, false, BeginMoveTool },
@@ -487,6 +504,7 @@ void InitSkeletonEditor() {
         { KEY_X, false, false, false, HandleRemove },
         { KEY_S, false, false, false, BeginScaleTool },
         { KEY_F2, false, false, false, BeginRenameCommand },
+        { KEY_T, true, false, false, FixSkeleton },
         { INPUT_CODE_NONE }
     };
 

@@ -25,6 +25,7 @@ struct ScaleToolOptions {
 };
 
 extern void BeginScaleTool(const ScaleToolOptions& options);
+extern void SetScaleToolOrigin(const Vec2& origin);
 
 // @rotate
 struct RotateToolOptions {

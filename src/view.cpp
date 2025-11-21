@@ -11,7 +11,7 @@ constexpr float SELECT_SIZE = 60.0f;
 constexpr float DRAG_MIN = 5;
 constexpr float DEFAULT_DPI = 72.0f;
 constexpr float ZOOM_MIN = 0.1f;
-constexpr float ZOOM_MAX = 80.0f;
+constexpr float ZOOM_MAX = 200.0f;
 constexpr float ZOOM_STEP = 0.1f;
 constexpr float ZOOM_DEFAULT = 1.0f;
 constexpr float VERTEX_SIZE = 0.1f;
@@ -83,7 +83,7 @@ static void FrameSelected() {
 }
 
 static void CommitBoxSelect(const Bounds2& bounds) {
-    if (!IsShiftDown(GetInputSet()))
+    if (!IsShiftDown())
         ClearAssetSelection();
 
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
@@ -181,7 +181,7 @@ static void UpdateDefaultState() {
         AssetData* hit_asset = HitTestAssets(g_view.mouse_world_position);
         if (hit_asset != nullptr) {
             g_view.clear_selection_on_release = false;
-            if (IsShiftDown(g_view.input))
+            if (IsShiftDown())
                 ToggleSelected(hit_asset);
             else {
                 ClearAssetSelection();
@@ -190,7 +190,7 @@ static void UpdateDefaultState() {
             return;
         }
 
-        g_view.clear_selection_on_release = !IsShiftDown(g_view.input);
+        g_view.clear_selection_on_release = !IsShiftDown();
     }
 
     if (g_view.drag_started && g_editor.tool.type == TOOL_TYPE_NONE) {
@@ -419,16 +419,10 @@ static void ToggleNames() {
     g_view.show_names = !g_view.show_names;
 }
 
-static void SetDrawModeShaded() {
-    g_view.draw_mode = VIEW_DRAW_MODE_SHADED;
-}
-
-static void SetDrawModeWireframe() {
-    g_view.draw_mode = VIEW_DRAW_MODE_WIREFRAME;
-}
-
-static void SetDrawModeSolid() {
-    g_view.draw_mode = VIEW_DRAW_MODE_SOLID;
+static void ToggleModeWireframe() {
+    g_view.draw_mode = g_view.draw_mode == VIEW_DRAW_MODE_SHADED
+        ? VIEW_DRAW_MODE_WIREFRAME
+        : VIEW_DRAW_MODE_SHADED;
 }
 
 static void BringForward() {
@@ -647,7 +641,6 @@ static void SetPalette(u32 index) {
     Texture* palette_texture = g_view.palettes[g_view.active_palette_index].texture->texture;
     SetTexture(g_view.editor_material, palette_texture);
     SetTexture(g_view.shaded_material, palette_texture);
-    SetTexture(g_view.solid_material, palette_texture);
 
     extern void UpdateMeshEditorPalette();
 
@@ -712,9 +705,7 @@ static Shortcut g_common_shortcuts[] = {
     { KEY_S, false, true, false, SaveAssetData },
     { KEY_F, false, false, false, FrameSelected },
     { KEY_N, true, false, false, ToggleNames },
-    { KEY_1, true, false, false, SetDrawModeWireframe },
-    { KEY_2, true, false, false, SetDrawModeSolid },
-    { KEY_3, true, false, false, SetDrawModeShaded },
+    { KEY_W, true, false, false, ToggleModeWireframe },
     { KEY_Z, false, true, false, HandleUndo },
     { KEY_Y, false, true, false, HandleRedo },
     { KEY_TAB, false, false, false, ToggleEdit },
@@ -738,7 +729,6 @@ void InitView() {
 
     g_view.camera = CreateCamera(ALLOCATOR_DEFAULT);
     g_view.shaded_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
-    g_view.solid_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_SOLID);
     g_view.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
     g_view.editor_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
     g_view.zoom = ZOOM_DEFAULT;
@@ -769,7 +759,7 @@ void InitView() {
     EnableButton(g_view.input_tool, MOUSE_LEFT);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
-    AddCircle(builder, VEC3_ZERO, 0.5f, 8, VEC2_ZERO);
+    AddCircle(builder, VEC3_ZERO, 0.5f, 8, ColorUV(7,0));
     g_view.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     Clear(builder);
