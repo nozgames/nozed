@@ -331,32 +331,31 @@ static void InsertVertexFaceOrEdge() {
 
 static void DissolveSelected() {
     AssetData* ea = GetAssetData();
-    MeshData* em = GetMeshData();
+    MeshData* m = GetMeshData();
 
-    if (em->selected_vertex_count == 0)
+    if (m->selected_vertex_count == 0)
         return;
 
     RecordUndo();
 
-    switch (g_mesh_editor.mode)
-    {
+    switch (g_mesh_editor.mode) {
     case MESH_EDITOR_MODE_VERTEX:
-        DissolveSelectedVertices(em);
+        DissolveSelectedVertices(m);
         break;
 
     case MESH_EDITOR_MODE_EDGE:
-        for (int i=em->edge_count-1; i>=0; i--)
-            if (em->edges[i].selected)
-                DissolveEdge(em, i);
+        for (int i=m->edge_count-1; i>=0; i--)
+            if (m->edges[i].selected)
+                DissolveEdge(m, i);
         ClearSelection();
         break;
 
     case MESH_EDITOR_MODE_FACE:
-        DissolveSelectedFaces(em);
+        DissolveSelectedFaces(m);
         break;
     }
 
-    MarkDirty(em);
+    MarkDirty(m);
     MarkModified(ea);
     UpdateSelection();
 }

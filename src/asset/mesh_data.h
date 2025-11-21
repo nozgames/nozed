@@ -105,4 +105,5 @@ extern void DrawFaceCenters(MeshData* m, const Vec2& position);
 extern void DissolveEdge(MeshData* m, int edge_index);
 extern int CreateFace(MeshData* m);
 
+extern int GetSelectedVertices(MeshData* m, int vertices[MAX_VERTICES]);
 extern int GetSelectedEdges(MeshData* m, int edges[MAX_EDGES]);
