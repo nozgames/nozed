@@ -45,13 +45,22 @@ struct AnchorData {
     Vec2 position;
 };
 
-struct MeshData : AssetData {
+struct MeshRuntimeData {
     VertexData vertices[MAX_VERTICES];
     EdgeData edges[MAX_EDGES];
     FaceData faces[MAX_FACES];
     AnchorData anchors[MAX_ANCHORS];
-
     int face_vertices[MAX_INDICES];
+};
+
+struct MeshData : AssetData {
+    MeshRuntimeData* data;
+    VertexData* vertices;
+    EdgeData* edges;
+    FaceData* faces;
+    AnchorData* anchors;
+
+    int* face_vertices;
     int face_vertex_count;
     int vertex_count;
     int edge_count;
@@ -66,7 +75,7 @@ struct MeshData : AssetData {
     int depth;
 };
 
-extern void InitEditorMesh(AssetData* a);
+extern void InitMeshData(AssetData* a);
 extern AssetData* NewMeshData(const std::filesystem::path& path);
 extern MeshData* Clone(Allocator* allocator, MeshData* m);
 extern MeshData* LoadEditorMesh(const std::filesystem::path& path);

@@ -2,8 +2,14 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-constexpr float COLOR_PICKER_SIZE = 300.0f;
-constexpr float COLOR_SQUARE_SIZE = COLOR_PICKER_SIZE / 16.0f;
+constexpr float COLOR_PICKER_BORDER_WIDTH = 4.0f;
+constexpr Color COLOR_PICKER_BORDER_COLOR = COLOR_BLACK;
+constexpr float COLOR_PICKER_COLOR_SIZE = 28.0f;
+constexpr float COLOR_PICKER_WIDTH = COLOR_PICKER_COLOR_SIZE * 64 + COLOR_PICKER_BORDER_WIDTH * 2;
+constexpr float COLOR_PICKER_HEIGHT = COLOR_PICKER_COLOR_SIZE + COLOR_PICKER_BORDER_WIDTH * 2;
+constexpr float COLOR_PICKER_MARGIN = 16.0f;
+constexpr float COLOR_PICKER_SELECTION_BORDER_WIDTH = 3.0f;
+constexpr Color COLOR_PICKER_SELECTION_BORDER_COLOR = COLOR_VERTEX_SELECTED;
 
 enum MeshEditorMode {
     MESH_EDITOR_MODE_VERTEX,
@@ -30,6 +36,7 @@ struct MeshEditor {
     Shortcut* shortcuts;
     MeshEditorVertex vertices[MAX_VERTICES];
     InputSet* input;
+    Mesh* color_picker_mesh;
 };
 
 static MeshEditor g_mesh_editor = {};
@@ -398,27 +405,21 @@ static void UpdateDefaultState() {
 }
 
 static bool HandleColorPickerInput(const Vec2& position) {
-    float x = position.x / COLOR_PICKER_SIZE;
-    float y = position.y / COLOR_PICKER_SIZE;
-    if (x < 0 || x > 1 || y < 0 || y > 1)
-        return false;
-
-    i32 col = (i32)(x * 16.0f);
-    i32 row = (i32)(y * 16.0f);
-
+    float x = Clamp01(position.x / COLOR_PICKER_WIDTH);
+    i32 col = (i32)(x * 64.0f);
     RecordUndo();
 
     if (IsCtrlDown(g_mesh_editor.input))
-        SetEdgeColor(GetMeshData(), {col, row});
+        SetEdgeColor(GetMeshData(), {col, 0});
     else
-        SetSelectedTrianglesColor(GetMeshData(), {col, row});
+        SetSelectedTrianglesColor(GetMeshData(), {col, 0});
 
     MarkModified();
     return true;
 }
 
 static void UpdateColorPicker(){
-    static bool selected_colors[256] = {};
+    static bool selected_colors[64] = {};
     memset(selected_colors, 0, sizeof(selected_colors));
     MeshData* em = GetMeshData();
     for (int face_index=0; face_index<em->face_count; face_index++) {
@@ -430,21 +431,26 @@ static void UpdateColorPicker(){
     }
 
     Canvas([] {
-        Align({.alignment = ALIGNMENT_BOTTOM_LEFT}, [] {
-            Container({.width = COLOR_PICKER_SIZE, .height = COLOR_PICKER_SIZE, .margin = EdgeInsetsBottomLeft(10)}, [] {
+        Align({.alignment=ALIGNMENT_BOTTOM_CENTER}, [] {
+            Container({
+                .width=COLOR_PICKER_WIDTH,
+                .height=COLOR_PICKER_HEIGHT,
+                .margin=EdgeInsetsBottomLeft(COLOR_PICKER_MARGIN),
+                .border={.width=COLOR_PICKER_BORDER_WIDTH, .color=COLOR_PICKER_BORDER_COLOR}}, [] {
+
                 GestureDetector({.on_tap = [](const TapDetails& details, void*) {
                     if (HandleColorPickerInput(details.position)) {
                         ConsumeButton(MOUSE_LEFT);
                     }
                 }}, [] {
-                    Image(g_mesh_editor.color_material);
+                    Image(g_mesh_editor.color_material, g_mesh_editor.color_picker_mesh);
                 });
 
-                for (int i=0; i<256; i++) {
+                for (int i=0; i<64; i++) {
                     if (selected_colors[i]) {
-                        Transformed({.translate=Vec2{(i % 16) * COLOR_SQUARE_SIZE, (i / 16) * COLOR_SQUARE_SIZE}}, [] {
-                            SizedBox({.width=COLOR_SQUARE_SIZE, .height=COLOR_SQUARE_SIZE}, [] {
-                                Border({.width=2,.color=COLOR_VERTEX_SELECTED});
+                        Transformed({.translate=Vec2{(i % 64) * COLOR_PICKER_COLOR_SIZE, 0}}, [] {
+                            SizedBox({.width=COLOR_PICKER_COLOR_SIZE, .height=COLOR_PICKER_COLOR_SIZE}, [] {
+                                Border({.width=COLOR_PICKER_SELECTION_BORDER_WIDTH,.color=COLOR_PICKER_SELECTION_BORDER_COLOR});
                             });
                         });
                     }
@@ -1121,6 +1127,17 @@ void InitMeshEditor() {
     g_mesh_editor.shortcuts = shortcuts;
     EnableShortcuts(shortcuts, g_mesh_editor.input);
     EnableCommonShortcuts(g_mesh_editor.input);
+
+    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_SCRATCH, 4, 6);
+    PushScratch();
+    AddVertex(builder, Vec2{0,   0.5f}, Vec2{0,0});
+    AddVertex(builder, Vec2{64,  0.5f}, Vec2{1,0});
+    AddVertex(builder, Vec2{64, -0.5f}, Vec2{1,0.5f});
+    AddVertex(builder, Vec2{0,  -0.5f}, Vec2{0,0.5f});
+    AddTriangle(builder, 0, 1, 2);
+    AddTriangle(builder, 0, 2, 3);
+    g_mesh_editor.color_picker_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, GetName("ColorPicker"));
+    PopScratch();
 }
 
 void InitMeshEditor(MeshData* m) {

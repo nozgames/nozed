@@ -18,6 +18,8 @@ set(SOURCE_FILES
 
     src/asset/animation_editor.cpp
     src/asset/animation_data.cpp
+    src/asset/animated_mesh_editor.cpp
+    src/asset/animated_mesh_data.cpp
     src/asset/asset_data.cpp
     src/asset/mesh_data.cpp
     src/asset/mesh_editor.cpp
@@ -55,6 +57,7 @@ set(SOURCE_FILES
     src/import/texture_importer.cpp
     src/import/sound_importer.cpp
     src/import/asset_manifest.cpp
+    src/import/animated_mesh_importer.cpp
 
     src/msdf/Contour.cpp
     src/msdf/Edge.cpp

@@ -14,14 +14,14 @@ void UpdateTransforms(AnimationData* n) {
         BoneData* b = &s->bones[bone_index];
         Transform& frame = GetFrameTransform(n, bone_index, n->current_frame);
 
-        n->animator.bones[bone_index] = TRS(
+        n->animator->bones[bone_index] = TRS(
             b->transform.position + frame.position,
             frame.rotation,
             b->transform.scale);
     }
 
     for (int bone_index=1; bone_index<s->bone_count; bone_index++)
-        n->animator.bones[bone_index] = n->animator.bones[s->bones[bone_index].parent_index] * n->animator.bones[bone_index];
+        n->animator->bones[bone_index] = n->animator->bones[s->bones[bone_index].parent_index] * n->animator->bones[bone_index];
 }
 
 void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& position) {
@@ -30,8 +30,8 @@ void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& posit
     if (parent_index < 0)
         parent_index = bone_index;
 
-    Mat3 eb = n->animator.bones[bone_index] * Rotate(s->bones[bone_index].transform.rotation);
-    Mat3 ep = n->animator.bones[parent_index];
+    Mat3 eb = n->animator->bones[bone_index] * Rotate(s->bones[bone_index].transform.rotation);
+    Mat3 ep = n->animator->bones[parent_index];
 
     Vec2 p0 = TransformPoint(eb);
     Vec2 p1 = TransformPoint(eb, Vec2 {s->bones[bone_index].length, 0});
@@ -52,7 +52,7 @@ void DrawAnimationData(AssetData* a) {
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(a->position) * n->animator.bones[s->skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh, Translate(a->position) * n->animator->bones[s->skinned_meshes[i].bone_index]);
     }
 }
 
@@ -453,7 +453,7 @@ int HitTestBone(AnimationData* n, const Vec2& world_pos) {
         BoneData* b = &s->bones[bone_index];
         Mat3 local_to_world =
             Translate(n->position) *
-            n->animator.bones[bone_index] *
+            n->animator->bones[bone_index] *
             Rotate(s->bones[bone_index].transform.rotation) *
             Scale(b->length);
         if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world))
@@ -511,15 +511,6 @@ static bool EditorAnimationOverlapBounds(AssetData* ea, const Bounds2& overlap_b
     return Intersects(en->bounds + ea->position, overlap_bounds);
 }
 
-static void CloneAnimationData(AssetData* a) {
-    assert(a->type == ASSET_TYPE_ANIMATION);
-    AnimationData* n = static_cast<AnimationData*>(a);
-    n->animation = nullptr;
-    n->animator = {};
-    UpdateTransforms(n);
-    UpdateBounds(n);
-}
-
 static void HandleAnimationUndoRedo(AssetData* a) {
     assert(a->type == ASSET_TYPE_ANIMATION);
     AnimationData* n = static_cast<AnimationData*>(a);
@@ -536,8 +527,38 @@ static void LoadAnimationMetadata(AssetData* a, Props* meta) {
         n->flags |= ANIMATION_FLAG_ROOT_MOTION;
 }
 
+static void AllocateAnimationData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    AnimationData* n = static_cast<AnimationData*>(a);
+    n->data = static_cast<RuntimeAnimationData*>(Alloc(ALLOCATOR_DEFAULT, sizeof(RuntimeAnimationData)));
+    n->bones = n->data->bones;
+    n->frames = n->data->frames;
+    n->animator = &n->data->animator;
+}
+
+static void CloneAnimationData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_ANIMATION);
+    AnimationData* n = static_cast<AnimationData*>(a);
+    RuntimeAnimationData* old_data = n->data;
+    AllocateAnimationData(n);
+    memcpy(n->data, old_data, sizeof(RuntimeAnimationData));
+    n->animation = nullptr;
+    n->animator = {};
+    UpdateTransforms(n);
+    UpdateBounds(n);
+}
+
+static void DestroyAnimationData(AssetData* a) {
+    AnimationData* d = static_cast<AnimationData*>(a);
+    Free(d->data);
+    d->data = nullptr;
+}
+
 static void InitAnimationData(AnimationData* a) {
+    AllocateAnimationData(a);
+
     a->vtable = {
+        .destructor = DestroyAnimationData,
         .load = LoadAnimationData,
         .post_load = PostLoadAnimationData,
         .save = SaveAnimationData,

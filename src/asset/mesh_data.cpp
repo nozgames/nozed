@@ -13,7 +13,7 @@ static void DeleteUnreferencedVertices(MeshData* m);
 static void MergeFaces(MeshData* m, const EdgeData& shared_edge);
 static void DeleteFace(MeshData* m, int face_index);
 static void DeleteVertex(MeshData* m, int vertex_index);
-static void TriangulateFace(MeshData* m, FaceData* ef, MeshBuilder* builder, float depth);
+static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, float depth);
 
 static int GetFaceEdgeIndex(MeshData* m, const FaceData& ef, const EdgeData& ee) {
     for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++) {
@@ -1062,15 +1062,29 @@ static bool EditorMeshOverlapBounds(AssetData* a, const Bounds2& overlap_bounds)
     return OverlapBounds((MeshData*)a, a->position, overlap_bounds);
 }
 
-static void EditorClone(AssetData* a) {
-    assert(a->type == ASSET_TYPE_MESH);
-    ((MeshData*)a)->mesh = nullptr;
+static void AllocateData(MeshData* m) {
+    m->data = static_cast<MeshRuntimeData*>(Alloc(ALLOCATOR_DEFAULT, sizeof(MeshRuntimeData)));
+    m->vertices = m->data->vertices;
+    m->edges = m->data->edges;
+    m->faces = m->data->faces;
+    m->face_vertices = m->data->face_vertices;
+    m->anchors = m->data->anchors;
 }
 
-void InitEditorMesh(AssetData* a) {
+static void CloneMeshData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_MESH);
+    MeshData* m = static_cast<MeshData*>(a);
+    m->mesh = nullptr;
+
+    MeshRuntimeData* old_data = m->data;
+    AllocateData(m);
+    memcpy(m->data, old_data, sizeof(MeshRuntimeData));
+}
+
+void InitMeshData(AssetData* a) {
     assert(a);
     assert(a->type == ASSET_TYPE_MESH);
-    MeshData* em = (MeshData*)a;
+    MeshData* em = static_cast<MeshData*>(a);
     Init(em);
 }
 
@@ -1118,29 +1132,29 @@ static bool IsEar(MeshData* m, int* indices, int vertex_count, int ear_index) {
     return true;
 }
 
-static void TriangulateFace(MeshData* m, FaceData* ef, MeshBuilder* builder, float depth) {
-    if (ef->vertex_count < 3)
+static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, float depth) {
+    if (f->vertex_count < 3)
         return;
 
-    Vec2 uv_color = ColorUV(ef->color.x, ef->color.y);
+    Vec2 uv_color = ColorUV(f->color.x, f->color.y);
 
-    for (int i = 0; i < ef->vertex_count; i++) {
-        int vertex_index = m->face_vertices[ef->vertex_offset + i];
+    for (int i = 0; i < f->vertex_count; i++) {
+        int vertex_index = m->face_vertices[f->vertex_offset + i];
         VertexData& ev = m->vertices[vertex_index];
         AddVertex(builder, ToVec3(ev.position, depth), uv_color);
     }
 
-    u16 base_vertex = GetVertexCount(builder) - (u16)ef->vertex_count;
-    if (ef->vertex_count == 3) {
+    u16 base_vertex = GetVertexCount(builder) - (u16)f->vertex_count;
+    if (f->vertex_count == 3) {
         AddTriangle(builder, base_vertex, base_vertex + 1, base_vertex + 2);
         return;
     }
 
     int indices[MAX_VERTICES];
-    for (int i = 0; i < ef->vertex_count; i++)
-        indices[i] = m->face_vertices[ef->vertex_offset + i];
+    for (int i = 0; i < f->vertex_count; i++)
+        indices[i] = m->face_vertices[f->vertex_offset + i];
 
-    int remaining_vertices = ef->vertex_count;
+    int remaining_vertices = f->vertex_count;
     int current_index = 0;
 
     while (remaining_vertices > 3) {
@@ -1154,12 +1168,12 @@ static void TriangulateFace(MeshData* m, FaceData* ef, MeshBuilder* builder, flo
 
                 // Find the corresponding indices in the builder
                 u16 tri_indices[3];
-                for (u16 i = 0; i < ef->vertex_count; i++) {
-                    if (m->face_vertices[ef->vertex_offset + i] == indices[prev])
+                for (u16 i = 0; i < f->vertex_count; i++) {
+                    if (m->face_vertices[f->vertex_offset + i] == indices[prev])
                         tri_indices[0] = base_vertex + i;
-                    if (m->face_vertices[ef->vertex_offset + i] == indices[current_index])
+                    if (m->face_vertices[f->vertex_offset + i] == indices[current_index])
                         tri_indices[1] = base_vertex + i;
-                    if (m->face_vertices[ef->vertex_offset + i] == indices[next])
+                    if (m->face_vertices[f->vertex_offset + i] == indices[next])
                         tri_indices[2] = base_vertex + i;
                 }
 
@@ -1186,12 +1200,12 @@ static void TriangulateFace(MeshData* m, FaceData* ef, MeshBuilder* builder, flo
         if (!found_ear) {
             for (int i = 1; i < remaining_vertices - 1; i++) {
                 u16 tri_indices[3];
-                for (u16 j = 0; j < ef->vertex_count; j++) {
-                    if (m->face_vertices[ef->vertex_offset + j] == indices[0])
+                for (u16 j = 0; j < f->vertex_count; j++) {
+                    if (m->face_vertices[f->vertex_offset + j] == indices[0])
                         tri_indices[0] = base_vertex + j;
-                    if (m->face_vertices[ef->vertex_offset + j] == indices[i])
+                    if (m->face_vertices[f->vertex_offset + j] == indices[i])
                         tri_indices[1] = base_vertex + j;
-                    if (m->face_vertices[ef->vertex_offset + j] == indices[i + 1])
+                    if (m->face_vertices[f->vertex_offset + j] == indices[i + 1])
                         tri_indices[2] = base_vertex + j;
                 }
                 AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
@@ -1202,12 +1216,12 @@ static void TriangulateFace(MeshData* m, FaceData* ef, MeshBuilder* builder, flo
 
     if (remaining_vertices == 3) {
         u16 tri_indices[3];
-        for (u16 i = 0; i < ef->vertex_count; i++) {
-            if (m->face_vertices[ef->vertex_offset + i] == indices[0])
+        for (u16 i = 0; i < f->vertex_count; i++) {
+            if (m->face_vertices[f->vertex_offset + i] == indices[0])
                 tri_indices[0] = base_vertex + i;
-            if (m->face_vertices[ef->vertex_offset + i] == indices[1])
+            if (m->face_vertices[f->vertex_offset + i] == indices[1])
                 tri_indices[1] = base_vertex + i;
-            if (m->face_vertices[ef->vertex_offset + i] == indices[2])
+            if (m->face_vertices[f->vertex_offset + i] == indices[2])
                 tri_indices[2] = base_vertex + i;
         }
         AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
@@ -1285,15 +1299,24 @@ Vec2 HitTestSnap(MeshData* m, const Vec2& position) {
 
 }
 
+static void DestroyMeshData(AssetData* a) {
+    MeshData* m = static_cast<MeshData*>(a);
+    Free(m->data);
+    m->data = nullptr;
+}
+
 static void Init(MeshData* m) {
+    AllocateData(m);
+
     m->opacity = 1.0f;
     m->vtable = {
+        .destructor = DestroyMeshData,
         .load = LoadMeshData,
         .save = SaveMeshData,
         .draw = DrawMesh,
         .overlap_point = EditorMeshOverlapPoint,
         .overlap_bounds = EditorMeshOverlapBounds,
-        .clone = EditorClone
+        .clone = CloneMeshData
     };
 
     InitMeshEditor(m);

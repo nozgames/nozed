@@ -7,6 +7,7 @@
 struct AssetData;
 
 struct AssetVtable {
+    void (*destructor)(AssetData* a);
     void (*load)(AssetData* a);
     void (*reload)(AssetData* a);
     void (*post_load)(AssetData* a);
@@ -118,6 +119,7 @@ inline Bounds2 GetBounds(AssetData* a) { return a->bounds; }
 #include "shader_data.h"
 #include "sound_data.h"
 #include "font_data.h"
+#include "animated_mesh_data.h"
 
 union FatAssetData {
     AssetData asset;
@@ -129,4 +131,5 @@ union FatAssetData {
     ShaderData shader;
     FontData font;
     SoundData sound;
+    AnimatedMeshData animated_mesh;
 };

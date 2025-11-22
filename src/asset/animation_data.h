@@ -18,16 +18,23 @@ struct AnimationFrameData {
     int hold;
 };
 
+struct RuntimeAnimationData {
+    AnimationBoneData bones[MAX_BONES];
+    AnimationFrameData frames[MAX_ANIMATION_FRAMES];
+    Animator animator;
+};
+
 struct AnimationData : AssetData {
     const Name* skeleton_name;
-    int frame_count;
-    int current_frame;
-    AnimationBoneData bones[MAX_BONES];
-    int bone_count;
-    AnimationFrameData frames[MAX_ANIMATION_FRAMES];
+    RuntimeAnimationData* data;
+    AnimationBoneData* bones;
+    AnimationFrameData* frames;
     SkeletonData* skeleton;
     Animation* animation;
-    Animator animator;
+    Animator* animator;
+    int frame_count;
+    int current_frame;
+    int bone_count;
     int selected_bone_count;
     AnimationFlags flags;
 };

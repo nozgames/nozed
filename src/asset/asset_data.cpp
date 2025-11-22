@@ -20,8 +20,15 @@ const Name* MakeCanonicalAssetName(const char* name)
     return GetName(result.c_str());
 }
 
+static void DestroyAssetData(void* p) {
+    AssetData* a = static_cast<AssetData*>(p);
+    if (a->vtable.destructor) {
+        a->vtable.destructor(a);
+    }
+}
+
 AssetData* CreateAssetData(const std::filesystem::path& path) {
-    AssetData* a = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData));
+    AssetData* a = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData), DestroyAssetData);
     Copy(a->path, sizeof(a->path), path.string().c_str());
     a->name = MakeCanonicalAssetName(path);
     a->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
@@ -45,7 +52,7 @@ AssetData* CreateAssetData(const std::filesystem::path& path) {
     if (a->type == ASSET_TYPE_TEXTURE)
         InitTextureData(a);
     else if (a->type == ASSET_TYPE_MESH)
-        InitEditorMesh(a);
+        InitMeshData(a);
     else if (a->type == ASSET_TYPE_VFX)
         InitVfxData(a);
     else if (a->type == ASSET_TYPE_ANIMATION)

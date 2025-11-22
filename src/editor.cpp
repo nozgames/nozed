@@ -166,6 +166,7 @@ static void InitConfig() {
 
 static void InitImporters() {
     g_editor.importers = (AssetImporter*)Alloc(ALLOCATOR_DEFAULT, sizeof(AssetImporter) * ASSET_TYPE_COUNT);
+    g_editor.importers[ASSET_TYPE_ANIMATED_MESH] = GetAnimatedMeshImporter();
     g_editor.importers[ASSET_TYPE_ANIMATION] = GetAnimationImporter();
     g_editor.importers[ASSET_TYPE_FONT] = GetFontImporter();
     g_editor.importers[ASSET_TYPE_MESH] = GetMeshImporter();

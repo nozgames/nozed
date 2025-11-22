@@ -76,7 +76,7 @@ static void UpdateSelectionCenter() {
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
-        center += TransformPoint(n->animator.bones[bone_index]);
+        center += TransformPoint(n->animator->bones[bone_index]);
         center_count += 1.0f;
     }
 
@@ -117,7 +117,7 @@ static bool TrySelectMesh() {
         if (!skinned_mesh)
             continue;
 
-        Mat3 mesh_transform = Translate(n->position) * n->animator.bones[s->skinned_meshes[i].bone_index];
+        Mat3 mesh_transform = Translate(n->position) * n->animator->bones[s->skinned_meshes[i].bone_index];
 
         int face_index = HitTestFace(
             skinned_mesh,
@@ -182,7 +182,7 @@ static void UpdateBoneNames() {
         BoneData* b = &s->bones[bone_index];
         Mat3 local_to_world =
             Translate(n->position) *
-            n->animator.bones[bone_index] *
+            n->animator->bones[bone_index] *
             Rotate(s->bones[bone_index].transform.rotation);
 
         Vec2 p = TransformPoint(local_to_world, Vec2{b->length * 0.5f, 0});
@@ -203,14 +203,14 @@ static void UpdatePlayState() {
     if (!n->animation)
         return;
 
-    Update(n->animator, 1.0f);
+    Update(*n->animator, 1.0f);
 
-    if (!IsPlaying(n->animator)) {
-        Stop(n->animator);
-        Play(n->animator, n->animation, 0, 1.0f);
+    if (!IsPlaying(*n->animator)) {
+        Stop(*n->animator);
+        Play(*n->animator, n->animation, 0, 1.0f);
     }
 
-    g_animation_editor.root_motion += n->animator.root_motion_delta;
+    g_animation_editor.root_motion += n->animator->root_motion_delta;
 }
 
 static void HandleBoxSelect(const Bounds2& bounds) {
@@ -223,7 +223,7 @@ static void HandleBoxSelect(const Bounds2& bounds) {
         BoneData* eb = &s->bones[bone_index];
         Mat3 collider_transform =
             Translate(n->position) *
-            n->animator.bones[bone_index] *
+            n->animator->bones[bone_index] *
             Rotate(eb->transform.rotation) *
             Scale(eb->length);
         if (OverlapBounds(g_view.bone_collider, bounds, collider_transform))
@@ -256,8 +256,8 @@ static void SetDefaultState() {
         return;
 
     AnimationData* n = GetAnimationData();
-    if (IsPlaying(n->animator)) {
-        Stop(n->animator);
+    if (IsPlaying(*n->animator)) {
+        Stop(*n->animator);
         g_animation_editor.root_motion = VEC2_ZERO;
     }
 
@@ -324,10 +324,10 @@ static void DrawOnionSkin() {
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* eb = &s->bones[bone_index];
         DrawBone(
-            n->animator.bones[bone_index] * Rotate(eb->transform.rotation),
+            n->animator->bones[bone_index] * Rotate(eb->transform.rotation),
             eb->parent_index < 0
-                ? n->animator.bones[bone_index]
-                : n->animator.bones[eb->parent_index],
+                ? n->animator->bones[bone_index]
+                : n->animator->bones[eb->parent_index],
             n->position,
             eb->length
             );
@@ -340,10 +340,10 @@ static void DrawOnionSkin() {
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* eb = &s->bones[bone_index];
         DrawBone(
-            n->animator.bones[bone_index] * Rotate(eb->transform.rotation),
+            n->animator->bones[bone_index] * Rotate(eb->transform.rotation),
             eb->parent_index < 0
-                ? n->animator.bones[bone_index]
-                : n->animator.bones[eb->parent_index],
+                ? n->animator->bones[bone_index]
+                : n->animator->bones[eb->parent_index],
             n->position,
             eb->length);
     }
@@ -364,7 +364,7 @@ void DrawAnimationEditor() {
         if (!skinned_mesh)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(position) * n->animator.bones[s->skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh, Translate(position) * n->animator->bones[s->skinned_meshes[i].bone_index]);
     }
 
     if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)
@@ -417,7 +417,7 @@ static void UpdateMoveTool(const Vec2& delta) {
         if (parent_index == -1) {
             SetPosition(frame, bone->saved_transform.position + delta);
         } else {
-            Vec2 rotated_delta = TransformVector(Inverse(n->animator.bones[parent_index]), delta);
+            Vec2 rotated_delta = TransformVector(Inverse(n->animator->bones[parent_index]), delta);
             SetPosition(frame, bone->saved_transform.position + rotated_delta);
         }
     }
@@ -500,8 +500,8 @@ static void PlayAnimation() {
     g_animation_editor.root_motion = VEC2_ZERO;
 
     SkeletonData* s = GetSkeletonData();
-    Init(n->animator, ToSkeleton(ALLOCATOR_DEFAULT, s));
-    Play(n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 0, 1.0f);
+    Init(*n->animator, ToSkeleton(ALLOCATOR_DEFAULT, s));
+    Play(*n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 0, 1.0f);
 
     g_animation_editor.state = ANIMATION_VIEW_STATE_PLAY;
     g_animation_editor.state_update = UpdatePlayState;

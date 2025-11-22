@@ -45,8 +45,7 @@ static void CallUndoRedo() {
     g_undo.temp_count = 0;
 }
 
-static bool UndoInternal(bool allow_redo)
-{
+static bool UndoInternal(bool allow_redo) {
     if (IsEmpty(g_undo.undo))
         return false;
 
