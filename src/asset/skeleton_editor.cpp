@@ -461,7 +461,7 @@ static void BeginRenameCommand() {
     });
 }
 
-static void BeginSkeletonEditor() {
+static void BeginSkeletonEditor(AssetData*) {
     PushInputSet(g_skeleton_editor.input);
     ClearSelection();
 }

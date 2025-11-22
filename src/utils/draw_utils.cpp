@@ -11,7 +11,7 @@ constexpr float DEFAULT_ARROW_SIZE = 0.3f;
 constexpr float ORIGIN_SIZE = 0.1f;
 constexpr float ORIGIN_BORDER_SIZE = 0.12f;
 
-void DrawRect(const Rect& rect)
+void DrawRect(const noz::Rect& rect)
 {
     BindTransform(GetCenter(rect), 0, GetSize(rect) * 0.5f);
     DrawMesh(g_view.edge_mesh);

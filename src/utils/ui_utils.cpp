@@ -17,13 +17,13 @@ struct ConfirmDialog {
 
 static ConfirmDialog g_confirm = {};
 
-static void HandleYes(const TapDetails&, void*) {
+static void HandleYes(const TapDetails&) {
     g_confirm.type = CONFIRM_TYPE_NONE;
     if (g_confirm.callback)
         g_confirm.callback();
 }
 
-static void HandleNo(const TapDetails&, void*) {
+static void HandleNo(const TapDetails&) {
     g_confirm.type = CONFIRM_TYPE_NONE;
 }
 

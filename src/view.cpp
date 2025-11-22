@@ -6,6 +6,7 @@ extern void InitMeshEditor();
 extern void InitTextureEditor();
 extern void InitSkeletonEditor();
 extern void InitAnimationEditor();
+extern void InitAnimatedMeshEditor();
 
 constexpr float SELECT_SIZE = 60.0f;
 constexpr float DRAG_MIN = 5;
@@ -171,7 +172,7 @@ static void ToggleEdit() {
     g_editor.editing_asset = a;
     a->editing = true;
     SetState(VIEW_STATE_EDIT);
-    a->vtable.editor_begin();
+    a->vtable.editor_begin(a);
 }
 
 static void UpdateDefaultState() {
@@ -577,6 +578,8 @@ static void NewAssetCommand(const Command& command) {
         a = NewAnimationData(asset_name->value);
     else if (type == NAME_VFX)
         a = NewVfxData(asset_name->value);
+    else if (type == NAME_AM || type == NAME_ANIMATEDMESH)
+        a = NewAnimatedMeshData(asset_name->value);
 
     if (a == nullptr)
         return;
@@ -856,6 +859,7 @@ void InitView() {
     InitTextureEditor();
     InitSkeletonEditor();
     InitAnimationEditor();
+    InitAnimatedMeshEditor();
 
     SetPalette(0);
 }

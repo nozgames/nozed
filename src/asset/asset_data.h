@@ -21,7 +21,7 @@ struct AssetVtable {
     void (*clone)(AssetData* a);
     void (*undo_redo)(AssetData* a);
 
-    void (*editor_begin)();
+    void (*editor_begin)(AssetData* a);
     void (*editor_end)();
     void (*editor_update)();
     void (*editor_draw)();

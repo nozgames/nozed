@@ -43,11 +43,13 @@ const Name* NAME_EDIT = nullptr;
 const Name* NAME_N = nullptr;
 const Name* NAME_S = nullptr;
 const Name* NAME_BUILD = nullptr;
+const Name* NAME_AM = nullptr;
 const Name* NAME_RENAME = nullptr;
 const Name* NAME_SAVE = nullptr;
 const Name* NAME_MESH = nullptr;
 const Name* NAME_SKELETON = nullptr;
 const Name* NAME_ANIMATION = nullptr;
+const Name* NAME_ANIMATEDMESH = nullptr;
 
 // @path
 const Name* PATH_SHADER_VFX = nullptr;
@@ -79,11 +81,13 @@ bool LoadAssets(Allocator* allocator)
     NAME_N = GetName("n");
     NAME_S = GetName("s");
     NAME_BUILD = GetName("build");
+    NAME_AM = GetName("am");
     NAME_RENAME = GetName("rename");
     NAME_SAVE = GetName("save");
     NAME_MESH = GetName("mesh");
     NAME_SKELETON = GetName("skeleton");
     NAME_ANIMATION = GetName("animation");
+    NAME_ANIMATEDMESH = GetName("animatedmesh");
 
     // @path
     PATH_SHADER_VFX = GetName("vfx");

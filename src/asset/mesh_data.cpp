@@ -173,8 +173,8 @@ void MarkDirty(MeshData* m) {
     m->mesh = nullptr;
 }
 
-Mesh* ToMesh(MeshData* m, bool upload) {
-    if (m->mesh)
+Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
+    if (use_cache && m->mesh)
         return m->mesh;
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
@@ -207,12 +207,15 @@ Mesh* ToMesh(MeshData* m, bool upload) {
         AddTriangle(builder, base+1, base+2, base+3);
     }
 
-    m->mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
-    m->bounds = m->mesh ? GetBounds(m->mesh) : BOUNDS2_ZERO;
+    Mesh* mesh =CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
+    m->bounds = mesh ? GetBounds(mesh) : BOUNDS2_ZERO;
+
+    if (use_cache)
+        m->mesh = mesh;
 
     Free(builder);
 
-    return m->mesh;
+    return mesh;
 }
 
 void SetEdgeColor(MeshData* m, const Vec2Int& color) {
@@ -930,15 +933,7 @@ static void ParseDepth(MeshData* m, Tokenizer& tk) {
     m->depth = (int)(depth * (MAX_DEPTH - MIN_DEPTH) + MIN_DEPTH);
 }
 
-static void LoadMeshData(AssetData* a) {
-    assert(a);
-    assert(a->type == ASSET_TYPE_MESH);
-    MeshData* m = (MeshData*)a;
-
-    std::string contents = ReadAllText(ALLOCATOR_DEFAULT, a->path);
-    Tokenizer tk;
-    Init(tk, contents.c_str());
-
+void LoadMeshData(MeshData* m, Tokenizer& tk, bool multiple_mesh=false) {
     while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "v")) {
             ParseVertex(m, tk);
@@ -950,6 +945,8 @@ static void LoadMeshData(AssetData* a) {
             ParseFace(m, tk);
         } else if (ExpectIdentifier(tk, "e")) {
             ParseEdgeColor(m, tk);
+        } else if (multiple_mesh && Peek(tk, "m")) {
+            break;
         } else {
             char error[1024];
             GetString(tk, error, sizeof(error) - 1);
@@ -968,6 +965,29 @@ static void LoadMeshData(AssetData* a) {
     MarkDirty(m);
 }
 
+void SerializeMesh(Mesh* m, Stream* stream) {
+    WriteU16(stream, GetVertexCount(m));
+    WriteU16(stream, GetIndexCount(m));
+
+    const MeshVertex* v = GetVertices(m);
+    WriteBytes(stream, v, sizeof(MeshVertex) * GetVertexCount(m));
+
+    const u16* i = GetIndices(m);
+    WriteBytes(stream, i, sizeof(u16) * GetIndexCount(m));
+
+}
+
+static void LoadMeshData(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_MESH);
+    MeshData* m = (MeshData*)a;
+
+    std::string contents = ReadAllText(ALLOCATOR_DEFAULT, a->path);
+    Tokenizer tk;
+    Init(tk, contents.c_str());
+    LoadMeshData(m, tk);
+}
+
 MeshData* LoadMeshData(const std::filesystem::path& path) {
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, path);
     Tokenizer tk;
@@ -980,39 +1000,41 @@ MeshData* LoadMeshData(const std::filesystem::path& path) {
     return m;
 }
 
-static void SaveMeshData(AssetData* ea, const std::filesystem::path& path) {
-    assert(ea->type == ASSET_TYPE_MESH);
-    MeshData* em = (MeshData*)ea;
-    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
-
-    WriteCSTR(stream, "d %f\n", (em->depth - MIN_DEPTH) / (float)(MAX_DEPTH - MIN_DEPTH));
-    WriteCSTR(stream, "e %d %d\n", em->edge_color.x, em->edge_color.y);
+void SaveMeshData(MeshData* m, Stream* stream) {
+    WriteCSTR(stream, "d %f\n", (m->depth - MIN_DEPTH) / (float)(MAX_DEPTH - MIN_DEPTH));
+    WriteCSTR(stream, "e %d %d\n", m->edge_color.x, m->edge_color.y);
     WriteCSTR(stream, "\n");
 
-    for (int i=0; i<em->anchor_count; i++) {
-        const AnchorData& a = em->anchors[i];
+    for (int i=0; i<m->anchor_count; i++) {
+        const AnchorData& a = m->anchors[i];
         WriteCSTR(stream, "a %f %f\n", a.position.x, a.position.y);
     }
 
-    for (int i=0; i<em->vertex_count; i++) {
-        const VertexData& ev = em->vertices[i];
+    for (int i=0; i<m->vertex_count; i++) {
+        const VertexData& ev = m->vertices[i];
         WriteCSTR(stream, "v %f %f e %f\n", ev.position.x, ev.position.y, ev.edge_size);
     }
 
     WriteCSTR(stream, "\n");
 
-    for (int i=0; i<em->face_count; i++) {
-        const FaceData& ef = em->faces[i];
+    for (int i=0; i<m->face_count; i++) {
+        const FaceData& ef = m->faces[i];
 
         WriteCSTR(stream, "f ");
         for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++) {
-            int v = em->face_vertices[ef.vertex_offset + vertex_index];
+            int v = m->face_vertices[ef.vertex_offset + vertex_index];
             WriteCSTR(stream, " %d", v);
         }
 
         WriteCSTR(stream, " c %d %d n %f %f %f\n", ef.color.x, ef.color.y, ef.normal.x, ef.normal.y, ef.normal.z);
     }
+}
 
+static void SaveMeshData(AssetData* a, const std::filesystem::path& path) {
+    assert(a->type == ASSET_TYPE_MESH);
+    MeshData* m = static_cast<MeshData*>(a);
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+    SaveMeshData(m, stream);
     SaveStream(stream, path);
     Free(stream);
 }

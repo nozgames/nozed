@@ -141,6 +141,10 @@ bool Equals(Tokenizer& tk, TokenType type)
     return Equals(tk.current_token, type);
 }
 
+bool Peek(Tokenizer& tk, const char* value, bool ignore_case) {
+    return Equals(tk.next_token, value, ignore_case);
+}
+
 static bool ReadQuotedString(Tokenizer& tk)
 {
     char quote_char = PeekChar(tk);

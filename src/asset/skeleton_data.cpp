@@ -475,10 +475,36 @@ static void SkeletonUndoRedo(AssetData* a) {
     UpdateTransforms(s);
 }
 
-static void Init(SkeletonData* s) {
+static void AllocateSkeletonRuntimeData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* d = static_cast<SkeletonData*>(a);
+    d->data = static_cast<RuntimeSkeletonData*>(Alloc(ALLOCATOR_DEFAULT, sizeof(RuntimeSkeletonData)));
+    d->bones = d->data->bones;
+    d->skinned_meshes = d->data->skinned_meshes;
+}
+
+static void CloneSkeletonData(AssetData* a) {
+    assert(a->type == ASSET_TYPE_SKELETON);
+    SkeletonData* n = static_cast<SkeletonData*>(a);
+    RuntimeSkeletonData* old_data = n->data;
+    AllocateSkeletonRuntimeData(n);
+    memcpy(n->data, old_data, sizeof(RuntimeSkeletonData));
+}
+
+static void DestroySkeletonData(AssetData* a) {
+    SkeletonData* s = static_cast<SkeletonData*>(a);
+    assert(s);
+    Free(s->data);
+    s->data = nullptr;
+}
+
+static void InitSkeletonData(SkeletonData* s) {
     assert(s);
 
+    AllocateSkeletonRuntimeData(s);
+
     s->vtable = {
+        .destructor = DestroySkeletonData,
         .load = LoadSkeletonData,
         .post_load = PostLoadSkeleton,
         .save = SaveSkeletonData,
@@ -487,15 +513,15 @@ static void Init(SkeletonData* s) {
         .draw = DrawSkeletonData,
         .overlap_point = EditorSkeletonOverlapPoint,
         .overlap_bounds = EditorSkeletonOverlapBounds,
+        .clone = CloneSkeletonData,
         .undo_redo = SkeletonUndoRedo
     };
 
     InitSkeletonEditor(s);
 }
 
-void InitSkeletonData(AssetData* ea) {
-    assert(ea);
-    assert(ea->type == ASSET_TYPE_SKELETON);
-    SkeletonData* es = (SkeletonData*)ea;
-    Init(es);
+void InitSkeletonData(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_SKELETON);
+    InitSkeletonData(static_cast<SkeletonData*>(a));
 }

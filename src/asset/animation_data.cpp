@@ -527,7 +527,7 @@ static void LoadAnimationMetadata(AssetData* a, Props* meta) {
         n->flags |= ANIMATION_FLAG_ROOT_MOTION;
 }
 
-static void AllocateAnimationData(AssetData* a) {
+static void AllocateAnimationRuntimeData(AssetData* a) {
     assert(a->type == ASSET_TYPE_ANIMATION);
     AnimationData* n = static_cast<AnimationData*>(a);
     n->data = static_cast<RuntimeAnimationData*>(Alloc(ALLOCATOR_DEFAULT, sizeof(RuntimeAnimationData)));
@@ -540,7 +540,7 @@ static void CloneAnimationData(AssetData* a) {
     assert(a->type == ASSET_TYPE_ANIMATION);
     AnimationData* n = static_cast<AnimationData*>(a);
     RuntimeAnimationData* old_data = n->data;
-    AllocateAnimationData(n);
+    AllocateAnimationRuntimeData(n);
     memcpy(n->data, old_data, sizeof(RuntimeAnimationData));
     n->animation = nullptr;
     n->animator = {};
@@ -555,7 +555,7 @@ static void DestroyAnimationData(AssetData* a) {
 }
 
 static void InitAnimationData(AnimationData* a) {
-    AllocateAnimationData(a);
+    AllocateAnimationRuntimeData(a);
 
     a->vtable = {
         .destructor = DestroyAnimationData,

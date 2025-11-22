@@ -31,14 +31,7 @@ static void ImportMesh(AssetData* a, Stream* output_stream, Props* config, Props
     WriteAssetHeader(output_stream, &header);
 
     WriteStruct(output_stream, mesh_data->bounds);
-    WriteU16(output_stream, GetVertexCount(m));
-    WriteU16(output_stream, GetIndexCount(m));
-
-    const MeshVertex* v = GetVertices(m);
-    WriteBytes(output_stream, v, sizeof(MeshVertex) * GetVertexCount(m));
-
-    const u16* i = GetIndices(m);
-    WriteBytes(output_stream, i, sizeof(u16) * GetIndexCount(m));
+    SerializeMesh(m, output_stream);
 }
 
 AssetImporter GetMeshImporter() {

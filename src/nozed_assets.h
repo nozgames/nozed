@@ -40,11 +40,13 @@ extern const Name* NAME_EDIT;
 extern const Name* NAME_N;
 extern const Name* NAME_S;
 extern const Name* NAME_BUILD;
+extern const Name* NAME_AM;
 extern const Name* NAME_RENAME;
 extern const Name* NAME_SAVE;
 extern const Name* NAME_MESH;
 extern const Name* NAME_SKELETON;
 extern const Name* NAME_ANIMATION;
+extern const Name* NAME_ANIMATEDMESH;
 
 
 extern bool LoadAssets(Allocator* allocator);

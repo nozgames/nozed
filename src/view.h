@@ -135,7 +135,7 @@ extern void UpdateNotifications();
 extern void AddNotification(NotificationType type, const char* format, ...);
 
 // @draw
-extern void DrawRect(const Rect& rect);
+extern void DrawRect(const noz::Rect& rect);
 extern void DrawLine(const Vec2& v0, const Vec2& v1);
 extern void DrawLine(const Vec2& v0, const Vec2& v1, f32 width);
 extern void DrawVertex(const Vec2& v);

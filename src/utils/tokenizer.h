@@ -7,8 +7,7 @@
 #include <noz/color.h>
 
 // @TokenType
-enum TokenType
-{
+enum TokenType {
     TOKEN_TYPE_NONE,
     TOKEN_TYPE_INT,
     TOKEN_TYPE_FLOAT,
@@ -23,15 +22,13 @@ enum TokenType
     TOKEN_TYPE_EOF
 };
 
-struct Token
-{
+struct Token {
     const char* raw;
     u32 length;
     u32 line;
     u32 column;
     TokenType type;
-    union
-    {
+    union {
         float f;
         int i;
         bool b;
@@ -58,6 +55,7 @@ extern const Name* GetName(const Tokenizer& tk);
 extern char* GetString(const Tokenizer& tk, char* dst, u32 dst_size);
 extern char* GetString(const Token& token, char* dst, u32 dst_size);
 extern bool Equals(Tokenizer& tk, const char* value, bool ignore_case=false);
+extern bool Peek(Tokenizer& tk, const char* value, bool ignore_case=false);
 extern bool Equals(Tokenizer& tk, TokenType type);
 extern bool IsEOF(Tokenizer& tk);
 

@@ -2,29 +2,32 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-static void ImportAnimatedMesh(AssetData* a, Stream* output_stream, Props* config, Props* meta) {
+static void ImportAnimatedMesh(AssetData* a, Stream* stream, Props* config, Props* meta) {
     (void)config;
     (void)meta;
 
     assert(a);
     assert(a->type == ASSET_TYPE_ANIMATED_MESH);
-    MeshData* mesh_data = static_cast<MeshData*>(a);
-
-    //Mesh* m = ToMesh(mesh_data, false);
+    AnimatedMeshData* m = static_cast<AnimatedMeshData*>(a);
 
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE;
     header.type = ASSET_TYPE_ANIMATED_MESH;
     header.version = 1;
-    WriteAssetHeader(output_stream, &header);
+    WriteAssetHeader(stream, &header);
+    WriteStruct(stream, m->bounds);
 
-    WriteStruct(output_stream, mesh_data->bounds);
+    WriteU8(stream, (u8)m->frame_count);
+    for (int i=0; i<m->frame_count; i++) {
+        MeshData* frame = &m->frames[i];
+        SerializeMesh(ToMesh(frame, false), stream);
+    }
 }
 
 AssetImporter GetAnimatedMeshImporter() {
     return {
         .type = ASSET_TYPE_ANIMATED_MESH,
-        .ext = ".anim_mesh",
+        .ext = ".amesh",
         .import_func = ImportAnimatedMesh
     };
 }

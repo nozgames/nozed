@@ -73,13 +73,14 @@ struct MeshData : AssetData {
     Vec2Int edge_color;
     float opacity;
     int depth;
+    int hold;
 };
 
 extern void InitMeshData(AssetData* a);
 extern AssetData* NewMeshData(const std::filesystem::path& path);
 extern MeshData* Clone(Allocator* allocator, MeshData* m);
 extern MeshData* LoadEditorMesh(const std::filesystem::path& path);
-extern Mesh* ToMesh(MeshData* m, bool upload=true);
+extern Mesh* ToMesh(MeshData* m, bool upload=true, bool use_cache=true);
 extern int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* where = nullptr);
 extern int HitTestVertex(MeshData* m, const Vec2& position, float size_mult=1.0f);
 extern int HitTestEdge(MeshData* m, const Vec2& position, float* where=nullptr);
@@ -113,6 +114,7 @@ extern void DrawSelectedFaces(MeshData* m, const Vec2& position);
 extern void DrawFaceCenters(MeshData* m, const Vec2& position);
 extern void DissolveEdge(MeshData* m, int edge_index);
 extern int CreateFace(MeshData* m);
-
 extern int GetSelectedVertices(MeshData* m, int vertices[MAX_VERTICES]);
 extern int GetSelectedEdges(MeshData* m, int edges[MAX_EDGES]);
+extern void SerializeMesh(Mesh* m, Stream* stream);
+

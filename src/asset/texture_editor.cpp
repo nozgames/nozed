@@ -12,7 +12,7 @@ extern void DrawTextureData(AssetData* a);
 
 static TextureEditor g_texture_editor = {};
 
-static void BeginTextureEditor() {
+static void BeginTextureEditor(AssetData*) {
     PushInputSet(g_texture_editor.input);
 }
 

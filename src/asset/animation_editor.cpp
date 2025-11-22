@@ -600,7 +600,7 @@ static void PasteKeys() {
     UpdateTransforms(n);
 }
 
-static void BeginAnimationEditor() {
+static void BeginAnimationEditor(AssetData*) {
     ClearSelection();
     SetDefaultState();
     PushInputSet(g_animation_editor.input);

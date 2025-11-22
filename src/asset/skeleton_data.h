@@ -26,16 +26,22 @@ struct BoneData {
     bool selected;
 };
 
-struct SkeletonData : AssetData {
-    int bone_count;
+struct RuntimeSkeletonData {
     BoneData bones[MAX_BONES];
     SkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
+};
+
+struct SkeletonData : AssetData {
+    RuntimeSkeletonData* data;
+    BoneData* bones;
+    SkinnedMesh* skinned_meshes;
+    int bone_count;
     int skinned_mesh_count;
     int selected_bone_count;
     float opacity;
 };
 
-extern void InitSkeletonData(AssetData* ea);
+extern void InitSkeletonData(AssetData* a);
 extern AssetData* NewEditorSkeleton(const std::filesystem::path& path);
 extern AssetData* CreateEditorSkeletonAsset(const std::filesystem::path& path, SkeletonData* skeleton);
 extern void DrawSkeletonData(SkeletonData* es, const Vec2& position);
