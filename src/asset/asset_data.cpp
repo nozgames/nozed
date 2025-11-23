@@ -223,29 +223,39 @@ bool OverlapBounds(AssetData* a, const Bounds2& overlap_bounds) {
 }
 
 AssetData* HitTestAssets(const Vec2& overlap_point) {
+    AssetData* first_hit = nullptr;
     for (u32 i=GetAssetCount(); i>0; i--) {
         AssetData* a = GetAssetData(i-1);
         if (!a)
             continue;
 
-        if (OverlapPoint(a, overlap_point))
-            return a;
+        if (OverlapPoint(a, overlap_point)) {
+            if (!first_hit)
+                first_hit = a;
+            if (!a->selected)
+                return a;
+        }
     }
 
-    return nullptr;
+    return first_hit;
 }
 
 AssetData* HitTestAssets(const Bounds2& hit_bounds) {
+    AssetData* first_hit = nullptr;
     for (u32 i=GetAssetCount(); i>0; i--) {
         AssetData* a = GetAssetData(i-1);
         if (!a)
             continue;
 
-        if (OverlapBounds(a, hit_bounds))
-            return a;
+        if (OverlapBounds(a, hit_bounds)) {
+            if (!first_hit)
+                first_hit = a;
+            if (!a->selected)
+                return a;
+        }
     }
 
-    return nullptr;
+    return first_hit;
 }
 
 void DrawAsset(AssetData* a) {

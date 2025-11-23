@@ -39,7 +39,7 @@ static void LoadTextureMetaData(AssetData* a, Props* meta) {
     assert(a);
     assert(a->type == ASSET_TYPE_TEXTURE);
     TextureData* t = static_cast<TextureData*>(a);
-    t->editor_only = meta->GetBool("texture", "reference", false);
+    t->editor_only = meta->GetBool("texture", "reference", false) || Contains(a->path, "reference", true);
     t->scale = meta->GetFloat("editor", "scale", 1.0f);
     InitTextureEditor(static_cast<TextureData*>(a));
     UpdateBounds(t);

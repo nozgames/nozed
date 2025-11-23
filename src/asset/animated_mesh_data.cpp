@@ -10,9 +10,14 @@ extern void SaveMeshData(MeshData* m, Stream* stream);
 static void DrawAnimatedMeshData(AssetData* a) {
     assert(a->type == ASSET_TYPE_ANIMATED_MESH);
     AnimatedMeshData* m = static_cast<AnimatedMeshData*>(a);
-    DrawMesh(&m->frames[0], Translate(a->position));
-}
 
+    if (m->playing) {
+        m->play_time = Update(m->playing, m->play_time);
+        DrawMesh(m->playing, Translate(a->position), m->play_time);
+    } else if (m->frame_count > 0) {
+        DrawMesh(&m->frames[0], Translate(a->position));
+    }
+}
 
 static void SaveAnimatedMeshData(AssetData* a, const std::filesystem::path& path) {
     assert(a->type == ASSET_TYPE_ANIMATED_MESH);
@@ -101,14 +106,13 @@ AssetData* NewAnimatedMeshData(const std::filesystem::path& path) {
 
     std::string text = default_mesh;
 
-    // if (g_view.selected_asset_count == 1) {
-    //     AssetData* selected = GetFirstSelectedAsset();
-    //     assert(selected);
-    //     if (selected->type != ASSET_TYPE_ANIMATED_MESH)
-    //         return nullptr;
-    //
-    //     text = ReadAllText(ALLOCATOR_DEFAULT, selected->path);
-    // }
+    if (g_view.selected_asset_count == 1) {
+        AssetData* selected = GetFirstSelectedAsset();
+        if (selected && selected->type == ASSET_TYPE_MESH) {
+            text = "m\n";
+            text += ReadAllText(ALLOCATOR_DEFAULT, selected->path);
+        }
+    }
 
     std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "animated_meshes" / path : path;
     full_path += ".amesh";
@@ -142,6 +146,20 @@ static void DestroyAnimatedMeshData(AssetData* a) {
     d->data = nullptr;
 }
 
+static void PlayAnimatedMeshData(AssetData* a) {
+    AnimatedMeshData* m = static_cast<AnimatedMeshData*>(a);
+    assert(m);
+
+    if (m->playing) {
+        Free(m->playing);
+        m->playing = nullptr;
+    } else {
+        m->playing = ToAnimatedMesh(m);
+    }
+
+    m->play_time = 0.0f;
+}
+
 static void InitAnimatedMeshData(AnimatedMeshData* m) {
     AllocateAnimatedMeshRuntimeData(m);
 
@@ -150,6 +168,7 @@ static void InitAnimatedMeshData(AnimatedMeshData* m) {
         .load = LoadAnimatedMeshData,
         .save = SaveAnimatedMeshData,
         .draw = DrawAnimatedMeshData,
+        .play = PlayAnimatedMeshData,
         .clone = CloneAnimatedMeshData,
     };
 

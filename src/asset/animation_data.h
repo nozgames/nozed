@@ -48,7 +48,6 @@ extern Animation* ToAnimation(Allocator* allocator, AnimationData* n);
 extern int InsertFrame(AnimationData* n, int frame_index);
 extern int DeleteFrame(AnimationData* n, int frame_index);
 extern Transform& GetFrameTransform(AnimationData* n, int bone_index, int frame_index);
-extern int HitTestBone(AnimationData* n, const Vec2& world_pos);
 extern void UpdateTransforms(AnimationData* n);
 extern void UpdateSkeleton(AnimationData* n);
 extern void DrawAnimationData(AssetData* a);

@@ -282,8 +282,7 @@ static void InsertVertexFaceOrEdge() {
         return;
 
     MeshData* m = GetMeshData();
-
-    RecordUndo();
+    RecordUndo(m);
 
     Vec2 position = g_view.mouse_world_position - m->position;
 
@@ -337,7 +336,7 @@ static void DissolveSelected() {
     if (m->selected_vertex_count == 0)
         return;
 
-    RecordUndo();
+    RecordUndo(m);
 
     switch (g_mesh_editor.mode) {
     case MESH_EDITOR_MODE_VERTEX:
@@ -401,7 +400,7 @@ static void UpdateDefaultState() {
 static bool HandleColorPickerInput(const Vec2& position) {
     float x = Clamp01(position.x / COLOR_PICKER_WIDTH);
     i32 col = (i32)(x * 64.0f);
-    RecordUndo();
+    RecordUndo(GetMeshData());
 
     if (IsCtrlDown(g_mesh_editor.input))
         SetEdgeColor(GetMeshData(), {col, 0});
@@ -555,7 +554,7 @@ static void BeginMoveTool() {
         return;
 
     SaveMeshState();
-    RecordUndo();
+    RecordUndo(m);
     BeginMoveTool({.update=UpdateMoveTool, .cancel=CancelMeshTool});
 }
 
@@ -589,7 +588,7 @@ static void BeginRotateTool() {
         return;
 
     SaveMeshState();
-    RecordUndo();
+    RecordUndo(m);
     BeginRotateTool({.origin=g_mesh_editor.selection_center+m->position, .update=UpdateRotateTool, .cancel=CancelMeshTool});
 }
 
@@ -623,7 +622,7 @@ static void BeginScaleTool() {
         return;
 
     SaveMeshState();
-    RecordUndo();
+    RecordUndo(m);
     BeginScaleTool({.origin=g_mesh_editor.selection_center+m->position, .update=UpdateScaleTool, .cancel=CancelMeshTool});
 }
 
@@ -669,7 +668,7 @@ static void BeginOutlineTool() {
         return;
 
     SaveMeshState();
-    RecordUndo();
+    RecordUndo(m);
     BeginWeightTool(options);
 }
 
@@ -929,7 +928,7 @@ static void ExtrudeSelected() {
     if (g_mesh_editor.mode != MESH_EDITOR_MODE_EDGE || m->selected_vertex_count <= 0)
         return;
 
-    RecordUndo();
+    RecordUndo(m);
     if (!ExtrudeSelectedEdges(m)) {
         CancelUndo();
         return;
@@ -939,9 +938,9 @@ static void ExtrudeSelected() {
 }
 
 static void AddNewFace() {
-    RecordUndo();
-
     MeshData* m = GetMeshData();
+    RecordUndo(m);
+
     m->vertex_count += 4;
     m->vertices[m->vertex_count - 4] = { .position = { -0.25f, -0.25f }, .edge_size = 1.0f };
     m->vertices[m->vertex_count - 3] = { .position = {  0.25f, -0.25f }, .edge_size = 1.0f };

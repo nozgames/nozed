@@ -333,6 +333,47 @@ int ReparentBone(SkeletonData* s, int bone_index, int parent_index) {
     return bone_map[bone_index];
 }
 
+int GetBoneSide(SkeletonData* s, int bone_index) {
+    const Name* name = s->bones[bone_index].name;
+    const char* str = name->value;
+    size_t len = strlen(str);
+
+    if (len >= 2) {
+        const char* suffix = &str[len - 2];
+        if (strcmp(suffix, "_l") == 0)
+            return -1;
+        if (strcmp(suffix, "_r") == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+int GetMirrorBone(SkeletonData* s, int bone_index) {
+    int side = GetBoneSide(s, bone_index);
+    for (int i=0; i<s->bone_count; i++) {
+        if (i == bone_index)
+            continue;
+
+        int other_side = GetBoneSide(s, i);
+        if (other_side == -side) {
+            const char* name_a = s->bones[bone_index].name->value;
+            const char* name_b = s->bones[i].name->value;
+
+            size_t len_a = strlen(name_a);
+            size_t len_b = strlen(name_b);
+
+            if (len_a != len_b)
+                continue;
+
+            if (strncmp(name_a, name_b, len_a - 2) == 0)
+                return i;
+        }
+    }
+
+    return -1;
+}
+
 void RemoveBone(SkeletonData* s, int bone_index) {
     if (bone_index <= 0 || bone_index >= s->bone_count)
         return;

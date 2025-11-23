@@ -98,14 +98,14 @@ static bool ReadAsset(u32 item_index, void* item_ptr, void* user_data) {
     (void)item_index;
 
     assert(item_ptr);
-    AssetData* ea = (AssetData*)item_ptr;
-    if (ea->editor_only)
+    AssetData* a = (AssetData*)item_ptr;
+    if (a->editor_only)
         return true;
 
     ManifestGenerator& generator = *(ManifestGenerator*)user_data;
 
     std::vector<const Name*> names;
-    AssetType asset_type = ReadAssetHeader(ea, generator, names);
+    AssetType asset_type = ReadAssetHeader(a, generator, names);
     if (asset_type == ASSET_TYPE_UNKNOWN)
         return true;
 
@@ -113,11 +113,11 @@ static bool ReadAsset(u32 item_index, void* item_ptr, void* user_data) {
     if (!type_name)
         return true;
 
-    std::string var_name = std::string(type_name) + "_" + ea->name->value;
+    std::string var_name = std::string(type_name) + "_" + a->name->value;
     Uppercase(var_name.data(), (u32)var_name.size());
 
     generator.assets.push_back({
-        .asset = ea,
+        .asset = a,
         .var_name = var_name,
         .type = asset_type,
         .names = std::move(names)

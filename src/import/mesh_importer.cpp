@@ -30,7 +30,6 @@ static void ImportMesh(AssetData* a, Stream* output_stream, Props* config, Props
     header.version = 1;
     WriteAssetHeader(output_stream, &header);
 
-    WriteStruct(output_stream, mesh_data->bounds);
     SerializeMesh(m, output_stream);
 }
 

@@ -207,7 +207,7 @@ Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
         AddTriangle(builder, base+1, base+2, base+3);
     }
 
-    Mesh* mesh =CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
+    Mesh* mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
     m->bounds = mesh ? GetBounds(mesh) : BOUNDS2_ZERO;
 
     if (use_cache)
@@ -954,18 +954,13 @@ void LoadMeshData(MeshData* m, Tokenizer& tk, bool multiple_mesh=false) {
         }
     }
 
-    Bounds2 bounds = { m->vertices[0].position, m->vertices[0].position };
-    for (int i=0; i<m->vertex_count; i++) {
-        bounds.min = Min(bounds.min, m->vertices[i].position);
-        bounds.max = Max(bounds.max, m->vertices[i].position);
-    }
-
-    ToMesh(m, false);
     UpdateEdges(m);
     MarkDirty(m);
+    ToMesh(m, false);
 }
 
 void SerializeMesh(Mesh* m, Stream* stream) {
+    WriteStruct(stream, GetBounds(m));
     WriteU16(stream, GetVertexCount(m));
     WriteU16(stream, GetIndexCount(m));
 
@@ -974,7 +969,6 @@ void SerializeMesh(Mesh* m, Stream* stream) {
 
     const u16* i = GetIndices(m);
     WriteBytes(stream, i, sizeof(u16) * GetIndexCount(m));
-
 }
 
 static void LoadMeshData(AssetData* a) {

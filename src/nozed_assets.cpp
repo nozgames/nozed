@@ -11,6 +11,8 @@
 #endif
 
 // @Mesh
+Mesh* MESH_UI_ICON_ROOT_MOTION_OFF = nullptr;
+Mesh* MESH_UI_ICON_ROOT_MOTION = nullptr;
 Mesh* MESH_ASSET_ICON_VFX = nullptr;
 Mesh* MESH_ASSET_ICON_SOUND = nullptr;
 Mesh* MESH_ASSET_ICON_SHADER = nullptr;
@@ -18,7 +20,6 @@ Mesh* MESH_ASSET_ICON_FONT = nullptr;
 
 // @Texture
 Texture* TEXTURE_PALETTE = nullptr;
-Texture* TEXTURE_FX = nullptr;
 
 // @Font
 Font* FONT_SEGUISB = nullptr;
@@ -50,6 +51,8 @@ const Name* NAME_MESH = nullptr;
 const Name* NAME_SKELETON = nullptr;
 const Name* NAME_ANIMATION = nullptr;
 const Name* NAME_ANIMATEDMESH = nullptr;
+const Name* NAME_RU = nullptr;
+const Name* NAME_MIRROR = nullptr;
 
 // @path
 const Name* PATH_SHADER_VFX = nullptr;
@@ -59,7 +62,8 @@ const Name* PATH_SHADER_TEXT = nullptr;
 const Name* PATH_SHADER_LIT = nullptr;
 const Name* PATH_TEXTURE_PALETTE = nullptr;
 const Name* PATH_SHADER_SOLID = nullptr;
-const Name* PATH_TEXTURE_FX = nullptr;
+const Name* PATH_MESH_UI_ICON_ROOT_MOTION_OFF = nullptr;
+const Name* PATH_MESH_UI_ICON_ROOT_MOTION = nullptr;
 const Name* PATH_MESH_ASSET_ICON_VFX = nullptr;
 const Name* PATH_MESH_ASSET_ICON_SOUND = nullptr;
 const Name* PATH_MESH_ASSET_ICON_SHADER = nullptr;
@@ -88,6 +92,8 @@ bool LoadAssets(Allocator* allocator)
     NAME_SKELETON = GetName("skeleton");
     NAME_ANIMATION = GetName("animation");
     NAME_ANIMATEDMESH = GetName("animatedmesh");
+    NAME_RU = GetName("ru");
+    NAME_MIRROR = GetName("mirror");
 
     // @path
     PATH_SHADER_VFX = GetName("vfx");
@@ -97,7 +103,8 @@ bool LoadAssets(Allocator* allocator)
     PATH_SHADER_LIT = GetName("lit");
     PATH_TEXTURE_PALETTE = GetName("palette");
     PATH_SHADER_SOLID = GetName("solid");
-    PATH_TEXTURE_FX = GetName("fx");
+    PATH_MESH_UI_ICON_ROOT_MOTION_OFF = GetName("ui_icon_root_motion_off");
+    PATH_MESH_UI_ICON_ROOT_MOTION = GetName("ui_icon_root_motion");
     PATH_MESH_ASSET_ICON_VFX = GetName("asset_icon_vfx");
     PATH_MESH_ASSET_ICON_SOUND = GetName("asset_icon_sound");
     PATH_MESH_ASSET_ICON_SHADER = GetName("asset_icon_shader");
@@ -105,12 +112,16 @@ bool LoadAssets(Allocator* allocator)
     PATH_FONT_SEGUISB = GetName("seguisb");
 
     // @Mesh
+    NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_ROOT_MOTION_OFF, MESH_UI_ICON_ROOT_MOTION_OFF);
+    NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_ROOT_MOTION, MESH_UI_ICON_ROOT_MOTION);
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_VFX, MESH_ASSET_ICON_VFX);
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_SOUND, MESH_ASSET_ICON_SOUND);
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_SHADER, MESH_ASSET_ICON_SHADER);
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_FONT, MESH_ASSET_ICON_FONT);
 
     static Mesh* _MESH[] = {
+        MESH_UI_ICON_ROOT_MOTION_OFF,
+        MESH_UI_ICON_ROOT_MOTION,
         MESH_ASSET_ICON_VFX,
         MESH_ASSET_ICON_SOUND,
         MESH_ASSET_ICON_SHADER,
@@ -122,11 +133,9 @@ bool LoadAssets(Allocator* allocator)
 
     // @Texture
     NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
-    NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_FX, TEXTURE_FX);
 
     static Texture* _TEXTURE[] = {
         TEXTURE_PALETTE,
-        TEXTURE_FX,
         nullptr
     };
 
@@ -169,6 +178,8 @@ bool LoadAssets(Allocator* allocator)
 void UnloadAssets()
 {
     // @Mesh
+    Free(MESH_UI_ICON_ROOT_MOTION_OFF);
+    Free(MESH_UI_ICON_ROOT_MOTION);
     Free(MESH_ASSET_ICON_VFX);
     Free(MESH_ASSET_ICON_SOUND);
     Free(MESH_ASSET_ICON_SHADER);
@@ -176,7 +187,6 @@ void UnloadAssets()
 
     // @Texture
     Free(TEXTURE_PALETTE);
-    Free(TEXTURE_FX);
 
     // @Font
     Free(FONT_SEGUISB);
@@ -195,6 +205,8 @@ void UnloadAssets()
 void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
 {
     // @Mesh
+    NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_ROOT_MOTION_OFF, MESH_UI_ICON_ROOT_MOTION_OFF);
+    NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_ROOT_MOTION, MESH_UI_ICON_ROOT_MOTION);
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_VFX, MESH_ASSET_ICON_VFX);
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_SOUND, MESH_ASSET_ICON_SOUND);
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_SHADER, MESH_ASSET_ICON_SHADER);
@@ -202,7 +214,6 @@ void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
 
     // @Texture
     NOZ_RELOAD_TEXTURE(PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
-    NOZ_RELOAD_TEXTURE(PATH_TEXTURE_FX, TEXTURE_FX);
 
     // @Font
     NOZ_RELOAD_FONT(PATH_FONT_SEGUISB, FONT_SEGUISB);

@@ -15,6 +15,8 @@ struct AnimatedMeshData : AssetData {
     MeshData* frames;
     int frame_count;
     int current_frame;
+    AnimatedMesh* playing;
+    float play_time;
 };
 
 extern void InitAnimatedMeshData(AssetData* a);

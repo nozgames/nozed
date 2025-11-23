@@ -55,6 +55,7 @@ extern Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* s);
 extern int ReparentBone(SkeletonData* s, int bone_index, int parent_index);
 extern const Name* GetUniqueBoneName(SkeletonData* s);
 extern void RemoveBone(SkeletonData* s, int bone_index);
+extern int GetMirrorBone(SkeletonData* s, int bone_index);
 
 inline BoneData* GetParent(SkeletonData* es, BoneData* eb) {
     return eb->parent_index >= 0 ? &es->bones[eb->parent_index] : nullptr;

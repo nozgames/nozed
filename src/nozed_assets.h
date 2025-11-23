@@ -8,6 +8,8 @@
 #include <noz/core_assets.h>
 
 // @Mesh
+extern Mesh* MESH_UI_ICON_ROOT_MOTION_OFF;
+extern Mesh* MESH_UI_ICON_ROOT_MOTION;
 extern Mesh* MESH_ASSET_ICON_VFX;
 extern Mesh* MESH_ASSET_ICON_SOUND;
 extern Mesh* MESH_ASSET_ICON_SHADER;
@@ -15,7 +17,6 @@ extern Mesh* MESH_ASSET_ICON_FONT;
 
 // @Texture
 extern Texture* TEXTURE_PALETTE;
-extern Texture* TEXTURE_FX;
 
 // @Font
 extern Font* FONT_SEGUISB;
@@ -47,6 +48,8 @@ extern const Name* NAME_MESH;
 extern const Name* NAME_SKELETON;
 extern const Name* NAME_ANIMATION;
 extern const Name* NAME_ANIMATEDMESH;
+extern const Name* NAME_RU;
+extern const Name* NAME_MIRROR;
 
 
 extern bool LoadAssets(Allocator* allocator);

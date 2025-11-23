@@ -20,12 +20,6 @@ static void EndTextureEditor() {
     PopInputSet();
 }
 
-static void CancelTextureEditor() {
-    TextureData* t = static_cast<TextureData*>(GetAssetData());
-    t->scale = g_texture_editor.saved_scale;
-    EndTextureEditor();
-}
-
 static void UpdateTextureEditor() {
     CheckShortcuts(g_texture_editor.shortcuts, g_texture_editor.input);
 }
@@ -85,7 +79,6 @@ void InitTextureEditor() {
     static Shortcut shortcuts[] = {
         { KEY_G, false, false, false, BeginTextureMove },
         { KEY_S, false, false, false, BeginTextureScale },
-        { KEY_ESCAPE, false, false, false, CancelTextureEditor },
         { INPUT_CODE_NONE }
     };
 

@@ -45,27 +45,41 @@ static void DrawAnimatedMeshEditor() {
 
     if (g_animated_mesh_editor.playing) {
         AnimatedMesh* am = ToAnimatedMesh(m);
-        int frame = FloorToInt(g_animated_mesh_editor.playback_time * ANIMATION_FRAME_RATE);
         BindColor(COLOR_WHITE);
         BindMaterial(g_view.shaded_material);
-        DrawMesh(am, Translate(m->position), frame);
+        DrawMesh(am, Translate(m->position), g_animated_mesh_editor.playback_time);
     } else {
         f->vtable.editor_draw();
+    }
+
+    int prev_frame = (m->current_frame - 1 + m->frame_count) % m->frame_count;
+    if (prev_frame != m->current_frame) {
+        MeshData* pf = GetAnimatedMeshFrameData(prev_frame);
+        BindColor(COLOR_RED);
+        BindMaterial(g_view.shaded_material);
+        DrawEdges(pf, Translate(m->position));
+    }
+
+    int next_frame = (m->current_frame + 1) % m->frame_count;
+    if (prev_frame != m->current_frame) {
+        MeshData* pf = GetAnimatedMeshFrameData(next_frame);
+        BindColor(COLOR_GREEN);
+        BindMaterial(g_view.shaded_material);
+        DrawEdges(pf, Translate(m->position));
     }
 }
 
 static void UpdateAnimatedMeshEditor() {
     AnimatedMeshData* m = static_cast<AnimatedMeshData*>(GetAssetData());
     MeshData* f = GetAnimatedMeshFrameData();
+    if (f && f->modified) {
+        MarkModified(m);
+        f->modified = false;
+    }
 
     if (g_animated_mesh_editor.playing) {
         AnimatedMesh* am = ToAnimatedMesh(m);
-        g_animated_mesh_editor.playback_time += GetFrameTime();
-        float max_frame_time = ANIMATION_FRAME_TIME * GetFrameCount(am);
-        while (g_animated_mesh_editor.playback_time >= max_frame_time) {
-            g_animated_mesh_editor.playback_time -= max_frame_time;
-        }
-
+        g_animated_mesh_editor.playback_time = Update(am, g_animated_mesh_editor.playback_time, 1.0f, true);
         assert(FloorToInt(g_animated_mesh_editor.playback_time * ANIMATION_FRAME_RATE) < GetFrameCount(am));
     }
 
@@ -103,6 +117,10 @@ static void SetFrame(int frame_count) {
     AnimatedMeshData* m = GetAnimatedMeshData();
     if (m->current_frame != -1) {
         MeshData* f = &m->frames[m->current_frame];
+        if (f->modified) {
+            MarkModified(m);
+            f->modified = false;
+        }
         f->vtable.editor_end();
     }
 
@@ -126,6 +144,8 @@ static void EndAnimatedMeshEditor() {
         MeshData* f = &m->frames[m->current_frame];
         f->vtable.editor_end();
     }
+
+    g_animated_mesh_editor.playing = nullptr;
 }
 
 void ShutdownAnimatedMeshEditor() {
@@ -133,11 +153,11 @@ void ShutdownAnimatedMeshEditor() {
 }
 
 static void SetPrevFrame() {
-    SetFrame(GetAnimatedMeshData()->current_frame - 1);
+    SetFrame((GetAnimatedMeshData()->current_frame - 1 + GetAnimatedMeshData()->frame_count) % GetAnimatedMeshData()->frame_count);
 }
 
 static void SetNextFrame() {
-    SetFrame(GetAnimatedMeshData()->current_frame + 1);
+    SetFrame((GetAnimatedMeshData()->current_frame + 1) % GetAnimatedMeshData()->frame_count);
 }
 
 static void InsertFrameAfter() {

@@ -443,34 +443,6 @@ Transform& GetFrameTransform(AnimationData* n, int bone_index, int frame_index) 
     return n->frames[frame_index].transforms[bone_index];
 }
 
-int HitTestBone(AnimationData* n, const Vec2& world_pos) {
-    SkeletonData* s = GetSkeletonData(n);
-    UpdateTransforms(n);
-
-    int best_bone_index = -1;
-    float best_dist = F32_MAX;
-    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
-        BoneData* b = &s->bones[bone_index];
-        Mat3 local_to_world =
-            Translate(n->position) *
-            n->animator->bones[bone_index] *
-            Rotate(s->bones[bone_index].transform.rotation) *
-            Scale(b->length);
-        if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world))
-            continue;
-
-        Vec2 b0 = TransformPoint(local_to_world);
-        Vec2 b1 = TransformPoint(local_to_world, {b->length, 0});
-        float dist = DistanceFromLine(b0, b1, world_pos);
-        if (dist < best_dist) {
-            best_dist = dist;
-            best_bone_index = bone_index;
-        }
-    }
-
-    return best_bone_index;
-}
-
 AssetData* NewAnimationData(const std::filesystem::path& path) {
     if (g_view.selected_asset_count != 1) {
         LogError("no skeleton selected");
@@ -543,7 +515,7 @@ static void CloneAnimationData(AssetData* a) {
     AllocateAnimationRuntimeData(n);
     memcpy(n->data, old_data, sizeof(RuntimeAnimationData));
     n->animation = nullptr;
-    n->animator = {};
+    *n->animator = {};
     UpdateTransforms(n);
     UpdateBounds(n);
 }

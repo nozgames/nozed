@@ -22,14 +22,14 @@ struct AnimationEditor {
     AnimationViewState state;
     bool clear_selection_on_up;
     bool ignore_up;
-    void (*state_update)();
     Vec2 selection_center;
     Vec2 selection_center_world;
     bool onion_skin;
     InputSet* input;
     Shortcut* shortcuts;
     AnimationFrameData clipboard;
-    Vec2 root_motion;
+    Vec2 root_motion_delta;
+    bool root_motion;
 };
 
 static AnimationEditor g_animation_editor = {};
@@ -44,6 +44,16 @@ static AnimationData* GetAnimationData() {
 static SkeletonData* GetSkeletonData() { return GetAnimationData()->skeleton; }
 
 static bool IsBoneSelected(int bone_index) { return GetAnimationData()->bones[bone_index].selected; }
+
+static Vec2 GetRootMotionOffset() {
+    AnimationData* n = GetAnimationData();
+    return g_animation_editor.root_motion ? VEC2_ZERO : Vec2{-TransformPoint(n->animator->bones[0]).x, 0.0f};
+}
+
+static Mat3 GetBaseTransform() {
+    AnimationData* n = GetAnimationData();
+    return Translate(n->position + GetRootMotionOffset());
+}
 
 static bool IsAncestorSelected(int bone_index) {
     AnimationData* n = GetAnimationData();
@@ -84,13 +94,40 @@ static void UpdateSelectionCenter() {
         center_count < F32_EPSILON
             ? center
             : center / center_count;
-    g_animation_editor.selection_center_world = g_animation_editor.selection_center + n->position;
+    g_animation_editor.selection_center_world = g_animation_editor.selection_center + n->position + GetRootMotionOffset();
 }
 
 static void ClearSelection() {
     SkeletonData* s = GetSkeletonData();
     for (int bone_index=0; bone_index<s->bone_count; bone_index++)
         SetBoneSelected(bone_index, false);
+}
+
+static int HitTestBone(AnimationData* n, const Vec2& world_pos) {
+    SkeletonData* s = n->skeleton;
+    UpdateTransforms(n);
+
+    int first_hit_index = -1;
+    Mat3 base_transform = GetBaseTransform();
+    for (int bone_index=s->bone_count-1; bone_index>=0; bone_index--) {
+        AnimationBoneData* b = &n->bones[bone_index];
+        BoneData* sb = &s->bones[bone_index];
+        Mat3 local_to_world =
+            base_transform *
+            n->animator->bones[bone_index] *
+            Rotate(s->bones[bone_index].transform.rotation) *
+            Scale(sb->length);
+
+        if (OverlapPoint(g_view.bone_collider, world_pos, local_to_world)) {
+            if (first_hit_index == -1)
+                first_hit_index = bone_index;
+            if (!b->selected) {
+                return bone_index;
+            }
+        }
+    }
+
+    return first_hit_index;
 }
 
 static bool TrySelectBone() {
@@ -178,10 +215,13 @@ static void UpdateBoneNames() {
 
     AnimationData* n = GetAnimationData();
     SkeletonData* s = GetSkeletonData();
+
+    Mat3 base_transform = GetBaseTransform();
+
     for (u16 bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* b = &s->bones[bone_index];
         Mat3 local_to_world =
-            Translate(n->position) *
+            base_transform *
             n->animator->bones[bone_index] *
             Rotate(s->bones[bone_index].transform.rotation);
 
@@ -210,7 +250,8 @@ static void UpdatePlayState() {
         Play(*n->animator, n->animation, 0, 1.0f);
     }
 
-    g_animation_editor.root_motion += n->animator->root_motion_delta;
+    if (g_animation_editor.root_motion)
+        g_animation_editor.root_motion_delta += n->animator->root_motion_delta;
 }
 
 static void HandleBoxSelect(const Bounds2& bounds) {
@@ -258,15 +299,14 @@ static void SetDefaultState() {
     AnimationData* n = GetAnimationData();
     if (IsPlaying(*n->animator)) {
         Stop(*n->animator);
-        g_animation_editor.root_motion = VEC2_ZERO;
+        g_animation_editor.root_motion_delta = VEC2_ZERO;
     }
 
-    g_animation_editor.root_motion = VEC2_ZERO;
+    g_animation_editor.root_motion_delta = VEC2_ZERO;
 
     UpdateTransforms(n);
 
     g_animation_editor.state = ANIMATION_VIEW_STATE_DEFAULT;
-    g_animation_editor.state_update = UpdateDefaultState;
 }
 
 void UpdateAnimationEditor() {
@@ -275,15 +315,24 @@ void UpdateAnimationEditor() {
     UpdateBounds(n);
     UpdateBoneNames();
 
-    if (g_animation_editor.state_update)
-        g_animation_editor.state_update();
-
     if (g_animation_editor.state == ANIMATION_VIEW_STATE_DEFAULT)
         UpdateDefaultState();
+    else if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)
+        UpdatePlayState();
 
     Canvas([n] {
         Align({.alignment=ALIGNMENT_BOTTOM_CENTER, .margin=EdgeInsetsBottom(20)}, [n] {
             Row([n] {
+                Container({
+                    .width=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
+                    .height=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
+                    .margin=EdgeInsetsLeftRight(-FRAME_SIZE_X, FRAME_SIZE_X),
+                    .padding=EdgeInsetsAll(4),
+                    .color=FRAME_COLOR,
+                    .border = {.width=FRAME_BORDER_SIZE, .color=FRAME_BORDER_COLOR}}, [] {
+                    Image(g_animation_editor.root_motion ? MESH_UI_ICON_ROOT_MOTION : MESH_UI_ICON_ROOT_MOTION_OFF);
+                });
+
                 int current_frame = n->current_frame;
                 for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
                     AnimationFrameData* f = &n->frames[frame_index];
@@ -356,15 +405,15 @@ void DrawAnimationEditor() {
     AnimationData* n = GetAnimationData();
     SkeletonData* s = GetSkeletonData();
 
-    Vec2 position = n->position + g_animation_editor.root_motion;
-
     BindColor(COLOR_WHITE);
+    Mat3 base_transform = GetBaseTransform() * Translate(g_animation_editor.root_motion_delta);
+
     for (int i=0; i<s->skinned_mesh_count; i++) {
         MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
         if (!skinned_mesh)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(position) * n->animator->bones[s->skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh, base_transform * n->animator->bones[s->skinned_meshes[i].bone_index]);
     }
 
     if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)
@@ -372,17 +421,18 @@ void DrawAnimationEditor() {
 
     DrawOnionSkin();
 
+    Vec2 base_position = TransformPoint(base_transform);
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_EDGE);
     for (int bone_index=0; bone_index<s->bone_count; bone_index++)
-        DrawEditorAnimationBone(n, bone_index, position);
+        DrawEditorAnimationBone(n, bone_index, base_position);
 
     BindColor(COLOR_EDGE_SELECTED);
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
             continue;
 
-        DrawEditorAnimationBone(n, bone_index, position);
+        DrawEditorAnimationBone(n, bone_index, base_position);
     }
 }
 
@@ -497,14 +547,13 @@ static void PlayAnimation() {
     if (g_animation_editor.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
-    g_animation_editor.root_motion = VEC2_ZERO;
+    g_animation_editor.root_motion_delta = VEC2_ZERO;
 
     SkeletonData* s = GetSkeletonData();
     Init(*n->animator, ToSkeleton(ALLOCATOR_DEFAULT, s));
     Play(*n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 0, 1.0f);
 
     g_animation_editor.state = ANIMATION_VIEW_STATE_PLAY;
-    g_animation_editor.state_update = UpdatePlayState;
 }
 
 static void ResetMove() {
@@ -604,6 +653,8 @@ static void BeginAnimationEditor(AssetData*) {
     ClearSelection();
     SetDefaultState();
     PushInputSet(g_animation_editor.input);
+    g_animation_editor.root_motion = true;
+    g_animation_editor.root_motion_delta = VEC2_ZERO;
 }
 
 static void EndAnimationEditor() {
@@ -615,14 +666,98 @@ static void EndAnimationEditor() {
     UpdateTransforms(n);
 }
 
+static void ToggleRootMotion() {
+    g_animation_editor.root_motion = !g_animation_editor.root_motion;
+    g_animation_editor.root_motion_delta = VEC2_ZERO;
+    UpdateSelectionCenter();
+    UpdateTransforms(GetAnimationData());
+}
+
+static void RootUnitCommand(const Command& command) {
+    AnimationData* n = GetAnimationData();
+    RecordUndo(n);
+
+    float offset = 1.0f / (n->frame_count - 1);
+    if (command.arg_count > 0) {
+        offset = (float)atof(command.args[0]);
+    }
+
+    for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
+        AnimationFrameData* frame = &n->frames[frame_index];
+        SetPosition(frame->transforms[0], Vec2{offset * frame_index, frame->transforms[0].position.y});
+    }
+    MarkModified(n);
+    UpdateTransforms(n);
+}
+
+static void Mirror(const Command&) {
+    AnimationData* n = GetAnimationData();
+    RecordUndo(n);
+
+    // Save the original world transforms
+    Mat3 saved_transforms[MAX_BONES];
+    for (int bone_index=0; bone_index<n->bone_count; bone_index++)
+        saved_transforms[bone_index] = n->animator->bones[bone_index];
+
+    // Process bones in hierarchy order (parents first, index 0 is root)
+    // After each bone, update transforms so children see the new parent position
+    for (int bone_index=1; bone_index<n->skeleton->bone_count; bone_index++) {
+        AnimationBoneData* b = &n->bones[bone_index];
+        if (!b->selected)
+            continue;
+
+        int mirror = GetMirrorBone(n->skeleton, bone_index);
+        if (mirror == -1)
+            continue;
+
+        // Target is exactly where the mirror bone was (swap positions)
+        Vec2 target_world_pos = TransformPoint(saved_transforms[mirror]);
+
+        BoneData* sb = &n->skeleton->bones[bone_index];
+        Mat3& parent_transform = n->animator->bones[sb->parent_index];
+        Vec2 frame_pos = TransformPoint(Inverse(parent_transform), target_world_pos);
+
+        Transform& frame_transform = GetFrameTransform(n, bone_index, n->current_frame);
+        SetPosition(frame_transform, frame_pos - sb->transform.position);
+
+        // Get world rotation of mirror bone (including its skeleton bone rotation)
+        BoneData* mirror_sb = &n->skeleton->bones[mirror];
+        float mirror_world_rotation = Angle(GetForward(saved_transforms[mirror])) + mirror_sb->transform.rotation;
+
+        // Convert to local rotation for target bone
+        // Target visual rotation = parent_rotation + frame.rotation + skeleton_bone.rotation
+        // So: frame.rotation = mirror_world_rotation - parent_rotation - skeleton_bone.rotation
+        float parent_world_rotation = Angle(GetForward(parent_transform));
+        SetRotation(frame_transform, mirror_world_rotation - parent_world_rotation - sb->transform.rotation);
+
+        // Update transforms so child bones see the new parent position
+        UpdateTransforms(n);
+    }
+
+    MarkModified(n);
+    UpdateTransforms(n);
+}
+
+static void BeginCommandInput() {
+    static CommandHandler commands[] = {
+        { NAME_RU, NAME_RU, RootUnitCommand },
+        { NAME_MIRROR, NAME_MIRROR, Mirror },
+        { nullptr, nullptr, nullptr }
+    };
+
+    BeginCommandInput({.commands=commands, .prefix=":"});
+}
+
+
 void InitAnimationEditor() {
     g_animation_editor = {};
 
     static Shortcut shortcuts[] = {
+        { KEY_SEMICOLON, false, false, true, BeginCommandInput },
         { KEY_G, false, false, false, BeginMoveTool },
         { KEY_R, false, false, false, BeginRotateTool },
-        { KEY_G, true, false, false, ResetMove },
         { KEY_R, true, false, false, ResetRotate },
+        { KEY_G, true, false, false, ResetMove },
         { KEY_A, false, false, false, HandleSelectAll },
         { KEY_Q, false, false, false, HandlePrevFrameCommand },
         { KEY_E, false, false, false, HandleNextFrameCommand },
@@ -635,6 +770,7 @@ void InitAnimationEditor() {
         { KEY_O, true, false, false, ToggleOnionSkin },
         { KEY_C, false, true, false, CopyKeys },
         { KEY_V, false, true, false, PasteKeys },
+        { KEY_M, true, false, false, ToggleRootMotion },
         { INPUT_CODE_NONE }
     };
 
