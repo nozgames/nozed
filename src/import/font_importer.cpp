@@ -165,6 +165,9 @@ static void ImportFont(AssetData* ea, Stream* output_stream, Props* config, Prop
             continue;
 
         msdf::Shape* shape = msdf::Shape::fromGlyph(glyph.ttf, true);
+        if (!shape)
+            continue;
+
         msdf::renderGlyph(
             glyph.ttf,
             image,

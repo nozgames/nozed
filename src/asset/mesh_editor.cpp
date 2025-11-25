@@ -420,7 +420,7 @@ static void UpdateColorPicker(){
         if (!ef.selected)
             continue;
 
-        selected_colors[ef.color.y * 16 + ef.color.x] = true;
+        selected_colors[ef.color.x] = true;
     }
 
     Canvas([] {
@@ -1125,8 +1125,8 @@ void InitMeshEditor() {
     PushScratch();
     AddVertex(builder, Vec2{0,   0.5f}, Vec2{0,0});
     AddVertex(builder, Vec2{64,  0.5f}, Vec2{1,0});
-    AddVertex(builder, Vec2{64, -0.5f}, Vec2{1,0.5f});
-    AddVertex(builder, Vec2{0,  -0.5f}, Vec2{0,0.5f});
+    AddVertex(builder, Vec2{64, -0.5f}, Vec2{1,0.25f});
+    AddVertex(builder, Vec2{0,  -0.5f}, Vec2{0,0.25f});
     AddTriangle(builder, 0, 1, 2);
     AddTriangle(builder, 0, 2, 3);
     g_mesh_editor.color_picker_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, GetName("ColorPicker"));

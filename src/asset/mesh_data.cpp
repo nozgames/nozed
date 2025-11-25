@@ -9,7 +9,7 @@ extern void InitMeshEditor(MeshData* m);
 static void DeleteFaceInternal(MeshData* m, int face_index);
 static void RemoveFaceVertices(MeshData* m, int face_index, int remove_at, int remove_count);
 static void InsertFaceVertices(MeshData* m, int face_index, int insert_at, int count);
-static void DeleteUnreferencedVertices(MeshData* m);
+void DeleteUnreferencedVertices(MeshData* m);
 static void MergeFaces(MeshData* m, const EdgeData& shared_edge);
 static void DeleteFace(MeshData* m, int face_index);
 static void DeleteVertex(MeshData* m, int vertex_index);
@@ -259,20 +259,16 @@ static void CollapseEdge(MeshData* m, int edge_index) {
     assert(m);
     assert(edge_index >= 0 && edge_index < m->edge_count);
 
-    EdgeData& ee = m->edges[edge_index];
-    VertexData& v0 = m->vertices[ee.v0];
-    VertexData& v1 = m->vertices[ee.v1];
+    EdgeData& e = m->edges[edge_index];
+    VertexData& v0 = m->vertices[e.v0];
+    VertexData& v1 = m->vertices[e.v1];
 
-    DeleteVertex(m, v0.ref_count > v1.ref_count ? ee.v1 : ee.v0);
+    DeleteVertex(m, v0.ref_count > v1.ref_count ? e.v1 : e.v0);
     UpdateEdges(m);
     MarkDirty(m);
 }
 
 void DissolveEdge(MeshData* m, int edge_index) {
-    // todo: count the number of edges shared between the two faces for the given edge
-    // todo: if the count is 1 then we can dissolve the edge
-    // todo: if the count is more than 1 then we merge the two vertices
-
     EdgeData& ee = m->edges[edge_index];
     assert(ee.face_count > 0);
 
@@ -299,7 +295,7 @@ void DissolveEdge(MeshData* m, int edge_index) {
     CollapseEdge(m, edge_index);
 }
 
-static void DeleteUnreferencedVertices(MeshData* m) {
+void DeleteUnreferencedVertices(MeshData* m) {
     int vertex_mapping[MAX_VERTICES];
     int new_vertex_count = 0;
 
@@ -369,17 +365,18 @@ static void DeleteVertex(MeshData* m, int vertex_index) {
 
 static void DeleteFaceInternal(MeshData* m, int face_index) {
     assert(face_index >= 0 && face_index < m->face_count);
-
     RemoveFaceVertices(m, face_index, 0, -1);
-
-    m->faces[face_index] = m->faces[m->face_count - 1];
+    for (int i=face_index; i < m->face_count - 1; i++)
+        m->faces[i] = m->faces[i + 1];
     m->face_count--;
 }
 
 static void DeleteFace(MeshData* m, int face_index) {
     DeleteFaceInternal(m, face_index);
     UpdateEdges(m);
-    DeleteUnreferencedVertices(m);
+    //DeleteUnreferencedVertices(m);
+    //
+    //DeleteUnreferencedVertices(m);
     MarkDirty(m);
 }
 
@@ -735,6 +732,10 @@ int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* w
     for (int i = m->face_count - 1; i >= 0; i--) {
         FaceData& ef = m->faces[i];
 
+        // Skip already selected faces to allow clicking through to faces below
+        if (ef.selected)
+            continue;
+
         // Ray casting algorithm - works for both convex and concave polygons
         int intersections = 0;
 
@@ -960,6 +961,13 @@ void LoadMeshData(MeshData* m, Tokenizer& tk, bool multiple_mesh=false) {
 }
 
 void SerializeMesh(Mesh* m, Stream* stream) {
+    if (!m) {
+        WriteStruct(stream, BOUNDS2_ZERO);
+        WriteU16(stream, 0);
+        WriteU16(stream, 0);
+        return;
+    }
+
     WriteStruct(stream, GetBounds(m));
     WriteU16(stream, GetVertexCount(m));
     WriteU16(stream, GetIndexCount(m));

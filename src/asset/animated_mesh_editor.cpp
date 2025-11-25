@@ -195,6 +195,24 @@ static void DecHoldFrame() {
     f->hold = Max(f->hold - 1, 0);
 }
 
+static void DeleteFrame() {
+    AnimatedMeshData* m = GetAnimatedMeshData();
+    if (m->frame_count <= 1)
+        return;
+
+    MeshData* cf = GetAnimatedMeshFrameData(m->current_frame);
+    cf->vtable.editor_end();
+
+    int deleted_frame = m->current_frame;
+    for (int frame_index = deleted_frame; frame_index < m->frame_count - 1; frame_index++)
+        m->frames[frame_index] = m->frames[frame_index + 1];
+
+    m->frame_count--;
+    m->current_frame = -1;
+    SetFrame(Min(deleted_frame, m->frame_count - 1));
+    MarkModified(m);
+}
+
 void InitAnimatedMeshEditor() {
     static Shortcut shortcuts[] = {
         { KEY_Q, false, false, false, SetPrevFrame },
@@ -203,6 +221,7 @@ void InitAnimatedMeshEditor() {
         { KEY_SPACE, false, false, false, TogglePlayAnimation },
         { KEY_H, false, false, false, IncHoldFrame },
         { KEY_H, false, true, false, DecHoldFrame },
+        { KEY_X, false, false, true, DeleteFrame },
         { INPUT_CODE_NONE }
     };
 

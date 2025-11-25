@@ -27,7 +27,7 @@ namespace noz::msdf
             for(auto& edge : contour->edges)
             {
                 auto compare = edge->point(0.0);
-                if (compare != corner)
+                if (!ApproxEqual(compare.x, corner.x) || !ApproxEqual(compare.y, corner.y))
                     return false;
 
                 corner = edge->point(1.0);
@@ -153,7 +153,8 @@ namespace noz::msdf
         }
 
         if (!shape->validate())
-            throw std::exception("Invalid shape data in glyph");
+            return nullptr;
+            //throw std::exception("Invalid shape data in glyph");
 
         shape->normalize();
         shape->inverseYAxis = invertYAxis;
