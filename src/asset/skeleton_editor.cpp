@@ -162,7 +162,7 @@ static void HandleBoxSelect(const Bounds2& bounds) {
             b->local_to_world *
             Rotate(b->transform.rotation) *
             Scale(b->length);
-        if (OverlapBounds(g_view.bone_collider, bounds, collider_transform))
+        if (OverlapBounds(g_view.bone_collider, collider_transform, bounds))
             SetBoneSelected(bone_index, true);
     }
 }

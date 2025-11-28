@@ -711,11 +711,17 @@ int HitTestEdge(MeshData* m, const Vec2& hit_pos, float* where) {
 }
 
 void Center(MeshData* m) {
+    if (m->vertex_count == 0)
+        return;
+
     RecordUndo(m);
 
-    Vec2 size = GetSize(m->bounds);
-    Vec2 min = m->bounds.min;
-    Vec2 offset = min + size * 0.5f;
+    Bounds2 bounds = {m->vertices[0].position, m->vertices[0].position};
+    for (int vertex_index=1; vertex_index<m->vertex_count; vertex_index++)
+        bounds = Union(bounds, m->vertices[vertex_index].position);
+
+    Vec2 size = GetSize(bounds);
+    Vec2 offset = bounds.min + size * 0.5f;
     for (int i=0; i<m->vertex_count; i++)
         m->vertices[i].position = m->vertices[i].position - offset;
 
@@ -1042,14 +1048,16 @@ static void SaveMeshData(AssetData* a, const std::filesystem::path& path) {
 }
 
 AssetData* NewMeshData(const std::filesystem::path& path) {
-    const char* default_mesh = "v -1 -1 e 1 h 0\n"
-                               "v 1 -1 e 1 h 0\n"
-                               "v 1 1 e 1 h 0\n"
-                               "v -1 1 e 1 h 0\n"
+    constexpr const char* default_mesh = "v -1 -1 e {0} h 0\n"
+                               "v 1 -1 e {0} h 0\n"
+                               "v 1 1 e {0} h 0\n"
+                               "v -1 1 e {0} h 0\n"
                                "\n"
-                               "f 0 1 2 3 c 1 0\n";
+                               "f 0 1 2 3 c 0 0\n";
 
-    std::string text = default_mesh;
+    float edge_size = g_config->GetFloat("mesh", "default_edge_size", 1.0f);
+
+    std::string text = std::format(default_mesh, edge_size);
 
     if (g_view.selected_asset_count == 1) {
         AssetData* selected = GetFirstSelectedAsset();
@@ -1320,7 +1328,6 @@ Vec2 HitTestSnap(MeshData* m, const Vec2& position) {
     }
 
     return best_snap;
-
 }
 
 static void DestroyMeshData(AssetData* a) {

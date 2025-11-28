@@ -118,7 +118,7 @@ static int HitTestBone(AnimationData* n, const Vec2& world_pos) {
             Rotate(s->bones[bone_index].transform.rotation) *
             Scale(sb->length);
 
-        if (OverlapPoint(g_view.bone_collider, world_pos, local_to_world)) {
+        if (OverlapPoint(g_view.bone_collider, local_to_world, world_pos)) {
             if (first_hit_index == -1)
                 first_hit_index = bone_index;
             if (!b->selected) {
@@ -267,7 +267,7 @@ static void HandleBoxSelect(const Bounds2& bounds) {
             n->animator->bones[bone_index] *
             Rotate(eb->transform.rotation) *
             Scale(eb->length);
-        if (OverlapBounds(g_view.bone_collider, bounds, collider_transform))
+        if (OverlapBounds(g_view.bone_collider, collider_transform, bounds))
             SetBoneSelected(bone_index, true);
     }
 }

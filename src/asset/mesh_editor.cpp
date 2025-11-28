@@ -62,24 +62,12 @@ static void DrawVertices(bool selected) {
     }
 }
 
-static void UpdateSelection() {
-    MeshData* m = GetMeshData();
-    Bounds2 bounds = {VEC2_ZERO, VEC2_ZERO};
-
+static void UpdateVertexSelection(MeshData* m) {
     m->selected_vertex_count = 0;
-    int vertex_index = 0;
-    for (; m->selected_vertex_count==0 && vertex_index<m->vertex_count; vertex_index++) {
+    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
         const VertexData& v = m->vertices[vertex_index];
         if (!v.selected) continue;
         m->selected_vertex_count++;
-        bounds = {v.position, v.position};
-    }
-
-    for (; vertex_index<m->vertex_count; vertex_index++) {
-        const VertexData& v = m->vertices[vertex_index];
-        if (!v.selected) continue;
-        m->selected_vertex_count++;
-        bounds = Union(bounds, {v.position, v.position});
     }
 
     m->selected_edge_count = 0;
@@ -101,6 +89,131 @@ static void UpdateSelection() {
 
         if (f.selected)
             m->selected_face_count++;
+    }
+}
+
+static void UpdateEdgeSelection(MeshData* m) {
+    m->selected_vertex_count = 0;
+    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+        v.selected = false;
+    }
+
+    m->selected_face_count = 0;
+    for (int face_index=0; face_index<m->face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
+        f.selected = false;
+    }
+
+    m->selected_edge_count = 0;
+    for (int edge_index=0; edge_index<m->edge_count; edge_index++) {
+        EdgeData& e = m->edges[edge_index];
+        if (!e.selected) continue;
+        m->selected_edge_count++;
+
+        VertexData& v0 = m->vertices[e.v0];
+        VertexData& v1 = m->vertices[e.v1];
+
+        if (!v0.selected) {
+            v0.selected = true;
+            m->selected_vertex_count++;
+        }
+
+        if (!v1.selected) {
+            v1.selected = true;
+            m->selected_vertex_count++;
+        }
+    }
+
+    for (int face_index=0; face_index<m->face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
+
+        int selected_edge_count = 0;
+        for (int edge_index=0; selected_edge_count < f.vertex_count - 1 && edge_index < m->edge_count; edge_index++) {
+            EdgeData& e = m->edges[edge_index];
+            if (!e.selected) continue;
+            bool selected =
+                e.face_count > 0 && e.face_index[0] == face_index ||
+                e.face_count > 1 && e.face_index[1] == face_index;
+            if (!selected) continue;
+            selected_edge_count++;
+        }
+
+        if (selected_edge_count == f.vertex_count - 1) {
+            f.selected = true;
+            m->selected_face_count++;
+        }
+    }
+}
+
+static void UpdateFaceSelection(MeshData* m) {
+    m->selected_vertex_count = 0;
+    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+        v.selected = false;
+    }
+
+    m->selected_edge_count = 0;
+    for (int edge_index=0; edge_index<m->edge_count; edge_index++) {
+        EdgeData& e = m->edges[edge_index];
+        e.selected = false;
+    }
+
+    m->selected_face_count = 0;
+    for (int face_index=0; face_index<m->face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
+        if (!f.selected)
+            continue;
+
+        m->selected_face_count++;
+        for (int face_vertex_index=0; face_vertex_index<f.vertex_count; face_vertex_index++) {
+            int vertex_index = m->face_vertices[f.vertex_offset + face_vertex_index];
+            VertexData& v = m->vertices[vertex_index];
+            if (v.selected) continue;
+
+            v.selected = true;
+            m->selected_vertex_count++;
+        }
+    }
+
+    for (int edge_index=0; edge_index<m->edge_count; edge_index++) {
+        EdgeData& e = m->edges[edge_index];
+        if (e.selected) continue;
+        bool selected =
+            e.face_count > 0 && m->faces[e.face_index[0]].selected ||
+            e.face_count > 1 && m->faces[e.face_index[1]].selected;
+        if (!selected)
+            continue;
+        e.selected = selected;
+        m->selected_edge_count++;
+    }
+
+}
+
+static void UpdateSelection() {
+    MeshData* m = GetMeshData();
+    Bounds2 bounds = {VEC2_ZERO, VEC2_ZERO};
+
+    if (g_mesh_editor.mode == MESH_EDITOR_MODE_FACE) {
+        UpdateFaceSelection(m);
+    } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE) {
+        UpdateEdgeSelection(m);
+    } else {
+        UpdateVertexSelection(m);
+    }
+
+    int vertex_index = 0;
+    for (; vertex_index<m->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+        if (!v.selected) continue;
+        bounds = {v.position, v.position};
+        break;
+    }
+
+    for (;vertex_index<m->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+        if (!v.selected) continue;
+        bounds = Union(bounds, {v.position, v.position});
     }
 
     if (m->selected_vertex_count > 0)
@@ -125,15 +238,15 @@ static void ClearSelection() {
 }
 
 static void SelectAll(MeshData* m) {
-    if (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX) {
-        for (int i=0; i<m->vertex_count; i++)
-            m->vertices[i].selected = true;
+    if (g_mesh_editor.mode == MESH_EDITOR_MODE_FACE) {
+        for (int face_index=0; face_index<m->face_count; face_index++)
+            m->faces[face_index].selected = true;
     } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE) {
-        for (int i=0; i<m->edge_count; i++)
-            m->edges[i].selected = true;
-    } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_FACE) {
-        for (int i=0; i<m->face_count; i++)
-            m->faces[i].selected = true;
+        for (int edge_index=0; edge_index<m->edge_count; edge_index++)
+            m->edges[edge_index].selected = true;
+    } else {
+        for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++)
+            m->vertices[vertex_index].selected = true;
     }
 
     UpdateSelection();
@@ -151,8 +264,7 @@ static void SelectEdge(int edge_index, bool selected) {
     assert(edge_index >= 0 && edge_index < m->edge_count);
 
     EdgeData& e = m->edges[edge_index];
-    m->vertices[e.v0].selected = selected;
-    m->vertices[e.v1].selected = selected;
+    e.selected = selected;
     UpdateSelection();
 }
 
@@ -160,10 +272,7 @@ static void SelectFace(int face_index, bool selected) {
     MeshData* m = GetMeshData();
     assert(face_index >= 0 && face_index < m->face_count);
     FaceData& f = m->faces[face_index];
-    for (int vertex_index=0; vertex_index<f.vertex_count; vertex_index++) {
-        int vindex = m->face_vertices[f.vertex_offset + vertex_index];
-        m->vertices[vindex].selected = selected;
-    }
+    f.selected = selected;
     UpdateSelection();
 }
 
@@ -240,10 +349,7 @@ static bool TrySelectEdge() {
         ClearSelection();
 
     EdgeData& e = m->edges[edge_index];
-    const VertexData& v0 = m->vertices[e.v0];
-    const VertexData& v1 = m->vertices[e.v1];
-
-    if (!shift || !v0.selected || !v1.selected)
+    if (!shift || !e.selected)
         SelectEdge(edge_index, true);
     else
         SelectEdge(edge_index, false);
@@ -492,7 +598,7 @@ static void HandleBoxSelect(const Bounds2& bounds) {
 
             if (vpos.x >= bounds.min.x && vpos.x <= bounds.max.x &&
                 vpos.y >= bounds.min.y && vpos.y <= bounds.max.y) {
-                SelectVertex(i, true);
+                v.selected = true;
             }
         }
         break;
@@ -503,29 +609,32 @@ static void HandleBoxSelect(const Bounds2& bounds) {
             Vec2 ev0 = m->vertices[e.v0].position + m->position;
             Vec2 ev1 = m->vertices[e.v1].position + m->position;
             if (Intersects(bounds, ev0, ev1)) {
-                SelectEdge(edge_index, true);
+                e.selected = true;
             }
         }
         break;
 
     case MESH_EDITOR_MODE_FACE:
-#if 0
-        for (int face_index=0; face_index<m->face_count; face_index++)
-        {
-            FaceData& ef = m->faces[face_index];
-            Vec2 ev0 = m->vertices[ef.v0].position + m->position;
-            Vec2 ev1 = m->vertices[ef.v1].position + m->position;
-            Vec2 ev2 = m->vertices[ef.v2].position + m->position;
-            if (Intersects(bounds, ev0, ev1, ev2)) {
-                SelectFace(face_index, true);
+        for (int face_index=0; face_index<m->face_count; face_index++) {
+            FaceData& f = m->faces[face_index];
+            for (int vertex_index=0; vertex_index<f.vertex_count-1; vertex_index++) {
+                int v0 = m->face_vertices[f.vertex_offset + vertex_index];
+                int v1 = m->face_vertices[f.vertex_offset + vertex_index + 1];
+                Vec2 v0p = m->vertices[v0].position + m->position;
+                Vec2 v1p = m->vertices[v1].position + m->position;
+                if (Intersects(bounds, v0p, v1p)) {
+                    SelectFace(face_index, true);
+                    f.selected = true;
+                }
             }
         }
-#endif
         break;
 
     default:
         break;
     }
+
+    UpdateSelection();
 }
 
 static void CancelMeshTool() {

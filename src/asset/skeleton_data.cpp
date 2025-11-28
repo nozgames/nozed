@@ -55,7 +55,7 @@ int HitTestBone(SkeletonData* s, const Vec2& world_pos) {
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* b = s->bones + bone_index;
         Mat3 local_to_world = Translate(s->position) * b->local_to_world * Rotate(b->transform.rotation);
-        if (!OverlapPoint(g_view.bone_collider, world_pos, local_to_world * Scale(b->length)))
+        if (!OverlapPoint(g_view.bone_collider, local_to_world * Scale(b->length), world_pos))
             continue;
 
         Vec2 b0 = TransformPoint(local_to_world);
