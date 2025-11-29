@@ -1123,14 +1123,71 @@ static void LogKnifeActions(KnifeAction* actions, int action_count) {
     }
 }
 
+// Execute an edge split action - add a vertex to an edge
+static void ExecuteEdgeSplit(MeshData* m, KnifePathPoint* path, KnifeAction& action) {
+    KnifePathPoint& pt = path[action.start_index];
+
+    if (pt.type != KNIFE_POINT_EDGE)
+        return;
+
+    // Create the new vertex
+    int new_vertex = AddKnifeVertex(m, pt.position);
+    if (new_vertex < 0)
+        return;
+
+    // Find all faces that contain this edge and insert the vertex
+    int faces[2];
+    int face_count = GetFacesWithEdge(m, pt.edge_v0, pt.edge_v1, faces);
+
+    for (int i = 0; i < face_count; i++) {
+        FaceData& f = m->faces[faces[i]];
+
+        // Find the edge in this face
+        for (int vi = 0; vi < f.vertex_count; vi++) {
+            int fv0 = f.vertices[vi];
+            int fv1 = f.vertices[(vi + 1) % f.vertex_count];
+
+            if ((fv0 == pt.edge_v0 && fv1 == pt.edge_v1) ||
+                (fv0 == pt.edge_v1 && fv1 == pt.edge_v0)) {
+                // Insert new vertex after fv0 (between fv0 and fv1)
+                InsertVertexInFace(m, faces[i], vi + 1, new_vertex);
+                break;
+            }
+        }
+    }
+
+    // Store the vertex index back in the path point for use by other actions
+    pt.vertex_index = new_vertex;
+}
+
 // Execute the knife actions to modify the mesh
 void ExecuteKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, KnifeAction* actions, int action_count) {
-    // TODO: implement each action type
-    (void)m;
-    (void)path;
     (void)path_count;
-    (void)actions;
-    (void)action_count;
+
+    for (int i = 0; i < action_count; i++) {
+        KnifeAction& action = actions[i];
+
+        switch (action.type) {
+            case KNIFE_ACTION_EDGE_SPLIT:
+                ExecuteEdgeSplit(m, path, action);
+                break;
+
+            case KNIFE_ACTION_FACE_SPLIT:
+                // TODO
+                break;
+
+            case KNIFE_ACTION_INNER_FACE:
+                // TODO
+                break;
+
+            case KNIFE_ACTION_INNER_SLIT:
+                // TODO
+                break;
+
+            case KNIFE_ACTION_NONE:
+                break;
+        }
+    }
 }
 
 static void CommitKnifeCuts() {
