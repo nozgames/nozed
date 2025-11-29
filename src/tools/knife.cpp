@@ -1160,6 +1160,110 @@ static void ExecuteEdgeSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     pt.vertex_index = new_vertex;
 }
 
+// Get or create a vertex for a path point
+static int GetOrCreateVertex(MeshData* m, KnifePathPoint& pt) {
+    // If it's already a vertex, just return it
+    if (pt.type == KNIFE_POINT_VERTEX)
+        return pt.vertex_index;
+
+    // If we already created a vertex for this point, return it
+    if (pt.vertex_index >= 0)
+        return pt.vertex_index;
+
+    // Create a new vertex
+    int new_vertex = AddKnifeVertex(m, pt.position);
+    pt.vertex_index = new_vertex;
+    return new_vertex;
+}
+
+// Insert an edge point's vertex into the face if not already present
+static void EnsureEdgeVertexInFace(MeshData* m, int face_index, KnifePathPoint& pt) {
+    if (pt.type != KNIFE_POINT_EDGE)
+        return;
+
+    FaceData& f = m->faces[face_index];
+    int vertex = pt.vertex_index;
+
+    // Check if already in face
+    if (FindVertexInFace(f, vertex) != -1)
+        return;
+
+    // Find the edge and insert
+    // The edge might be the original (v0-v1) or a sub-edge if another vertex was already inserted
+    for (int vi = 0; vi < f.vertex_count; vi++) {
+        int fv0 = f.vertices[vi];
+        int fv1 = f.vertices[(vi + 1) % f.vertex_count];
+
+        // Check if this is the original edge
+        if ((fv0 == pt.edge_v0 && fv1 == pt.edge_v1) ||
+            (fv0 == pt.edge_v1 && fv1 == pt.edge_v0)) {
+            InsertVertexInFace(m, face_index, vi + 1, vertex);
+            return;
+        }
+
+        // Check if this is a sub-edge (one endpoint matches, and the vertex is on this segment)
+        bool has_v0 = (fv0 == pt.edge_v0 || fv1 == pt.edge_v0);
+        bool has_v1 = (fv0 == pt.edge_v1 || fv1 == pt.edge_v1);
+        if (has_v0 || has_v1) {
+            // Check if the point lies on this edge segment
+            Vec2 p0 = m->vertices[fv0].position;
+            Vec2 p1 = m->vertices[fv1].position;
+            Vec2 edge_dir = p1 - p0;
+            float edge_len = Length(edge_dir);
+            if (edge_len < F32_EPSILON) continue;
+
+            Vec2 to_pt = pt.position - p0;
+            float proj = Dot(to_pt, edge_dir / edge_len);
+
+            // Check if projection is within edge and point is close to edge
+            if (proj > 0.0f && proj < edge_len) {
+                Vec2 closest = p0 + (edge_dir / edge_len) * proj;
+                if (Length(pt.position - closest) < 0.01f) {
+                    InsertVertexInFace(m, face_index, vi + 1, vertex);
+                    return;
+                }
+            }
+        }
+    }
+}
+
+// Execute a face split action - split a face along a cut line
+static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& action) {
+    if (action.face_index < 0)
+        return;
+
+    KnifePathPoint& start_pt = path[action.start_index];
+    KnifePathPoint& end_pt = path[action.end_index];
+
+    // Get or create vertices for start and end
+    int v0 = GetOrCreateVertex(m, start_pt);
+    int v1 = GetOrCreateVertex(m, end_pt);
+
+    if (v0 < 0 || v1 < 0)
+        return;
+
+    // If start/end are on edges, ensure they're inserted into the face
+    EnsureEdgeVertexInFace(m, action.face_index, start_pt);
+    EnsureEdgeVertexInFace(m, action.face_index, end_pt);
+
+    // Collect internal vertices (face points between start and end)
+    int cut_vertices[128];
+    int cut_count = 0;
+
+    for (int i = action.start_index + 1; i < action.end_index; i++) {
+        KnifePathPoint& pt = path[i];
+        if (pt.type == KNIFE_POINT_FACE) {
+            int v = GetOrCreateVertex(m, pt);
+            if (v >= 0) {
+                cut_vertices[cut_count++] = v;
+            }
+        }
+    }
+
+    // Split the face
+    SplitFaceAlongVertices(m, action.face_index, v0, v1, cut_vertices, cut_count);
+}
+
 // Execute the knife actions to modify the mesh
 void ExecuteKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, KnifeAction* actions, int action_count) {
     (void)path_count;
@@ -1173,7 +1277,7 @@ void ExecuteKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, Knif
                 break;
 
             case KNIFE_ACTION_FACE_SPLIT:
-                // TODO
+                ExecuteFaceSplit(m, path, action);
                 break;
 
             case KNIFE_ACTION_INNER_FACE:
