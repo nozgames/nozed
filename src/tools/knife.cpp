@@ -99,11 +99,11 @@ static int AddKnifeVertex(MeshData* m, const Vec2& position) {
 
 // Insert a vertex into a face at the given position in the vertex list
 // Returns true if inserted, false if vertex was already in face
-static bool InsertVertexInFace(MeshData* m, int face_index, int insert_pos, int vertex_index) {
+static bool InsertVertexInFace(MeshData* m, int face_index, int insert_pos, int vertex_index, bool allow_duplicates = false) {
     FaceData& f = m->faces[face_index];
 
     // Check if vertex is already in face
-    if (FindVertexInFace(f, vertex_index) != -1)
+    if (!allow_duplicates && FindVertexInFace(f, vertex_index) != -1)
         return false;
 
     if (f.vertex_count >= MAX_FACE_VERTICES)
@@ -153,19 +153,26 @@ static int SplitFaceAlongVertices(MeshData* m, int face_index, int v0, int v1, c
 
     // Add boundary vertices from v0 to v1
     int dist_forward = (pos1 - pos0 + old_count) % old_count;
-    for (int i = 0; i <= dist_forward; i++) {
-        new_face.vertices[new_face.vertex_count++] = old_vertices[(pos0 + i) % old_count];
+    
+    // Special case for detached hole: v0==v1, cut starts away from v0
+    bool is_detached_hole = (v0 == v1 && cut_vertex_count > 0 && cut_vertices[0] != v0);
+
+    if (!is_detached_hole) {
+        for (int i = 0; i <= dist_forward; i++) {
+            new_face.vertices[new_face.vertex_count++] = old_vertices[(pos0 + i) % old_count];
+        }
     }
 
     // Add cut vertices in reverse order (from v1 back to v0)
-    for (int i = cut_vertex_count - 1; i >= 0; i--) {
+    int stop_index = (is_detached_hole && cut_vertices[0] == cut_vertices[cut_vertex_count - 1]) ? 1 : 0;
+    for (int i = cut_vertex_count - 1; i >= stop_index; i--) {
         new_face.vertices[new_face.vertex_count++] = cut_vertices[i];
     }
 
     // Update old face (outer/left face)
     // Vertices: v1 -> ... -> v0 (along face boundary) -> cut_vertices (forward) -> v1
     old_face.vertex_count = 0;
-    int dist_backward = (pos0 - pos1 + old_count) % old_count;
+    int dist_backward = (pos0 == pos1) ? old_count : (pos0 - pos1 + old_count) % old_count;
     for (int i = 0; i <= dist_backward; i++) {
         old_face.vertices[old_face.vertex_count++] = old_vertices[(pos1 + i) % old_count];
     }
@@ -447,7 +454,7 @@ static void CommitKnifeCuts(MeshData* m) {
         int v0 = path[start_idx].vertex_index;
         int v1 = path[end_idx].vertex_index;
 
-        // Skip if start and end are the same vertex (loop on a single vertex?)
+        // Skip if start and end are the same vertex
         if (v0 == v1) {
             i = end_idx;
             continue;
@@ -589,6 +596,64 @@ static void CommitKnifeCuts(MeshData* m) {
         }
 
         i = end_idx;
+    }
+
+    // Handle internal cuts (no boundary points)
+    bool has_boundary = false;
+    for (int j = 0; j < path_length; j++) {
+        if (path[j].on_vertex || path[j].on_edge) {
+            has_boundary = true;
+            break;
+        }
+    }
+
+    if (!has_boundary && path_length > 1) {
+        // Find face containing the cut
+        int face_index = FindFaceContainingPoint(m, path[0].position);
+        if (face_index != -1) {
+            FaceData& f = m->faces[face_index];
+
+            // Find closest boundary vertex to connect to
+            int closest_v = -1;
+            float min_dist = 1e30f;
+            for (int j = 0; j < f.vertex_count; j++) {
+                float d = Length(m->vertices[f.vertices[j]].position - path[0].position);
+                if (d < min_dist) {
+                    min_dist = d;
+                    closest_v = f.vertices[j];
+                }
+            }
+
+            if (closest_v != -1) {
+                // Check if it's a closed loop
+                bool is_loop = (path[0].vertex_index == path[path_length - 1].vertex_index);
+
+                if (is_loop) {
+                    // Closed loop (hole)
+                    // Collect loop vertices (including the duplicate end point to close the loop)
+                    int loop_vertices[128];
+                    int loop_count = 0;
+                    for (int j = 0; j < path_length; j++) {
+                        loop_vertices[loop_count++] = path[j].vertex_index;
+                    }
+                    SplitFaceAlongVertices(m, face_index, closest_v, closest_v, loop_vertices, loop_count);
+                } else {
+                    // Open chain (slit)
+                    // Stitch the cut into the face: ... -> closest_v -> path[0] -> ... -> path[last] -> ... -> path[0] -> closest_v -> ...
+                    int insert_pos = FindVertexInFace(f, closest_v) + 1;
+                    
+                    // Insert forward path
+                    for (int j = 0; j < path_length; j++) {
+                        InsertVertexInFace(m, face_index, insert_pos + j, path[j].vertex_index, true);
+                    }
+                    
+                    // Insert backward path (excluding last point)
+                    for (int j = path_length - 2; j >= 0; j--) {
+                        InsertVertexInFace(m, face_index, insert_pos + path_length + (path_length - 2 - j), path[j].vertex_index, true);
+                    }
+                }
+            }
+        }
     }
 
     // Handle single edge crossing (just add vertex to edge)

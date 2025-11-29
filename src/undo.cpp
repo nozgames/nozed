@@ -68,6 +68,7 @@ static bool UndoInternal(bool allow_redo) {
         }
 
         Clone(undo_asset, &item->saved_asset.asset);
+        MarkModified(undo_asset);
 
         g_undo.temp[g_undo.temp_count++] = undo_asset;
 
@@ -110,6 +111,7 @@ bool Redo()
         Clone(&undo_item.saved_asset.asset, redo_asset);
 
         Clone(redo_asset, &redo_item.saved_asset.asset);
+        MarkModified(redo_asset);
 
         g_undo.temp[g_undo.temp_count++] = redo_asset;
 
