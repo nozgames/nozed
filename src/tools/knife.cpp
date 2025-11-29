@@ -710,16 +710,25 @@ void EnsureEdgeVertexInFace(MeshData* m, int face_index, KnifePathPoint& pt) {
 }
 
 static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& action) {
-    if (action.face_index < 0)
+    if (action.face_index < 0) {
+        LogInfo("ExecuteFaceSplit: face_index < 0");
         return;
+    }
 
     KnifePathPoint& start_pt = path[action.start_index];
     KnifePathPoint& end_pt = path[action.end_index];
 
     // Handle closed loop with same start/end point
-    if (action.start_index == action.end_index ||
-        Length(start_pt.position - end_pt.position) < 0.01f) {
+    if (action.start_index == action.end_index) {
         // Same point - nothing to split (edge insertion already done in pass 1)
+        LogInfo("ExecuteFaceSplit: same start/end index");
+        return;
+    }
+
+    // For VERTEX type, check if it's the same vertex
+    if (start_pt.type == KNIFE_POINT_VERTEX && end_pt.type == KNIFE_POINT_VERTEX &&
+        start_pt.vertex_index == end_pt.vertex_index) {
+        LogInfo("ExecuteFaceSplit: same vertex");
         return;
     }
 
@@ -727,8 +736,12 @@ static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     int v0 = start_pt.vertex_index;
     int v1 = end_pt.vertex_index;
 
-    if (v0 < 0 || v1 < 0)
+    LogInfo("ExecuteFaceSplit: v0=%d, v1=%d", v0, v1);
+
+    if (v0 < 0 || v1 < 0) {
+        LogInfo("ExecuteFaceSplit: v0 or v1 < 0");
         return;
+    }
 
     // Edge insertions already done in pass 1
 
@@ -760,8 +773,10 @@ static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
             v1_positions[v1_pos_count++] = i;
     }
 
-    if (v0_pos_count == 0 || v1_pos_count == 0)
+    if (v0_pos_count == 0 || v1_pos_count == 0) {
+        LogInfo("ExecuteFaceSplit: v0_pos_count=%d, v1_pos_count=%d - not found in face", v0_pos_count, v1_pos_count);
         return;
+    }
 
     // Check if this face has a slit (any vertex appears more than once)
     bool has_slit = false;
@@ -1200,7 +1215,7 @@ static void UpdateKnifeTool() {
 
         // Check if clicking on the start point to close the loop
         if (g_knife_tool.cut_count >= 1 &&
-            HitTestVertex(g_knife_tool.cuts[0].position + g_knife_tool.mesh->position, g_view.mouse_world_position, 1.0f)) {
+            HitTestVertex(g_knife_tool.cuts[0].position + g_knife_tool.mesh->position, g_view.mouse_world_position, KNIFE_HIT_TOLERANCE)) {
             // Add the closing cut point with CLOSE marker
             g_knife_tool.cuts[g_knife_tool.cut_count++] = {
                 .position = g_knife_tool.cuts[0].position,
@@ -1215,7 +1230,7 @@ static void UpdateKnifeTool() {
 
         // Check if clicking on any other existing cut point (reject duplicates)
         for (int i = 1; i < g_knife_tool.cut_count; i++) {
-            if (HitTestVertex(g_knife_tool.cuts[i].position + g_knife_tool.mesh->position, g_view.mouse_world_position, 1.0f)) {
+            if (HitTestVertex(g_knife_tool.cuts[i].position + g_knife_tool.mesh->position, g_view.mouse_world_position, KNIFE_HIT_TOLERANCE)) {
                 // Ignore duplicate click
                 return;
             }

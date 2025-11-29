@@ -514,6 +514,54 @@ static bool HandleColorPickerInput(const Vec2& position) {
     return true;
 }
 
+constexpr int   STAT_FONT_SIZE = 22;
+constexpr int   STAT_COUNT = 4;
+constexpr float STAT_HEIGHT = 24.0f;
+constexpr float STAT_SPACING = 4.0f;
+constexpr float STATS_PADDING = 10.0f;
+constexpr float STATS_WIDTH = 200;
+constexpr float STATS_HEIGHT = STAT_COUNT * STAT_HEIGHT + (STAT_COUNT - 1) * STAT_SPACING + STATS_PADDING * 2.0f;
+constexpr float STATS_MARGIN = 10.0f;
+
+static void AddStat(const char* name, int value) {
+    text_t text;
+
+    BeginContainer({.height=STAT_HEIGHT});
+    BeginRow();
+    BeginExpanded({.flex=2.0f});
+        Label(name, {.font=FONT_SEGUISB, .font_size=STAT_FONT_SIZE, .color=SetAlpha(COLOR_UI_TEXT, 0.4f)});
+    End();
+    BeginExpanded({.flex=1.0f});
+        Format(text, "%d", value);
+        Label(text, {.font=FONT_SEGUISB, .font_size=STAT_FONT_SIZE, .color=COLOR_UI_TEXT});
+    End();
+    End();
+    End();
+}
+
+static void UpdateStats() {
+    MeshData* m = GetMeshData();
+
+    BeginCanvas();
+    BeginAlign({.alignment=ALIGNMENT_TOP_RIGHT});
+    BeginContainer({
+        .width=STATS_WIDTH,
+        .height=STATS_HEIGHT,
+        .margin=EdgeInsetsTopRight(STATS_MARGIN),
+        .padding=EdgeInsetsAll(STATS_PADDING),
+        .color=COLOR_UI_BACKGROUND});
+    BeginColumn({.spacing=STAT_SPACING});
+        AddStat("Vertices", m->vertex_count);
+        AddStat("Edges", m->edge_count);
+        AddStat("Faces", m->face_count);
+        if (m->mesh)
+            AddStat("Triangles", GetIndexCount(m->mesh) / 3);
+    End();
+    End();
+    End();
+    End();
+}
+
 static void UpdateColorPicker(){
     static bool selected_colors[64] = {};
     memset(selected_colors, 0, sizeof(selected_colors));
@@ -521,6 +569,7 @@ static void UpdateColorPicker(){
     for (int face_index=0; face_index<em->face_count; face_index++) {
         FaceData& ef = em->faces[face_index];
         if (!ef.selected)
+
             continue;
 
         selected_colors[ef.color.x] = true;
@@ -1085,6 +1134,7 @@ void ShutdownMeshEditor() {
 
 static void UpdateMeshEditor() {
     UpdateColorPicker();
+    UpdateStats();
     CheckShortcuts(g_mesh_editor.shortcuts, g_mesh_editor.input);
     UpdateDefaultState();
 }
