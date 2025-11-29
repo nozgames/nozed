@@ -54,11 +54,9 @@ inline MeshData* GetMeshData() {
 
 static void DrawVertices(bool selected) {
     MeshData* m = GetMeshData();
-    for (int i=0; i<m->vertex_count; i++)
-    {
+    for (int i=0; i<m->vertex_count; i++) {
         const VertexData& v = m->vertices[i];
-        if (v.selected != selected)
-            continue;
+        if (selected && v.selected != selected) continue;
         DrawVertex(v.position + m->position);
     }
 }

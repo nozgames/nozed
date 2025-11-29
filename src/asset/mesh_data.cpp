@@ -596,6 +596,12 @@ int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update) {
     return new_vertex_index;
 }
 
+int HitTestVertex(const Vec2& position, const Vec2& hit_pos, float size_mult) {
+    float size = g_view.select_size * size_mult;
+    float dist = Length(hit_pos - position);
+    return dist <= size;
+}
+
 int HitTestVertex(MeshData* m, const Mat3& transform, const Vec2& position, float size_mult) {
     float size = g_view.select_size * size_mult;
     float best_dist = F32_MAX;
@@ -603,8 +609,7 @@ int HitTestVertex(MeshData* m, const Mat3& transform, const Vec2& position, floa
     for (int i = 0; i < m->vertex_count; i++) {
         const VertexData& v = m->vertices[i];
         float dist = Length(position - TransformPoint(transform, v.position));
-        if (dist < size && dist < best_dist)
-        {
+        if (dist <= size && dist < best_dist) {
             best_vertex = i;
             best_dist = dist;
         }
@@ -1251,6 +1256,13 @@ Vec2 HitTestSnap(MeshData* m, const Vec2& position) {
     }
 
     return best_snap;
+}
+
+Vec2 GetEdgePoint(MeshData* m, int edge_index, float t) {
+    return Mix(
+        m->vertices[m->edges[edge_index].v0].position,
+        m->vertices[m->edges[edge_index].v1].position,
+        t);
 }
 
 static void DestroyMeshData(AssetData* a) {

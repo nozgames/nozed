@@ -89,6 +89,7 @@ extern int HitTestVertex(MeshData* m, const Mat3& transform, const Vec2& positio
 inline int HitTestVertex(MeshData* m, const Vec2& position, float size_mult=1.0f) {
     return HitTestVertex(m, Translate(m->position), position, size_mult);
 }
+extern int HitTestVertex(const Vec2& position, const Vec2& hit_pos, float size_mult=1.0f);
 extern int HitTestEdge(MeshData* m, const Mat3& transform, const Vec2& position, float* where=nullptr);
 inline int HitTestEdge(MeshData* m, const Vec2& position, float* where=nullptr) {
     return HitTestEdge(m, Translate(m->position), position, where);
@@ -112,6 +113,10 @@ extern int RotateEdge(MeshData* m, int edge_index);
 extern void DrawMesh(MeshData* m, const Mat3& transform);
 extern bool IsVertexOnOutsideEdge(MeshData* m, int v0);
 extern Vec2 GetFaceCenter(MeshData* m, int face_index);
+extern Vec2 GetEdgePoint(MeshData* m, int edge_index, float t);
+inline Vec2 GetVertexPoint(MeshData* m, int vertex_index) {
+    return m->vertices[vertex_index].position;
+}
 extern void UpdateEdges(MeshData* m);
 extern void Center(MeshData* m);
 extern int GetOrAddEdge(MeshData* m, int v0, int v1, int face_index);
