@@ -241,7 +241,7 @@ static bool FindEdgeContainingPoint(MeshData* m, const Vec2& point, float tolera
 }
 
 static void CommitKnifeCuts(MeshData* m) {
-    if (g_knife_tool.cut_count < 2)
+    if (g_knife_tool.cut_count < 1)
         return;
 
     // PHASE 1: Build the complete cut path with all vertices in order
@@ -260,111 +260,12 @@ static void CommitKnifeCuts(MeshData* m) {
     PathPoint path[512];
     int path_length = 0;
 
-    // Process each segment
-    for (int seg = 0; seg < g_knife_tool.cut_count - 1; seg++) {
-        Vec2 seg_start = g_knife_tool.cuts[seg].position;
-        Vec2 seg_end = g_knife_tool.cuts[seg + 1].position;
-
-        // Add start point of segment (only for first segment, or if it's on the mesh)
-        if (seg == 0 || path_length == 0) {
-            PathPoint pp = {};
-            pp.position = seg_start;
-            pp.original_vertex = FindVertexAtPosition(m, seg_start);
-            pp.on_vertex = (pp.original_vertex != -1);
-            pp.on_edge = false;
-            pp.internal = false;
-            pp.edge_v0 = -1;
-            pp.edge_v1 = -1;
-
-            if (!pp.on_vertex) {
-                pp.on_edge = FindEdgeContainingPoint(m, seg_start, 0.01f, &pp.edge_v0, &pp.edge_v1);
-            }
-            if (!pp.on_vertex && !pp.on_edge) {
-                pp.internal = (FindFaceContainingPoint(m, seg_start) != -1);
-            }
-
-            if (pp.on_vertex || pp.on_edge || pp.internal) {
-                path[path_length++] = pp;
-            }
-        }
-
-        // Collect edge intersections for this segment
-        struct EdgeHit {
-            Vec2 position;
-            int edge_v0, edge_v1;
-            float t;
-        };
-        EdgeHit edge_hits[64];
-        int edge_hit_count = 0;
-
-        for (int edge_i = 0; edge_i < m->edge_count; edge_i++) {
-            EdgeData& e = m->edges[edge_i];
-            Vec2 ev0 = m->vertices[e.v0].position;
-            Vec2 ev1 = m->vertices[e.v1].position;
-
-            Vec2 intersection_point;
-            if (!OverlapLine(seg_start, seg_end, ev0, ev1, &intersection_point))
-                continue;
-
-            // Skip if at segment endpoints
-            if (Length(intersection_point - seg_start) < 0.01f ||
-                Length(intersection_point - seg_end) < 0.01f)
-                continue;
-
-            // Calculate t along segment
-            Vec2 seg_dir = seg_end - seg_start;
-            float seg_len = Length(seg_dir);
-            float t = (seg_len > F32_EPSILON) ? Length(intersection_point - seg_start) / seg_len : 0.0f;
-
-            // Skip if too close to endpoints
-            if (t < 0.01f || t > 0.99f)
-                continue;
-
-            // Calculate t along edge to check if at edge endpoints
-            Vec2 edge_dir = ev1 - ev0;
-            float edge_len = Length(edge_dir);
-            float edge_t = (edge_len > F32_EPSILON) ? Length(intersection_point - ev0) / edge_len : 0.0f;
-
-            // Skip if at edge endpoints
-            if (edge_t < 0.01f || edge_t > 0.99f)
-                continue;
-
-            edge_hits[edge_hit_count++] = {
-                .position = intersection_point,
-                .edge_v0 = e.v0,
-                .edge_v1 = e.v1,
-                .t = t
-            };
-        }
-
-        // Sort edge hits by t
-        for (int i = 0; i < edge_hit_count - 1; i++) {
-            for (int j = i + 1; j < edge_hit_count; j++) {
-                if (edge_hits[j].t < edge_hits[i].t) {
-                    EdgeHit temp = edge_hits[i];
-                    edge_hits[i] = edge_hits[j];
-                    edge_hits[j] = temp;
-                }
-            }
-        }
-
-        // Add edge intersections to path
-        for (int i = 0; i < edge_hit_count; i++) {
-            PathPoint pp = {};
-            pp.position = edge_hits[i].position;
-            pp.original_vertex = -1;
-            pp.edge_v0 = edge_hits[i].edge_v0;
-            pp.edge_v1 = edge_hits[i].edge_v1;
-            pp.on_edge = true;
-            pp.on_vertex = false;
-            pp.internal = false;
-            path[path_length++] = pp;
-        }
-
-        // Add end point of segment
+    if (g_knife_tool.cut_count == 1) {
+        // Single point cut
+        Vec2 pos = g_knife_tool.cuts[0].position;
         PathPoint pp = {};
-        pp.position = seg_end;
-        pp.original_vertex = FindVertexAtPosition(m, seg_end);
+        pp.position = pos;
+        pp.original_vertex = FindVertexAtPosition(m, pos);
         pp.on_vertex = (pp.original_vertex != -1);
         pp.on_edge = false;
         pp.internal = false;
@@ -372,25 +273,148 @@ static void CommitKnifeCuts(MeshData* m) {
         pp.edge_v1 = -1;
 
         if (!pp.on_vertex) {
-            pp.on_edge = FindEdgeContainingPoint(m, seg_end, 0.01f, &pp.edge_v0, &pp.edge_v1);
+            pp.on_edge = FindEdgeContainingPoint(m, pos, 0.01f, &pp.edge_v0, &pp.edge_v1);
         }
         if (!pp.on_vertex && !pp.on_edge) {
-            pp.internal = (FindFaceContainingPoint(m, seg_end) != -1);
+            pp.internal = (FindFaceContainingPoint(m, pos) != -1);
         }
 
         if (pp.on_vertex || pp.on_edge || pp.internal) {
-            // Check if we already have this point (from previous edge intersection)
-            bool duplicate = false;
-            if (path_length > 0 && Length(path[path_length-1].position - pp.position) < 0.01f) {
-                duplicate = true;
+            path[path_length++] = pp;
+        }
+    } else {
+        // Process each segment
+        for (int seg = 0; seg < g_knife_tool.cut_count - 1; seg++) {
+            Vec2 seg_start = g_knife_tool.cuts[seg].position;
+            Vec2 seg_end = g_knife_tool.cuts[seg + 1].position;
+
+            // Add start point of segment (only for first segment, or if it's on the mesh)
+            if (seg == 0 || path_length == 0) {
+                PathPoint pp = {};
+                pp.position = seg_start;
+                pp.original_vertex = FindVertexAtPosition(m, seg_start);
+                pp.on_vertex = (pp.original_vertex != -1);
+                pp.on_edge = false;
+                pp.internal = false;
+                pp.edge_v0 = -1;
+                pp.edge_v1 = -1;
+
+                if (!pp.on_vertex) {
+                    pp.on_edge = FindEdgeContainingPoint(m, seg_start, 0.01f, &pp.edge_v0, &pp.edge_v1);
+                }
+                if (!pp.on_vertex && !pp.on_edge) {
+                    pp.internal = (FindFaceContainingPoint(m, seg_start) != -1);
+                }
+
+                if (pp.on_vertex || pp.on_edge || pp.internal) {
+                    path[path_length++] = pp;
+                }
             }
-            if (!duplicate) {
+
+            // Collect edge intersections for this segment
+            struct EdgeHit {
+                Vec2 position;
+                int edge_v0, edge_v1;
+                float t;
+            };
+            EdgeHit edge_hits[64];
+            int edge_hit_count = 0;
+
+            for (int edge_i = 0; edge_i < m->edge_count; edge_i++) {
+                EdgeData& e = m->edges[edge_i];
+                Vec2 ev0 = m->vertices[e.v0].position;
+                Vec2 ev1 = m->vertices[e.v1].position;
+
+                Vec2 intersection_point;
+                if (!OverlapLine(seg_start, seg_end, ev0, ev1, &intersection_point))
+                    continue;
+
+                // Skip if at segment endpoints
+                if (Length(intersection_point - seg_start) < 0.01f ||
+                    Length(intersection_point - seg_end) < 0.01f)
+                    continue;
+
+                // Calculate t along segment
+                Vec2 seg_dir = seg_end - seg_start;
+                float seg_len = Length(seg_dir);
+                float t = (seg_len > F32_EPSILON) ? Length(intersection_point - seg_start) / seg_len : 0.0f;
+
+                // Skip if too close to endpoints
+                if (t < 0.01f || t > 0.99f)
+                    continue;
+
+                // Calculate t along edge to check if at edge endpoints
+                Vec2 edge_dir = ev1 - ev0;
+                float edge_len = Length(edge_dir);
+                float edge_t = (edge_len > F32_EPSILON) ? Length(intersection_point - ev0) / edge_len : 0.0f;
+
+                // Skip if at edge endpoints
+                if (edge_t < 0.01f || edge_t > 0.99f)
+                    continue;
+
+                edge_hits[edge_hit_count++] = {
+                    .position = intersection_point,
+                    .edge_v0 = e.v0,
+                    .edge_v1 = e.v1,
+                    .t = t
+                };
+            }
+
+            // Sort edge hits by t
+            for (int i = 0; i < edge_hit_count - 1; i++) {
+                for (int j = i + 1; j < edge_hit_count; j++) {
+                    if (edge_hits[j].t < edge_hits[i].t) {
+                        EdgeHit temp = edge_hits[i];
+                        edge_hits[i] = edge_hits[j];
+                        edge_hits[j] = temp;
+                    }
+                }
+            }
+
+            // Add edge intersections to path
+            for (int i = 0; i < edge_hit_count; i++) {
+                PathPoint pp = {};
+                pp.position = edge_hits[i].position;
+                pp.original_vertex = -1;
+                pp.edge_v0 = edge_hits[i].edge_v0;
+                pp.edge_v1 = edge_hits[i].edge_v1;
+                pp.on_edge = true;
+                pp.on_vertex = false;
+                pp.internal = false;
                 path[path_length++] = pp;
+            }
+
+            // Add end point of segment
+            PathPoint pp = {};
+            pp.position = seg_end;
+            pp.original_vertex = FindVertexAtPosition(m, seg_end);
+            pp.on_vertex = (pp.original_vertex != -1);
+            pp.on_edge = false;
+            pp.internal = false;
+            pp.edge_v0 = -1;
+            pp.edge_v1 = -1;
+
+            if (!pp.on_vertex) {
+                pp.on_edge = FindEdgeContainingPoint(m, seg_end, 0.01f, &pp.edge_v0, &pp.edge_v1);
+            }
+            if (!pp.on_vertex && !pp.on_edge) {
+                pp.internal = (FindFaceContainingPoint(m, seg_end) != -1);
+            }
+
+            if (pp.on_vertex || pp.on_edge || pp.internal) {
+                // Check if we already have this point (from previous edge intersection)
+                bool duplicate = false;
+                if (path_length > 0 && Length(path[path_length-1].position - pp.position) < 0.01f) {
+                    duplicate = true;
+                }
+                if (!duplicate) {
+                    path[path_length++] = pp;
+                }
             }
         }
     }
 
-    if (path_length < 2)
+    if (path_length < 1)
         return;
 
     // PHASE 2: Create all vertices
