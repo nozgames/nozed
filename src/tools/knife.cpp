@@ -113,7 +113,7 @@ static int AddKnifeVertex(MeshData* m, const Vec2& position) {
     VertexData& v = m->vertices[index];
     v.position = position;
     v.edge_normal = VEC2_ZERO;
-    v.edge_size = 1.0f;
+    v.edge_size = 0.0f;
     v.selected = false;
     v.ref_count = 0;
     v.gradient = 0.0f;
@@ -184,29 +184,6 @@ static int SplitFaceAtPositions(MeshData* m, int face_index, int pos0, int pos1,
     return m->face_count++;
 }
 
-// Count how many edges are shared between two faces
-static int CountSharedEdges(MeshData* m, int face_index0, int face_index1) {
-    // Ensure face_index0 < face_index1 for consistent edge lookup
-    if (face_index0 > face_index1) {
-        int tmp = face_index0;
-        face_index0 = face_index1;
-        face_index1 = tmp;
-    }
-
-    int shared_edge_count = 0;
-    for (int edge_index = 0; edge_index < m->edge_count; edge_index++) {
-        EdgeData& ee = m->edges[edge_index];
-        if (ee.face_count != 2)
-            continue;
-
-        if (ee.face_index[0] == face_index0 && ee.face_index[1] == face_index1)
-            shared_edge_count++;
-    }
-
-    return shared_edge_count;
-}
-
-// Find all faces that contain an edge
 static int GetFacesWithEdge(MeshData* m, int v0, int v1, int faces[2]) {
     int count = 0;
     for (int fi = 0; fi < m->face_count && count < 2; fi++) {
@@ -652,42 +629,6 @@ static void LogKnifeActions(KnifeAction* actions, int action_count) {
     }
 }
 
-static void ExecuteEdgeSplit(MeshData* m, KnifePathPoint* path, KnifeAction& action) {
-    KnifePathPoint& pt = path[action.start_index];
-
-    if (pt.type != KNIFE_POINT_EDGE)
-        return;
-
-    // Create the new vertex
-    int new_vertex = AddKnifeVertex(m, pt.position);
-    if (new_vertex < 0)
-        return;
-
-    // Find all faces that contain this edge and insert the vertex
-    int faces[2];
-    int face_count = GetFacesWithEdge(m, pt.edge_v0, pt.edge_v1, faces);
-
-    for (int i = 0; i < face_count; i++) {
-        FaceData& f = m->faces[faces[i]];
-
-        // Find the edge in this face
-        for (int vi = 0; vi < f.vertex_count; vi++) {
-            int fv0 = f.vertices[vi];
-            int fv1 = f.vertices[(vi + 1) % f.vertex_count];
-
-            if ((fv0 == pt.edge_v0 && fv1 == pt.edge_v1) ||
-                (fv0 == pt.edge_v1 && fv1 == pt.edge_v0)) {
-                // Insert new vertex after fv0 (between fv0 and fv1)
-                InsertVertexInFace(m, faces[i], vi + 1, new_vertex);
-                break;
-            }
-        }
-    }
-
-    // Store the vertex index back in the path point for use by other actions
-    pt.vertex_index = new_vertex;
-}
-
 static int GetOrCreateVertex(MeshData* m, KnifePathPoint& pt) {
     // If it's already a vertex, just return it
     if (pt.type == KNIFE_POINT_VERTEX)
@@ -778,56 +719,18 @@ static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     // Handle closed loop with same start/end point
     if (action.start_index == action.end_index ||
         Length(start_pt.position - end_pt.position) < 0.01f) {
-        // Same point - only do edge split if it's an edge point
-        if (IsEdgePoint(start_pt)) {
-            int v = GetOrCreateVertex(m, start_pt);
-            if (v >= 0) {
-                EnsureEdgeVertexInAllFaces(m, start_pt);
-            }
-        }
-        // Face or vertex points are ignored
+        // Same point - nothing to split (edge insertion already done in pass 1)
         return;
     }
 
-    // Get or create vertices for start and end
-    int v0 = GetOrCreateVertex(m, start_pt);
-    int v1 = GetOrCreateVertex(m, end_pt);
+    // Vertices were already created in pass 1
+    int v0 = start_pt.vertex_index;
+    int v1 = end_pt.vertex_index;
 
     if (v0 < 0 || v1 < 0)
         return;
 
-    // If start/end are on edges, insert into target face and any truly adjacent face.
-    // A face is truly adjacent if it shares ONLY this edge with the target face.
-    // If it shares more edges (like an inner face shares all slit edges), skip it.
-    if (IsEdgePoint(start_pt)) {
-        int faces[2];
-        int face_count = GetFacesWithEdge(m, start_pt.edge_v0, start_pt.edge_v1, faces);
-        for (int i = 0; i < face_count; i++) {
-            if (faces[i] == action.face_index) {
-                EnsureEdgeVertexInFace(m, faces[i], start_pt);
-            } else {
-                // Check if this face is truly adjacent (shares only this edge, not multiple)
-                int shared = CountSharedEdges(m, action.face_index, faces[i]);
-                if (shared == 1) {
-                    EnsureEdgeVertexInFace(m, faces[i], start_pt);
-                }
-            }
-        }
-    }
-    if (IsEdgePoint(end_pt)) {
-        int faces[2];
-        int face_count = GetFacesWithEdge(m, end_pt.edge_v0, end_pt.edge_v1, faces);
-        for (int i = 0; i < face_count; i++) {
-            if (faces[i] == action.face_index) {
-                EnsureEdgeVertexInFace(m, faces[i], end_pt);
-            } else {
-                int shared = CountSharedEdges(m, action.face_index, faces[i]);
-                if (shared == 1) {
-                    EnsureEdgeVertexInFace(m, faces[i], end_pt);
-                }
-            }
-        }
-    }
+    // Edge insertions already done in pass 1
 
     // Collect internal vertices (face points between start and end)
     int cut_vertices[128];
@@ -836,7 +739,7 @@ static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     for (int i = action.start_index + 1; i < action.end_index; i++) {
         KnifePathPoint& pt = path[i];
         if (pt.type == KNIFE_POINT_FACE) {
-            int v = GetOrCreateVertex(m, pt);
+            int v = pt.vertex_index;  // Already created in pass 1
             if (v >= 0) {
                 cut_vertices[cut_count++] = v;
             }
@@ -1033,16 +936,14 @@ static void ExecuteInnerSlit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     if (!IsEdgePoint(start_pt) || !IsEdgePoint(end_pt))
         return;
 
-    // Get or create vertices for start and end
-    int v0 = GetOrCreateVertex(m, start_pt);
-    int v1 = GetOrCreateVertex(m, end_pt);
+    // Vertices were already created in pass 1
+    int v0 = start_pt.vertex_index;
+    int v1 = end_pt.vertex_index;
 
     if (v0 < 0 || v1 < 0)
         return;
 
-    // Insert edge vertices into the target face
-    EnsureEdgeVertexInFace(m, action.face_index, start_pt);
-    EnsureEdgeVertexInFace(m, action.face_index, end_pt);
+    // Edge insertions already done in pass 1
 
     // Collect internal vertices (face points between start and end)
     int cut_vertices[128];
@@ -1051,7 +952,7 @@ static void ExecuteInnerSlit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     for (int i = action.start_index + 1; i < action.end_index; i++) {
         KnifePathPoint& pt = path[i];
         if (pt.type == KNIFE_POINT_FACE) {
-            int v = GetOrCreateVertex(m, pt);
+            int v = pt.vertex_index;  // Already created in pass 1
             if (v >= 0) {
                 cut_vertices[cut_count++] = v;
             }
@@ -1100,15 +1001,71 @@ static void ExecuteInnerSlit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     SplitFaceAtPositions(m, action.face_index, pos0, pos1, cut_vertices, cut_count);
 }
 
+// Prepare vertices for an action - create vertices and insert into edges, but don't split faces yet
+static void PrepareActionVertices(MeshData* m, KnifePathPoint* path, KnifeAction& action) {
+    // Create vertices for all edge points in this action's range
+    for (int i = action.start_index; i <= action.end_index; i++) {
+        KnifePathPoint& pt = path[i];
+        if (IsEdgePoint(pt)) {
+            GetOrCreateVertex(m, pt);
+            EnsureEdgeVertexInAllFaces(m, pt);
+        } else if (pt.type == KNIFE_POINT_FACE) {
+            GetOrCreateVertex(m, pt);
+        }
+    }
+}
+
+// Find the face that contains two vertices (after edge insertions)
+static int FindFaceWithVertices(MeshData* m, int v0, int v1) {
+    for (int fi = 0; fi < m->face_count; fi++) {
+        FaceData& f = m->faces[fi];
+        bool has_v0 = false, has_v1 = false;
+        for (int i = 0; i < f.vertex_count; i++) {
+            if (f.vertices[i] == v0) has_v0 = true;
+            if (f.vertices[i] == v1) has_v1 = true;
+        }
+        if (has_v0 && has_v1)
+            return fi;
+    }
+    return -1;
+}
+
 static void ExecuteKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, KnifeAction* actions, int action_count) {
     (void)path_count;
 
+    // Pass 1: Create all vertices and insert into edges
+    // This ensures all edge vertices are in place before any face splits
+    for (int i = 0; i < action_count; i++) {
+        KnifeAction& action = actions[i];
+        if (action.type == KNIFE_ACTION_EDGE_SPLIT ||
+            action.type == KNIFE_ACTION_FACE_SPLIT ||
+            action.type == KNIFE_ACTION_INNER_SLIT) {
+            PrepareActionVertices(m, path, action);
+        }
+    }
+
+    // Pass 2: Execute the actual operations (now all vertices are in place)
     for (int i = 0; i < action_count; i++) {
         KnifeAction& action = actions[i];
 
+        // For face splits, we need to re-find the face since it may have been split
+        // by a previous action. Find the face that contains both start and end vertices.
+        if (action.type == KNIFE_ACTION_FACE_SPLIT) {
+            KnifePathPoint& start_pt = path[action.start_index];
+            KnifePathPoint& end_pt = path[action.end_index];
+            int v0 = start_pt.vertex_index;
+            int v1 = end_pt.vertex_index;
+            if (v0 >= 0 && v1 >= 0 && v0 != v1) {
+                int face = FindFaceWithVertices(m, v0, v1);
+                if (face >= 0) {
+                    action.face_index = face;
+                }
+            }
+        }
+
         switch (action.type) {
             case KNIFE_ACTION_EDGE_SPLIT:
-                ExecuteEdgeSplit(m, path, action);
+                // Already done in pass 1
                 break;
 
             case KNIFE_ACTION_FACE_SPLIT:
