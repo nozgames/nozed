@@ -18,6 +18,8 @@ struct AnimatedMeshEditor {
     Shortcut* shortcuts;
     float playback_time;
     AnimatedMesh* playing;
+    MeshData clipboard;
+    bool has_clipboard;
 };
 
 static AnimatedMeshEditor g_animated_mesh_editor = {};
@@ -149,7 +151,7 @@ static void EndAnimatedMeshEditor() {
 }
 
 void ShutdownAnimatedMeshEditor() {
-    //g_mesh_editor = {};
+    g_animated_mesh_editor.has_clipboard = false;
 }
 
 static void SetPrevFrame() {
@@ -213,6 +215,60 @@ static void DeleteFrame() {
     MarkModified(m);
 }
 
+static void CopyFrame() {
+    MeshData* f = GetAnimatedMeshFrameData();
+
+    // Copy frame to clipboard
+    InitMeshData(&g_animated_mesh_editor.clipboard);
+    g_animated_mesh_editor.clipboard = *f;
+    g_animated_mesh_editor.clipboard.vtable.clone(&g_animated_mesh_editor.clipboard);
+    g_animated_mesh_editor.has_clipboard = true;
+}
+
+static void PasteFrame() {
+    if (!g_animated_mesh_editor.has_clipboard)
+        return;
+
+    AnimatedMeshData* m = GetAnimatedMeshData();
+    MeshData* f = GetAnimatedMeshFrameData();
+
+    // End the current frame editor before replacing data
+    f->vtable.editor_end();
+
+    // Copy clipboard data to current frame
+    MeshData* src = &g_animated_mesh_editor.clipboard;
+
+    // Copy vertex data
+    f->vertex_count = src->vertex_count;
+    for (int i = 0; i < src->vertex_count; i++)
+        f->vertices[i] = src->vertices[i];
+
+    // Copy face data
+    f->face_count = src->face_count;
+    for (int i = 0; i < src->face_count; i++)
+        f->faces[i] = src->faces[i];
+
+    // Copy anchor data
+    f->anchor_count = src->anchor_count;
+    for (int i = 0; i < src->anchor_count; i++)
+        f->anchors[i] = src->anchors[i];
+
+    // Copy other properties
+    f->edge_color = src->edge_color;
+    f->opacity = src->opacity;
+    f->depth = src->depth;
+
+    // Rebuild edges and mark dirty
+    UpdateEdges(f);
+    MarkDirty(f);
+
+    // Restart the frame editor
+    f->position = m->position;
+    f->vtable.editor_begin(f);
+
+    MarkModified(m);
+}
+
 void InitAnimatedMeshEditor() {
     static Shortcut shortcuts[] = {
         { KEY_Q, false, false, false, SetPrevFrame },
@@ -222,6 +278,8 @@ void InitAnimatedMeshEditor() {
         { KEY_H, false, false, false, IncHoldFrame },
         { KEY_H, false, true, false, DecHoldFrame },
         { KEY_X, false, false, true, DeleteFrame },
+        { KEY_C, false, true, false, CopyFrame },
+        { KEY_V, false, true, false, PasteFrame },
         { INPUT_CODE_NONE }
     };
 
