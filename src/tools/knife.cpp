@@ -33,6 +33,43 @@ struct KnifeTool {
     int vertex_count;
 };
 
+enum KnifePointType {
+    KNIFE_POINT_NONE,      // Outside mesh / invalid
+    KNIFE_POINT_VERTEX,    // On existing vertex
+    KNIFE_POINT_EDGE,      // On edge (clicked or intersection)
+    KNIFE_POINT_FACE,      // Inside face
+    KNIFE_POINT_CLOSE      // Closing the loop (back to first point)
+};
+
+enum KnifeActionType {
+    KNIFE_ACTION_NONE,
+    KNIFE_ACTION_EDGE_SPLIT,      // Just split edge(s), no face split
+    KNIFE_ACTION_FACE_SPLIT,      // Split face from boundary to boundary
+    KNIFE_ACTION_INNER_FACE,      // Closed loop inside face (hole)
+    KNIFE_ACTION_INNER_SLIT       // Open path inside face
+};
+
+struct KnifePathPoint {
+    Vec2 position;
+    KnifePointType type;
+    int vertex_index;     // if type == VERTEX
+    int face_index;       // if type == FACE
+    int edge_v0, edge_v1; // if type == EDGE, the edge endpoints
+    float edge_t;         // parameter along edge (0-1)
+    float path_t;         // parameter along segment for sorting intersections
+};
+
+struct KnifeAction {
+    KnifeActionType type;
+    int start_index;     // index into path array
+    int end_index;       // index into path array (inclusive)
+    int face_index;      // primary face this action affects
+};
+
+
+void EnsureEdgeVertexInFace(MeshData* m, int face_index, KnifePathPoint& pt);
+
+
 static KnifeTool g_knife_tool = {};
 
 // Find which face a point lies in (or -1 if none)
@@ -787,39 +824,6 @@ static void CommitKnifeCuts(MeshData* m) {
 }
 #else
 
-enum KnifePointType {
-    KNIFE_POINT_NONE,      // Outside mesh / invalid
-    KNIFE_POINT_VERTEX,    // On existing vertex
-    KNIFE_POINT_EDGE,      // On edge (clicked or intersection)
-    KNIFE_POINT_FACE,      // Inside face
-    KNIFE_POINT_CLOSE      // Closing the loop (back to first point)
-};
-
-enum KnifeActionType {
-    KNIFE_ACTION_NONE,
-    KNIFE_ACTION_EDGE_SPLIT,      // Just split edge(s), no face split
-    KNIFE_ACTION_FACE_SPLIT,      // Split face from boundary to boundary
-    KNIFE_ACTION_INNER_FACE,      // Closed loop inside face (hole)
-    KNIFE_ACTION_INNER_SLIT       // Open path inside face
-};
-
-struct KnifePathPoint {
-    Vec2 position;
-    KnifePointType type;
-    int vertex_index;     // if type == VERTEX
-    int face_index;       // if type == FACE
-    int edge_v0, edge_v1; // if type == EDGE, the edge endpoints
-    float edge_t;         // parameter along edge (0-1)
-    float path_t;         // parameter along segment for sorting intersections
-};
-
-struct KnifeAction {
-    KnifeActionType type;
-    int start_index;     // index into path array
-    int end_index;       // index into path array (inclusive)
-    int face_index;      // primary face this action affects
-};
-
 static const char* GetPointTypeName(KnifePointType type) {
     switch (type) {
         case KNIFE_POINT_NONE:   return "NONE";
@@ -1322,29 +1326,10 @@ static void EnsureEdgeVertexInAllFaces(MeshData* m, KnifePathPoint& pt) {
     if (vertex < 0)
         return;
 
-    // Find all faces that contain this edge
-    int faces[2];
-    int face_count = GetFacesWithEdge(m, pt.edge_v0, pt.edge_v1, faces);
-
-    for (int fi = 0; fi < face_count; fi++) {
-        int face_index = faces[fi];
-        FaceData& f = m->faces[face_index];
-
-        // Check if already in face
-        if (FindVertexInFace(f, vertex) != -1)
-            continue;
-
-        // Find the edge and insert
-        for (int vi = 0; vi < f.vertex_count; vi++) {
-            int fv0 = f.vertices[vi];
-            int fv1 = f.vertices[(vi + 1) % f.vertex_count];
-
-            if ((fv0 == pt.edge_v0 && fv1 == pt.edge_v1) ||
-                (fv0 == pt.edge_v1 && fv1 == pt.edge_v0)) {
-                InsertVertexInFace(m, face_index, vi + 1, vertex);
-                break;
-            }
-        }
+    // Find all faces that contain this edge (or a sub-edge of it)
+    // We check all faces since the original edge may have been subdivided
+    for (int face_index = 0; face_index < m->face_count; face_index++) {
+        EnsureEdgeVertexInFace(m, face_index, pt);
     }
 }
 
@@ -1657,6 +1642,7 @@ static void ExecuteInnerFace(MeshData* m, KnifePathPoint* path, KnifeAction& act
 }
 
 // Execute an inner slit action - a notch/pocket cut into a face from an edge
+// This is essentially a face split where start and end are on the same edge
 static void ExecuteInnerSlit(MeshData* m, KnifePathPoint* path, KnifeAction& action) {
     if (action.face_index < 0)
         return;
@@ -1664,7 +1650,7 @@ static void ExecuteInnerSlit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     KnifePathPoint& start_pt = path[action.start_index];
     KnifePathPoint& end_pt = path[action.end_index];
 
-    // Both start and end should be on the same edge
+    // Both start and end should be on edges (same edge for inner slit)
     if (!IsEdgePoint(start_pt) || !IsEdgePoint(end_pt))
         return;
 
@@ -1675,9 +1661,9 @@ static void ExecuteInnerSlit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     if (v0 < 0 || v1 < 0)
         return;
 
-    // Insert edge vertices into all faces that share the edge
-    EnsureEdgeVertexInAllFaces(m, start_pt);
-    EnsureEdgeVertexInAllFaces(m, end_pt);
+    // Insert edge vertices into the target face
+    EnsureEdgeVertexInFace(m, action.face_index, start_pt);
+    EnsureEdgeVertexInFace(m, action.face_index, end_pt);
 
     // Collect internal vertices (face points between start and end)
     int cut_vertices[128];
@@ -1693,12 +1679,46 @@ static void ExecuteInnerSlit(MeshData* m, KnifePathPoint* path, KnifeAction& act
         }
     }
 
-    // An inner slit creates a new face (the notch) and modifies the original face
-    // The notch face is: v0 -> cut_vertices -> v1 -> v0
-    // The original face gets the slit stitched in: ... -> v0 -> cut_vertices -> v1 -> cut_vertices(reversed) -> v0 -> ...
-    // Actually, we use SplitFaceAlongVertices which handles this
+    // Now use face split logic: split from v0 to v1 along the cut vertices
+    // This creates two faces:
+    // 1. The inner triangle/notch (v0 -> cut_vertices -> v1)
+    // 2. The outer face with the notch cut out
 
-    SplitFaceAlongVertices(m, action.face_index, v0, v1, cut_vertices, cut_count);
+    FaceData& f = m->faces[action.face_index];
+
+    // Find positions of v0 and v1 in the face
+    // For inner slit, they should be adjacent on the same edge, so we need to find
+    // the pair where v0 comes right before v1 (or vice versa)
+    int pos0 = -1, pos1 = -1;
+
+    for (int i = 0; i < f.vertex_count; i++) {
+        if (f.vertices[i] == v0) {
+            int next = (i + 1) % f.vertex_count;
+            if (f.vertices[next] == v1) {
+                pos0 = i;
+                pos1 = next;
+                break;
+            }
+        }
+        if (f.vertices[i] == v1) {
+            int next = (i + 1) % f.vertex_count;
+            if (f.vertices[next] == v0) {
+                pos0 = next;
+                pos1 = i;
+                break;
+            }
+        }
+    }
+
+    if (pos0 < 0 || pos1 < 0) {
+        LogInfo("ExecuteInnerSlit: Could not find adjacent v0=%d, v1=%d in face %d", v0, v1, action.face_index);
+        return;
+    }
+
+    LogInfo("ExecuteInnerSlit: v0=%d (pos %d), v1=%d (pos %d), cut_count=%d", v0, pos0, v1, pos1, cut_count);
+
+    // Split the face using positions
+    SplitFaceAtPositions(m, action.face_index, pos0, pos1, cut_vertices, cut_count);
 }
 
 // Execute the knife actions to modify the mesh
