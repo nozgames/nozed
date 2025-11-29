@@ -768,16 +768,8 @@ static const char* GetActionTypeName(KnifeActionType type) {
     return "???";
 }
 
-static void CommitKnifeCuts() {
-    MeshData* m = g_knife_tool.mesh;
-    if (g_knife_tool.cut_count < 1)
-        return;
-
-    // =========================================================================
-    // PHASE 1: Build complete path with edge intersections
-    // =========================================================================
-
-    KnifePathPoint path[512];
+// Build complete path from knife cuts, including edge intersection points
+static int BuildKnifePath(MeshData* m, KnifePathPoint* path) {
     int path_count = 0;
 
     for (int cut_i = 0; cut_i < g_knife_tool.cut_count; cut_i++) {
@@ -849,7 +841,7 @@ static void CommitKnifeCuts() {
                     .face_index = -1,
                     .edge_v0 = hits[i].edge_v0,
                     .edge_v1 = hits[i].edge_v1,
-                    .edge_t = 0, // could compute if needed
+                    .edge_t = 0,
                     .path_t = hits[i].t
                 };
             }
@@ -888,7 +880,217 @@ static void CommitKnifeCuts() {
         path[path_count++] = pp;
     }
 
-    // Log the path
+    return path_count;
+}
+
+// Find all boundary point indices (VERTEX or EDGE) in the path
+static int FindBoundaryPoints(KnifePathPoint* path, int path_count, int* boundary_indices) {
+    int boundary_count = 0;
+    for (int i = 0; i < path_count; i++) {
+        if (path[i].type == KNIFE_POINT_VERTEX || path[i].type == KNIFE_POINT_EDGE) {
+            boundary_indices[boundary_count++] = i;
+        }
+    }
+    return boundary_count;
+}
+
+// Find the common face between two boundary points
+static int FindCommonFace(MeshData* m, KnifePathPoint* path, int start_bi, int end_bi) {
+    KnifePathPoint& start_pt = path[start_bi];
+    KnifePathPoint& end_pt = path[end_bi];
+
+    // Check internal points first
+    for (int j = start_bi + 1; j < end_bi; j++) {
+        if (path[j].type == KNIFE_POINT_FACE) {
+            return path[j].face_index;
+        }
+    }
+
+    // Get faces for start point
+    int start_faces[8];
+    int start_face_count = 0;
+
+    if (start_pt.type == KNIFE_POINT_VERTEX) {
+        for (int fi = 0; fi < m->face_count && start_face_count < 8; fi++) {
+            if (FindVertexInFace(m->faces[fi], start_pt.vertex_index) != -1) {
+                start_faces[start_face_count++] = fi;
+            }
+        }
+    } else if (start_pt.type == KNIFE_POINT_EDGE) {
+        start_face_count = GetFacesWithEdge(m, start_pt.edge_v0, start_pt.edge_v1, start_faces);
+    }
+
+    // Find which start face also contains end point
+    for (int k = 0; k < start_face_count; k++) {
+        int fi = start_faces[k];
+        FaceData& f = m->faces[fi];
+
+        if (end_pt.type == KNIFE_POINT_VERTEX) {
+            if (FindVertexInFace(f, end_pt.vertex_index) != -1) {
+                return fi;
+            }
+        } else if (end_pt.type == KNIFE_POINT_EDGE) {
+            for (int vi = 0; vi < f.vertex_count; vi++) {
+                int fv0 = f.vertices[vi];
+                int fv1 = f.vertices[(vi + 1) % f.vertex_count];
+                if ((fv0 == end_pt.edge_v0 && fv1 == end_pt.edge_v1) ||
+                    (fv0 == end_pt.edge_v1 && fv1 == end_pt.edge_v0)) {
+                    return fi;
+                }
+            }
+        }
+    }
+
+    return -1;
+}
+
+// Determine action type for a segment between two boundary points
+static KnifeActionType DetermineActionType(KnifePathPoint* path, int start_bi, int end_bi) {
+    KnifePathPoint& start_pt = path[start_bi];
+    KnifePathPoint& end_pt = path[end_bi];
+
+    // Check if start and end are on the same edge
+    bool same_edge = false;
+    if (start_pt.type == KNIFE_POINT_EDGE && end_pt.type == KNIFE_POINT_EDGE) {
+        if ((start_pt.edge_v0 == end_pt.edge_v0 && start_pt.edge_v1 == end_pt.edge_v1) ||
+            (start_pt.edge_v0 == end_pt.edge_v1 && start_pt.edge_v1 == end_pt.edge_v0)) {
+            same_edge = true;
+        }
+    }
+
+    if (!same_edge) {
+        return KNIFE_ACTION_FACE_SPLIT;
+    }
+
+    // Same edge - check if there are face points between
+    for (int j = start_bi + 1; j < end_bi; j++) {
+        if (path[j].type == KNIFE_POINT_FACE) {
+            // Enter and exit same edge with face points in between = inner slit (pocket)
+            return KNIFE_ACTION_INNER_SLIT;
+        }
+    }
+
+    // Same edge, no face points = edge split
+    return KNIFE_ACTION_EDGE_SPLIT;
+}
+
+// Handle case with no boundary points (all face/none points)
+static int BuildActionsNoBoundary(KnifePathPoint* path, int path_count, KnifeAction* actions) {
+    if (path_count == 0)
+        return 0;
+
+    // Find which face contains this path
+    int face = -1;
+    for (int i = 0; i < path_count && face == -1; i++) {
+        if (path[i].type == KNIFE_POINT_FACE) {
+            face = path[i].face_index;
+        }
+    }
+
+    if (face < 0)
+        return 0;
+
+    // Check if this is a closed loop
+    bool is_closed_loop = path_count >= 3 &&
+        Length(path[0].position - path[path_count-1].position) < 0.01f;
+
+    actions[0] = {
+        .type = is_closed_loop ? KNIFE_ACTION_INNER_FACE : KNIFE_ACTION_INNER_SLIT,
+        .start_index = 0,
+        .end_index = path_count - 1,
+        .face_index = face
+    };
+    return 1;
+}
+
+// Handle case with single boundary point
+static int BuildActionsSingleBoundary(KnifePathPoint* path, int boundary_index, KnifeAction* actions) {
+    if (path[boundary_index].type != KNIFE_POINT_EDGE)
+        return 0;
+
+    actions[0] = {
+        .type = KNIFE_ACTION_EDGE_SPLIT,
+        .start_index = boundary_index,
+        .end_index = boundary_index,
+        .face_index = -1
+    };
+    return 1;
+}
+
+// Handle case with multiple boundary points
+static int BuildActionsMultipleBoundary(MeshData* m, KnifePathPoint* path, int* boundary_indices, int boundary_count, KnifeAction* actions) {
+    int action_count = 0;
+
+    for (int i = 0; i < boundary_count - 1; i++) {
+        int start_bi = boundary_indices[i];
+        int end_bi = boundary_indices[i + 1];
+
+        int face = FindCommonFace(m, path, start_bi, end_bi);
+        KnifeActionType action_type = DetermineActionType(path, start_bi, end_bi);
+
+        if (action_type == KNIFE_ACTION_EDGE_SPLIT) {
+            // Same edge, no face points between = the points are just edge crossings
+            // Only create edge split actions for points that aren't used by adjacent non-edge-split actions
+
+            // Check if start point is used by previous action
+            bool start_used = (i > 0) &&
+                (DetermineActionType(path, boundary_indices[i-1], start_bi) != KNIFE_ACTION_EDGE_SPLIT);
+
+            // Check if end point is used by next action
+            bool end_used = (i < boundary_count - 2) &&
+                (DetermineActionType(path, end_bi, boundary_indices[i+2]) != KNIFE_ACTION_EDGE_SPLIT);
+
+            if (!start_used) {
+                actions[action_count++] = {
+                    .type = KNIFE_ACTION_EDGE_SPLIT,
+                    .start_index = start_bi,
+                    .end_index = start_bi,
+                    .face_index = face
+                };
+            }
+
+            if (!end_used) {
+                actions[action_count++] = {
+                    .type = KNIFE_ACTION_EDGE_SPLIT,
+                    .start_index = end_bi,
+                    .end_index = end_bi,
+                    .face_index = face
+                };
+            }
+        } else {
+            actions[action_count++] = {
+                .type = action_type,
+                .start_index = start_bi,
+                .end_index = end_bi,
+                .face_index = face
+            };
+        }
+    }
+
+    return action_count;
+}
+
+static int BuildKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, KnifeAction* actions) {
+    int boundary_indices[256];
+    int boundary_count = FindBoundaryPoints(path, path_count, boundary_indices);
+
+    LogInfo("Found %d boundary points:", boundary_count);
+    for (int i = 0; i < boundary_count; i++) {
+        int bi = boundary_indices[i];
+        LogInfo("  boundary[%d] = path[%d] type=%s", i, bi, GetPointTypeName(path[bi].type));
+    }
+
+    if (boundary_count == 0)
+        return BuildActionsNoBoundary(path, path_count, actions);
+
+    if (boundary_count == 1)
+        return BuildActionsSingleBoundary(path, boundary_indices[0], actions);
+
+    return BuildActionsMultipleBoundary(m, path, boundary_indices, boundary_count, actions);
+}
+
+// Log the path for debugging
+static void LogKnifePath(KnifePathPoint* path, int path_count) {
     LogInfo("=== Knife Path (%d points) ===", path_count);
     for (int i = 0; i < path_count; i++) {
         KnifePathPoint& pp = path[i];
@@ -909,202 +1111,45 @@ static void CommitKnifeCuts() {
                 i, GetPointTypeName(pp.type), pp.position.x, pp.position.y);
         }
     }
+}
 
-    // =========================================================================
-    // PHASE 2: Identify boundary points and segment into actions
-    // =========================================================================
-
-    // Find all boundary point indices (VERTEX or EDGE)
-    int boundary_indices[256];
-    int boundary_count = 0;
-    for (int i = 0; i < path_count; i++) {
-        if (path[i].type == KNIFE_POINT_VERTEX || path[i].type == KNIFE_POINT_EDGE) {
-            boundary_indices[boundary_count++] = i;
-        }
-    }
-
-    LogInfo("Found %d boundary points:", boundary_count);
-    for (int i = 0; i < boundary_count; i++) {
-        int bi = boundary_indices[i];
-        LogInfo("  boundary[%d] = path[%d] type=%s", i, bi, GetPointTypeName(path[bi].type));
-    }
-
-    // Build actions based on boundary points
-    KnifeAction actions[128];
-    int action_count = 0;
-
-    // Check if this is a closed loop (first and last points are the same position)
-    bool is_closed_loop = path_count >= 3 &&
-        Length(path[0].position - path[path_count-1].position) < 0.01f;
-
-    LogInfo("is_closed_loop = %s", is_closed_loop ? "true" : "false");
-
-    if (boundary_count == 0) {
-        // No boundary points at all
-        if (path_count == 0) {
-            // Nothing to do
-        } else {
-            // All points are FACE or NONE
-            // Find which face contains this path
-            int face = -1;
-            for (int i = 0; i < path_count && face == -1; i++) {
-                if (path[i].type == KNIFE_POINT_FACE) {
-                    face = path[i].face_index;
-                }
-            }
-
-            if (face >= 0) {
-                actions[action_count++] = {
-                    .type = is_closed_loop ? KNIFE_ACTION_INNER_FACE : KNIFE_ACTION_INNER_SLIT,
-                    .start_index = 0,
-                    .end_index = path_count - 1,
-                    .face_index = face
-                };
-            }
-        }
-    } else if (boundary_count == 1) {
-        // Single boundary point - just an edge split (if it's an edge)
-        int bi = boundary_indices[0];
-        if (path[bi].type == KNIFE_POINT_EDGE) {
-            actions[action_count++] = {
-                .type = KNIFE_ACTION_EDGE_SPLIT,
-                .start_index = bi,
-                .end_index = bi,
-                .face_index = -1
-            };
-        }
-        // Single vertex click or face points around single boundary = no-op
-    } else {
-        // Multiple boundary points - create actions between consecutive pairs
-        for (int i = 0; i < boundary_count - 1; i++) {
-            int start_bi = boundary_indices[i];
-            int end_bi = boundary_indices[i + 1];
-
-            KnifePathPoint& start_pt = path[start_bi];
-            KnifePathPoint& end_pt = path[end_bi];
-
-            // Determine the face this segment is in
-            int face = -1;
-
-            // Check internal points first
-            for (int j = start_bi + 1; j < end_bi && face == -1; j++) {
-                if (path[j].type == KNIFE_POINT_FACE) {
-                    face = path[j].face_index;
-                }
-            }
-
-            // If no internal face points, find common face between start and end
-            if (face == -1) {
-                // Get faces for start point
-                int start_faces[8];
-                int start_face_count = 0;
-
-                if (start_pt.type == KNIFE_POINT_VERTEX) {
-                    for (int fi = 0; fi < m->face_count && start_face_count < 8; fi++) {
-                        if (FindVertexInFace(m->faces[fi], start_pt.vertex_index) != -1) {
-                            start_faces[start_face_count++] = fi;
-                        }
-                    }
-                } else if (start_pt.type == KNIFE_POINT_EDGE) {
-                    start_face_count = GetFacesWithEdge(m, start_pt.edge_v0, start_pt.edge_v1, start_faces);
-                }
-
-                // Find which start face also contains end point
-                for (int k = 0; k < start_face_count && face == -1; k++) {
-                    int fi = start_faces[k];
-                    FaceData& f = m->faces[fi];
-
-                    if (end_pt.type == KNIFE_POINT_VERTEX) {
-                        if (FindVertexInFace(f, end_pt.vertex_index) != -1) {
-                            face = fi;
-                        }
-                    } else if (end_pt.type == KNIFE_POINT_EDGE) {
-                        for (int vi = 0; vi < f.vertex_count; vi++) {
-                            int fv0 = f.vertices[vi];
-                            int fv1 = f.vertices[(vi + 1) % f.vertex_count];
-                            if ((fv0 == end_pt.edge_v0 && fv1 == end_pt.edge_v1) ||
-                                (fv0 == end_pt.edge_v1 && fv1 == end_pt.edge_v0)) {
-                                face = fi;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Determine action type
-            KnifeActionType action_type = KNIFE_ACTION_FACE_SPLIT;
-
-            // Check if start and end are on the same edge
-            bool same_edge = false;
-            if (start_pt.type == KNIFE_POINT_EDGE && end_pt.type == KNIFE_POINT_EDGE) {
-                if ((start_pt.edge_v0 == end_pt.edge_v0 && start_pt.edge_v1 == end_pt.edge_v1) ||
-                    (start_pt.edge_v0 == end_pt.edge_v1 && start_pt.edge_v1 == end_pt.edge_v0)) {
-                    same_edge = true;
-                }
-            }
-
-            if (same_edge) {
-                // Check if there are any face points between start and end
-                bool has_face_points = false;
-                for (int j = start_bi + 1; j < end_bi; j++) {
-                    if (path[j].type == KNIFE_POINT_FACE) {
-                        has_face_points = true;
-                        break;
-                    }
-                }
-
-                if (has_face_points) {
-                    // Enter and exit same edge with face points in between = inner slit (pocket)
-                    action_type = KNIFE_ACTION_INNER_SLIT;
-                } else {
-                    // Same edge but no face points between = separate edge splits
-                    // Add one for start point
-                    actions[action_count++] = {
-                        .type = KNIFE_ACTION_EDGE_SPLIT,
-                        .start_index = start_bi,
-                        .end_index = start_bi,
-                        .face_index = face
-                    };
-                    // End point will be handled as start of next segment,
-                    // or we add it if this is the last segment
-                    if (i == boundary_count - 2) {
-                        actions[action_count++] = {
-                            .type = KNIFE_ACTION_EDGE_SPLIT,
-                            .start_index = end_bi,
-                            .end_index = end_bi,
-                            .face_index = face
-                        };
-                    }
-                    continue; // Skip the normal action add below
-                }
-            }
-
-            actions[action_count++] = {
-                .type = action_type,
-                .start_index = start_bi,
-                .end_index = end_bi,
-                .face_index = face
-            };
-        }
-
-        // Points before first boundary or after last boundary are ignored
-        // (they're just face/outside clicks that don't contribute to geometry)
-    }
-
-    // Log the actions
+// Log the actions for debugging
+static void LogKnifeActions(KnifeAction* actions, int action_count) {
     LogInfo("=== Knife Actions (%d) ===", action_count);
     for (int i = 0; i < action_count; i++) {
         KnifeAction& a = actions[i];
         LogInfo("  [%d] %s: path[%d..%d] face=%d",
             i, GetActionTypeName(a.type), a.start_index, a.end_index, a.face_index);
     }
+}
 
-    // =========================================================================
-    // PHASE 3: Execute actions (TODO)
-    // =========================================================================
-
+// Execute the knife actions to modify the mesh
+void ExecuteKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, KnifeAction* actions, int action_count) {
     // TODO: implement each action type
+    (void)m;
+    (void)path;
+    (void)path_count;
+    (void)actions;
+    (void)action_count;
+}
+
+static void CommitKnifeCuts() {
+    MeshData* m = g_knife_tool.mesh;
+    if (g_knife_tool.cut_count < 1)
+        return;
+
+    // Phase 1: Build complete path with edge intersections
+    KnifePathPoint path[512];
+    int path_count = BuildKnifePath(m, path);
+    LogKnifePath(path, path_count);
+
+    // Phase 2: Segment path into actions
+    KnifeAction actions[128];
+    int action_count = BuildKnifeActions(m, path, path_count, actions);
+    LogKnifeActions(actions, action_count);
+
+    // Phase 3: Execute actions
+    ExecuteKnifeActions(m, path, path_count, actions, action_count);
 
     UpdateEdges(m);
     MarkDirty(m);
