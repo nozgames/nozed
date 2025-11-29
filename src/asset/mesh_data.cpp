@@ -596,14 +596,13 @@ int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update) {
     return new_vertex_index;
 }
 
-int HitTestVertex(MeshData* m, const Vec2& position, float size_mult) {
+int HitTestVertex(MeshData* m, const Mat3& transform, const Vec2& position, float size_mult) {
     float size = g_view.select_size * size_mult;
     float best_dist = F32_MAX;
     int best_vertex = -1;
-    for (int i = 0; i < m->vertex_count; i++)
-    {
-        const VertexData& ev = m->vertices[i];
-        float dist = Length(position - ev.position);
+    for (int i = 0; i < m->vertex_count; i++) {
+        const VertexData& v = m->vertices[i];
+        float dist = Length(position - TransformPoint(transform, v.position));
         if (dist < size && dist < best_dist)
         {
             best_vertex = i;
@@ -614,22 +613,20 @@ int HitTestVertex(MeshData* m, const Vec2& position, float size_mult) {
     return best_vertex;
 }
 
-int HitTestEdge(MeshData* m, const Vec2& hit_pos, float* where) {
+int HitTestEdge(MeshData* m, const Mat3& transform, const Vec2& hit_pos, float* where) {
     const float size = g_view.select_size * 0.75f;
     float best_dist = F32_MAX;
     int best_edge = -1;
     float best_where = 0.0f;
-    for (int i = 0; i < m->edge_count; i++)
-    {
-        const EdgeData& ee = m->edges[i];
-        const Vec2& v0 = m->vertices[ee.v0].position;
-        const Vec2& v1 = m->vertices[ee.v1].position;
+    for (int i = 0; i < m->edge_count; i++) {
+        const EdgeData& e = m->edges[i];
+        Vec2 v0 = TransformPoint(transform, m->vertices[e.v0].position);
+        Vec2 v1 = TransformPoint(transform, m->vertices[e.v1].position);
         Vec2 edge_dir = Normalize(v1 - v0);
         Vec2 to_mouse = hit_pos - v0;
         float edge_length = Length(v1 - v0);
         float proj = Dot(to_mouse, edge_dir);
-        if (proj >= 0 && proj <= edge_length)
-        {
+        if (proj >= 0 && proj <= edge_length) {
             Vec2 closest_point = v0 + edge_dir * proj;
             float dist = Length(hit_pos - closest_point);
             if (dist < size && dist < best_dist)

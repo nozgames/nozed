@@ -66,3 +66,8 @@ struct SelectToolOptions {
 };
 
 extern void BeginSelectTool(const SelectToolOptions& options);
+
+
+// @knife
+
+extern void BeginKnifeTool(MeshData* mesh);

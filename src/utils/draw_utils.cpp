@@ -31,8 +31,7 @@ void DrawLine(const Vec2& v0, const Vec2& v1, f32 width)
     DrawMesh(g_view.edge_mesh);
 }
 
-void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length)
-{
+void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length) {
     Vec2 line_dir = Normalize(v1 - v0);
     float line_len = Length(v1 - v0);
 
@@ -40,19 +39,18 @@ void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length)
     float scale = length * 0.5f;
 
     int count = 0;
-    for (float pos = length/2; pos < line_len && count < 100; pos += length * 2, count++)
+    for (float pos = length/2; pos < line_len && count < 1024; pos += length * 2, count++)
     {
         BindTransform(TRS(v0 + line_dir * pos, line_dir, Vec2{scale, width * g_view.zoom_ref_scale}));
         DrawMesh(g_view.edge_mesh);
     }
 }
 
-void DrawDashedLine(const Vec2& v0, const Vec2& v1)
-{
+void DrawDashedLine(const Vec2& v0, const Vec2& v1) {
     DrawDashedLine(v0, v1, DEFAULT_LINE_WIDTH, DEFAULT_DASH_LENGTH);
 }
-void DrawVertex(const Vec2& v)
-{
+
+void DrawVertex(const Vec2& v) {
     DrawVertex(v, DEFAULT_VERTEX_SIZE);
 }
 

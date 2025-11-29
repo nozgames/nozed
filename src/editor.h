@@ -39,6 +39,7 @@ struct Tool {
     ToolVtable vtable = {};
     InputSet* input;
     bool inherit_input;
+    bool hide_selected;
 };
 
 void BeginTool(const Tool& tool);
@@ -135,6 +136,7 @@ extern void ShowConfirmDialog(const char* message, const std::function<void()>& 
 // @editor
 inline AssetData* GetAssetData() { return g_editor.editing_asset; }
 inline bool IsToolActive() { return g_editor.tool.type != TOOL_TYPE_NONE; }
+inline bool DoesToolHideSelected() { return IsToolActive() && g_editor.tool.hide_selected; }
 
 // @server
 extern void InitEditorServer(Props* config);

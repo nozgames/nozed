@@ -41,6 +41,7 @@ set(SOURCE_FILES
     src/utils/ui_utils.cpp
 
     src/tools/box_select.cpp
+    src/tools/knife.cpp
     src/tools/move.cpp
     src/tools/scale.cpp
     src/tools/rotate.cpp

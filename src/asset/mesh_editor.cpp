@@ -22,6 +22,7 @@ struct MeshEditorVertex {
     Vec2 saved_position;
 };
 
+
 struct MeshEditor {
     MeshEditorMode mode;
     Vec2 selection_drag_start;
@@ -322,7 +323,7 @@ static bool TrySelectVertex() {
     assert(g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX);
 
     MeshData* m = GetMeshData();
-    int vertex_index = HitTestVertex(m, g_view.mouse_world_position - m->position);
+    int vertex_index = HitTestVertex(m, g_view.mouse_world_position);
     if (vertex_index == -1)
         return false;
 
@@ -340,7 +341,7 @@ static bool TrySelectEdge() {
     assert(g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE);
 
     MeshData* m = GetMeshData();
-    int edge_index = HitTestEdge(m, g_view.mouse_world_position - m->position);
+    int edge_index = HitTestEdge(m, g_view.mouse_world_position);
     if (edge_index == -1)
         return false;
 
@@ -390,8 +391,6 @@ static void InsertVertexFaceOrEdge() {
     MeshData* m = GetMeshData();
     RecordUndo(m);
 
-    Vec2 position = g_view.mouse_world_position - m->position;
-
     // Insert edge?
     if (m->selected_vertex_count == 2) {
         int v0 = GetFirstSelectedVertex();
@@ -418,12 +417,12 @@ static void InsertVertexFaceOrEdge() {
         return;
     }
 
-    int vertex_index = HitTestVertex(m, position, 0.1f);
+    int vertex_index = HitTestVertex(m, g_view.mouse_world_position, 0.1f);
     if (vertex_index != -1)
         return;
 
     float edge_pos;
-    int edge_index = HitTestEdge(m, position, &edge_pos);
+    int edge_index = HitTestEdge(m, g_view.mouse_world_position, &edge_pos);
     if (edge_index < 0)
         return;
 
@@ -1103,6 +1102,12 @@ static void DrawMeshEditor() {
     BindColor(COLOR_EDGE);
     DrawEdges(m, m->position);
 
+    if (DoesToolHideSelected()) {
+        BindColor(COLOR_VERTEX);
+        DrawVertices(false);
+        return;
+    }
+
     if (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX) {
         BindColor(COLOR_VERTEX);
         DrawVertices(false);
@@ -1156,6 +1161,23 @@ static void ToggleAnchor() {
     }});
 }
 
+// void KnifeCut(KnifeCutPoint* points, int point_count) {
+//     MeshData* m = GetMeshData();
+//     RecordUndo(m);
+//
+//     (void)points;
+//     (void)point_count;
+//     // todo
+//
+//     UpdateEdges(m);
+//     MarkDirty(m);
+//     MarkModified(m);
+// }
+
+static void BeginKnifeCut() {
+    BeginKnifeTool(GetMeshData());
+}
+
 void InitMeshEditor() {
     g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
     if (g_view.palette_count > 0)
@@ -1179,6 +1201,7 @@ void InitMeshEditor() {
         { KEY_C, false, false, true, CircleMesh },
         { KEY_E, false, true, false, ExtrudeSelected },
         { KEY_N, false, false, false, AddNewFace },
+        { KEY_K, false, false, false, BeginKnifeCut },
         { INPUT_CODE_NONE }
     };
 
