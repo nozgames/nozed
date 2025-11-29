@@ -153,7 +153,7 @@ int SplitFaceAlongVertices(MeshData* m, int face_index, int v0, int v1, const in
 
     // Add boundary vertices from v0 to v1
     int dist_forward = (pos1 - pos0 + old_count) % old_count;
-    
+
     // Special case for detached hole: v0==v1, cut starts away from v0
     bool is_detached_hole = (v0 == v1 && cut_vertex_count > 0 && cut_vertices[0] != v0);
 
@@ -185,6 +185,56 @@ int SplitFaceAlongVertices(MeshData* m, int face_index, int v0, int v1, const in
     return m->face_count++;
 }
 
+// Split a face using positions in the face vertex list instead of vertex indices.
+// This is needed when vertices appear multiple times in a face (slit faces).
+// pos0 and pos1 are indices into the face's vertex array.
+int SplitFaceAtPositions(MeshData* m, int face_index, int pos0, int pos1, const int* cut_vertices, int cut_vertex_count) {
+    if (m->face_count >= MAX_FACES)
+        return -1;
+
+    FaceData& old_face = m->faces[face_index];
+
+    if (pos0 < 0 || pos0 >= old_face.vertex_count || pos1 < 0 || pos1 >= old_face.vertex_count)
+        return -1;
+
+    // Copy the old face vertices
+    int old_vertices[MAX_FACE_VERTICES];
+    int old_count = old_face.vertex_count;
+    for (int i = 0; i < old_count; i++)
+        old_vertices[i] = old_face.vertices[i];
+
+    // Create new face
+    FaceData& new_face = m->faces[m->face_count];
+    new_face.color = old_face.color;
+    new_face.gradient_color = old_face.gradient_color;
+    new_face.gradient_dir = old_face.gradient_dir;
+    new_face.gradient_offset = old_face.gradient_offset;
+    new_face.normal = old_face.normal;
+    new_face.selected = false;
+    new_face.vertex_count = 0;
+
+    // New face: from pos0 to pos1 (forward), then cut vertices reversed
+    int dist_forward = (pos1 - pos0 + old_count) % old_count;
+    for (int i = 0; i <= dist_forward; i++) {
+        new_face.vertices[new_face.vertex_count++] = old_vertices[(pos0 + i) % old_count];
+    }
+    for (int i = cut_vertex_count - 1; i >= 0; i--) {
+        new_face.vertices[new_face.vertex_count++] = cut_vertices[i];
+    }
+
+    // Old face: from pos1 to pos0 (forward, which is backward from original), then cut vertices forward
+    old_face.vertex_count = 0;
+    int dist_backward = (pos0 - pos1 + old_count) % old_count;
+    for (int i = 0; i <= dist_backward; i++) {
+        old_face.vertices[old_face.vertex_count++] = old_vertices[(pos1 + i) % old_count];
+    }
+    for (int i = 0; i < cut_vertex_count; i++) {
+        old_face.vertices[old_face.vertex_count++] = cut_vertices[i];
+    }
+
+    return m->face_count++;
+}
+
 // A cut point is either a vertex, a point on an edge, or an edge intersection
 struct CutPoint {
     Vec2 position;
@@ -192,6 +242,28 @@ struct CutPoint {
     int edge_v0, edge_v1; // edge vertices if on an edge (both -1 if existing vertex)
     float t;              // parameter along cut segment (0 = start, 1 = end)
 };
+
+// Count how many edges are shared between two faces
+static int CountSharedEdges(MeshData* m, int face_index0, int face_index1) {
+    // Ensure face_index0 < face_index1 for consistent edge lookup
+    if (face_index0 > face_index1) {
+        int tmp = face_index0;
+        face_index0 = face_index1;
+        face_index1 = tmp;
+    }
+
+    int shared_edge_count = 0;
+    for (int edge_index = 0; edge_index < m->edge_count; edge_index++) {
+        EdgeData& ee = m->edges[edge_index];
+        if (ee.face_count != 2)
+            continue;
+
+        if (ee.face_index[0] == face_index0 && ee.face_index[1] == face_index1)
+            shared_edge_count++;
+    }
+
+    return shared_edge_count;
+}
 
 // Find all faces that contain an edge
 static int GetFacesWithEdge(MeshData* m, int v0, int v1, int faces[2]) {
@@ -1051,7 +1123,7 @@ static int BuildActionsSingleBoundary(KnifePathPoint* path, int boundary_index, 
 }
 
 // Handle case with multiple boundary points
-static int BuildActionsMultipleBoundary(MeshData* m, KnifePathPoint* path, int* boundary_indices, int boundary_count, KnifeAction* actions) {
+static int BuildActionsMultipleBoundary(MeshData* m, KnifePathPoint* path, int path_count, int* boundary_indices, int boundary_count, KnifeAction* actions) {
     int action_count = 0;
 
     for (int i = 0; i < boundary_count - 1; i++) {
@@ -1104,6 +1176,22 @@ static int BuildActionsMultipleBoundary(MeshData* m, KnifePathPoint* path, int* 
         }
     }
 
+    // Check for face points after the last boundary (inner slit trailing into a face)
+    int last_bi = boundary_indices[boundary_count - 1];
+    for (int i = last_bi + 1; i < path_count; i++) {
+        if (path[i].type == KNIFE_POINT_FACE) {
+            // Found face points after last boundary - create inner slit
+            int face = path[i].face_index;
+            actions[action_count++] = {
+                .type = KNIFE_ACTION_INNER_SLIT,
+                .start_index = last_bi,
+                .end_index = path_count - 1,
+                .face_index = face
+            };
+            break;
+        }
+    }
+
     return action_count;
 }
 
@@ -1123,7 +1211,7 @@ static int BuildKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, 
     if (boundary_count == 1)
         return BuildActionsSingleBoundary(path, boundary_indices[0], actions);
 
-    return BuildActionsMultipleBoundary(m, path, boundary_indices, boundary_count, actions);
+    return BuildActionsMultipleBoundary(m, path, path_count, boundary_indices, boundary_count, actions);
 }
 
 // Log the path for debugging
@@ -1340,9 +1428,38 @@ static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     if (v0 < 0 || v1 < 0)
         return;
 
-    // If start/end are on edges, ensure they're inserted into ALL faces that share the edge
-    EnsureEdgeVertexInAllFaces(m, start_pt);
-    EnsureEdgeVertexInAllFaces(m, end_pt);
+    // If start/end are on edges, insert into target face and any truly adjacent face.
+    // A face is truly adjacent if it shares ONLY this edge with the target face.
+    // If it shares more edges (like an inner face shares all slit edges), skip it.
+    if (IsEdgePoint(start_pt)) {
+        int faces[2];
+        int face_count = GetFacesWithEdge(m, start_pt.edge_v0, start_pt.edge_v1, faces);
+        for (int i = 0; i < face_count; i++) {
+            if (faces[i] == action.face_index) {
+                EnsureEdgeVertexInFace(m, faces[i], start_pt);
+            } else {
+                // Check if this face is truly adjacent (shares only this edge, not multiple)
+                int shared = CountSharedEdges(m, action.face_index, faces[i]);
+                if (shared == 1) {
+                    EnsureEdgeVertexInFace(m, faces[i], start_pt);
+                }
+            }
+        }
+    }
+    if (IsEdgePoint(end_pt)) {
+        int faces[2];
+        int face_count = GetFacesWithEdge(m, end_pt.edge_v0, end_pt.edge_v1, faces);
+        for (int i = 0; i < face_count; i++) {
+            if (faces[i] == action.face_index) {
+                EnsureEdgeVertexInFace(m, faces[i], end_pt);
+            } else {
+                int shared = CountSharedEdges(m, action.face_index, faces[i]);
+                if (shared == 1) {
+                    EnsureEdgeVertexInFace(m, faces[i], end_pt);
+                }
+            }
+        }
+    }
 
     // Collect internal vertices (face points between start and end)
     int cut_vertices[128];
@@ -1358,38 +1475,84 @@ static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
         }
     }
 
-    // Split the face
-    SplitFaceAlongVertices(m, action.face_index, v0, v1, cut_vertices, cut_count);
+    // Find all positions of v0 and v1 in the face (they may appear multiple times in slit faces)
+    FaceData& f = m->faces[action.face_index];
+    int v0_positions[8];
+    int v0_pos_count = 0;
+    int v1_positions[8];
+    int v1_pos_count = 0;
+
+    for (int i = 0; i < f.vertex_count; i++) {
+        if (f.vertices[i] == v0 && v0_pos_count < 8)
+            v0_positions[v0_pos_count++] = i;
+        if (f.vertices[i] == v1 && v1_pos_count < 8)
+            v1_positions[v1_pos_count++] = i;
+    }
+
+    if (v0_pos_count == 0 || v1_pos_count == 0)
+        return;
+
+    // Check if this face has a slit (any vertex appears more than once)
+    bool has_slit = false;
+    for (int i = 0; i < f.vertex_count && !has_slit; i++) {
+        for (int j = i + 1; j < f.vertex_count; j++) {
+            if (f.vertices[i] == f.vertices[j]) {
+                has_slit = true;
+                break;
+            }
+        }
+    }
+
+    int best_pos0 = v0_positions[0];
+    int best_pos1 = v1_positions[0];
+
+    if (has_slit) {
+        // For slit faces, find positions where going BACKWARD gives the shorter path
+        // This keeps the outer boundary together
+        int best_back_dist = (best_pos0 - best_pos1 + f.vertex_count) % f.vertex_count;
+
+        for (int i = 0; i < v0_pos_count; i++) {
+            for (int j = 0; j < v1_pos_count; j++) {
+                int back_dist = (v0_positions[i] - v1_positions[j] + f.vertex_count) % f.vertex_count;
+                if (back_dist > 0 && back_dist < best_back_dist) {
+                    best_back_dist = back_dist;
+                    best_pos0 = v0_positions[i];
+                    best_pos1 = v1_positions[j];
+                }
+            }
+        }
+    } else {
+        // For normal faces, find the pair with shortest forward distance
+        int best_dist = (best_pos1 - best_pos0 + f.vertex_count) % f.vertex_count;
+
+        for (int i = 0; i < v0_pos_count; i++) {
+            for (int j = 0; j < v1_pos_count; j++) {
+                int dist = (v1_positions[j] - v0_positions[i] + f.vertex_count) % f.vertex_count;
+                if (dist > 0 && dist < best_dist) {
+                    best_dist = dist;
+                    best_pos0 = v0_positions[i];
+                    best_pos1 = v1_positions[j];
+                }
+            }
+        }
+    }
+
+    LogInfo("Split face %d: v0=%d (pos %d), v1=%d (pos %d), has_slit=%d",
+        action.face_index, v0, best_pos0, v1, best_pos1, has_slit ? 1 : 0);
+
+    // Split the face using positions
+    SplitFaceAtPositions(m, action.face_index, best_pos0, best_pos1, cut_vertices, cut_count);
 }
 
 // Execute an inner face action - a closed loop inside a face creating a new face (notch out)
+// Creates a single "bridge" edge from boundary to loop, with same face on both sides
 static void ExecuteInnerFace(MeshData* m, KnifePathPoint* path, KnifeAction& action) {
     if (action.face_index < 0)
         return;
 
-    // An inner face is a closed loop of face points (no edge/vertex points)
-    // We connect it to the nearest boundary vertex to create a slit
-
-    // Find the closest boundary vertex in the face
     FaceData& f = m->faces[action.face_index];
-    int closest_boundary_v = -1;
-    float min_dist = 1e30f;
 
-    Vec2 first_pos = path[action.start_index].position;
-
-    for (int i = 0; i < f.vertex_count; i++) {
-        int vi = f.vertices[i];
-        float d = Length(m->vertices[vi].position - first_pos);
-        if (d < min_dist) {
-            min_dist = d;
-            closest_boundary_v = vi;
-        }
-    }
-
-    if (closest_boundary_v < 0)
-        return;
-
-    // Collect all vertices in the loop
+    // Collect all vertices in the loop first
     int loop_vertices[128];
     int loop_count = 0;
 
@@ -1408,9 +1571,89 @@ static void ExecuteInnerFace(MeshData* m, KnifePathPoint* path, KnifeAction& act
     if (loop_count < 3)
         return;
 
-    // Use SplitFaceAlongVertices with same start/end (the boundary vertex)
-    // This creates a "detached" inner face connected via a slit
-    SplitFaceAlongVertices(m, action.face_index, closest_boundary_v, closest_boundary_v, loop_vertices, loop_count);
+    // Find the closest boundary vertex to any point in the loop
+    int closest_boundary_v = -1;
+    int closest_loop_idx = 0;
+    float min_dist = 1e30f;
+
+    for (int fi = 0; fi < f.vertex_count; fi++) {
+        int vi = f.vertices[fi];
+        Vec2 boundary_pos = m->vertices[vi].position;
+
+        for (int li = 0; li < loop_count; li++) {
+            float d = Length(m->vertices[loop_vertices[li]].position - boundary_pos);
+            if (d < min_dist) {
+                min_dist = d;
+                closest_boundary_v = vi;
+                closest_loop_idx = li;
+            }
+        }
+    }
+
+    if (closest_boundary_v < 0)
+        return;
+
+    // Find position of boundary vertex in face
+    int boundary_pos_in_face = FindVertexInFace(f, closest_boundary_v);
+    if (boundary_pos_in_face < 0)
+        return;
+
+    // Create two faces:
+    // 1. Outer face: original boundary with slit to inner loop (goes around loop in one direction)
+    // 2. Inner face: the loop itself (goes around in opposite direction)
+
+    // First, create the inner face (the cut-out piece)
+    // The inner face winds opposite to the outer, so we go backwards around the loop
+    if (m->face_count >= MAX_FACES)
+        return;
+
+    FaceData& inner_face = m->faces[m->face_count];
+    inner_face.color = f.color;
+    inner_face.gradient_color = f.gradient_color;
+    inner_face.gradient_dir = f.gradient_dir;
+    inner_face.gradient_offset = f.gradient_offset;
+    inner_face.normal = f.normal;
+    inner_face.selected = false;
+    inner_face.vertex_count = 0;
+
+    // Inner face winds in forward order (same as original loop)
+    for (int i = 0; i < loop_count; i++) {
+        int idx = (closest_loop_idx + i) % loop_count;
+        inner_face.vertices[inner_face.vertex_count++] = loop_vertices[idx];
+    }
+    m->face_count++;
+
+    // Now rebuild the outer face with the slit:
+    // ... -> boundary_v -> loop[closest] -> loop[closest-1] -> ... -> loop[closest] -> boundary_v -> ...
+    // The inner loop goes in REVERSE to create a proper hole (winding cancels out)
+    int new_vertices[MAX_FACE_VERTICES];
+    int new_count = 0;
+
+    // Add vertices up to and including boundary vertex
+    for (int i = 0; i <= boundary_pos_in_face; i++) {
+        new_vertices[new_count++] = f.vertices[i];
+    }
+
+    // Add the loop starting from closest_loop_idx, going BACKWARDS around to it
+    // This creates the proper winding for a hole
+    for (int i = 0; i <= loop_count; i++) {
+        int idx = (closest_loop_idx - i + loop_count) % loop_count;
+        new_vertices[new_count++] = loop_vertices[idx];
+    }
+
+    // Return to boundary vertex (the bridge back)
+    new_vertices[new_count++] = closest_boundary_v;
+
+    // Add remaining boundary vertices after boundary_v
+    for (int i = boundary_pos_in_face + 1; i < f.vertex_count; i++) {
+        new_vertices[new_count++] = f.vertices[i];
+    }
+
+    // Update the outer face
+    f.vertex_count = new_count;
+    for (int i = 0; i < new_count; i++) {
+        f.vertices[i] = new_vertices[i];
+    }
 }
 
 // Execute an inner slit action - a notch/pocket cut into a face from an edge
@@ -1503,6 +1746,16 @@ static void LogMesh(MeshData* m, const char* label) {
             len += snprintf(buf + len, sizeof(buf) - len, "%d ", f.vertices[j]);
         }
         LogInfo("  [%d] verts: %s", i, buf);
+    }
+    LogInfo("Edges (%d):", m->edge_count);
+    for (int i = 0; i < m->edge_count; i++) {
+        EdgeData& e = m->edges[i];
+        char buf[64] = {};
+        int len = 0;
+        for (int j = 0; j < e.face_count; j++) {
+            len += snprintf(buf + len, sizeof(buf) - len, "%d ", e.face_index[j]);
+        }
+        LogInfo("  [%d] %d-%d faces: %s", i, e.v0, e.v1, buf);
     }
 }
 

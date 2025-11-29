@@ -279,6 +279,10 @@ void DissolveEdge(MeshData* m, int edge_index) {
         return;
     }
 
+    // Slit edge: same face on both sides - cannot dissolve
+    if (ee.face_index[0] == ee.face_index[1])
+        return;
+
     int shared_edge_count = CountSharedEdges (m, ee.face_index[0], ee.face_index[1]);
     if (shared_edge_count == 1)
     {
