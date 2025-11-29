@@ -85,7 +85,7 @@ static void UpdateVertexSelection(MeshData* m) {
         FaceData& f = m->faces[face_index];
         f.selected = true;
         for (int face_vertex_index=0; f.selected && face_vertex_index<f.vertex_count; face_vertex_index++)
-            f.selected &= m->vertices[m->face_vertices[f.vertex_offset + face_vertex_index]].selected;
+            f.selected &= m->vertices[f.vertices[face_vertex_index]].selected;
 
         if (f.selected)
             m->selected_face_count++;
@@ -167,7 +167,7 @@ static void UpdateFaceSelection(MeshData* m) {
 
         m->selected_face_count++;
         for (int face_vertex_index=0; face_vertex_index<f.vertex_count; face_vertex_index++) {
-            int vertex_index = m->face_vertices[f.vertex_offset + face_vertex_index];
+            int vertex_index = f.vertices[face_vertex_index];
             VertexData& v = m->vertices[vertex_index];
             if (v.selected) continue;
 
@@ -618,9 +618,9 @@ static void HandleBoxSelect(const Bounds2& bounds) {
     case MESH_EDITOR_MODE_FACE:
         for (int face_index=0; face_index<m->face_count; face_index++) {
             FaceData& f = m->faces[face_index];
-            for (int vertex_index=0; vertex_index<f.vertex_count-1; vertex_index++) {
-                int v0 = m->face_vertices[f.vertex_offset + vertex_index];
-                int v1 = m->face_vertices[f.vertex_offset + vertex_index + 1];
+            for (int vertex_index=0; vertex_index<f.vertex_count; vertex_index++) {
+                int v0 = f.vertices[vertex_index];
+                int v1 = f.vertices[(vertex_index + 1) % f.vertex_count];
                 Vec2 v0p = m->vertices[v0].position + m->position;
                 Vec2 v1p = m->vertices[v1].position + m->position;
                 if (Intersects(bounds, v0p, v1p)) {
@@ -864,14 +864,14 @@ static void CircleMesh() {
     }});
 }
 
-static bool ExtrudeSelectedEdges(MeshData* em) {
-    if (em->edge_count == 0)
+static bool ExtrudeSelectedEdges(MeshData* m) {
+    if (m->edge_count == 0)
         return false;
 
     int selected_edges[MAX_EDGES];
     int selected_edge_count = 0;
-    for (int i = 0; i < em->edge_count; i++)
-        if (em->edges[i].selected && selected_edge_count < MAX_EDGES)
+    for (int i = 0; i < m->edge_count; i++)
+        if (m->edges[i].selected && selected_edge_count < MAX_EDGES)
             selected_edges[selected_edge_count++] = i;
 
     if (selected_edge_count == 0)
@@ -880,7 +880,7 @@ static bool ExtrudeSelectedEdges(MeshData* em) {
     // Find all unique vertices that are part of selected edges
     bool vertex_needs_extrusion[MAX_VERTICES] = {};
     for (int i = 0; i < selected_edge_count; i++) {
-        const EdgeData& ee = em->edges[selected_edges[i]];
+        const EdgeData& ee = m->edges[selected_edges[i]];
         vertex_needs_extrusion[ee.v0] = true;
         vertex_needs_extrusion[ee.v1] = true;
     }
@@ -891,19 +891,19 @@ static bool ExtrudeSelectedEdges(MeshData* em) {
         vertex_mapping[i] = -1;
 
     // Create new vertices for each unique vertex that needs extrusion
-    for (int i = 0; i < em->vertex_count; i++) {
+    for (int i = 0; i < m->vertex_count; i++) {
         if (!vertex_needs_extrusion[i])
             continue;
 
-        if (em->vertex_count >= MAX_VERTICES)
+        if (m->vertex_count >= MAX_VERTICES)
             return false;
 
-        int new_vertex_index = em->vertex_count++;
+        int new_vertex_index = m->vertex_count++;
         vertex_mapping[i] = new_vertex_index;
 
         // Copy vertex properties and offset position along edge normal
-        VertexData& old_vertex = em->vertices[i];
-        VertexData& new_vertex = em->vertices[new_vertex_index];
+        VertexData& old_vertex = m->vertices[i];
+        VertexData& new_vertex = m->vertices[new_vertex_index];
 
         new_vertex = old_vertex;
 
@@ -918,7 +918,7 @@ static bool ExtrudeSelectedEdges(MeshData* em) {
 
     // Create new edges for the extruded geometry
     for (int i = 0; i < selected_edge_count; i++) {
-        const EdgeData& original_edge = em->edges[selected_edges[i]];
+        const EdgeData& original_edge = m->edges[selected_edges[i]];
         int old_v0 = original_edge.v0;
         int old_v1 = original_edge.v1;
         int new_v0 = vertex_mapping[old_v0];
@@ -928,19 +928,18 @@ static bool ExtrudeSelectedEdges(MeshData* em) {
             continue;
 
         // Create connecting edges between old and new vertices
-        if (em->edge_count + 3 >= MAX_EDGES)
+        if (m->edge_count + 3 >= MAX_EDGES)
             return false;
 
-        if (em->face_count + 2 >= MAX_FACES)
+        if (m->face_count + 2 >= MAX_FACES)
             return false;
 
-        GetOrAddEdge(em, old_v0, new_v0, -1);
-        GetOrAddEdge(em, old_v1, new_v1, -1);
-        GetOrAddEdge(em, new_v0, new_v1, -1);
+        GetOrAddEdge(m, old_v0, new_v0, -1);
+        GetOrAddEdge(m, old_v1, new_v1, -1);
+        GetOrAddEdge(m, new_v0, new_v1, -1);
 
         // Store the vertex pair for the new edge we want to select
-        if (new_edge_count < MAX_EDGES)
-        {
+        if (new_edge_count < MAX_EDGES) {
             new_edge_vertex_pairs[new_edge_count][0] = new_v0;
             new_edge_vertex_pairs[new_edge_count][1] = new_v1;
             new_edge_count++;
@@ -952,65 +951,49 @@ static bool ExtrudeSelectedEdges(MeshData* em) {
         bool edge_reversed = false; // Track if edge direction is reversed in the face
         bool found_face = false;
 
-        for (int face_idx = 0; !found_face && face_idx < em->face_count; face_idx++)
-        {
-            const FaceData& ef = em->faces[face_idx];
+        for (int face_idx = 0; !found_face && face_idx < m->face_count; face_idx++) {
+            const FaceData& f = m->faces[face_idx];
 
             // Check if this face contains the edge using the face_vertices array
-            for (int vertex_index = 0; !found_face && vertex_index < ef.vertex_count; vertex_index++)
-            {
-                int v0_idx = em->face_vertices[ef.vertex_offset + vertex_index];
-                int v1_idx = em->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
+            for (int vertex_index = 0; !found_face && vertex_index < f.vertex_count; vertex_index++) {
+                int v0_idx = f.vertices[vertex_index];
+                int v1_idx = f.vertices[(vertex_index + 1) % f.vertex_count];
 
-                if (v0_idx == old_v0 && v1_idx == old_v1)
-                {
-                    face_color = ef.color;
-                    face_normal = ef.normal;
+                if (v0_idx == old_v0 && v1_idx == old_v1) {
+                    face_color = f.color;
+                    face_normal = f.normal;
                     edge_reversed = false;
                     found_face = true;
-                }
-                else if (v0_idx == old_v1 && v1_idx == old_v0)
-                {
-                    face_color = ef.color;
-                    face_normal = ef.normal;
+                } else if (v0_idx == old_v1 && v1_idx == old_v0) {
+                    face_color = f.color;
+                    face_normal = f.normal;
                     edge_reversed = true;
                     found_face = true;
                 }
             }
         }
 
-        // Create a quad face for the extruded geometry using the new polygon structure
-        FaceData& quad = em->faces[em->face_count++];
+        FaceData& quad = m->faces[m->face_count++];
         quad.color = face_color;
         quad.normal = face_normal;
         quad.selected = false;
-
-        // Set up quad vertices in the face_vertices array with correct winding
-        quad.vertex_offset = em->face_vertex_count;
         quad.vertex_count = 4;
 
-        if (!edge_reversed)
-        {
-            // Normal orientation: edge goes from old_v0 to old_v1 in the face
-            // Quad vertices: old_v0, new_v0, new_v1, old_v1 (counter-clockwise for outward facing)
-            em->face_vertices[em->face_vertex_count++] = old_v0;
-            em->face_vertices[em->face_vertex_count++] = new_v0;
-            em->face_vertices[em->face_vertex_count++] = new_v1;
-            em->face_vertices[em->face_vertex_count++] = old_v1;
-        }
-        else
-        {
-            // Reversed orientation: edge goes from old_v1 to old_v0 in the face
-            // Quad vertices: old_v1, new_v1, new_v0, old_v0 (counter-clockwise for outward facing)
-            em->face_vertices[em->face_vertex_count++] = old_v1;
-            em->face_vertices[em->face_vertex_count++] = new_v1;
-            em->face_vertices[em->face_vertex_count++] = new_v0;
-            em->face_vertices[em->face_vertex_count++] = old_v0;
+        if (!edge_reversed) {
+            quad.vertices[0] = old_v0;
+            quad.vertices[1] = new_v0;
+            quad.vertices[2] = new_v1;
+            quad.vertices[3] = old_v1;
+        } else {
+            quad.vertices[0] = old_v1;
+            quad.vertices[1] = new_v1;
+            quad.vertices[2] = new_v0;
+            quad.vertices[3] = old_v0;
         }
     }
 
-    UpdateEdges(em);
-    MarkDirty(em);
+    UpdateEdges(m);
+    MarkDirty(m);
 
     // Clear all selections first
     ClearSelection();
@@ -1021,8 +1004,8 @@ static bool ExtrudeSelectedEdges(MeshData* em) {
         int v1 = new_edge_vertex_pairs[i][1];
 
         // Find the edge with these vertices
-        for (int edge_idx = 0; edge_idx < em->edge_count; edge_idx++) {
-            const EdgeData& ee = em->edges[edge_idx];
+        for (int edge_idx = 0; edge_idx < m->edge_count; edge_idx++) {
+            const EdgeData& ee = m->edges[edge_idx];
             if ((ee.v0 == v0 && ee.v1 == v1) || (ee.v0 == v1 && ee.v1 == v0)) {
                 SelectEdge(edge_idx, true);
                 break;
@@ -1058,17 +1041,17 @@ static void AddNewFace() {
     m->vertices[m->vertex_count - 3] = { .position = {  0.25f, -0.25f }, .edge_size = edge_size };
     m->vertices[m->vertex_count - 2] = { .position = {  0.25f,  0.25f }, .edge_size = edge_size };
     m->vertices[m->vertex_count - 1] = { .position = { -0.25f,  0.25f }, .edge_size = edge_size };
-    m->faces[m->face_count++] = {
+
+    FaceData& f = m->faces[m->face_count++];
+    f = {
         .color = { 0, 0 },
         .normal = { 0, 0, 0 },
-        .vertex_offset = m->face_vertex_count,
         .vertex_count = 4
     };
-    m->face_vertices[m->face_vertex_count + 0] = m->vertex_count - 4;
-    m->face_vertices[m->face_vertex_count + 1] = m->vertex_count - 3;
-    m->face_vertices[m->face_vertex_count + 2] = m->vertex_count - 2;
-    m->face_vertices[m->face_vertex_count + 3] = m->vertex_count - 1;
-    m->face_vertex_count += 4;
+    f.vertices[0] = m->vertex_count - 4;
+    f.vertices[1] = m->vertex_count - 3;
+    f.vertices[2] = m->vertex_count - 2;
+    f.vertices[3] = m->vertex_count - 1;
 
     UpdateEdges(m);
     MarkDirty(m);

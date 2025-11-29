@@ -12,6 +12,8 @@ constexpr int MAX_ANCHORS = 8;
 constexpr int MIN_DEPTH = 0;
 constexpr int MAX_DEPTH = 100;
 
+constexpr int MAX_FACE_VERTICES = 128;
+
 struct VertexData {
     Vec2 position;
     Vec2 edge_normal;
@@ -37,7 +39,7 @@ struct FaceData {
     float gradient_offset;
     Vec3 normal;
     bool selected;
-    int vertex_offset;
+    int vertices[MAX_FACE_VERTICES];
     int vertex_count;
 };
 
@@ -60,8 +62,6 @@ struct MeshData : AssetData {
     FaceData* faces;
     AnchorData* anchors;
 
-    int* face_vertices;
-    int face_vertex_count;
     int vertex_count;
     int edge_count;
     int face_count;

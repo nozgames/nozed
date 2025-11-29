@@ -9,18 +9,16 @@ extern void InitMeshEditor(MeshData* m);
 static void DeleteFaceInternal(MeshData* m, int face_index);
 static void RemoveFaceVertices(MeshData* m, int face_index, int remove_at, int remove_count);
 static void InsertFaceVertices(MeshData* m, int face_index, int insert_at, int count);
-void DeleteUnreferencedVertices(MeshData* m);
 static void MergeFaces(MeshData* m, const EdgeData& shared_edge);
 static void DeleteFace(MeshData* m, int face_index);
 static void DeleteVertex(MeshData* m, int vertex_index);
 static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, float depth);
 
-static int GetFaceEdgeIndex(MeshData* m, const FaceData& ef, const EdgeData& ee) {
-    for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++) {
-        int v0 = m->face_vertices[ef.vertex_offset + vertex_index];
-        int v1 = m->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
-
-        if (ee.v0 == v0 && ee.v1 == v1 || ee.v0 == v1 && ee.v1 == v0)
+static int GetFaceEdgeIndex(const FaceData& f, const EdgeData& e) {
+    for (int vertex_index=0; vertex_index<f.vertex_count; vertex_index++) {
+        int v0 = f.vertices[vertex_index];
+        int v1 = f.vertices[(vertex_index + 1) % f.vertex_count];
+        if (e.v0 == v0 && e.v1 == v1 || e.v0 == v1 && e.v1 == v0)
             return vertex_index;
     }
 
@@ -50,27 +48,23 @@ void DrawMesh(MeshData* m, const Mat3& transform) {
     BindDepth(0.0f);
 }
 
-Vec2 GetFaceCenter(MeshData* m, FaceData* ef) {
+Vec2 GetFaceCenter(MeshData* m, FaceData* f) {
     Vec2 center = VEC2_ZERO;
 
-    for (int i = 0; i < ef->vertex_count; i++) {
-        int vertex_idx = m->face_vertices[ef->vertex_offset + i];
-        center += m->vertices[vertex_idx].position;
-    }
+    for (int i = 0; i < f->vertex_count; i++)
+        center += m->vertices[f->vertices[i]].position;
 
-    return center / (float)ef->vertex_count;
+    return center / (float)f->vertex_count;
 }
 
 Vec2 GetFaceCenter(MeshData* m, int face_index) {
-    const FaceData& ef = m->faces[face_index];
+    const FaceData& f = m->faces[face_index];
     Vec2 center = VEC2_ZERO;
 
-    for (int i = 0; i < ef.vertex_count; i++) {
-        int vertex_idx = m->face_vertices[ef.vertex_offset + i];
-        center += m->vertices[vertex_idx].position;
-    }
+    for (int i = 0; i < f.vertex_count; i++)
+        center += m->vertices[f.vertices[i]].position;
 
-    return center / (float)ef.vertex_count;
+    return center / (float)f.vertex_count;
 }
 
 bool IsVertexOnOutsideEdge(MeshData* m, int v0) {
@@ -141,13 +135,13 @@ void UpdateEdges(MeshData* m) {
     for (int face_index=0; face_index < m->face_count; face_index++) {
         FaceData& f = m->faces[face_index];
         for (int vertex_index = 0; vertex_index<f.vertex_count - 1; vertex_index++){
-            int v0 = m->face_vertices[f.vertex_offset + vertex_index];
-            int v1 = m->face_vertices[f.vertex_offset + vertex_index + 1];
+            int v0 = f.vertices[vertex_index];
+            int v1 = f.vertices[vertex_index + 1];
             GetOrAddEdge(m, v0, v1, face_index);
         }
 
-        int vs = m->face_vertices[f.vertex_offset + f.vertex_count - 1];
-        int ve = m->face_vertices[f.vertex_offset];
+        int vs = f.vertices[f.vertex_count - 1];
+        int ve = f.vertices[0];
         GetOrAddEdge(m, vs, ve, face_index);
     }
 
@@ -295,38 +289,6 @@ void DissolveEdge(MeshData* m, int edge_index) {
     CollapseEdge(m, edge_index);
 }
 
-void DeleteUnreferencedVertices(MeshData* m) {
-    int vertex_mapping[MAX_VERTICES];
-    int new_vertex_count = 0;
-
-    for (int i = 0; i < m->vertex_count; i++)
-    {
-        if (m->vertices[i].ref_count <= 0)
-        {
-            vertex_mapping[i] = -1;
-            continue;
-        }
-
-        vertex_mapping[i] = new_vertex_count;
-        m->vertices[new_vertex_count++] = m->vertices[i];
-    }
-
-    if (m->vertex_count == new_vertex_count)
-        return;
-
-    m->vertex_count = new_vertex_count;
-
-    for (int i = 0; i < m->face_vertex_count; i++)
-    {
-        int old_vertex_index = m->face_vertices[i];
-        int new_vertex_index = vertex_mapping[old_vertex_index];
-        assert(new_vertex_index != -1);
-        m->face_vertices[i] = new_vertex_index;
-    }
-
-    UpdateEdges(m);
-}
-
 static void DeleteVertex(MeshData* m, int vertex_index) {
     assert(vertex_index >= 0 && vertex_index < m->vertex_count);
 
@@ -334,7 +296,7 @@ static void DeleteVertex(MeshData* m, int vertex_index) {
         FaceData& f = m->faces[face_index];
         int vertex_pos = -1;
         for (int face_vertex_index=0; face_vertex_index<f.vertex_count; face_vertex_index++) {
-            if (m->face_vertices[f.vertex_offset + face_vertex_index] == vertex_index) {
+            if (f.vertices[face_vertex_index] == vertex_index) {
                 vertex_pos = face_vertex_index;
                 break;
             }
@@ -349,10 +311,13 @@ static void DeleteVertex(MeshData* m, int vertex_index) {
             RemoveFaceVertices(m, face_index, vertex_pos, 1);
     }
 
-    for (int face_vertex_index=0; face_vertex_index < m->face_vertex_count; face_vertex_index++) {
-        int v_idx = m->face_vertices[face_vertex_index];
-        if (v_idx > vertex_index)
-            m->face_vertices[face_vertex_index] = v_idx - 1;
+    for (int face_index=0; face_index < m->face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
+        for (int face_vertex_index=0; face_vertex_index<f.vertex_count; face_vertex_index++) {
+            int v_idx = f.vertices[face_vertex_index];
+            if (v_idx > vertex_index)
+                f.vertices[face_vertex_index] = v_idx - 1;
+        }
     }
 
     for (; vertex_index < m->vertex_count - 1; vertex_index++)
@@ -374,9 +339,6 @@ static void DeleteFaceInternal(MeshData* m, int face_index) {
 static void DeleteFace(MeshData* m, int face_index) {
     DeleteFaceInternal(m, face_index);
     UpdateEdges(m);
-    //DeleteUnreferencedVertices(m);
-    //
-    //DeleteUnreferencedVertices(m);
     MarkDirty(m);
 }
 
@@ -398,17 +360,17 @@ static void MergeFaces(MeshData* m, const EdgeData& shared_edge) {
     FaceData& face0 = m->faces[shared_edge.face_index[0]];
     FaceData& face1 = m->faces[shared_edge.face_index[1]];
 
-    int edge_pos0 = GetFaceEdgeIndex(m, face0, shared_edge);
-    int edge_pos1 = GetFaceEdgeIndex(m, face1, shared_edge);
+    int edge_pos0 = GetFaceEdgeIndex(face0, shared_edge);
+    int edge_pos1 = GetFaceEdgeIndex(face1, shared_edge);
     assert(edge_pos0 != -1);
     assert(edge_pos1 != -1);
 
     int insert_pos = (edge_pos0 + 1) % face0.vertex_count;
     InsertFaceVertices(m, shared_edge.face_index[0], insert_pos, face1.vertex_count - 2);
 
-    for (int i=0; i<face1.vertex_count - 2; i++)
-        m->face_vertices[face0.vertex_offset + insert_pos + i] =
-            m->face_vertices[face1.vertex_offset + ((edge_pos1 + 2 + i) % face1.vertex_count)];
+    for (int face_index=0; face_index<face1.vertex_count - 2; face_index++)
+        face0.vertices[insert_pos + face_index] =
+            face1.vertices[((edge_pos1 + 2 + face_index) % face1.vertex_count)];
 
     DeleteFaceInternal(m, shared_edge.face_index[1]);
     UpdateEdges(m);
@@ -425,24 +387,15 @@ void DissolveSelectedVertices(MeshData* m) {
 }
 
 static void InsertFaceVertices(MeshData* m, int face_index, int insert_at, int count) {
-    FaceData& ef = m->faces[face_index];
+    FaceData& f = m->faces[face_index];
 
-    m->face_vertex_count += count;
-
-    int vertex_end = ef.vertex_offset + insert_at;
-    for (int vertex_index=m->face_vertex_count-1; vertex_index > vertex_end; vertex_index--)
-        m->face_vertices[vertex_index] = m->face_vertices[vertex_index-count];
+    for (int vertex_index=f.vertex_count + count; vertex_index > insert_at; vertex_index--)
+        f.vertices[vertex_index] = f.vertices[vertex_index-count];
 
     for (int i=0; i<count; i++)
-        m->face_vertices[vertex_end + i] = -1;
+        f.vertices[insert_at + i] = -1;
 
-    for (int face_index2=0; face_index2<m->face_count; face_index2++) {
-        FaceData& ef2 = m->faces[face_index2];
-        if (ef2.vertex_offset > ef.vertex_offset)
-            ef2.vertex_offset += count;
-    }
-
-    ef.vertex_count += count;
+    f.vertex_count += count;
 }
 
 static void RemoveFaceVertices(MeshData* m, int face_index, int remove_at, int remove_count) {
@@ -452,17 +405,10 @@ static void RemoveFaceVertices(MeshData* m, int face_index, int remove_at, int r
 
     assert(remove_at >= 0 && remove_at + remove_count <= f.vertex_count);
 
-    for (int vertex_index=f.vertex_offset + remove_at; vertex_index + remove_count < m->face_vertex_count; vertex_index++)
-        m->face_vertices[vertex_index] = m->face_vertices[vertex_index + remove_count];
+    for (int vertex_index=remove_at; vertex_index + remove_count < f.vertex_count; vertex_index++)
+        f.vertices[vertex_index] = f.vertices[vertex_index + remove_count];
 
     f.vertex_count -= remove_count;
-    m->face_vertex_count -= remove_count;
-
-    for (int face_index2=0; face_index2<m->face_count; face_index2++) {
-        FaceData& f2 = m->faces[face_index2];
-        if (f2.vertex_offset > f.vertex_offset)
-            f2.vertex_offset -= remove_count;
-    }
 }
 
 int CreateFace(MeshData* m) {
@@ -488,12 +434,8 @@ int CreateFace(MeshData* m) {
     if (m->face_count >= MAX_FACES)
         return -1;
 
-    if (m->face_vertex_count + selected_count > MAX_INDICES)
-        return -1;
-
     // Verify that none of the edges between selected vertices are already part of two faces
-    for (int i = 0; i < selected_count; i++)
-    {
+    for (int i = 0; i < selected_count; i++) {
         int v0 = selected_vertices[i];
         int v1 = selected_vertices[(i + 1) % selected_count];
 
@@ -539,16 +481,15 @@ int CreateFace(MeshData* m) {
 
     // Create the face with sorted vertices
     int face_index = m->face_count++;
-    FaceData& ef = m->faces[face_index];
-    ef.vertex_offset = m->face_vertex_count;
-    ef.vertex_count = selected_count;
-    ef.color = {1, 0};  // Default color
-    ef.normal = {0, 0, 1};  // Default normal
-    ef.selected = false;
+    FaceData& f = m->faces[face_index];
+    f.vertex_count = selected_count;
+    f.color = {1, 0};  // Default color
+    f.normal = {0, 0, 1};  // Default normal
+    f.selected = false;
 
     // Add vertices in counter-clockwise order
     for (int i = 0; i < selected_count; i++)
-        m->face_vertices[m->face_vertex_count++] = vertex_angles[i].vertex_index;
+        f.vertices[i] = vertex_angles[i].vertex_index;
 
     // Update edges
     UpdateEdges(m);
@@ -567,15 +508,13 @@ int SplitFaces(MeshData* m, int v0, int v1) {
     int face_index = 0;
     int v0_pos = -1;
     int v1_pos = -1;
-    for (; face_index < m->face_count; face_index++)
-    {
-        FaceData& ef = m->faces[face_index];
+    for (; face_index < m->face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
 
         v0_pos = -1;
         v1_pos = -1;
-        for (int i = 0; i < ef.vertex_count && (v0_pos == -1 || v1_pos == -1); i++)
-        {
-            int vertex_index = m->face_vertices[ef.vertex_offset + i];
+        for (int i = 0; i < f.vertex_count && (v0_pos == -1 || v1_pos == -1); i++) {
+            int vertex_index = f.vertices[i];
             if (vertex_index == v0) v0_pos = i;
             if (vertex_index == v1) v1_pos = i;
         }
@@ -604,21 +543,19 @@ int SplitFaces(MeshData* m, int v0, int v1) {
     int new_vertex_count = v1_pos - v0_pos + 1;
 
     new_face.vertex_count = new_vertex_count;
-    new_face.vertex_offset = m->face_vertex_count;
-    m->face_vertex_count += new_vertex_count;
     for (int vertex_index=0; vertex_index<new_vertex_count; vertex_index++)
-        m->face_vertices[new_face.vertex_offset + vertex_index] = m->face_vertices[old_face.vertex_offset + v0_pos + vertex_index];
+        new_face.vertices[vertex_index] = old_face.vertices[v0_pos + vertex_index];
 
     for (int vertex_index=0; v1_pos+vertex_index<old_face.vertex_count; vertex_index++)
-        m->face_vertices[old_face.vertex_offset + v0_pos + vertex_index + 1] =
-            m->face_vertices[old_face.vertex_offset + v1_pos + vertex_index];
+        old_face.vertices[v0_pos + vertex_index + 1] =
+            old_face.vertices[v1_pos + vertex_index];
 
     RemoveFaceVertices(m, face_index, old_vertex_count, old_face.vertex_count - old_vertex_count);
 
     UpdateEdges(m);
     MarkDirty(m);
 
-    return GetEdge(m, m->face_vertices[old_face.vertex_offset + v0_pos], m->face_vertices[old_face.vertex_offset + (v0_pos + 1) % old_face.vertex_count]);
+    return GetEdge(m, old_face.vertices[v0_pos], old_face.vertices[(v0_pos + 1) % old_face.vertex_count]);
 }
 
 int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update) {
@@ -641,14 +578,14 @@ int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update) {
 
     int face_count = m->face_count;
     for (int face_index = 0; face_index < face_count; face_index++) {
-        FaceData& ef = m->faces[face_index];
+        FaceData& f = m->faces[face_index];
 
-        int face_edge = GetFaceEdgeIndex(m, ef, e);
+        int face_edge = GetFaceEdgeIndex(f, e);
         if (face_edge == -1)
             continue;
 
         InsertFaceVertices(m, face_index, face_edge + 1, 1);
-        m->face_vertices[ef.vertex_offset + face_edge + 1] = new_vertex_index;
+        f.vertices[face_edge + 1] = new_vertex_index;
     }
 
     if (update) {
@@ -736,18 +673,18 @@ bool OverlapBounds(MeshData* m, const Vec2& position, const Bounds2& hit_bounds)
 
 int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* where) {
     for (int i = m->face_count - 1; i >= 0; i--) {
-        FaceData& ef = m->faces[i];
+        FaceData& f = m->faces[i];
 
         // Skip already selected faces to allow clicking through to faces below
-        if (ef.selected)
+        if (f.selected)
             continue;
 
         // Ray casting algorithm - works for both convex and concave polygons
         int intersections = 0;
 
-        for (int vertex_index = 0; vertex_index < ef.vertex_count; vertex_index++) {
-            int v0_idx = m->face_vertices[ef.vertex_offset + vertex_index];
-            int v1_idx = m->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
+        for (int vertex_index = 0; vertex_index < f.vertex_count; vertex_index++) {
+            int v0_idx = f.vertices[vertex_index];
+            int v1_idx = f.vertices[(vertex_index + 1) % f.vertex_count];
 
             Vec2 v0 = TransformPoint(transform, m->vertices[v0_idx].position);
             Vec2 v1 = TransformPoint(transform, m->vertices[v1_idx].position);
@@ -775,11 +712,10 @@ int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* w
 
         if (inside) {
             // Calculate barycentric coordinates for the first triangle if needed
-            if (where && ef.vertex_count >= 3)
-            {
-                Vec2 v0 = TransformPoint(transform, m->vertices[m->face_vertices[ef.vertex_offset + 0]].position);
-                Vec2 v1 = TransformPoint(transform, m->vertices[m->face_vertices[ef.vertex_offset + 1]].position);
-                Vec2 v2 = TransformPoint(transform, m->vertices[m->face_vertices[ef.vertex_offset + 2]].position);
+            if (where && f.vertex_count >= 3) {
+                Vec2 v0 = TransformPoint(transform, m->vertices[0].position);
+                Vec2 v1 = TransformPoint(transform, m->vertices[1].position);
+                Vec2 v2 = TransformPoint(transform, m->vertices[2].position);
 
                 Vec2 v0v1 = v1 - v0;
                 Vec2 v0v2 = v2 - v0;
@@ -904,29 +840,25 @@ static void ParseFace(MeshData* m, Tokenizer& tk) {
     if (!ExpectInt(tk, &v2))
         ThrowError("missing face v2 index");
 
-    FaceData& ef = m->faces[m->face_count++];
-
-    ef.vertex_offset = m->face_vertex_count;
-    m->face_vertices[m->face_vertex_count++] = v0;
-    m->face_vertices[m->face_vertex_count++] = v1;
-    m->face_vertices[m->face_vertex_count++] = v2;
+    FaceData& f = m->faces[m->face_count++];
+    f.vertices[f.vertex_count++] = v0;
+    f.vertices[f.vertex_count++] = v1;
+    f.vertices[f.vertex_count++] = v2;
 
     while (ExpectInt(tk, &v2))
-        m->face_vertices[m->face_vertex_count++] = v2;
-
-    ef.vertex_count = m->face_vertex_count - ef.vertex_offset;
+        f.vertices[f.vertex_count++] = v2;
 
     if (v0 < 0 || v0 >= m->vertex_count || v1 < 0 || v1 >= m->vertex_count || v2 < 0 || v2 >= m->vertex_count)
         ThrowError("face vertex index out of range");
 
-    ef.color = {0, 0};
+    f.color = {0, 0};
 
     while (!IsEOF(tk))
     {
         if (ExpectIdentifier(tk, "c"))
-            ParseFaceColor(ef, tk);
+            ParseFaceColor(f, tk);
         else if (ExpectIdentifier(tk, "n"))
-            ParseFaceNormal(ef, tk);
+            ParseFaceNormal(f, tk);
         else
             break;
     }
@@ -1026,15 +958,13 @@ void SaveMeshData(MeshData* m, Stream* stream) {
     WriteCSTR(stream, "\n");
 
     for (int i=0; i<m->face_count; i++) {
-        const FaceData& ef = m->faces[i];
+        const FaceData& f = m->faces[i];
 
         WriteCSTR(stream, "f ");
-        for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++) {
-            int v = m->face_vertices[ef.vertex_offset + vertex_index];
-            WriteCSTR(stream, " %d", v);
-        }
+        for (int vertex_index=0; vertex_index<f.vertex_count; vertex_index++)
+            WriteCSTR(stream, " %d", f.vertices[vertex_index]);
 
-        WriteCSTR(stream, " c %d %d n %f %f %f\n", ef.color.x, ef.color.y, ef.normal.x, ef.normal.y, ef.normal.z);
+        WriteCSTR(stream, " c %d %d n %f %f %f\n", f.color.x, f.color.y, f.normal.x, f.normal.y, f.normal.z);
     }
 }
 
@@ -1097,7 +1027,6 @@ static void AllocateData(MeshData* m) {
     m->vertices = m->data->vertices;
     m->edges = m->data->edges;
     m->faces = m->data->faces;
-    m->face_vertices = m->data->face_vertices;
     m->anchors = m->data->anchors;
 }
 
@@ -1168,10 +1097,9 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
 
     Vec2 uv_color = ColorUV(f->color.x, f->color.y);
 
-    for (int i = 0; i < f->vertex_count; i++) {
-        int vertex_index = m->face_vertices[f->vertex_offset + i];
-        VertexData& ev = m->vertices[vertex_index];
-        AddVertex(builder, ToVec3(ev.position, depth), uv_color);
+    for (int vertex_index = 0; vertex_index < f->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[f->vertices[vertex_index]];
+        AddVertex(builder, ToVec3(v.position, depth), uv_color);
     }
 
     u16 base_vertex = GetVertexCount(builder) - (u16)f->vertex_count;
@@ -1181,8 +1109,8 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
     }
 
     int indices[MAX_VERTICES];
-    for (int i = 0; i < f->vertex_count; i++)
-        indices[i] = m->face_vertices[f->vertex_offset + i];
+    for (int vertex_index = 0; vertex_index < f->vertex_count; vertex_index++)
+        indices[vertex_index] = f->vertices[vertex_index];
 
     int remaining_vertices = f->vertex_count;
     int current_index = 0;
@@ -1198,13 +1126,13 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
 
                 // Find the corresponding indices in the builder
                 u16 tri_indices[3];
-                for (u16 i = 0; i < f->vertex_count; i++) {
-                    if (m->face_vertices[f->vertex_offset + i] == indices[prev])
-                        tri_indices[0] = base_vertex + i;
-                    if (m->face_vertices[f->vertex_offset + i] == indices[current_index])
-                        tri_indices[1] = base_vertex + i;
-                    if (m->face_vertices[f->vertex_offset + i] == indices[next])
-                        tri_indices[2] = base_vertex + i;
+                for (u16 vertex_index = 0; vertex_index < f->vertex_count; vertex_index++) {
+                    if (f->vertices[vertex_index] == indices[prev])
+                        tri_indices[0] = base_vertex + vertex_index;
+                    if (f->vertices[vertex_index] == indices[current_index])
+                        tri_indices[1] = base_vertex + vertex_index;
+                    if (f->vertices[vertex_index] == indices[next])
+                        tri_indices[2] = base_vertex + vertex_index;
                 }
 
                 AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
@@ -1231,11 +1159,11 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
             for (int i = 1; i < remaining_vertices - 1; i++) {
                 u16 tri_indices[3];
                 for (u16 j = 0; j < f->vertex_count; j++) {
-                    if (m->face_vertices[f->vertex_offset + j] == indices[0])
+                    if (f->vertices[j] == indices[0])
                         tri_indices[0] = base_vertex + j;
-                    if (m->face_vertices[f->vertex_offset + j] == indices[i])
+                    if (f->vertices[j] == indices[i])
                         tri_indices[1] = base_vertex + j;
-                    if (m->face_vertices[f->vertex_offset + j] == indices[i + 1])
+                    if (f->vertices[j] == indices[i + 1])
                         tri_indices[2] = base_vertex + j;
                 }
                 AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);
@@ -1247,11 +1175,11 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
     if (remaining_vertices == 3) {
         u16 tri_indices[3];
         for (u16 i = 0; i < f->vertex_count; i++) {
-            if (m->face_vertices[f->vertex_offset + i] == indices[0])
+            if (f->vertices[i] == indices[0])
                 tri_indices[0] = base_vertex + i;
-            if (m->face_vertices[f->vertex_offset + i] == indices[1])
+            if (f->vertices[i] == indices[1])
                 tri_indices[1] = base_vertex + i;
-            if (m->face_vertices[f->vertex_offset + i] == indices[2])
+            if (f->vertices[i] == indices[2])
                 tri_indices[2] = base_vertex + i;
         }
         AddTriangle(builder, tri_indices[0], tri_indices[1], tri_indices[2]);

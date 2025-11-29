@@ -150,16 +150,14 @@ void DrawEdges(MeshData* m, const Mat3& transform) {
 void DrawSelectedFaces(MeshData* m, const Vec2& position) {
     BindMaterial(g_view.vertex_material);
 
-    for (i32 face_index=0; face_index < m->face_count; face_index++)
-    {
-        const FaceData& ef = m->faces[face_index];
-        if (!ef.selected)
+    for (i32 face_index=0; face_index < m->face_count; face_index++) {
+        const FaceData& f = m->faces[face_index];
+        if (!f.selected)
             continue;
 
-        for (int vertex_index=0; vertex_index<ef.vertex_count; vertex_index++)
-        {
-            int v0 = m->face_vertices[ef.vertex_offset + vertex_index];
-            int v1 = m->face_vertices[ef.vertex_offset + (vertex_index + 1) % ef.vertex_count];
+        for (int vertex_index=0; vertex_index<f.vertex_count; vertex_index++) {
+            int v0 = f.vertices[vertex_index];
+            int v1 = f.vertices[(vertex_index + 1) % f.vertex_count];
             DrawLine(m->vertices[v0].position + position, m->vertices[v1].position + position);
         }
     }
