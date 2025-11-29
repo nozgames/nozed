@@ -1159,19 +1159,6 @@ static void ToggleAnchor() {
     }});
 }
 
-// void KnifeCut(KnifeCutPoint* points, int point_count) {
-//     MeshData* m = GetMeshData();
-//     RecordUndo(m);
-//
-//     (void)points;
-//     (void)point_count;
-//     // todo
-//
-//     UpdateEdges(m);
-//     MarkDirty(m);
-//     MarkModified(m);
-// }
-
 static void BeginKnifeCut() {
     BeginKnifeTool(GetMeshData());
 }
@@ -1199,7 +1186,7 @@ void InitMeshEditor() {
         { KEY_C, false, false, true, CircleMesh },
         { KEY_E, false, true, false, ExtrudeSelected },
         { KEY_N, false, false, false, AddNewFace },
-        { KEY_K, false, false, false, BeginKnifeCut },
+        { KEY_V, false, false, true, BeginKnifeCut },
         { INPUT_CODE_NONE }
     };
 
