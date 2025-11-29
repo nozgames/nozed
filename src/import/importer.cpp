@@ -5,6 +5,9 @@
 #include <utils/file_watcher.h>
 #include "asset_manifest.h"
 
+static void ExecuteJob(void* data);
+extern AssetData* CreateAssetDataForImport(const std::filesystem::path& path);
+
 namespace fs = std::filesystem;
 
 struct ImportJob {
@@ -25,8 +28,6 @@ struct Importer {
 };
 
 static Importer g_importer = {};
-
-static void ExecuteJob(void* data);
 
 static const AssetImporter* FindImporter(const fs::path& ext) {
     for (int i=0; i<ASSET_TYPE_COUNT; i++) {
@@ -90,8 +91,10 @@ void QueueImport(const fs::path& path) {
         return;
 
     AssetData* a = GetAssetData(importer->type, asset_name);
-    if (!a)
-        return;
+    if (!a) {
+        a = CreateAssetDataForImport(path);
+        if (!a) return;
+    }
 
     QueueImport(a);
 }
@@ -180,7 +183,6 @@ static void PostImportJob(void *data) {
     (void)data;
 
     GenerateAssetManifest(g_editor.output_dir, g_importer.manifest_path, g_config);
-    CleanupOrphanedAssets();
 }
 
 static bool UpdateJobs() {
@@ -256,6 +258,9 @@ void UpdateImporter() {
 
     std::vector<ImportEvent> events = std::move(g_importer.import_events);
     g_importer.mutex.unlock();
+
+    SortAssets();
+    CleanupOrphanedAssets();
 
     for (const ImportEvent& event : events)
         Send(EDITOR_EVENT_IMPORTED, &event);

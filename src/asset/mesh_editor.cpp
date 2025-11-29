@@ -529,34 +529,35 @@ static void UpdateColorPicker(){
         selected_colors[ef.color.x] = true;
     }
 
-    Canvas([] {
-        Align({.alignment=ALIGNMENT_BOTTOM_CENTER}, [] {
-            Container({
-                .width=COLOR_PICKER_WIDTH,
-                .height=COLOR_PICKER_HEIGHT,
-                .margin=EdgeInsetsBottomLeft(COLOR_PICKER_MARGIN),
-                .border={.width=COLOR_PICKER_BORDER_WIDTH, .color=COLOR_PICKER_BORDER_COLOR}}, [] {
+    BeginCanvas();
+    BeginAlign({.alignment=ALIGNMENT_BOTTOM_CENTER});
+    BeginContainer({
+        .width=COLOR_PICKER_WIDTH,
+        .height=COLOR_PICKER_HEIGHT,
+        .margin=EdgeInsetsBottomLeft(COLOR_PICKER_MARGIN),
+        .border={.width=COLOR_PICKER_BORDER_WIDTH, .color=COLOR_PICKER_BORDER_COLOR}});
 
-                GestureDetector({.on_tap = [](const TapDetails& details) {
-                    if (HandleColorPickerInput(details.position)) {
-                        ConsumeButton(MOUSE_LEFT);
-                    }
-                }}, [] {
-                    Image(g_mesh_editor.color_material, g_mesh_editor.color_picker_mesh);
-                });
-
-                for (int i=0; i<64; i++) {
-                    if (selected_colors[i]) {
-                        Transformed({.translate=Vec2{(i % 64) * COLOR_PICKER_COLOR_SIZE, 0}}, [] {
-                            SizedBox({.width=COLOR_PICKER_COLOR_SIZE, .height=COLOR_PICKER_COLOR_SIZE}, [] {
-                                Border({.width=COLOR_PICKER_SELECTION_BORDER_WIDTH,.color=COLOR_PICKER_SELECTION_BORDER_COLOR});
-                            });
-                        });
-                    }
+        BeginGestureDetector(
+            {.on_tap = [](const TapDetails& details) {
+                if (HandleColorPickerInput(details.position)) {
+                    ConsumeButton(MOUSE_LEFT);
                 }
-            });
-        });
-    });
+            }});
+            Image(g_mesh_editor.color_picker_mesh);
+        End();
+
+        for (int i=0; i<64; i++) {
+            if (selected_colors[i]) {
+                BeginTransformed({.translate=Vec2{(i % 64) * COLOR_PICKER_COLOR_SIZE, 0}});
+                BeginSizedBox({.width=COLOR_PICKER_COLOR_SIZE, .height=COLOR_PICKER_COLOR_SIZE});
+                    Border({.width=COLOR_PICKER_SELECTION_BORDER_WIDTH,.color=COLOR_PICKER_SELECTION_BORDER_COLOR});
+                End();
+                End();
+            }
+        }
+    End();
+    End();
+    End();
 }
 
 static Bounds2 GetMeshEditorBounds() {
@@ -1050,11 +1051,13 @@ static void AddNewFace() {
     MeshData* m = GetMeshData();
     RecordUndo(m);
 
+    float edge_size = g_config->GetFloat("mesh", "default_edge_size", 1.0f);
+
     m->vertex_count += 4;
-    m->vertices[m->vertex_count - 4] = { .position = { -0.25f, -0.25f }, .edge_size = 1.0f };
-    m->vertices[m->vertex_count - 3] = { .position = {  0.25f, -0.25f }, .edge_size = 1.0f };
-    m->vertices[m->vertex_count - 2] = { .position = {  0.25f,  0.25f }, .edge_size = 1.0f };
-    m->vertices[m->vertex_count - 1] = { .position = { -0.25f,  0.25f }, .edge_size = 1.0f };
+    m->vertices[m->vertex_count - 4] = { .position = { -0.25f, -0.25f }, .edge_size = edge_size };
+    m->vertices[m->vertex_count - 3] = { .position = {  0.25f, -0.25f }, .edge_size = edge_size };
+    m->vertices[m->vertex_count - 2] = { .position = {  0.25f,  0.25f }, .edge_size = edge_size };
+    m->vertices[m->vertex_count - 1] = { .position = { -0.25f,  0.25f }, .edge_size = edge_size };
     m->faces[m->face_count++] = {
         .color = { 0, 0 },
         .normal = { 0, 0, 0 },

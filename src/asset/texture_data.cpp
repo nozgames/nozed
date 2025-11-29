@@ -9,7 +9,7 @@ void DrawTextureData(AssetData* a) {
     assert(a->type == ASSET_TYPE_TEXTURE);
 
     TextureData* t = static_cast<TextureData*>(a);
-    if (!t)
+    if (!t || !t->material)
         return;
 
     BindColor(COLOR_WHITE);
@@ -66,7 +66,12 @@ static void ReloadTextureData(AssetData* a) {
     assert(a->type == ASSET_TYPE_TEXTURE);
 
     TextureData* t = static_cast<TextureData*>(a);
-    ReloadAsset(a->name, ASSET_TYPE_TEXTURE, t->texture, ReloadTexture);
+    if (!t->texture) {
+        LoadAssetData(a);
+        PostLoadAssetData(a);
+    } else {
+        ReloadAsset(a->name, ASSET_TYPE_TEXTURE, t->texture, ReloadTexture);
+    }
 }
 
 void InitTextureData(AssetData* a) {

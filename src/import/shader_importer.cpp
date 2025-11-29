@@ -130,6 +130,15 @@ static void WriteCompiledShader(
     if (meta.GetBool("shader", "depth_less", false))
         flags |= SHADER_FLAGS_DEPTH_LESS;
 
+    if (meta.GetBool("shader", "postproc", false))
+        flags |= SHADER_FLAGS_POSTPROCESS;
+
+    if (meta.GetBool("shader", "composite", false))
+        flags |= SHADER_FLAGS_UI_COMPOSITE;
+
+    if (meta.GetBool("shader", "premultiplied", false))
+        flags |= SHADER_FLAGS_PREMULTIPLIED_ALPHA;
+
     WriteU8(output_stream, (u8)flags);
 }
 

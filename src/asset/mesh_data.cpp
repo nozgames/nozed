@@ -1062,10 +1062,8 @@ AssetData* NewMeshData(const std::filesystem::path& path) {
     if (g_view.selected_asset_count == 1) {
         AssetData* selected = GetFirstSelectedAsset();
         assert(selected);
-        if (selected->type != ASSET_TYPE_MESH)
-            return nullptr;
-
-        text = ReadAllText(ALLOCATOR_DEFAULT, selected->path);
+        if (selected->type == ASSET_TYPE_MESH)
+            text = ReadAllText(ALLOCATOR_DEFAULT, selected->path);
     }
 
     std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "meshes" / path : path;

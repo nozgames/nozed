@@ -318,6 +318,19 @@ void Clone(AssetData* dst, AssetData* src) {
         dst->vtable.clone((AssetData*)dst);
 }
 
+AssetData* CreateAssetDataForImport(const std::filesystem::path& path) {
+    AssetData* a = CreateAssetData(path);
+    if (!a)
+        return nullptr;
+
+    LoadAssetMetadata(a, path);
+    // LoadAssetData(a);
+    // PostLoadAssetData(a);
+    //SortAssets();
+
+    return a;
+}
+
 void InitAssetData() {
     for (int i=0; i<g_editor.asset_path_count; i++) {
         std::vector<fs::path> asset_paths;
