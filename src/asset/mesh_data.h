@@ -38,6 +38,7 @@ struct FaceData {
     Vec2 gradient_dir;
     float gradient_offset;
     Vec3 normal;
+    Vec2 center;  // cached centroid, computed in UpdateEdges
     bool selected;
     int vertices[MAX_FACE_VERTICES];
     int vertex_count;
@@ -90,9 +91,9 @@ inline int HitTestVertex(MeshData* m, const Vec2& position, float size_mult=1.0f
     return HitTestVertex(m, Translate(m->position), position, size_mult);
 }
 extern int HitTestVertex(const Vec2& position, const Vec2& hit_pos, float size_mult=1.0f);
-extern int HitTestEdge(MeshData* m, const Mat3& transform, const Vec2& position, float* where=nullptr);
-inline int HitTestEdge(MeshData* m, const Vec2& position, float* where=nullptr) {
-    return HitTestEdge(m, Translate(m->position), position, where);
+extern int HitTestEdge(MeshData* m, const Mat3& transform, const Vec2& position, float* where=nullptr, float size_mult=1.0f);
+inline int HitTestEdge(MeshData* m, const Vec2& position, float* where=nullptr, float size_mult=1.0f) {
+    return HitTestEdge(m, Translate(m->position), position, where, size_mult);
 }
 extern int HitTestAnchor(MeshData* m, const Vec2& position, float size_mult=1.0f);
 extern Vec2 HitTestSnap(MeshData* m, const Vec2& position);

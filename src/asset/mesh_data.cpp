@@ -49,22 +49,12 @@ void DrawMesh(MeshData* m, const Mat3& transform) {
 }
 
 Vec2 GetFaceCenter(MeshData* m, FaceData* f) {
-    Vec2 center = VEC2_ZERO;
-
-    for (int i = 0; i < f->vertex_count; i++)
-        center += m->vertices[f->vertices[i]].position;
-
-    return center / (float)f->vertex_count;
+    (void)m;
+    return f->center;
 }
 
 Vec2 GetFaceCenter(MeshData* m, int face_index) {
-    const FaceData& f = m->faces[face_index];
-    Vec2 center = VEC2_ZERO;
-
-    for (int i = 0; i < f.vertex_count; i++)
-        center += m->vertices[f.vertices[i]].position;
-
-    return center / (float)f.vertex_count;
+    return m->faces[face_index].center;
 }
 
 bool IsVertexOnOutsideEdge(MeshData* m, int v0) {
@@ -124,6 +114,38 @@ int GetOrAddEdge(MeshData* m, int v0, int v1, int face_index) {
     return edge_index;
 }
 
+// Compute centroid using signed area formula (works for concave polygons and holes)
+static Vec2 ComputeFaceCentroid(MeshData* m, FaceData& f) {
+    if (f.vertex_count < 3)
+        return VEC2_ZERO;
+
+    float signed_area = 0.0f;
+    Vec2 centroid = VEC2_ZERO;
+
+    for (int i = 0; i < f.vertex_count; i++) {
+        Vec2 p0 = m->vertices[f.vertices[i]].position;
+        Vec2 p1 = m->vertices[f.vertices[(i + 1) % f.vertex_count]].position;
+        float cross = p0.x * p1.y - p1.x * p0.y;
+        signed_area += cross;
+        centroid.x += (p0.x + p1.x) * cross;
+        centroid.y += (p0.y + p1.y) * cross;
+    }
+
+    signed_area *= 0.5f;
+
+    // Handle degenerate faces (zero area)
+    if (Abs(signed_area) < F32_EPSILON) {
+        // Fall back to simple average
+        centroid = VEC2_ZERO;
+        for (int i = 0; i < f.vertex_count; i++)
+            centroid += m->vertices[f.vertices[i]].position;
+        return centroid / (float)f.vertex_count;
+    }
+
+    float factor = 1.0f / (6.0f * signed_area);
+    return centroid * factor;
+}
+
 void UpdateEdges(MeshData* m) {
     m->edge_count = 0;
 
@@ -134,6 +156,10 @@ void UpdateEdges(MeshData* m) {
 
     for (int face_index=0; face_index < m->face_count; face_index++) {
         FaceData& f = m->faces[face_index];
+
+        // Compute and cache face centroid
+        f.center = ComputeFaceCentroid(m, f);
+
         for (int vertex_index = 0; vertex_index<f.vertex_count - 1; vertex_index++){
             int v0 = f.vertices[vertex_index];
             int v1 = f.vertices[vertex_index + 1];
@@ -622,8 +648,8 @@ int HitTestVertex(MeshData* m, const Mat3& transform, const Vec2& position, floa
     return best_vertex;
 }
 
-int HitTestEdge(MeshData* m, const Mat3& transform, const Vec2& hit_pos, float* where) {
-    const float size = g_view.select_size * 0.75f;
+int HitTestEdge(MeshData* m, const Mat3& transform, const Vec2& hit_pos, float* where, float size_mult) {
+    const float size = g_view.select_size * 0.75f * size_mult;
     float best_dist = F32_MAX;
     int best_edge = -1;
     float best_where = 0.0f;
@@ -853,6 +879,10 @@ static void ParseFace(MeshData* m, Tokenizer& tk) {
 
     while (ExpectInt(tk, &v2))
         f.vertices[f.vertex_count++] = v2;
+
+    // Handle a degenerate case where there are two points in a row.
+    if (f.vertices[f.vertex_count-1] == f.vertices[0])
+        f.vertex_count--;
 
     if (v0 < 0 || v0 >= m->vertex_count || v1 < 0 || v1 >= m->vertex_count || v2 < 0 || v2 >= m->vertex_count)
         ThrowError("face vertex index out of range");
