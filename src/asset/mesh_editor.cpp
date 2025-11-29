@@ -1156,28 +1156,6 @@ static void ToggleAnchor() {
     }});
 }
 
-static void FixMesh() {
-    MeshData* m = GetMeshData();
-    RecordUndo(m);
-
-    // scale evdrything by X
-    constexpr float FIX_SCALE = 2.0f;
-    for (int i=0; i<m->vertex_count; i++) {
-            VertexData& v = m->vertices[i];
-            v.position *= FIX_SCALE;
-    }
-
-    for (int i=0; i<m->anchor_count; i++) {
-        AnchorData& a = m->anchors[i];
-        a.position *= FIX_SCALE;
-    }
-
-
-    UpdateEdges(m);
-    MarkDirty(m);
-    MarkModified(m);
-}
-
 void InitMeshEditor() {
     g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
     if (g_view.palette_count > 0)
@@ -1201,7 +1179,6 @@ void InitMeshEditor() {
         { KEY_C, false, false, true, CircleMesh },
         { KEY_E, false, true, false, ExtrudeSelected },
         { KEY_N, false, false, false, AddNewFace },
-        { KEY_T, true, false, false, FixMesh },
         { INPUT_CODE_NONE }
     };
 
