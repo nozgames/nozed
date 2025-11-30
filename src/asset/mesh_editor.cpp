@@ -374,7 +374,6 @@ static bool TrySelectFace() {
     bool shift = IsShiftDown();
     int hit_index = 0;
     if (shift) {
-        // Find the first selected face
         for (;hit_index<hit_count; hit_index++)
             if (m->faces[hit_faces[hit_index]].selected)
                 break;
@@ -382,7 +381,6 @@ static bool TrySelectFace() {
         if (hit_index == hit_count)
             hit_index = 0;
     } else {
-        // Find the last selected face
         for (hit_index=hit_count-1;hit_index>=0; hit_index--)
             if (m->faces[hit_faces[hit_index]].selected)
                 break;
@@ -1236,6 +1234,96 @@ static void BeginKnifeCut() {
     BeginKnifeTool(GetMeshData());
 }
 
+static void SendBackward() {
+    if (g_mesh_editor.mode != MESH_EDITOR_MODE_FACE)
+        return;
+
+    MeshData* m = GetMeshData();
+    RecordUndo(m);
+
+    for (int face_index=1; face_index<m->face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
+        FaceData& p = m->faces[face_index - 1];
+        if (!f.selected || p.selected)
+            continue;
+
+        SwapFace(m, face_index, face_index - 1);
+    }
+
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified(m);
+}
+
+static void BringForward() {
+    if (g_mesh_editor.mode != MESH_EDITOR_MODE_FACE)
+        return;
+
+    MeshData* m = GetMeshData();
+    RecordUndo(m);
+
+    for (int face_index=m->face_count-2; face_index>=0; face_index--) {
+        FaceData& f = m->faces[face_index];
+        FaceData& n = m->faces[face_index + 1];
+        if (!f.selected || n.selected)
+            continue;
+
+        SwapFace(m, face_index, face_index + 1);
+    }
+
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified(m);
+}
+
+static void BringToFront() {
+    if (g_mesh_editor.mode != MESH_EDITOR_MODE_FACE)
+        return;
+
+    MeshData* m = GetMeshData();
+    RecordUndo(m);
+
+    int write_index = 0;
+    for (int read_index = 0; read_index < m->face_count; read_index++) {
+        if (!m->faces[read_index].selected) {
+            if (write_index != read_index) {
+                FaceData temp = m->faces[write_index];
+                m->faces[write_index] = m->faces[read_index];
+                m->faces[read_index] = temp;
+            }
+            write_index++;
+        }
+    }
+
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified(m);
+}
+
+static void SendToBack() {
+    if (g_mesh_editor.mode != MESH_EDITOR_MODE_FACE)
+        return;
+
+    MeshData* m = GetMeshData();
+    RecordUndo(m);
+
+    int write_index = m->face_count - 1;
+    for (int read_index = m->face_count - 1; read_index >= 0; read_index--) {
+        if (!m->faces[read_index].selected) {
+            if (write_index != read_index) {
+                FaceData temp = m->faces[write_index];
+                m->faces[write_index] = m->faces[read_index];
+                m->faces[read_index] = temp;
+            }
+            write_index--;
+        }
+    }
+
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified(m);
+}
+
 void InitMeshEditor() {
     g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
     if (g_view.palette_count > 0)
@@ -1260,6 +1348,12 @@ void InitMeshEditor() {
         { KEY_E, false, true, false, ExtrudeSelected },
         { KEY_N, false, false, false, AddNewFace },
         { KEY_V, false, false, true, BeginKnifeCut },
+
+        { KEY_LEFT_BRACKET, false, false, false, SendBackward },
+        { KEY_RIGHT_BRACKET, false, false, false, BringForward },
+        { KEY_RIGHT_BRACKET, false, true, false, BringToFront },
+        { KEY_LEFT_BRACKET, false, true, false, SendToBack },
+
         { INPUT_CODE_NONE }
     };
 

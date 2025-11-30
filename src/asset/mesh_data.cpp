@@ -699,6 +699,12 @@ void Center(MeshData* m) {
     MarkModified();
 }
 
+void SwapFace(MeshData* m, int face_index_a, int face_index_b) {
+    FaceData temp = m->faces[face_index_a];
+    m->faces[face_index_a] = m->faces[face_index_b];
+    m->faces[face_index_b] = temp;
+}
+
 bool OverlapBounds(MeshData* m, const Vec2& position, const Bounds2& hit_bounds) {
     return Intersects(m->bounds + position, hit_bounds);
 }
