@@ -360,17 +360,40 @@ static bool TrySelectFace() {
     assert(g_mesh_editor.mode == MESH_EDITOR_MODE_FACE);
 
     MeshData* m = GetMeshData();
-    int face_index = HitTestFace(
+    int hit_faces[MAX_FACES];
+    int hit_count = HitTestFaces(
         m,
         Translate(m->position),
         g_view.mouse_world_position,
-        nullptr);
+        hit_faces,
+        MAX_FACES);
 
-    if (face_index == -1)
+    if (hit_count == 0)
         return false;
 
-    bool shift = IsShiftDown(g_mesh_editor.input);
+    bool shift = IsShiftDown();
+    int hit_index = 0;
+    if (shift) {
+        // Find the first selected face
+        for (;hit_index<hit_count; hit_index++)
+            if (m->faces[hit_faces[hit_index]].selected)
+                break;
 
+        if (hit_index == hit_count)
+            hit_index = 0;
+    } else {
+        // Find the last selected face
+        for (hit_index=hit_count-1;hit_index>=0; hit_index--)
+            if (m->faces[hit_faces[hit_index]].selected)
+                break;
+
+        if (hit_index < 1)
+            hit_index = hit_count - 1;
+        else
+            hit_index--;
+    }
+
+    int face_index = hit_faces[hit_index];
     if (!shift)
         ClearSelection();
 

@@ -82,10 +82,8 @@ extern AssetData* NewMeshData(const std::filesystem::path& path);
 extern MeshData* Clone(Allocator* allocator, MeshData* m);
 extern MeshData* LoadEditorMesh(const std::filesystem::path& path);
 extern Mesh* ToMesh(MeshData* m, bool upload=true, bool use_cache=true);
-extern int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* where = nullptr);
-inline int HitTestFace(MeshData* m, const Vec2& hit_pos, Vec2* where = nullptr) {
-    return HitTestFace(m, Translate(m->position), hit_pos, where);
-}
+extern int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& position);
+extern int HitTestFaces(MeshData* m, const Mat3& transform, const Vec2& position, int* faces, int max_faces=MAX_FACES);
 extern int HitTestVertex(MeshData* m, const Mat3& transform, const Vec2& position, float size_mult=1.0f);
 inline int HitTestVertex(MeshData* m, const Vec2& position, float size_mult=1.0f) {
     return HitTestVertex(m, Translate(m->position), position, size_mult);

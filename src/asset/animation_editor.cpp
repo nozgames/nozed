@@ -159,8 +159,7 @@ static bool TrySelectMesh() {
         int face_index = HitTestFace(
             skinned_mesh,
             mesh_transform,
-            g_view.mouse_world_position,
-            nullptr);
+            g_view.mouse_world_position);
 
         if (face_index == -1)
             continue;

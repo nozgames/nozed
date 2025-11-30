@@ -703,13 +703,10 @@ bool OverlapBounds(MeshData* m, const Vec2& position, const Bounds2& hit_bounds)
     return Intersects(m->bounds + position, hit_bounds);
 }
 
-int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* where) {
-    for (int i = m->face_count - 1; i >= 0; i--) {
+int HitTestFaces(MeshData* m, const Mat3& transform, const Vec2& position, int* faces, int max_faces) {
+    int hit_count = 0;
+    for (int i = m->face_count - 1; i >= 0 && hit_count < max_faces; i--) {
         FaceData& f = m->faces[i];
-
-        // Skip already selected faces to allow clicking through to faces below
-        if (f.selected)
-            continue;
 
         // Ray casting algorithm - works for both convex and concave polygons
         int intersections = 0;
@@ -727,50 +724,32 @@ int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& hit_pos, Vec2* w
             float max_y = Max(v0.y, v1.y);
 
             // Skip horizontal edges and edges that don't cross the ray's Y level
-            if (hit_pos.y < min_y || hit_pos.y >= max_y || min_y == max_y)
+            if (position.y < min_y || position.y >= max_y || min_y == max_y)
                 continue;
 
             // Calculate X intersection point
-            float t = (hit_pos.y - v0.y) / (v1.y - v0.y);
+            float t = (position.y - v0.y) / (v1.y - v0.y);
             float x_intersect = v0.x + t * (v1.x - v0.x);
 
             // Count intersection if it's to the right of the point
-            if (x_intersect > hit_pos.x)
+            if (x_intersect > position.x)
                 intersections++;
         }
 
         // Point is inside if odd number of intersections
-        bool inside = (intersections % 2) == 1;
+        if (!(intersections % 2) == 1)
+            continue;
 
-        if (inside) {
-            // Calculate barycentric coordinates for the first triangle if needed
-            if (where && f.vertex_count >= 3) {
-                Vec2 v0 = TransformPoint(transform, m->vertices[0].position);
-                Vec2 v1 = TransformPoint(transform, m->vertices[1].position);
-                Vec2 v2 = TransformPoint(transform, m->vertices[2].position);
-
-                Vec2 v0v1 = v1 - v0;
-                Vec2 v0v2 = v2 - v0;
-                Vec2 v0p = hit_pos - v0;
-
-                float dot00 = Dot(v0v2, v0v2);
-                float dot01 = Dot(v0v2, v0v1);
-                float dot02 = Dot(v0v2, v0p);
-                float dot11 = Dot(v0v1, v0v1);
-                float dot12 = Dot(v0v1, v0p);
-
-                float inv_denom = 1.0f / (dot00 * dot11 - dot01 * dot01);
-                float u = (dot11 * dot02 - dot01 * dot12) * inv_denom;
-                float v = (dot00 * dot12 - dot01 * dot02) * inv_denom;
-
-                *where = Vec2{u, v};
-            }
-
-            return i;
-        }
+        faces[hit_count++] = i;
     }
 
-    return -1;
+    return hit_count;
+}
+
+int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& position) {
+    int faces[1];
+    int hit_count = HitTestFaces(m, transform, position, faces, 1);
+    return hit_count > 0 ? faces[0] : -1;
 }
 
 static void ParseAnchor(MeshData* m, Tokenizer& tk) {
