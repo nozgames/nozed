@@ -149,12 +149,12 @@ static bool TrySelectBone() {
 static bool TrySelectMesh() {
     AnimationData* n = GetAnimationData();
     SkeletonData* s = GetSkeletonData();
-    for (int i=s->skinned_mesh_count-1; i>=0; i--) {
-        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
+    for (int i=s->skin_count-1; i>=0; i--) {
+        MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh)
             continue;
 
-        Mat3 mesh_transform = Translate(n->position) * n->animator->bones[s->skinned_meshes[i].bone_index];
+        Mat3 mesh_transform = Translate(n->position) * n->animator->bones[s->skins[i].bone_index];
 
         int face_index = HitTestFace(
             skinned_mesh,
@@ -164,7 +164,7 @@ static bool TrySelectMesh() {
         if (face_index == -1)
             continue;
 
-        int bone_index = s->skinned_meshes[i].bone_index;
+        int bone_index = s->skins[i].bone_index;
         BoneData* b = &s->bones[bone_index];
         if (IsShiftDown(g_animation_editor.input)) {
             SetBoneSelected(bone_index, !b->selected);
@@ -407,12 +407,12 @@ void DrawAnimationEditor() {
     BindColor(COLOR_WHITE);
     Mat3 base_transform = GetBaseTransform() * Translate(g_animation_editor.root_motion_delta);
 
-    for (int i=0; i<s->skinned_mesh_count; i++) {
-        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
+    for (int i=0; i<s->skin_count; i++) {
+        MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh)
             continue;
 
-        DrawMesh(skinned_mesh, base_transform * n->animator->bones[s->skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh, base_transform * n->animator->bones[s->skins[i].bone_index]);
     }
 
     if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)
@@ -748,6 +748,50 @@ static void BeginCommandInput() {
 }
 
 
+static void CommitUnparentTool(const Vec2& ) {
+#if 0
+    SkeletonData* s = GetSkeletonData();
+    for (int i=0; i<s->skin_count; i++) {
+        Skin& sm = s->skinned_meshes[i];
+        Vec2 bone_position = TransformPoint(s->bones[sm.bone_index].local_to_world) + s->position;
+        if (!sm.mesh || !OverlapPoint(sm.mesh, bone_position, position))
+            continue;
+
+        RecordUndo(s);
+        for (int j=i; j<s->skin_count-1; j++)
+            s->skinned_meshes[j] = s->skinned_meshes[j+1];
+
+        s->skin_count--;
+
+        MarkModified();
+        return;
+    }
+#endif
+}
+
+static void BeginUnparentTool() {
+    BeginSelectTool({.commit=CommitUnparentTool});
+}
+
+static void CommitParentTool(const Vec2& position) {
+    AssetData* hit_asset = HitTestAssets(position);
+    if (!hit_asset || hit_asset->type != ASSET_TYPE_MESH)
+        return;
+
+    RecordUndo();
+    // s->skinned_meshes[s->skinned_mesh_count++] = {
+    //     hit_asset->name,
+    //     (MeshData*)hit_asset,
+    //     GetFirstSelectedBoneIndex()
+    // };
+
+    MarkModified();
+}
+
+static void BeginParentTool() {
+    BeginSelectTool({.commit=CommitParentTool});
+}
+
 void InitAnimationEditor() {
     g_animation_editor = {};
 
@@ -770,6 +814,9 @@ void InitAnimationEditor() {
         { KEY_C, false, true, false, CopyKeys },
         { KEY_V, false, true, false, PasteKeys },
         { KEY_M, true, false, false, ToggleRootMotion },
+        { KEY_P, false, false, false, BeginParentTool },
+        { KEY_P, false, true, false, BeginUnparentTool },
+
         { INPUT_CODE_NONE }
     };
 

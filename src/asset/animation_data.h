@@ -22,6 +22,7 @@ struct RuntimeAnimationData {
     AnimationBoneData bones[MAX_BONES];
     AnimationFrameData frames[MAX_ANIMATION_FRAMES];
     Animator animator;
+    Skin Skins[SKIN_MAX];
 };
 
 struct AnimationData : AssetData {
@@ -32,10 +33,12 @@ struct AnimationData : AssetData {
     SkeletonData* skeleton;
     Animation* animation;
     Animator* animator;
+    Skin* skins;
     int frame_count;
     int current_frame;
     int bone_count;
     int selected_bone_count;
+    int skin_count;
     AnimationFlags flags;
 };
 

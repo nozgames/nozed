@@ -442,51 +442,56 @@ static void RemoveFaceVertices(MeshData* m, int face_index, int remove_at, int r
 }
 
 int CreateFace(MeshData* m) {
-    // Collect selected vertices
     int selected_vertices[MAX_VERTICES];
-    int selected_count = 0;
-
-    for (int i = 0; i < m->vertex_count; i++)
-    {
-        if (m->vertices[i].selected)
-        {
-            if (selected_count >= MAX_VERTICES)
-                return -1;
-            selected_vertices[selected_count++] = i;
-        }
-    }
-
-    // Need at least 3 vertices to create a face
+    int selected_count = GetSelectedVertices(m, selected_vertices);
     if (selected_count < 3)
         return -1;
 
-    // Check if we have room for the new face
     if (m->face_count >= MAX_FACES)
         return -1;
 
-    // Verify that none of the edges between selected vertices are already part of two faces
     for (int i = 0; i < selected_count; i++) {
         int v0 = selected_vertices[i];
         int v1 = selected_vertices[(i + 1) % selected_count];
 
         int edge_index = GetEdge(m, v0, v1);
-        if (edge_index != -1)
-        {
-            const EdgeData& ee = m->edges[edge_index];
-            if (ee.face_count >= 2)
-                return -1;  // Edge already belongs to two faces
+        if (edge_index != -1) {
+            const EdgeData& e = m->edges[edge_index];
+            if (e.face_count >= 2)
+                return -1;
         }
     }
 
-    // Calculate centroid of selected vertices
+    // Find color
+    int color_counts[COLOR_COUNT] = {};
+    for (int i = 0; i < selected_count; i++) {
+        int v0 = selected_vertices[i];
+        int v1 = selected_vertices[(i + 1) % selected_count];
+        int edge_index = GetEdge(m, v0, v1);
+        if (edge_index != -1) {
+            const EdgeData& e = m->edges[edge_index];
+            for (int face_idx = 0; face_idx < e.face_count; face_idx++) {
+                int color_x = m->faces[e.face_index[face_idx]].color.x;
+                color_counts[color_x]++;
+            }
+        }
+    }
+
+    Vec2Int best_color = {1, 0};
+    int best_count = 0;
+    for (int i = 0; i < 64; i++) {
+        if (color_counts[i] > best_count) {
+            best_count = color_counts[i];
+            best_color = {i, 0};
+        }
+    }
+
     Vec2 centroid = VEC2_ZERO;
     for (int i = 0; i < selected_count; i++)
         centroid += m->vertices[selected_vertices[i]].position;
     centroid = centroid / (float)selected_count;
 
-    // Sort vertices by angle around centroid to determine correct winding order
-    struct VertexAngle
-    {
+    struct VertexAngle {
         int vertex_index;
         float angle;
     };
@@ -498,7 +503,6 @@ int CreateFace(MeshData* m) {
         vertex_angles[i].angle = atan2f(dir.y, dir.x);
     }
 
-    // Sort by angle (counter-clockwise)
     for (int i = 0; i < selected_count - 1; i++) {
         for (int j = i + 1; j < selected_count; j++) {
             if (vertex_angles[i].angle > vertex_angles[j].angle) {
@@ -509,19 +513,16 @@ int CreateFace(MeshData* m) {
         }
     }
 
-    // Create the face with sorted vertices
     int face_index = m->face_count++;
     FaceData& f = m->faces[face_index];
     f.vertex_count = selected_count;
-    f.color = {1, 0};  // Default color
-    f.normal = {0, 0, 1};  // Default normal
+    f.color = best_color;
+    f.normal = {0, 0, 1};
     f.selected = false;
 
-    // Add vertices in counter-clockwise order
     for (int i = 0; i < selected_count; i++)
         f.vertices[i] = vertex_angles[i].vertex_index;
 
-    // Update edges
     UpdateEdges(m);
     MarkDirty(m);
 

@@ -4,14 +4,6 @@
 
 #pragma  once
 
-constexpr int MAX_SKINNED_MESHES = 64;
-
-struct SkinnedMesh {
-    const Name* asset_name;
-    MeshData* mesh;
-    int bone_index;
-};
-
 struct BoneData {
     const Name* name;
     int index;
@@ -28,15 +20,15 @@ struct BoneData {
 
 struct RuntimeSkeletonData {
     BoneData bones[MAX_BONES];
-    SkinnedMesh skinned_meshes[MAX_SKINNED_MESHES];
+    Skin skins[SKIN_MAX];
 };
 
 struct SkeletonData : AssetData {
     RuntimeSkeletonData* data;
     BoneData* bones;
-    SkinnedMesh* skinned_meshes;
+    Skin* skins;
     int bone_count;
-    int skinned_mesh_count;
+    int skin_count;
     int selected_bone_count;
     float opacity;
 };

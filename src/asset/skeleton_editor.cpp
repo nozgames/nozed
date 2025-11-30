@@ -361,10 +361,10 @@ static void CommitParentTool(const Vec2& position) {
         return;
 
     RecordUndo();
-    s->skinned_meshes[s->skinned_mesh_count++] = {
-        hit_asset->name,
-        (MeshData*)hit_asset,
-        GetFirstSelectedBoneIndex()
+    s->skins[s->skin_count++] = {
+        .asset_name = hit_asset->name,
+        .bone_index = GetFirstSelectedBoneIndex(),
+        .mesh = (MeshData*)hit_asset,
     };
 
     MarkModified();
@@ -376,17 +376,17 @@ static void BeginParentTool() {
 
 static void CommitUnparentTool(const Vec2& position) {
     SkeletonData* s = GetSkeletonData();
-    for (int i=0; i<s->skinned_mesh_count; i++) {
-        SkinnedMesh& sm = s->skinned_meshes[i];
+    for (int i=0; i<s->skin_count; i++) {
+        Skin& sm = s->skins[i];
         Vec2 bone_position = TransformPoint(s->bones[sm.bone_index].local_to_world) + s->position;
         if (!sm.mesh || !OverlapPoint(sm.mesh, bone_position, position))
             continue;
 
         RecordUndo(s);
-        for (int j=i; j<s->skinned_mesh_count-1; j++)
-            s->skinned_meshes[j] = s->skinned_meshes[j+1];
+        for (int j=i; j<s->skin_count-1; j++)
+            s->skins[j] = s->skins[j+1];
 
-        s->skinned_mesh_count--;
+        s->skin_count--;
 
         MarkModified();
         return;

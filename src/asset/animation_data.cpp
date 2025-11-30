@@ -47,12 +47,12 @@ void DrawAnimationData(AssetData* a) {
 
     BindColor(COLOR_WHITE);
     BindMaterial(g_view.shaded_material);
-    for (int i=0; i<s->skinned_mesh_count; i++) {
-        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
+    for (int i=0; i<s->skin_count; i++) {
+        MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(a->position) * n->animator->bones[s->skinned_meshes[i].bone_index]);
+        DrawMesh(skinned_mesh, Translate(a->position) * n->animator->bones[s->skins[i].bone_index]);
     }
 }
 
@@ -187,8 +187,7 @@ static void ParseFrameScale(AnimationData* n, Tokenizer& tk, int bone_index, int
 static void ParseFrame(AnimationData* n, Tokenizer& tk, int* bone_map) {
     int bone_index = -1;
     n->frame_count++;
-    while (!IsEOF(tk))
-    {
+    while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "b"))
             bone_index = ParseFrameBone(n, tk, bone_map);
         else if (ExpectIdentifier(tk, "r"))
@@ -378,7 +377,11 @@ static void SaveAnimationData(AssetData* ea, const std::filesystem::path& path) 
     }
 
     for (int frame_index=0; frame_index<en->frame_count; frame_index++) {
-        WriteCSTR(stream, "f\n");
+        WriteCSTR(stream, "f");
+        if (en->frames[frame_index].hold > 0)
+            WriteCSTR(stream, " h %d", en->frames[frame_index].hold);
+        WriteCSTR(stream, "\n");
+
         for (int bone_index=0; bone_index<es->bone_count; bone_index++) {
             Transform& bt = GetFrameTransform(en, bone_index, frame_index);
 
@@ -387,9 +390,6 @@ static void SaveAnimationData(AssetData* ea, const std::filesystem::path& path) 
 
             if (!has_pos && !has_rot)
                 continue;
-
-            if (en->frames[frame_index].hold > 0)
-                WriteCSTR(stream, "h %d", en->frames[frame_index].hold);
 
             WriteCSTR(stream, "b %d", bone_index);
 

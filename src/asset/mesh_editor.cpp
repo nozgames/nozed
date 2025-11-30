@@ -12,6 +12,7 @@ constexpr float COLOR_PICKER_SELECTION_BORDER_WIDTH = 3.0f;
 constexpr Color COLOR_PICKER_SELECTION_BORDER_COLOR = COLOR_VERTEX_SELECTED;
 
 enum MeshEditorMode {
+    MESH_EDITOR_MODE_CURRENT=-1,
     MESH_EDITOR_MODE_VERTEX,
     MESH_EDITOR_MODE_EDGE,
     MESH_EDITOR_MODE_FACE
@@ -189,13 +190,16 @@ static void UpdateFaceSelection(MeshData* m) {
 
 }
 
-static void UpdateSelection() {
+static void UpdateSelection(MeshEditorMode mode=MESH_EDITOR_MODE_CURRENT) {
     MeshData* m = GetMeshData();
     Bounds2 bounds = {VEC2_ZERO, VEC2_ZERO};
 
-    if (g_mesh_editor.mode == MESH_EDITOR_MODE_FACE) {
+    if (mode == MESH_EDITOR_MODE_CURRENT)
+        mode = g_mesh_editor.mode;
+
+    if (mode == MESH_EDITOR_MODE_FACE) {
         UpdateFaceSelection(m);
-    } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE) {
+    } else if (mode == MESH_EDITOR_MODE_EDGE) {
         UpdateEdgeSelection(m);
     } else {
         UpdateVertexSelection(m);
@@ -255,7 +259,7 @@ static void SelectVertex(int vertex_index, bool selected) {
     MeshData* m = GetMeshData();
     assert(vertex_index >= 0 && vertex_index < m->vertex_count);
     m->vertices[vertex_index].selected = selected;
-    UpdateSelection();
+    UpdateSelection(MESH_EDITOR_MODE_VERTEX);
 }
 
 static void SelectEdge(int edge_index, bool selected) {
@@ -264,7 +268,7 @@ static void SelectEdge(int edge_index, bool selected) {
 
     EdgeData& e = m->edges[edge_index];
     e.selected = selected;
-    UpdateSelection();
+    UpdateSelection(MESH_EDITOR_MODE_EDGE);
 }
 
 static void SelectFace(int face_index, bool selected) {
@@ -272,25 +276,7 @@ static void SelectFace(int face_index, bool selected) {
     assert(face_index >= 0 && face_index < m->face_count);
     FaceData& f = m->faces[face_index];
     f.selected = selected;
-    UpdateSelection();
-}
-
-static int GetFirstSelectedVertex() {
-    MeshData* m = GetMeshData();
-    for (int i=0; i<m->vertex_count; i++)
-        if (m->vertices[i].selected)
-            return i;
-
-    return -1;
-}
-
-static int GetNextSelectedVertex(int prev_vertex) {
-    MeshData* m = GetMeshData();
-    for (int i=prev_vertex+1; i<m->vertex_count; i++)
-        if (m->vertices[i].selected)
-            return i;
-
-    return -1;
+    UpdateSelection(MESH_EDITOR_MODE_FACE);
 }
 
 static void SaveMeshState() {
@@ -403,30 +389,12 @@ static bool TrySelectFace() {
     return true;
 }
 
-static void InsertVertexFaceOrEdge() {
+static void InsertVertex() {
     if (g_mesh_editor.mode != MESH_EDITOR_MODE_VERTEX)
         return;
 
     MeshData* m = GetMeshData();
     RecordUndo(m);
-
-    // Insert edge?
-    if (m->selected_vertex_count == 2) {
-        int v0 = GetFirstSelectedVertex();
-        int v1 = GetNextSelectedVertex(v0);
-        assert(v0 != -1 && v1 != -1);
-
-        int edge_index = SplitFaces(m, v0, v1);
-        if (edge_index == -1)
-        {
-            CancelUndo();
-            return;
-        }
-
-        ClearSelection();
-        SelectEdge(edge_index, true);
-        return;
-    }
 
     if (m->selected_vertex_count >= 3) {
         int face_index = CreateFace(m);
@@ -1097,37 +1065,47 @@ static void ExtrudeSelected() {
     BeginMoveTool();
 }
 
-static void AddNewFace() {
+static void NewFace() {
     MeshData* m = GetMeshData();
     RecordUndo(m);
 
-    float edge_size = g_config->GetFloat("mesh", "default_edge_size", 1.0f);
+    int face_index = -1;
+    if ((g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX || g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE) && m->selected_vertex_count >= 3) {
+        face_index = CreateFace(m);
+    } else {
+        float edge_size = g_config->GetFloat("mesh", "default_edge_size", 1.0f);
 
-    m->vertex_count += 4;
-    m->vertices[m->vertex_count - 4] = { .position = { -0.25f, -0.25f }, .edge_size = edge_size };
-    m->vertices[m->vertex_count - 3] = { .position = {  0.25f, -0.25f }, .edge_size = edge_size };
-    m->vertices[m->vertex_count - 2] = { .position = {  0.25f,  0.25f }, .edge_size = edge_size };
-    m->vertices[m->vertex_count - 1] = { .position = { -0.25f,  0.25f }, .edge_size = edge_size };
+        m->vertex_count += 4;
+        m->vertices[m->vertex_count - 4] = { .position = { -0.25f, -0.25f }, .edge_size = edge_size };
+        m->vertices[m->vertex_count - 3] = { .position = {  0.25f, -0.25f }, .edge_size = edge_size };
+        m->vertices[m->vertex_count - 2] = { .position = {  0.25f,  0.25f }, .edge_size = edge_size };
+        m->vertices[m->vertex_count - 1] = { .position = { -0.25f,  0.25f }, .edge_size = edge_size };
 
-    FaceData& f = m->faces[m->face_count++];
-    f = {
-        .color = { 0, 0 },
-        .normal = { 0, 0, 0 },
-        .vertex_count = 4
-    };
-    f.vertices[0] = m->vertex_count - 4;
-    f.vertices[1] = m->vertex_count - 3;
-    f.vertices[2] = m->vertex_count - 2;
-    f.vertices[3] = m->vertex_count - 1;
+        FaceData& f = m->faces[m->face_count++];
+        f = {
+            .color = { 0, 0 },
+            .normal = { 0, 0, 0 },
+            .vertex_count = 4
+        };
+        f.vertices[0] = m->vertex_count - 4;
+        f.vertices[1] = m->vertex_count - 3;
+        f.vertices[2] = m->vertex_count - 2;
+        f.vertices[3] = m->vertex_count - 1;
+
+        face_index = m->face_count-1;
+    }
+
+    if (face_index == -1) {
+        CancelUndo();
+        return;
+    }
 
     UpdateEdges(m);
     MarkDirty(m);
     MarkModified(m);
+
     ClearSelection();
-    SelectVertex(m->vertex_count - 4, true);
-    SelectVertex(m->vertex_count - 3, true);
-    SelectVertex(m->vertex_count - 2, true);
-    SelectVertex(m->vertex_count - 1, true);
+    SelectFace(face_index, true);
 }
 
 static void BeginMeshEditor(AssetData* a) {
@@ -1339,14 +1317,14 @@ void InitMeshEditor() {
         { KEY_A, false, false, false, SelectAll },
         { KEY_A, false, false, true, ToggleAnchor },
         { KEY_X, false, false, false, DissolveSelected },
-        { KEY_V, false, false, false, InsertVertexFaceOrEdge },
+        { KEY_V, false, false, false, InsertVertex },
         { KEY_1, false, false, false, SetVertexMode },
         { KEY_2, false, false, false, SetEdgeMode },
         { KEY_3, false, false, false, SetFaceMode },
         { KEY_C, false, false, false, CenterMesh },
         { KEY_C, false, false, true, CircleMesh },
         { KEY_E, false, true, false, ExtrudeSelected },
-        { KEY_N, false, false, false, AddNewFace },
+        { KEY_N, false, false, false, NewFace },
         { KEY_V, false, false, true, BeginKnifeCut },
 
         { KEY_LEFT_BRACKET, false, false, false, SendBackward },

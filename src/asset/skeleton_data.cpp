@@ -20,9 +20,9 @@ void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& positio
 void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
     BindColor(COLOR_WHITE);
     BindDepth(0.0);
-    for (int i=0; i<s->skinned_mesh_count; i++) {
-        BoneData& bone = s->bones[s->skinned_meshes[i].bone_index];
-        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
+    for (int i=0; i<s->skin_count; i++) {
+        BoneData& bone = s->bones[s->skins[i].bone_index];
+        MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh)
             continue;
 
@@ -213,9 +213,9 @@ void UpdateTransforms(SkeletonData* s) {
         bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, -bone_width}));
     }
 
-    for (int i=0; i<s->skinned_mesh_count; i++) {
-        BoneData& bone = s->bones[s->skinned_meshes[i].bone_index];
-        MeshData* skinned_mesh = s->skinned_meshes[i].mesh;
+    for (int i=0; i<s->skin_count; i++) {
+        BoneData& bone = s->bones[s->skins[i].bone_index];
+        MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
@@ -238,10 +238,9 @@ static void LoadSkeletonMetaData(AssetData* a, Props* meta) {
 
         int bone_index = -1;
         while (ExpectInt(tk, &bone_index)) {
-            s->skinned_meshes[s->skinned_mesh_count++] = {
-                GetName(key.c_str()),
-                nullptr,
-                bone_index
+            s->skins[s->skin_count++] = {
+                .asset_name = GetName(key.c_str()),
+                .bone_index = bone_index
             };
 
             if (!ExpectDelimiter(tk, ','))
@@ -256,16 +255,16 @@ static void PostLoadSkeleton(AssetData* a) {
     SkeletonData* s = static_cast<SkeletonData*>(a);
 
     int loaded_skinned_mesh = 0;
-    for (int i=0; i<s->skinned_mesh_count; i++) {
-        SkinnedMesh& sm = s->skinned_meshes[i];
+    for (int i=0; i<s->skin_count; i++) {
+        Skin& sm = s->skins[i];
         sm.mesh = static_cast<MeshData*>(GetAssetData(ASSET_TYPE_MESH, sm.asset_name));
         if (!sm.mesh)
             continue;
-        s->skinned_meshes[loaded_skinned_mesh++] = sm;
+        s->skins[loaded_skinned_mesh++] = sm;
         PostLoadAssetData(sm.mesh);
     }
 
-    s->skinned_mesh_count = loaded_skinned_mesh;
+    s->skin_count = loaded_skinned_mesh;
 
     UpdateTransforms(s);
 }
@@ -322,8 +321,8 @@ int ReparentBone(SkeletonData* s, int bone_index, int parent_index) {
         s->bones[i].index = i;
     }
 
-    for (int i=0; i<s->skinned_mesh_count; i++) {
-        SkinnedMesh& esm = s->skinned_meshes[i];
+    for (int i=0; i<s->skin_count; i++) {
+        Skin& esm = s->skins[i];
         esm.bone_index = bone_map[esm.bone_index];
     }
 
@@ -393,10 +392,10 @@ void RemoveBone(SkeletonData* s, int bone_index) {
     }
 
     // Remove any skinned meshes attached to this bone
-    for (int i=0; i<s->skinned_mesh_count; ) {
-        SkinnedMesh& esm = s->skinned_meshes[i];
+    for (int i=0; i<s->skin_count; ) {
+        Skin& esm = s->skins[i];
         if (esm.bone_index == bone_index) {
-            s->skinned_meshes[i] = s->skinned_meshes[--s->skinned_mesh_count];
+            s->skins[i] = s->skins[--s->skin_count];
         } else {
             i++;
         }
@@ -414,8 +413,8 @@ void RemoveBone(SkeletonData* s, int bone_index) {
             enb.parent_index--;
     }
 
-    for (int i=0; i<s->skinned_mesh_count; i++) {
-        SkinnedMesh& esm = s->skinned_meshes[i];
+    for (int i=0; i<s->skin_count; i++) {
+        Skin& esm = s->skins[i];
         if (esm.bone_index > bone_index)
             esm.bone_index--;
     }
@@ -479,18 +478,18 @@ Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* s) {
 static void SaveSkeletonMetadata(AssetData* a, Props* meta) {
     assert(a);
     assert(a->type == ASSET_TYPE_SKELETON);
-    SkeletonData* es = (SkeletonData*)a;
+    SkeletonData* s = (SkeletonData*)a;
     meta->ClearGroup("skin");
 
-    for (int i=0; i<es->skinned_mesh_count; i++) {
-        if (es->skinned_meshes[i].mesh == nullptr)
+    for (int i=0; i<s->skin_count; i++) {
+        if (s->skins[i].mesh == nullptr)
             continue;
 
-        const Name* mesh_name = es->skinned_meshes[i].asset_name;
+        const Name* mesh_name = s->skins[i].asset_name;
         std::string value = meta->GetString("skin", mesh_name->value, "");
         if (!value.empty())
             value += ", ";
-        value += std::to_string(es->skinned_meshes[i].bone_index);
+        value += std::to_string(s->skins[i].bone_index);
         meta->SetString("skin", mesh_name->value, value.c_str());
     }
 }
@@ -521,7 +520,7 @@ static void AllocateSkeletonRuntimeData(AssetData* a) {
     SkeletonData* d = static_cast<SkeletonData*>(a);
     d->data = static_cast<RuntimeSkeletonData*>(Alloc(ALLOCATOR_DEFAULT, sizeof(RuntimeSkeletonData)));
     d->bones = d->data->bones;
-    d->skinned_meshes = d->data->skinned_meshes;
+    d->skins = d->data->skins;
 }
 
 static void CloneSkeletonData(AssetData* a) {
