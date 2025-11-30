@@ -255,7 +255,6 @@ static void PasteFrame() {
 
     // Copy other properties
     f->edge_color = src->edge_color;
-    f->opacity = src->opacity;
     f->depth = src->depth;
 
     // Rebuild edges and mark dirty

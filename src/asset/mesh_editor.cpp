@@ -817,29 +817,7 @@ static void BeginOutlineTool() {
     BeginWeightTool(options);
 }
 
-static void UpdateOpacityToolVertex(float weight, void*) {
-    MeshData* m = GetMeshData();
-    m->opacity = weight;
-}
-
-static void BeginMeshOpacityTool() {
-    MeshData* m = GetMeshData();
-    WeightToolOptions options = {
-        .vertex_count = 1,
-        .vertices = {
-            { .position = g_view.mouse_world_position, .weight = m->opacity  }
-        },
-        .min_weight = 0,
-        .max_weight = 2,
-        .cancel = CancelMeshTool,
-        .update_vertex = UpdateOpacityToolVertex,
-    };
-
-    BeginWeightTool(options);
-}
-
-static void SelectAll()
-{
+static void SelectAll() {
     SelectAll(GetMeshData());
 }
 
@@ -1142,7 +1120,7 @@ static void DrawMeshEditor() {
     MeshData* m = GetMeshData();
 
     // Mesh
-    BindColor(SetAlpha(COLOR_WHITE, m->opacity));
+    BindColor(COLOR_WHITE);
     DrawMesh(m, Translate(m->position));
 
     // Edges
@@ -1313,7 +1291,6 @@ void InitMeshEditor() {
         { KEY_S, false, false, false, BeginScaleTool },
         { KEY_S, false, false, true, SubDivide },
         { KEY_W, false, false, false, BeginOutlineTool },
-        { KEY_O, false, false, false, BeginMeshOpacityTool },
         { KEY_A, false, false, false, SelectAll },
         { KEY_A, false, false, true, ToggleAnchor },
         { KEY_X, false, false, false, DissolveSelected },

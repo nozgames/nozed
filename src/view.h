@@ -49,6 +49,7 @@ struct PaletteDef {
 struct View {
     ViewState state;
     Camera* camera;
+    Material* shaded_skinned_material;
     Material* shaded_material;
     Material* vertex_material;
     Material* editor_material;

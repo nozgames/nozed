@@ -26,10 +26,12 @@ extern Shader* SHADER_VFX;
 extern Shader* SHADER_UI_VIGNETTE;
 extern Shader* SHADER_UI;
 extern Shader* SHADER_TEXT;
-extern Shader* SHADER_LIT;
+extern Shader* SHADER_SKINNED_MESH;
+extern Shader* SHADER_MESH;
 extern Shader* SHADER_SOLID;
 
 // @name
+extern const Name* NAME_MESH;
 extern const Name* NAME_VFX;
 extern const Name* NAME_A;
 extern const Name* NAME_E;
@@ -44,7 +46,6 @@ extern const Name* NAME_BUILD;
 extern const Name* NAME_AM;
 extern const Name* NAME_RENAME;
 extern const Name* NAME_SAVE;
-extern const Name* NAME_MESH;
 extern const Name* NAME_SKELETON;
 extern const Name* NAME_ANIMATION;
 extern const Name* NAME_ANIMATEDMESH;

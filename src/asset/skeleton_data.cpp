@@ -2,7 +2,7 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-static void Init(SkeletonData* s);
+#include "../../noz/src/platform.h"
 extern void InitSkeletonEditor(SkeletonData* s);
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetType asset_type, AssetLoaderFunc loader, Stream* stream);
@@ -18,6 +18,14 @@ void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& positio
 }
 
 void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
+    Mat3 test[MAX_BONES];
+    for (int i=0; i<s->bone_count; i++) {
+        test[i] = MAT3_IDENTITY;
+    }
+
+    BindSkeleton(test, s->bone_count);
+
+    // Draw default skin
     BindColor(COLOR_WHITE);
     BindDepth(0.0);
     for (int i=0; i<s->skin_count; i++) {
@@ -27,15 +35,24 @@ void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
             continue;
 
         Mat3 local_to_world = Translate(s->position) * bone.local_to_world;
-        DrawMesh(skinned_mesh, local_to_world);
-
-        BindColor(COLOR_BLACK);
-        BindDepth(GetApplicationTraits()->renderer.max_depth - 0.01f);
-        for (int anchor_index=0;anchor_index<skinned_mesh->anchor_count;anchor_index++)
-            DrawVertex(TransformPoint(local_to_world, skinned_mesh->anchors[anchor_index].position));
-        BindDepth(0.0f);
+        DrawMesh(skinned_mesh, local_to_world, g_view.shaded_skinned_material);
     }
 
+    // Draw anchors
+    BindColor(COLOR_BLACK);
+    BindDepth(GetApplicationTraits()->renderer.max_depth - 0.01f);
+    for (int i=0; i<s->skin_count; i++) {
+        BoneData& bone = s->bones[s->skins[i].bone_index];
+        MeshData* skinned_mesh = s->skins[i].mesh;
+        if (!skinned_mesh)
+            continue;
+
+        Mat3 local_to_world = Translate(s->position) * bone.local_to_world;
+        for (int anchor_index=0;anchor_index<skinned_mesh->anchor_count;anchor_index++)
+            DrawVertex(TransformPoint(local_to_world, skinned_mesh->anchors[anchor_index].position));
+    }
+
+    BindDepth(0.0f);
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BONE);
     for (int bone_index=0; bone_index<s->bone_count; bone_index++)

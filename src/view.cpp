@@ -644,6 +644,7 @@ static void SetPalette(u32 index) {
     Texture* palette_texture = g_view.palettes[g_view.active_palette_index].texture->texture;
     SetTexture(g_view.editor_material, palette_texture);
     SetTexture(g_view.shaded_material, palette_texture);
+    SetTexture(g_view.shaded_skinned_material, palette_texture);
 
     extern void UpdateMeshEditorPalette();
 
@@ -702,7 +703,6 @@ static void PlayAsset() {
     }
 }
 
-
 // @shortcut
 static Shortcut g_common_shortcuts[] = {
     { KEY_S, false, true, false, SaveAssetData },
@@ -716,6 +716,7 @@ static Shortcut g_common_shortcuts[] = {
     { KEY_PERIOD, false, false, false, NextPalette },
     { INPUT_CODE_NONE }
 };
+
 
 void EnableCommonShortcuts(InputSet* input_set) {
     EnableShortcuts(g_common_shortcuts, input_set);
@@ -731,9 +732,10 @@ void InitView() {
     InitUndo();
 
     g_view.camera = CreateCamera(ALLOCATOR_DEFAULT);
-    g_view.shaded_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
+    g_view.shaded_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_MESH);
     g_view.vertex_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
-    g_view.editor_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_LIT);
+    g_view.editor_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_MESH);
+    g_view.shaded_skinned_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_SKINNED_MESH);
     g_view.zoom = ZOOM_DEFAULT;
     g_view.ui_scale = 1.0f;
     g_view.dpi = 72.0f;
@@ -763,7 +765,7 @@ void InitView() {
     EnableButton(g_view.input_tool, MOUSE_RIGHT);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
-    AddCircle(builder, VEC3_ZERO, 0.5f, 8, ColorUV(7,0));
+    AddCircle(builder, VEC2_ZERO, 0.5f, 8, ColorUV(7,0));
     g_view.vertex_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     Clear(builder);
@@ -774,12 +776,12 @@ void InitView() {
     g_view.arrow_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     Clear(builder);
-    AddCircle(builder, VEC3_ZERO, 2.0f, 32, VEC2_ZERO);
+    AddCircle(builder, VEC2_ZERO, 2.0f, 32, VEC2_ZERO);
     g_view.circle_mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
 
     for (int i=0; i<=100; i++) {
         Clear(builder);
-        AddArc(builder, VEC3_ZERO, 2.0f, -270, -270 + 360.0f * (i / 100.0f), 32, VEC2_ZERO);
+        AddArc(builder, VEC2_ZERO, 2.0f, -270, -270 + 360.0f * (i / 100.0f), 32, VEC2_ZERO);
         g_view.arc_mesh[i] = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE);
     }
 

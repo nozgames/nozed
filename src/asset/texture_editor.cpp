@@ -30,10 +30,10 @@ static void DrawTextureEditor() {
     DrawTextureData(t);
     DrawBounds(t, 0, COLOR_VERTEX_SELECTED);
     Vec2 size = GetSize(t->bounds);
-    DrawVertex(t->position + XY(vertices[0].position) * size);
-    DrawVertex(t->position + XY(vertices[1].position) * size);
-    DrawVertex(t->position + XY(vertices[2].position) * size);
-    DrawVertex(t->position + XY(vertices[3].position) * size);
+    DrawVertex(t->position + vertices[0].position * size);
+    DrawVertex(t->position + vertices[1].position * size);
+    DrawVertex(t->position + vertices[2].position * size);
+    DrawVertex(t->position + vertices[3].position * size);
 }
 
 static void BeginTextureMove() {

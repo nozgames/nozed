@@ -31,13 +31,13 @@ static void DrawMesh(AssetData* a) {
     DrawMesh(m, Translate(a->position));
 }
 
-void DrawMesh(MeshData* m, const Mat3& transform) {
+void DrawMesh(MeshData* m, const Mat3& transform, Material* material) {
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
         BindColor(COLOR_EDGE);
         DrawEdges(m, transform);
     } else {
         BindColor(COLOR_WHITE, GetActivePalette().color_offset_uv);
-        BindMaterial(g_view.shaded_material);
+        BindMaterial(material ? material : g_view.shaded_material);
         DrawMesh(ToMesh(m), transform);
     }
 
@@ -216,13 +216,13 @@ Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
         if (v0.edge_size < 0.01f && v1.edge_size < 0.01f)
             continue;
 
-        Vec3 p0 = {v0.position.x, v0.position.y, edge_depth};
-        Vec3 p1 = {v1.position.x, v1.position.y, edge_depth};
+        Vec2 p0 = {v0.position.x, v0.position.y};
+        Vec2 p1 = {v1.position.x, v1.position.y};
         u16 base = GetVertexCount(builder);
-        AddVertex(builder, p0, edge_uv);
-        AddVertex(builder, p0 + ToVec3(v0.edge_normal * v0.edge_size * OUTLINE_WIDTH), edge_uv);
-        AddVertex(builder, p1 + ToVec3(v1.edge_normal * v1.edge_size * OUTLINE_WIDTH), edge_uv);
-        AddVertex(builder, p1, edge_uv);
+        AddVertex(builder, p0, edge_uv, edge_depth);
+        AddVertex(builder, p0 + v0.edge_normal * v0.edge_size * OUTLINE_WIDTH, edge_uv, edge_depth);
+        AddVertex(builder, p1 + v1.edge_normal * v1.edge_size * OUTLINE_WIDTH, edge_uv, edge_depth);
+        AddVertex(builder, p1, edge_uv, edge_depth);
         AddTriangle(builder, base+0, base+1, base+3);
         AddTriangle(builder, base+1, base+2, base+3);
     }
@@ -776,8 +776,42 @@ static void ParseVertexEdge(VertexData& ev, Tokenizer& tk) {
         ThrowError("missing vertex edge value");
 }
 
-static void ParseVertex(MeshData* em, Tokenizer& tk) {
-    if (em->vertex_count >= MAX_VERTICES)
+static void ParseVertexWeight(VertexData& v, int weight_index, Tokenizer& tk) {
+    f32 weight = 0.0f;
+    i32 index = 0;
+    if (!ExpectInt(tk, &index))
+        ThrowError("missing weight bone index");
+
+    if (!ExpectFloat(tk, &weight))
+        ThrowError("missing vertex weight value");
+
+    v.weights[weight_index] = { index, weight };
+}
+
+static void NormalizeVertexWeights(MeshData* m) {
+    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+
+        // Normalize weights
+        float total_weight = 0.0f;
+        for (int weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++)
+            total_weight += v.weights[weight_index].weight;
+
+        if (total_weight < F32_EPSILON) {
+            for (int i = 0; i < MESH_MAX_VERTEX_WEIGHTS; i++) {
+                v.weights[i].weight = 0.0f;
+            }
+            v.weights[0].weight = 1.0f;
+        } else {
+            for (int i = 0; i < MESH_MAX_VERTEX_WEIGHTS; i++) {
+                v.weights[i].weight /= total_weight;
+            }
+        }
+    }
+}
+
+static void ParseVertex(MeshData* m, Tokenizer& tk) {
+    if (m->vertex_count >= MAX_VERTICES)
         ThrowError("too many vertices");
 
     f32 x;
@@ -788,18 +822,24 @@ static void ParseVertex(MeshData* em, Tokenizer& tk) {
     if (!ExpectFloat(tk, &y))
         ThrowError("missing vertex y coordinate");
 
-    VertexData& ev = em->vertices[em->vertex_count++];
-    ev.position = {x,y};
+    VertexData& v = m->vertices[m->vertex_count++];
+    v.position = {x,y};
 
+    int weight_count = 0;
     while (!IsEOF(tk)) {
-        if (ExpectIdentifier(tk, "e"))
-            ParseVertexEdge(ev, tk);
-        else if (ExpectIdentifier(tk, "h")) {
+        if (ExpectIdentifier(tk, "e")) {
+            ParseVertexEdge(v, tk);
+        } else if (ExpectIdentifier(tk, "h")) {
             float temp = 0.0f;
             ExpectFloat(tk, &temp);
-        } else
+        } else if (ExpectIdentifier(tk, "w")) {
+            ParseVertexWeight(v, weight_count++, tk);
+        } else {
             break;
+        }
     }
+
+    NormalizeVertexWeights(m);
 }
 
 static void ParseEdgeColor(MeshData* em, Tokenizer& tk) {
@@ -973,8 +1013,18 @@ void SaveMeshData(MeshData* m, Stream* stream) {
     }
 
     for (int i=0; i<m->vertex_count; i++) {
-        const VertexData& ev = m->vertices[i];
-        WriteCSTR(stream, "v %f %f e %f\n", ev.position.x, ev.position.y, ev.edge_size);
+        const VertexData& v = m->vertices[i];
+        WriteCSTR(stream, "v %f %f e %f", v.position.x, v.position.y, v.edge_size);
+
+        for (int weight_index=0; weight_index<MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
+            const VertexWeight& w = v.weights[weight_index];
+            if (w.weight <= 0.0f)
+                continue;
+
+            WriteCSTR(stream, " w %d %f", w.bone_index, w.weight);
+        }
+
+        WriteCSTR(stream, "\n");
     }
 
     WriteCSTR(stream, "\n");
@@ -1121,7 +1171,7 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
 
     for (int vertex_index = 0; vertex_index < f->vertex_count; vertex_index++) {
         VertexData& v = m->vertices[f->vertices[vertex_index]];
-        AddVertex(builder, ToVec3(v.position, depth), uv_color);
+        AddVertex(builder, v.position, uv_color, depth);
     }
 
     u16 base_vertex = GetVertexCount(builder) - (u16)f->vertex_count;
@@ -1294,7 +1344,6 @@ static void DestroyMeshData(AssetData* a) {
 static void Init(MeshData* m) {
     AllocateData(m);
 
-    m->opacity = 1.0f;
     m->vtable = {
         .destructor = DestroyMeshData,
         .load = LoadMeshData,

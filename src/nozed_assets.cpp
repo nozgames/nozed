@@ -29,10 +29,12 @@ Shader* SHADER_VFX = nullptr;
 Shader* SHADER_UI_VIGNETTE = nullptr;
 Shader* SHADER_UI = nullptr;
 Shader* SHADER_TEXT = nullptr;
-Shader* SHADER_LIT = nullptr;
+Shader* SHADER_SKINNED_MESH = nullptr;
+Shader* SHADER_MESH = nullptr;
 Shader* SHADER_SOLID = nullptr;
 
 // @name
+const Name* NAME_MESH = nullptr;
 const Name* NAME_VFX = nullptr;
 const Name* NAME_A = nullptr;
 const Name* NAME_E = nullptr;
@@ -47,7 +49,6 @@ const Name* NAME_BUILD = nullptr;
 const Name* NAME_AM = nullptr;
 const Name* NAME_RENAME = nullptr;
 const Name* NAME_SAVE = nullptr;
-const Name* NAME_MESH = nullptr;
 const Name* NAME_SKELETON = nullptr;
 const Name* NAME_ANIMATION = nullptr;
 const Name* NAME_ANIMATEDMESH = nullptr;
@@ -59,7 +60,8 @@ const Name* PATH_SHADER_VFX = nullptr;
 const Name* PATH_SHADER_UI_VIGNETTE = nullptr;
 const Name* PATH_SHADER_UI = nullptr;
 const Name* PATH_SHADER_TEXT = nullptr;
-const Name* PATH_SHADER_LIT = nullptr;
+const Name* PATH_SHADER_SKINNED_MESH = nullptr;
+const Name* PATH_SHADER_MESH = nullptr;
 const Name* PATH_TEXTURE_PALETTE = nullptr;
 const Name* PATH_SHADER_SOLID = nullptr;
 const Name* PATH_MESH_UI_ICON_ROOT_MOTION_OFF = nullptr;
@@ -74,6 +76,7 @@ const Name* PATH_FONT_SEGUISB = nullptr;
 bool LoadAssets(Allocator* allocator)
 {
     // @name
+    NAME_MESH = GetName("mesh");
     NAME_VFX = GetName("vfx");
     NAME_A = GetName("a");
     NAME_E = GetName("e");
@@ -88,7 +91,6 @@ bool LoadAssets(Allocator* allocator)
     NAME_AM = GetName("am");
     NAME_RENAME = GetName("rename");
     NAME_SAVE = GetName("save");
-    NAME_MESH = GetName("mesh");
     NAME_SKELETON = GetName("skeleton");
     NAME_ANIMATION = GetName("animation");
     NAME_ANIMATEDMESH = GetName("animatedmesh");
@@ -100,7 +102,8 @@ bool LoadAssets(Allocator* allocator)
     PATH_SHADER_UI_VIGNETTE = GetName("ui_vignette");
     PATH_SHADER_UI = GetName("ui");
     PATH_SHADER_TEXT = GetName("text");
-    PATH_SHADER_LIT = GetName("lit");
+    PATH_SHADER_SKINNED_MESH = GetName("skinned_mesh");
+    PATH_SHADER_MESH = GetName("mesh");
     PATH_TEXTURE_PALETTE = GetName("palette");
     PATH_SHADER_SOLID = GetName("solid");
     PATH_MESH_UI_ICON_ROOT_MOTION_OFF = GetName("ui_icon_root_motion_off");
@@ -156,7 +159,8 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_UI_VIGNETTE, SHADER_UI_VIGNETTE);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_UI, SHADER_UI);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_TEXT, SHADER_TEXT);
-    NOZ_LOAD_SHADER(allocator, PATH_SHADER_LIT, SHADER_LIT);
+    NOZ_LOAD_SHADER(allocator, PATH_SHADER_SKINNED_MESH, SHADER_SKINNED_MESH);
+    NOZ_LOAD_SHADER(allocator, PATH_SHADER_MESH, SHADER_MESH);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_SOLID, SHADER_SOLID);
 
     static Shader* _SHADER[] = {
@@ -164,7 +168,8 @@ bool LoadAssets(Allocator* allocator)
         SHADER_UI_VIGNETTE,
         SHADER_UI,
         SHADER_TEXT,
-        SHADER_LIT,
+        SHADER_SKINNED_MESH,
+        SHADER_MESH,
         SHADER_SOLID,
         nullptr
     };
@@ -196,7 +201,8 @@ void UnloadAssets()
     Free(SHADER_UI_VIGNETTE);
     Free(SHADER_UI);
     Free(SHADER_TEXT);
-    Free(SHADER_LIT);
+    Free(SHADER_SKINNED_MESH);
+    Free(SHADER_MESH);
     Free(SHADER_SOLID);
 }
 
@@ -223,7 +229,8 @@ void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
     NOZ_RELOAD_SHADER(PATH_SHADER_UI_VIGNETTE, SHADER_UI_VIGNETTE);
     NOZ_RELOAD_SHADER(PATH_SHADER_UI, SHADER_UI);
     NOZ_RELOAD_SHADER(PATH_SHADER_TEXT, SHADER_TEXT);
-    NOZ_RELOAD_SHADER(PATH_SHADER_LIT, SHADER_LIT);
+    NOZ_RELOAD_SHADER(PATH_SHADER_SKINNED_MESH, SHADER_SKINNED_MESH);
+    NOZ_RELOAD_SHADER(PATH_SHADER_MESH, SHADER_MESH);
     NOZ_RELOAD_SHADER(PATH_SHADER_SOLID, SHADER_SOLID);
 }
 

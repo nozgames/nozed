@@ -11,8 +11,18 @@ constexpr int MAX_EDGES = MAX_VERTICES * 2;
 constexpr int MAX_ANCHORS = 8;
 constexpr int MIN_DEPTH = 0;
 constexpr int MAX_DEPTH = 100;
-
 constexpr int MAX_FACE_VERTICES = 128;
+
+constexpr int MESH_MAX_VERTICES = 1024;
+constexpr int MESH_MAX_INDICES = 1024;
+constexpr int MESH_MAX_FACES = 256;
+constexpr int MESH_MAX_EDGES = 2048;
+constexpr int MESH_MAX_VERTEX_WEIGHTS = 4;
+
+struct VertexWeight {
+    int bone_index;
+    float weight;
+};
 
 struct VertexData {
     Vec2 position;
@@ -21,6 +31,7 @@ struct VertexData {
     bool selected;
     int ref_count;
     float gradient;
+    VertexWeight weights[MESH_MAX_VERTEX_WEIGHTS];
 };
 
 struct EdgeData {
@@ -38,7 +49,7 @@ struct FaceData {
     Vec2 gradient_dir;
     float gradient_offset;
     Vec3 normal;
-    Vec2 center;  // cached centroid, computed in UpdateEdges
+    Vec2 center;
     bool selected;
     int vertices[MAX_FACE_VERTICES];
     int vertex_count;
@@ -49,11 +60,11 @@ struct AnchorData {
 };
 
 struct MeshRuntimeData {
-    VertexData vertices[MAX_VERTICES];
-    EdgeData edges[MAX_EDGES];
-    FaceData faces[MAX_FACES];
+    VertexData vertices[MESH_MAX_VERTICES];
+    EdgeData edges[MESH_MAX_EDGES];
+    FaceData faces[MESH_MAX_FACES];
     AnchorData anchors[MAX_ANCHORS];
-    int face_vertices[MAX_INDICES];
+    int face_vertices[MESH_MAX_INDICES];
 };
 
 struct MeshData : AssetData {
@@ -72,7 +83,6 @@ struct MeshData : AssetData {
     int selected_face_count;
     Mesh* mesh;
     Vec2Int edge_color;
-    float opacity;
     int depth;
     int hold;
 };
@@ -109,7 +119,7 @@ extern int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update=tr
 extern int SplitTriangle(MeshData* m, int triangle_index, const Vec2& position);
 extern int AddVertex(MeshData* m, const Vec2& position);
 extern int RotateEdge(MeshData* m, int edge_index);
-extern void DrawMesh(MeshData* m, const Mat3& transform);
+extern void DrawMesh(MeshData* m, const Mat3& transform, Material* material=nullptr);
 extern bool IsVertexOnOutsideEdge(MeshData* m, int v0);
 extern Vec2 GetFaceCenter(MeshData* m, int face_index);
 extern Vec2 GetEdgePoint(MeshData* m, int edge_index, float t);
