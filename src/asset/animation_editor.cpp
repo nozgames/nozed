@@ -602,6 +602,15 @@ static void InsertFrameAfter() {
     MarkModified();
 }
 
+static void InsertFrameAfterLerp() {
+    RecordUndo();
+    AnimationData* n = GetAnimationData();
+    // todo: lerp between current and next frame
+    n->current_frame = InsertFrame(n, n->current_frame + 1);
+    UpdateTransforms(n);
+    MarkModified();
+}
+
 static void DeleteFrame() {
     RecordUndo();
     AnimationData* n = GetAnimationData();
@@ -814,6 +823,7 @@ void InitAnimationEditor() {
         { KEY_H, false, false, false, AddHoldFrame },
         { KEY_H, false, true, false, RemoveHoldFrame },
         { KEY_O, true, false, false, ToggleOnionSkin },
+        { KEY_O, false, false, true, InsertFrameAfterLerp },
         { KEY_C, false, true, false, CopyKeys },
         { KEY_V, false, true, false, PasteKeys },
         { KEY_M, true, false, false, ToggleRootMotion },
