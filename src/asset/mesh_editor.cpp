@@ -28,6 +28,7 @@ struct MeshEditor {
     Vec2 selection_center;
     Material* color_material;
     bool clear_selection_on_up;
+    bool clear_weight_bone_on_up;
     Vec2 state_mouse;
     bool use_fixed_value;
     bool ignore_up;
@@ -472,46 +473,32 @@ static void UpdateDefaultState() {
         return;
     }
 
-    if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT && g_mesh_editor.weight_bone != -1 && WasButtonPressed(g_mesh_editor.input, MOUSE_LEFT)) {
-        MeshData* m = GetMeshData();
-        int vertex_index = HitTestVertex(m, g_view.mouse_world_position);
-        if (vertex_index != -1) {
-            const VertexData& v = m->vertices[vertex_index];
-            VertexWeightToolOptions options {};
-            options.mesh = m;
-            options.bone_index = g_mesh_editor.weight_bone;
-
-            if (!v.selected) {
-                ClearSelection();
-                SelectVertex(vertex_index, true);
-            }
-
-            options.vertex_count = GetSelectedVertices(m, options.vertices);
-
-            RecordUndo(m);
-            BeginVertexWeightTool(options);
-            return;
-        }
-    } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT && IsToolActive()) {
-        return;
-    }
-
     // Select
     if (!g_mesh_editor.ignore_up && !g_view.drag && WasButtonReleased(g_mesh_editor.input, MOUSE_LEFT)) {
         g_mesh_editor.clear_selection_on_up = false;
+        g_mesh_editor.clear_weight_bone_on_up = false;
 
         if (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX && TrySelectVertex()) return;
         if (g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE && TrySelectEdge()) return;
         if (g_mesh_editor.mode == MESH_EDITOR_MODE_FACE && TrySelectFace()) return;
-        if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT && TrySelectBone()) return;
+        if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT) {
+            if (IsCtrlDown() && TrySelectBone()) return;
+            if (!IsCtrlDown() && TrySelectVertex()) return;
+        }
 
-        g_mesh_editor.clear_selection_on_up = true;
+        g_mesh_editor.clear_selection_on_up = !IsCtrlDown();
+        g_mesh_editor.clear_weight_bone_on_up = IsCtrlDown();
     }
 
     g_mesh_editor.ignore_up &= !WasButtonReleased(g_mesh_editor.input, MOUSE_LEFT);
 
-    if (WasButtonReleased(g_mesh_editor.input, MOUSE_LEFT) && g_mesh_editor.clear_selection_on_up && !IsShiftDown(g_mesh_editor.input))
-        ClearSelection();
+    if (WasButtonReleased(g_mesh_editor.input, MOUSE_LEFT)) {
+        if (g_mesh_editor.clear_selection_on_up)
+            ClearSelection();
+
+        if (g_mesh_editor.clear_weight_bone_on_up)
+             g_mesh_editor.weight_bone = -1;
+    }
 }
 
 static bool HandleColorPickerInput(const Vec2& position) {
