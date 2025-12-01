@@ -1297,11 +1297,11 @@ static void ToggleAnchor() {
         MeshData* m = GetMeshData();
         RecordUndo(m);
 
-        int anchor_index = HitTestAnchor(m, position - m->position);
+        int anchor_index = HitTestTag(m, position - m->position);
         if (anchor_index == -1)
-            AddAnchor(m, position - m->position);
+            AddTag(m, position - m->position);
         else
-            RemoveAnchor(m, anchor_index);
+            RemoveTag(m, anchor_index);
 
         UpdateEdges(m);
         MarkDirty(m);

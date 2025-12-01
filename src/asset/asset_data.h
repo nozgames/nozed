@@ -13,7 +13,6 @@ constexpr int SKIN_MAX = 64;
 
 struct Skin {
     const Name* asset_name;
-    int bone_index;
     MeshData* mesh;
     AnimatedMeshData* animated_mesh;
     Animation* animation;;

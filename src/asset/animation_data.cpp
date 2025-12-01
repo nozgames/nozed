@@ -206,6 +206,31 @@ static void ParseFrame(AnimationData* n, Tokenizer& tk, int* bone_map) {
 
 void UpdateBounds(AnimationData* n) {
     n->bounds = GetSkeletonData(n)->bounds;
+
+    SkeletonData* s = GetSkeletonData(n);
+    Vec2 root_position = TransformPoint(n->animator->bones[0]);
+    Bounds2 bounds = Bounds2 { root_position, root_position };
+    for (int bone_index=0; bone_index<n->bone_count; bone_index++) {
+        BoneData* b = s->bones + bone_index;
+        float bone_width = b->length * BONE_WIDTH;
+        const Mat3& bone_transform = n->animator->bones[bone_index];
+        bounds = Union(bounds, TransformPoint(bone_transform));
+        bounds = Union(bounds, TransformPoint(bone_transform, Vec2{b->length, 0}));
+        bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, bone_width}));
+        bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, -bone_width}));
+    }
+
+    for (int i=0; i<s->skin_count; i++) {
+        MeshData* skinned_mesh = s->skins[i].mesh;
+        if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
+            continue;
+
+        // todo: this needs to account for the skinned mesh transform
+        bounds = Union(bounds, GetBounds(skinned_mesh));
+    }
+
+    s->bounds = Expand(bounds, BOUNDS_PADDING);
+
 }
 
 static void PostLoadAnimationData(AssetData* a) {

@@ -249,9 +249,9 @@ static void PasteFrame() {
         f->faces[i] = src->faces[i];
 
     // Copy anchor data
-    f->anchor_count = src->anchor_count;
-    for (int i = 0; i < src->anchor_count; i++)
-        f->anchors[i] = src->anchors[i];
+    f->tag_count = src->tag_count;
+    for (int i = 0; i < src->tag_count; i++)
+        f->tags[i] = src->tags[i];
 
     // Copy other properties
     f->edge_color = src->edge_color;

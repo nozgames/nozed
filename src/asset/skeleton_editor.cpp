@@ -358,9 +358,9 @@ static void CommitParentTool(const Vec2& position) {
     RecordUndo();
     s->skins[s->skin_count++] = {
         .asset_name = hit_asset->name,
-        .bone_index = GetFirstSelectedBoneIndex(),
         .mesh = (MeshData*)hit_asset,
     };
+    UpdateTransforms(s);
 
     MarkModified();
 }

@@ -8,7 +8,6 @@ constexpr int MAX_VERTICES = 1024;
 constexpr int MAX_FACES = MAX_VERTICES / 3;
 constexpr int MAX_INDICES = MAX_FACES * 3;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;
-constexpr int MAX_ANCHORS = 8;
 constexpr int MIN_DEPTH = 0;
 constexpr int MAX_DEPTH = 100;
 constexpr int MAX_FACE_VERTICES = 128;
@@ -17,6 +16,7 @@ constexpr int MESH_MAX_VERTICES = 1024;
 constexpr int MESH_MAX_INDICES = 1024;
 constexpr int MESH_MAX_FACES = 256;
 constexpr int MESH_MAX_EDGES = 2048;
+constexpr int MESH_MAX_TAGS = 8;
 
 struct VertexWeight {
     int bone_index;
@@ -54,15 +54,18 @@ struct FaceData {
     int vertex_count;
 };
 
-struct AnchorData {
+struct TagData {
     Vec2 position;
+    float rotation;
+    const Name* name;
+    VertexWeight weights[MESH_MAX_VERTEX_WEIGHTS];
 };
 
 struct MeshRuntimeData {
     VertexData vertices[MESH_MAX_VERTICES];
     EdgeData edges[MESH_MAX_EDGES];
     FaceData faces[MESH_MAX_FACES];
-    AnchorData anchors[MAX_ANCHORS];
+    TagData tags[MESH_MAX_TAGS];
     int face_vertices[MESH_MAX_INDICES];
 };
 
@@ -71,12 +74,12 @@ struct MeshData : AssetData {
     VertexData* vertices;
     EdgeData* edges;
     FaceData* faces;
-    AnchorData* anchors;
+    TagData* tags;
 
     int vertex_count;
     int edge_count;
     int face_count;
-    int anchor_count;
+    int tag_count;
     int selected_vertex_count;
     int selected_edge_count;
     int selected_face_count;
@@ -105,10 +108,10 @@ extern int HitTestEdge(MeshData* m, const Mat3& transform, const Vec2& position,
 inline int HitTestEdge(MeshData* m, const Vec2& position, float* where=nullptr, float size_mult=1.0f) {
     return HitTestEdge(m, Translate(m->position), position, where, size_mult);
 }
-extern int HitTestAnchor(MeshData* m, const Vec2& position, float size_mult=1.0f);
+extern int HitTestTag(MeshData* m, const Vec2& position, float size_mult=1.0f);
 extern Vec2 HitTestSnap(MeshData* m, const Vec2& position);
-extern void AddAnchor(MeshData* m, const Vec2& position);
-extern void RemoveAnchor(MeshData* m, int anchor_index);
+extern void AddTag(MeshData* m, const Vec2& position);
+extern void RemoveTag(MeshData* m, int index);
 extern Bounds2 GetSelectedBounds(MeshData* m);
 extern void MarkDirty(MeshData* m);
 extern void SetSelectedTrianglesColor(MeshData* m, const Vec2Int& color);

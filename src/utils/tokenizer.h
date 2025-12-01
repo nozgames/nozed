@@ -64,6 +64,7 @@ extern bool ExpectToken(Tokenizer& tk, Token* out_value=nullptr);
 extern bool ExpectQuotedString(Tokenizer &tk);
 extern bool ExpectInt(Tokenizer& tk, int* out_value);
 extern bool ExpectFloat(Tokenizer& tk, float* out_value);
+extern float ExpectFloat(Tokenizer& tk, float default_value=0.0f);
 extern bool ExpectIdentifier(Tokenizer& tk, const char* value = nullptr);
 extern bool ExpectVec2(Tokenizer& tk, Vec2* out_value=nullptr);
 extern bool ExpectVec3(Tokenizer& tk, Vec3* out_value=nullptr);

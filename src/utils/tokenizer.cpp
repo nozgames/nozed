@@ -580,6 +580,14 @@ bool ExpectInt(Tokenizer& tk, int* out_value)
     return true;
 }
 
+float ExpectFloat(Tokenizer& tk, float default_value) {
+    float f = 0.0f;
+    if (!ExpectFloat(tk, &f))
+         return default_value;
+
+    return f;
+}
+
 bool ExpectFloat(Tokenizer& tk, float* out_value)
 {
     if (Equals(tk.next_token, TOKEN_TYPE_INT))

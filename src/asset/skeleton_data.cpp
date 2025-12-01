@@ -30,22 +30,6 @@ void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
         DrawMesh(skinned_mesh, local_to_world, g_view.shaded_skinned_material);
     }
 
-#if 0
-    // Draw anchors
-    BindColor(COLOR_BLACK);
-    BindDepth(GetApplicationTraits()->renderer.max_depth - 0.01f);
-    for (int i=0; i<s->skin_count; i++) {
-        BoneData& bone = s->bones[s->skins[i].bone_index];
-        MeshData* skinned_mesh = s->skins[i].mesh;
-        if (!skinned_mesh)
-            continue;
-
-        Mat3 local_to_world = Translate(s->position) * bone.local_to_world;
-        for (int anchor_index=0;anchor_index<skinned_mesh->anchor_count;anchor_index++)
-            DrawVertex(TransformPoint(local_to_world, skinned_mesh->anchors[anchor_index].position));
-    }
-#endif
-
     BindDepth(0.0f);
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_BONE);
@@ -238,21 +222,19 @@ void UpdateTransforms(SkeletonData* s) {
     for (int i=0; i<s->bone_count; i++) {
         BoneData* b = s->bones + i;
         float bone_width = b->length * BONE_WIDTH;
-        Mat3 bone_transform = b->local_to_world * Rotate(b->transform.rotation);
-        bounds = Union(bounds, TransformPoint(b->local_to_world));
+        const Mat3& bone_transform = b->local_to_world;
+        bounds = Union(bounds, TransformPoint(bone_transform));
         bounds = Union(bounds, TransformPoint(bone_transform, Vec2{b->length, 0}));
         bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, bone_width}));
         bounds = Union(bounds, TransformPoint(bone_transform, Vec2{bone_width, -bone_width}));
     }
 
     for (int i=0; i<s->skin_count; i++) {
-        BoneData& bone = s->bones[s->skins[i].bone_index];
         MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
-        Bounds2 mesh_bounds = Translate(GetBounds(skinned_mesh), TransformPoint(bone.local_to_world));
-        bounds = Union(bounds, {mesh_bounds.min, mesh_bounds.max});
+        bounds = Union(bounds, GetBounds(skinned_mesh));
     }
 
     s->bounds = Expand(bounds, BOUNDS_PADDING);
@@ -261,23 +243,10 @@ void UpdateTransforms(SkeletonData* s) {
 static void LoadSkeletonMetaData(AssetData* a, Props* meta) {
     assert(a);
     assert(a->type == ASSET_TYPE_SKELETON);
+
     SkeletonData* s = static_cast<SkeletonData*>(a);
-
     for (auto& key : meta->GetKeys("skin")) {
-        std::string bones = meta->GetString("skin", key.c_str(), "");
-        Tokenizer tk;
-        Init(tk, bones.c_str());
-
-        int bone_index = -1;
-        while (ExpectInt(tk, &bone_index)) {
-            s->skins[s->skin_count++] = {
-                .asset_name = GetName(key.c_str()),
-                .bone_index = bone_index
-            };
-
-            if (!ExpectDelimiter(tk, ','))
-                break;
-        }
+        s->skins[s->skin_count++] = {.asset_name = GetName(key.c_str())};
     }
 }
 
@@ -347,15 +316,9 @@ int ReparentBone(SkeletonData* s, int bone_index, int parent_index) {
     for (int i=0; i<s->bone_count; i++)
         bone_map[s->bones[i].index] = i;
 
-    for (int i=1; i<s->bone_count; i++)
-    {
+    for (int i=1; i<s->bone_count; i++) {
         s->bones[i].parent_index = bone_map[s->bones[i].parent_index];
         s->bones[i].index = i;
-    }
-
-    for (int i=0; i<s->skin_count; i++) {
-        Skin& esm = s->skins[i];
-        esm.bone_index = bone_map[esm.bone_index];
     }
 
     ReparentBoneTransform(s->bones[bone_map[bone_index]], s->bones[bone_map[parent_index]]);
@@ -409,27 +372,15 @@ void RemoveBone(SkeletonData* s, int bone_index) {
     if (bone_index <= 0 || bone_index >= s->bone_count)
         return;
 
-    BoneData& eb = s->bones[bone_index];
-    int parent_index = eb.parent_index;
+    BoneData& b = s->bones[bone_index];
+    int parent_index = b.parent_index;
 
     // Reparent children to parent
-    for (int i=0; i<s->bone_count; i++)
-    {
-        BoneData& child = s->bones[i];
-        if (child.parent_index == bone_index)
-        {
-            child.parent_index = parent_index;
-            ReparentBoneTransform(child, s->bones[parent_index]);
-        }
-    }
-
-    // Remove any skinned meshes attached to this bone
-    for (int i=0; i<s->skin_count; ) {
-        Skin& esm = s->skins[i];
-        if (esm.bone_index == bone_index) {
-            s->skins[i] = s->skins[--s->skin_count];
-        } else {
-            i++;
+    for (int child_index=0; child_index < s->bone_count; child_index++) {
+        BoneData& c = s->bones[child_index];
+        if (c.parent_index == bone_index) {
+            c.parent_index = parent_index;
+            ReparentBoneTransform(c, s->bones[parent_index]);
         }
     }
 
@@ -443,12 +394,6 @@ void RemoveBone(SkeletonData* s, int bone_index) {
             enb.parent_index = parent_index;
         else if (enb.parent_index > bone_index)
             enb.parent_index--;
-    }
-
-    for (int i=0; i<s->skin_count; i++) {
-        Skin& esm = s->skins[i];
-        if (esm.bone_index > bone_index)
-            esm.bone_index--;
     }
 
     UpdateTransforms(s);
@@ -517,12 +462,7 @@ static void SaveSkeletonMetadata(AssetData* a, Props* meta) {
         if (s->skins[i].mesh == nullptr)
             continue;
 
-        const Name* mesh_name = s->skins[i].asset_name;
-        std::string value = meta->GetString("skin", mesh_name->value, "");
-        if (!value.empty())
-            value += ", ";
-        value += std::to_string(s->skins[i].bone_index);
-        meta->SetString("skin", mesh_name->value, value.c_str());
+        meta->AddKey("skin", s->skins[i].asset_name->value);
     }
 }
 

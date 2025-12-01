@@ -135,46 +135,6 @@ static bool TrySelectBone() {
     return true;
 }
 
-static bool TrySelectMesh() {
-    AnimationData* n = GetAnimationData();
-    SkeletonData* s = GetSkeletonData();
-    for (int i=s->skin_count-1; i>=0; i--) {
-        MeshData* skinned_mesh = s->skins[i].mesh;
-        if (!skinned_mesh)
-            continue;
-
-        Mat3 mesh_transform = Translate(n->position) * n->animator->bones[s->skins[i].bone_index];
-
-        int face_index = HitTestFace(
-            skinned_mesh,
-            mesh_transform,
-            g_view.mouse_world_position);
-
-        if (face_index == -1)
-            continue;
-
-        int bone_index = s->skins[i].bone_index;
-        BoneData* b = &s->bones[bone_index];
-        if (IsShiftDown(g_animation_editor.input)) {
-            SetBoneSelected(bone_index, !b->selected);
-        } else {
-            ClearSelection();
-            SetBoneSelected(bone_index, true);
-        }
-
-        return true;
-    }
-
-    return false;
-}
-
-static bool TrySelect() {
-    if (TrySelectBone())
-        return true;
-
-    return TrySelectMesh();
-}
-
 static void SaveState() {
     AnimationData* n = GetAnimationData();
     SkeletonData* s = GetSkeletonData();
@@ -264,7 +224,7 @@ static void UpdateDefaultState() {
 
     if (!g_animation_editor.ignore_up && !g_view.drag && WasButtonReleased(g_animation_editor.input, MOUSE_LEFT)) {
         g_animation_editor.clear_selection_on_up = false;
-        if (TrySelect())
+        if (TrySelectBone())
             return;
 
         g_animation_editor.clear_selection_on_up = true;

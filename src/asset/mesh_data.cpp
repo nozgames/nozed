@@ -41,11 +41,13 @@ void DrawMesh(MeshData* m, const Mat3& transform, Material* material) {
         DrawMesh(ToMesh(m), transform);
     }
 
+#if 0
     BindColor(COLOR_BLACK);
     BindDepth(GetApplicationTraits()->renderer.max_depth - 0.01f);
-    for (int i=0;i<m->anchor_count;i++)
+    for (int i=0;i<m->tag_count;i++)
         DrawVertex(m->anchors[i].position + m->position);
     BindDepth(0.0f);
+#endif
 }
 
 Vec2 GetFaceCenter(MeshData* m, FaceData* f) {
@@ -810,24 +812,12 @@ int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& position) {
     return hit_count > 0 ? faces[0] : -1;
 }
 
-static void ParseAnchor(MeshData* m, Tokenizer& tk) {
-    float ax;
-    if (!ExpectFloat(tk, &ax))
-        ThrowError("missing anchor x value");
-
-    float ay;
-    if (!ExpectFloat(tk, &ay))
-        ThrowError("missing anchor y value");
-
-    m->anchors[m->anchor_count++] = { .position = { ax, ay} };
-}
-
 static void ParseVertexEdge(VertexData& ev, Tokenizer& tk) {
     if (!ExpectFloat(tk, &ev.edge_size))
         ThrowError("missing vertex edge value");
 }
 
-static void ParseVertexWeight(VertexData& v, int weight_index, Tokenizer& tk) {
+static void ParseVertexWeight(Tokenizer& tk, VertexWeight& vertex_weight) {
     f32 weight = 0.0f;
     i32 index = 0;
     if (!ExpectInt(tk, &index))
@@ -836,7 +826,33 @@ static void ParseVertexWeight(VertexData& v, int weight_index, Tokenizer& tk) {
     if (!ExpectFloat(tk, &weight))
         ThrowError("missing vertex weight value");
 
-    v.weights[weight_index] = { index, weight };
+    vertex_weight = { index, weight };
+}
+
+static void ParseTag(MeshData* m, Tokenizer& tk) {
+    if (!ExpectQuotedString(tk))
+        ThrowError("missing tag name");
+
+    TagData tag = {};
+    tag.name = GetName(tk);
+
+    int weight_count = 0;
+    while (!IsEOF(tk)) {
+        if (!ExpectIdentifier(tk, "p")) {
+            tag.position.x = ExpectFloat(tk);
+            tag.position.y = ExpectFloat(tk);
+        }
+        ThrowError("missing anchor x coordinate");
+        if (ExpectIdentifier(tk, "r")) {
+            tag.rotation = ExpectFloat(tk);
+        } else if (ExpectIdentifier(tk, "w")) {
+            ParseVertexWeight(tk, tag.weights[weight_count++]);
+        } else {
+            break;
+        }
+    }
+
+    m->tags[m->tag_count++] = tag;
 }
 
 static void ParseVertex(MeshData* m, Tokenizer& tk) {
@@ -862,7 +878,7 @@ static void ParseVertex(MeshData* m, Tokenizer& tk) {
             float temp = 0.0f;
             ExpectFloat(tk, &temp);
         } else if (ExpectIdentifier(tk, "w")) {
-            ParseVertexWeight(v, weight_count++, tk);
+            ParseVertexWeight(tk, v.weights[weight_count++]);
         } else {
             break;
         }
@@ -965,8 +981,8 @@ void LoadMeshData(MeshData* m, Tokenizer& tk, bool multiple_mesh=false) {
     while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "v")) {
             ParseVertex(m, tk);
-        } else if (ExpectIdentifier(tk, "a")) {
-            ParseAnchor(m, tk);
+        } else if (ExpectIdentifier(tk, "t")) {
+            ParseTag(m, tk);
         } else if (ExpectIdentifier(tk, "d")) {
             ParseDepth(m, tk);
         } else if (ExpectIdentifier(tk, "f")) {
@@ -1029,28 +1045,32 @@ MeshData* LoadMeshData(const std::filesystem::path& path) {
     return m;
 }
 
+static void WriteVertexWeights(Stream* stream, const VertexWeight* weights) {
+    for (int weight_index=0; weight_index<MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
+        const VertexWeight& w = weights[weight_index];
+        if (w.weight <= 0.0f)
+            continue;
+
+        WriteCSTR(stream, " w %d %f", w.bone_index, w.weight);
+    }
+}
+
 void SaveMeshData(MeshData* m, Stream* stream) {
     WriteCSTR(stream, "d %f\n", (m->depth - MIN_DEPTH) / (float)(MAX_DEPTH - MIN_DEPTH));
     WriteCSTR(stream, "e %d %d\n", m->edge_color.x, m->edge_color.y);
     WriteCSTR(stream, "\n");
 
-    for (int i=0; i<m->anchor_count; i++) {
-        const AnchorData& a = m->anchors[i];
-        WriteCSTR(stream, "a %f %f\n", a.position.x, a.position.y);
+    for (int tag_index=0; tag_index<m->tag_count; tag_index++) {
+        const TagData& t = m->tags[tag_index];
+        WriteCSTR(stream, "t %s p %f %f r %f", t.name->value, t.position.x, t.position.y, t.rotation);
+        WriteVertexWeights(stream, t.weights);
+        WriteCSTR(stream, "\n");
     }
 
     for (int i=0; i<m->vertex_count; i++) {
         const VertexData& v = m->vertices[i];
         WriteCSTR(stream, "v %f %f e %f", v.position.x, v.position.y, v.edge_size);
-
-        for (int weight_index=0; weight_index<MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
-            const VertexWeight& w = v.weights[weight_index];
-            if (w.weight <= 0.0f)
-                continue;
-
-            WriteCSTR(stream, " w %d %f", w.bone_index, w.weight);
-        }
-
+        WriteVertexWeights(stream, v.weights);
         WriteCSTR(stream, "\n");
     }
 
@@ -1111,7 +1131,7 @@ static void AllocateData(MeshData* m) {
     m->vertices = m->data->vertices;
     m->edges = m->data->edges;
     m->faces = m->data->faces;
-    m->anchors = m->data->anchors;
+    m->tags = m->data->tags;
 }
 
 static void CloneMeshData(AssetData* a) {
@@ -1303,28 +1323,28 @@ int GetSelectedEdges(MeshData* m, int edges[MAX_EDGES]) {
     return selected_edge_count;
 }
 
-void AddAnchor(MeshData* m, const Vec2& position) {
-    if (m->anchor_count >= MAX_ANCHORS)
+void AddTag(MeshData* m, const Vec2& position) {
+    if (m->tag_count >= MESH_MAX_TAGS)
         return;
 
-    m->anchors[m->anchor_count++].position = position;
+    m->tags[m->tag_count++].position = position;
 }
 
-void RemoveAnchor(MeshData* m, int anchor_index) {
-    assert(anchor_index >= 0 && anchor_index < m->anchor_count);
-   for (int i = anchor_index; i < m->anchor_count - 1; i++)
-        m->anchors[i] = m->anchors[i + 1];
+void RemoveTag(MeshData* m, int index) {
+    assert(index >= 0 && index < m->tag_count);
+    for (int tag_index = index; tag_index < m->tag_count - 1; tag_index++)
+        m->tags[tag_index] = m->tags[tag_index + 1];
 
-    m->anchor_count--;
+    m->tag_count--;
 }
 
-int HitTestAnchor(MeshData* m, const Vec2& position, float size_mult) {
+int HitTestTag(MeshData* m, const Vec2& position, float size_mult) {
     float size = g_view.select_size * size_mult;
     float best_dist = F32_MAX;
     int best_index = -1;
-    for (int i = 0; i < m->anchor_count; i++) {
-        const AnchorData& a = m->anchors[i];
-        float dist = Length(position - a.position);
+    for (int i = 0; i < m->tag_count; i++) {
+        const TagData& t = m->tags[i];
+        float dist = Length(position - t.position);
         if (dist < size && dist < best_dist) {
             best_index = i;
             best_dist = dist;
@@ -1338,12 +1358,12 @@ Vec2 HitTestSnap(MeshData* m, const Vec2& position) {
     float best_dist_sqr = LengthSqr(position);
     Vec2 best_snap = VEC2_ZERO;
 
-    for (int i = 0; i < m->anchor_count; i++) {
-        const AnchorData& a = m->anchors[i];
-        float dist_sqr = DistanceSqr(a.position, position);
+    for (int i = 0; i < m->tag_count; i++) {
+        const TagData& t = m->tags[i];
+        float dist_sqr = DistanceSqr(t.position, position);
         if (dist_sqr < best_dist_sqr) {
             best_dist_sqr = dist_sqr;
-            best_snap = a.position;
+            best_snap = t.position;
         }
     }
 
@@ -1362,8 +1382,8 @@ void SetOrigin(MeshData* m, const Vec2& origin) {
     for (int vertex_index = 0; vertex_index < m->vertex_count; vertex_index++)
         m->vertices[vertex_index].position += delta;
 
-    for (int anchor_index = 0; anchor_index < m->anchor_count; anchor_index++)
-        m->anchors[anchor_index].position += delta;
+    for (int anchor_index = 0; anchor_index < m->tag_count; anchor_index++)
+        m->tags[anchor_index].position += delta;
 
     m->position = origin;
     UpdateEdges(m);

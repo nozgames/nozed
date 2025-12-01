@@ -350,10 +350,10 @@ void DrawView() {
         if (a->clipped)
             continue;
 
-        if (!g_editor.editing_asset && a->selected)
+        if (!g_editor.editing_asset && a->selected) {
             DrawBounds(a, 0, COLOR_VERTEX_SELECTED);
-
-        DrawOrigin(a);
+            DrawOrigin(a);
+        }
     }
 
     if (IsButtonDown(g_view.input, MOUSE_MIDDLE)) {

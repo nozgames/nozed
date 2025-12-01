@@ -22,8 +22,7 @@ void Props::ClearGroup(const char* group)
     it->second.clear();
 }
 
-void Props::SetString(const char* group, const char* key, const char* value)
-{
+void Props::SetString(const char* group, const char* key, const char* value) {
     assert(group && key && value);
     GetOrAddGroup(group)[key] = std::string(value);
 }
@@ -68,8 +67,7 @@ void Props::SetColor(const char* group, const char* key, Color value)
     SetString(group, key, value_str);
 }
 
-void Props::AddKey(const char* group, const char* key)
-{
+void Props::AddKey(const char* group, const char* key) {
     assert(group && key);
     GetOrAddGroup(group)[key] = std::string();
 }
@@ -303,25 +301,25 @@ Props* LoadProps(const std::filesystem::path& path)
     return props;
 }
 
-void SaveProps(Props* props, const std::filesystem::path& path)
-{
+void SaveProps(Props* props, const std::filesystem::path& path) {
     if (!props) return;
     
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
     
     // Get all groups and write them out in INI format
     auto groups = props->GetGroups();
-    for (const auto& group_name : groups)
-    {
+    for (const auto& group_name : groups)     {
         // Write group header
         WriteCSTR(stream, "[%s]\n", group_name.c_str());
         
         // Write all keys in this group
         auto keys = props->GetKeys(group_name.c_str());
-        for (const auto& key : keys)
-        {
+        for (const auto& key : keys) {
             auto value = props->GetString(group_name.c_str(), key.c_str(), "");
-            WriteCSTR(stream, "%s = %s\n", key.c_str(), value.c_str());
+            if (value.empty())
+                WriteCSTR(stream, "%s\n", key.c_str());
+            else
+                WriteCSTR(stream, "%s = %s\n", key.c_str(), value.c_str());
         }
         
         // Add blank line between groups for readability
