@@ -96,14 +96,12 @@ void HandleImported(EventId event_id, const void* event_data) {
     BroadcastAssetChange(import_event->name, import_event->type);
 }
 
-static void SaveUserConfig(Props* user_config)
-{
+static void SaveUserConfig(Props* user_config) {
     SaveViewUserConfig(user_config);
     SaveProps(user_config, "./.noz/user.cfg");
 }
 
-static void SaveUserConfig()
-{
+static void SaveUserConfig() {
     Stream* config_stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!config_stream)
         return;
@@ -118,17 +116,13 @@ static void SaveUserConfig()
     Free(config_stream);
 }
 
-static void InitUserConfig(Props* user_config)
-{
+static void InitUserConfig(Props* user_config) {
     InitViewUserConfig(user_config);
 }
 
-static void InitUserConfig()
-{
-    if (Stream* config_stream = LoadStream(nullptr, "./.noz/user.cfg"))
-    {
-        if (Props* user_config = Props::Load(config_stream))
-        {
+static void InitUserConfig() {
+    if (Stream* config_stream = LoadStream(nullptr, "./.noz/user.cfg")) {
+        if (Props* user_config = Props::Load(config_stream)) {
             InitUserConfig(user_config);
             delete user_config;
         }

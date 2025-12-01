@@ -46,6 +46,7 @@ set(SOURCE_FILES
     src/tools/scale.cpp
     src/tools/rotate.cpp
     src/tools/select.cpp
+    src/tools/vertex_weight.cpp
     src/tools/weight.cpp
 
     src/import/importer.cpp

@@ -112,11 +112,13 @@ static int HitTestBone(AnimationData* n, const Vec2& world_pos) {
     for (int bone_index=s->bone_count-1; bone_index>=0; bone_index--) {
         AnimationBoneData* b = &n->bones[bone_index];
         BoneData* sb = &s->bones[bone_index];
-        Mat3 local_to_world =
-            base_transform *
-            n->animator->bones[bone_index] *
-            Rotate(s->bones[bone_index].transform.rotation) *
-            Scale(sb->length);
+        Mat3 local_to_world = base_transform * n->animator->bones[bone_index] * Scale(sb->length);
+
+        // Mat3 local_to_world =
+        //     base_transform *
+        //     n->animator->bones[bone_index] *
+        //     Rotate(s->bones[bone_index].transform.rotation) *
+        //     Scale(sb->length);
 
         if (OverlapPoint(g_view.bone_collider, local_to_world, world_pos)) {
             if (first_hit_index == -1)
@@ -407,12 +409,13 @@ void DrawAnimationEditor() {
     BindColor(COLOR_WHITE);
     Mat3 base_transform = GetBaseTransform() * Translate(g_animation_editor.root_motion_delta);
 
+    BindSkeleton(&s->bones[0].world_to_local, sizeof(BoneData), n->animator->bones, sizeof(Mat3), s->bone_count);
     for (int i=0; i<s->skin_count; i++) {
         MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh)
             continue;
 
-        DrawMesh(skinned_mesh, base_transform * n->animator->bones[s->skins[i].bone_index]);
+        DrawMesh(skinned_mesh, base_transform, g_view.shaded_skinned_material);
     }
 
     if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)

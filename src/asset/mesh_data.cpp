@@ -788,28 +788,6 @@ static void ParseVertexWeight(VertexData& v, int weight_index, Tokenizer& tk) {
     v.weights[weight_index] = { index, weight };
 }
 
-static void NormalizeVertexWeights(MeshData* m) {
-    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
-        VertexData& v = m->vertices[vertex_index];
-
-        // Normalize weights
-        float total_weight = 0.0f;
-        for (int weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++)
-            total_weight += v.weights[weight_index].weight;
-
-        if (total_weight < F32_EPSILON) {
-            for (int i = 0; i < MESH_MAX_VERTEX_WEIGHTS; i++) {
-                v.weights[i].weight = 0.0f;
-            }
-            v.weights[0].weight = 1.0f;
-        } else {
-            for (int i = 0; i < MESH_MAX_VERTEX_WEIGHTS; i++) {
-                v.weights[i].weight /= total_weight;
-            }
-        }
-    }
-}
-
 static void ParseVertex(MeshData* m, Tokenizer& tk) {
     if (m->vertex_count >= MAX_VERTICES)
         ThrowError("too many vertices");
@@ -838,8 +816,6 @@ static void ParseVertex(MeshData* m, Tokenizer& tk) {
             break;
         }
     }
-
-    NormalizeVertexWeights(m);
 }
 
 static void ParseEdgeColor(MeshData* em, Tokenizer& tk) {
@@ -1079,21 +1055,6 @@ AssetData* NewMeshData(const std::filesystem::path& path) {
     return LoadMeshData(full_path);
 }
 
-static bool EditorMeshOverlapPoint(AssetData* a, const Vec2& position, const Vec2& overlap_point) {
-    assert(a->type == ASSET_TYPE_MESH);
-    MeshData* em = (MeshData*)a;
-    Mesh* mesh = ToMesh(em, false);
-    if (!mesh)
-        return false;
-
-    return OverlapPoint(mesh, overlap_point - position);
-}
-
-static bool EditorMeshOverlapBounds(AssetData* a, const Bounds2& overlap_bounds) {
-    assert(a->type == ASSET_TYPE_MESH);
-    return OverlapBounds((MeshData*)a, a->position, overlap_bounds);
-}
-
 static void AllocateData(MeshData* m) {
     m->data = static_cast<MeshRuntimeData*>(Alloc(ALLOCATOR_DEFAULT, sizeof(MeshRuntimeData)));
     m->vertices = m->data->vertices;
@@ -1171,7 +1132,16 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
 
     for (int vertex_index = 0; vertex_index < f->vertex_count; vertex_index++) {
         VertexData& v = m->vertices[f->vertices[vertex_index]];
-        AddVertex(builder, v.position, uv_color, depth);
+        MeshVertex mv = { .position = v.position, .depth = depth, .uv = uv_color };
+        mv.bone_weights.x = v.weights[0].weight;
+        mv.bone_weights.y = v.weights[1].weight;
+        mv.bone_weights.z = v.weights[2].weight;
+        mv.bone_weights.w = v.weights[3].weight;
+        mv.bone_indices.x = v.weights[0].bone_index;
+        mv.bone_indices.y = v.weights[1].bone_index;
+        mv.bone_indices.z = v.weights[2].bone_index;
+        mv.bone_indices.w = v.weights[3].bone_index;
+        AddVertex(builder, mv);
     }
 
     u16 base_vertex = GetVertexCount(builder) - (u16)f->vertex_count;
@@ -1335,6 +1305,19 @@ Vec2 GetEdgePoint(MeshData* m, int edge_index, float t) {
         t);
 }
 
+void SetOrigin(MeshData* m, const Vec2& origin) {
+    Vec2 delta = m->position - origin;
+    for (int vertex_index = 0; vertex_index < m->vertex_count; vertex_index++)
+        m->vertices[vertex_index].position += delta;
+
+    for (int anchor_index = 0; anchor_index < m->anchor_count; anchor_index++)
+        m->anchors[anchor_index].position += delta;
+
+    m->position = origin;
+    UpdateEdges(m);
+    MarkDirty(m);
+}
+
 static void DestroyMeshData(AssetData* a) {
     MeshData* m = static_cast<MeshData*>(a);
     Free(m->data);
@@ -1349,8 +1332,6 @@ static void Init(MeshData* m) {
         .load = LoadMeshData,
         .save = SaveMeshData,
         .draw = DrawMesh,
-        .overlap_point = EditorMeshOverlapPoint,
-        .overlap_bounds = EditorMeshOverlapBounds,
         .clone = CloneMeshData
     };
 

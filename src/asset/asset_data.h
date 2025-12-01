@@ -29,8 +29,6 @@ struct AssetVtable {
     void (*save_metadata)(AssetData* a, Props* meta);
     void (*draw)(AssetData* a);
     void (*play)(AssetData* a);
-    bool (*overlap_point)(AssetData* a, const Vec2& position, const Vec2& hit_pos);
-    bool (*overlap_bounds)(AssetData* a, const Bounds2& hit_bounds);
     void (*clone)(AssetData* a);
     void (*undo_redo)(AssetData* a);
 
@@ -101,7 +99,7 @@ extern void SaveAssetData();
 extern void PostLoadAssetData();
 extern bool OverlapPoint(AssetData* a, const Vec2& overlap_point);
 extern bool OverlapPoint(AssetData* a, const Vec2& position, const Vec2& overlap_point);
-extern bool OverlapBounds(AssetData* a, const Bounds2& overlap_bounds);
+extern bool OverlapBounds(AssetData* a, const Bounds2& bounds);
 extern AssetData* HitTestAssets(const Vec2& overlap_point);
 extern AssetData* HitTestAssets(const Bounds2& bit_bounds);
 extern void DrawAsset(AssetData* a);

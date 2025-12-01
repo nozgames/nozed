@@ -11,11 +11,15 @@ constexpr float COLOR_PICKER_MARGIN = 16.0f;
 constexpr float COLOR_PICKER_SELECTION_BORDER_WIDTH = 3.0f;
 constexpr Color COLOR_PICKER_SELECTION_BORDER_COLOR = COLOR_VERTEX_SELECTED;
 
+constexpr float VERTEX_WEIGHT_OUTLINE_SIZE = 0.10f;
+constexpr float VERTEX_WEIGHT_CONTROL_SIZE = 0.09f;
+
 enum MeshEditorMode {
     MESH_EDITOR_MODE_CURRENT=-1,
     MESH_EDITOR_MODE_VERTEX,
     MESH_EDITOR_MODE_EDGE,
-    MESH_EDITOR_MODE_FACE
+    MESH_EDITOR_MODE_FACE,
+    MESH_EDITOR_MODE_WEIGHT
 };
 
 struct MeshEditorVertex {
@@ -40,6 +44,8 @@ struct MeshEditor {
     InputSet* input;
     Mesh* color_picker_mesh;
     MeshData* mesh_data;
+    int weight_bone;
+    bool xray;
 };
 
 static MeshEditor g_mesh_editor = {};
@@ -304,7 +310,7 @@ static void RevertMeshState() {
 }
 
 static bool TrySelectVertex() {
-    assert(g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX);
+    assert(g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX || g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT);
 
     MeshData* m = GetMeshData();
     int vertex_index = HitTestVertex(m, g_view.mouse_world_position);
@@ -389,6 +395,18 @@ static bool TrySelectFace() {
     return true;
 }
 
+static bool TrySelectBone() {
+    assert(g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT);
+
+    SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
+    int bone_index = HitTestBone(s, Translate(GetMeshData()->position), g_view.mouse_world_position);
+    if (bone_index == -1)
+        return false;
+
+    g_mesh_editor.weight_bone = bone_index;
+    return true;
+}
+
 static void InsertVertex() {
     if (g_mesh_editor.mode != MESH_EDITOR_MODE_VERTEX)
         return;
@@ -425,26 +443,22 @@ static void InsertVertex() {
 static void DissolveSelected() {
     MeshData* m = GetMeshData();
 
+    if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT)
+        return;
     if (m->selected_vertex_count == 0)
         return;
 
     RecordUndo(m);
 
-    switch (g_mesh_editor.mode) {
-    case MESH_EDITOR_MODE_VERTEX:
+    if (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX) {
         DissolveSelectedVertices(m);
-        break;
-
-    case MESH_EDITOR_MODE_EDGE:
+    } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE) {
         for (int i=m->edge_count-1; i>=0; i--)
             if (m->edges[i].selected)
                 DissolveEdge(m, i);
         ClearSelection();
-        break;
-
-    case MESH_EDITOR_MODE_FACE:
+    } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_FACE) {
         DissolveSelectedFaces(m);
-        break;
     }
 
     MarkDirty(m);
@@ -458,27 +472,38 @@ static void UpdateDefaultState() {
         return;
     }
 
+    if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT && g_mesh_editor.weight_bone != -1 && WasButtonPressed(g_mesh_editor.input, MOUSE_LEFT)) {
+        MeshData* m = GetMeshData();
+        int vertex_index = HitTestVertex(m, g_view.mouse_world_position);
+        if (vertex_index != -1) {
+            const VertexData& v = m->vertices[vertex_index];
+            VertexWeightToolOptions options {};
+            options.mesh = m;
+            options.bone_index = g_mesh_editor.weight_bone;
+
+            if (!v.selected) {
+                ClearSelection();
+                SelectVertex(vertex_index, true);
+            }
+
+            options.vertex_count = GetSelectedVertices(m, options.vertices);
+
+            RecordUndo(m);
+            BeginVertexWeightTool(options);
+            return;
+        }
+    } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT && IsToolActive()) {
+        return;
+    }
+
     // Select
     if (!g_mesh_editor.ignore_up && !g_view.drag && WasButtonReleased(g_mesh_editor.input, MOUSE_LEFT)) {
         g_mesh_editor.clear_selection_on_up = false;
 
-        switch (g_mesh_editor.mode)
-        {
-        case MESH_EDITOR_MODE_VERTEX:
-            if (TrySelectVertex())
-                return;
-            break;
-
-        case MESH_EDITOR_MODE_EDGE:
-            if (TrySelectEdge())
-                return;
-            break;
-
-        case MESH_EDITOR_MODE_FACE:
-            if (TrySelectFace())
-                return;
-            break;
-        }
+        if (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX && TrySelectVertex()) return;
+        if (g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE && TrySelectEdge()) return;
+        if (g_mesh_editor.mode == MESH_EDITOR_MODE_FACE && TrySelectFace()) return;
+        if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT && TrySelectBone()) return;
 
         g_mesh_editor.clear_selection_on_up = true;
     }
@@ -628,6 +653,7 @@ static void HandleBoxSelect(const Bounds2& bounds) {
 
     switch (g_mesh_editor.mode) {
     case MESH_EDITOR_MODE_VERTEX:
+    case MESH_EDITOR_MODE_WEIGHT:
         for (int i=0; i<m->vertex_count; i++) {
             VertexData& v = m->vertices[i];
             Vec2 vpos = v.position + m->position;
@@ -837,6 +863,10 @@ static void SetFaceMode() {
     g_mesh_editor.mode = MESH_EDITOR_MODE_FACE;
 }
 
+static void SetWeightMode() {
+    g_mesh_editor.mode = MESH_EDITOR_MODE_WEIGHT;
+}
+
 static void CenterMesh() {
     Center(GetMeshData());
 }
@@ -1044,6 +1074,9 @@ static void ExtrudeSelected() {
 }
 
 static void NewFace() {
+    if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT)
+        return;
+
     MeshData* m = GetMeshData();
     RecordUndo(m);
 
@@ -1086,34 +1119,62 @@ static void NewFace() {
     SelectFace(face_index, true);
 }
 
-static void BeginMeshEditor(AssetData* a) {
-    g_mesh_editor.mesh_data = static_cast<MeshData*>(a);
-    g_view.vtable = {
-        .allow_text_input = MeshViewAllowTextInput
-    };
-
-    PushInputSet(g_mesh_editor.input);
-
-    SelectAll();
-
-    g_mesh_editor.mode = MESH_EDITOR_MODE_VERTEX;
-}
-
-static void EndMeshEditor() {
-    g_mesh_editor.mesh_data = nullptr;
-    PopInputSet();
-}
-
-void ShutdownMeshEditor() {
-    g_mesh_editor = {};
-}
-
-
 static void UpdateMeshEditor() {
     UpdateColorPicker();
     UpdateStats();
     CheckShortcuts(g_mesh_editor.shortcuts, g_mesh_editor.input);
     UpdateDefaultState();
+}
+
+static void DrawVertexWeights(MeshData* m) {
+    BindDepth(0.0f);
+    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+        if (v.selected)
+            continue;
+
+        int arc = 0;
+        for (int weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
+            if (v.weights[weight_index].bone_index == g_mesh_editor.weight_bone) {
+                arc = (int)(Clamp01(v.weights[weight_index].weight) * 100.0f);
+                break;
+            }
+        }
+
+        BindColor(SetAlpha(COLOR_BLACK, 0.5f));
+        DrawMesh(g_view.circle_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_OUTLINE_SIZE * g_view.zoom_ref_scale));
+        BindColor(SetAlpha(COLOR_VERTEX_SELECTED, 0.5f));
+        DrawMesh(g_view.arc_mesh[arc], TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_CONTROL_SIZE * g_view.zoom_ref_scale));
+    }
+
+    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+        if (!v.selected)
+            continue;
+
+        int arc = 0;
+        for (int weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
+            if (v.weights[weight_index].bone_index == g_mesh_editor.weight_bone) {
+                arc = (int)(Clamp01(v.weights[weight_index].weight) * 100.0f);
+                break;
+            }
+        }
+
+        BindColor(COLOR_VERTEX_SELECTED);
+        DrawMesh(g_view.circle_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_OUTLINE_SIZE * g_view.zoom_ref_scale));
+        BindColor(COLOR_GREEN);
+        DrawMesh(g_view.circle_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_CONTROL_SIZE * g_view.zoom_ref_scale));
+        BindColor(COLOR_BLUE);
+        DrawMesh(g_view.arc_mesh[arc], TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_CONTROL_SIZE * g_view.zoom_ref_scale));
+    }
+}
+
+static void DrawXRay() {
+    MeshData* m = GetMeshData();
+    if (g_mesh_editor.mode != MESH_EDITOR_MODE_WEIGHT && g_mesh_editor.xray) {
+        SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
+        DrawSkeletonData(s, m->position);
+    }
 }
 
 static void DrawMeshEditor() {
@@ -1130,6 +1191,7 @@ static void DrawMeshEditor() {
     if (DoesToolHideSelected()) {
         BindColor(COLOR_VERTEX);
         DrawVertices(false);
+        DrawXRay();
         return;
     }
 
@@ -1145,7 +1207,24 @@ static void DrawMeshEditor() {
         BindColor(COLOR_VERTEX_SELECTED);
         DrawSelectedFaces(m, m->position);
         DrawFaceCenters(m, m->position);
+    } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT) {
+        SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
+        DrawSkeletonData(s, m->position);
+
+        if (g_mesh_editor.weight_bone != -1) {
+            BindColor(COLOR_VERTEX_SELECTED);
+            DrawEditorSkeletonBone(s, g_mesh_editor.weight_bone, m->position);
+        }
+
+        DrawVertexWeights(m);
+
+        BindColor(COLOR_VERTEX);
+        DrawVertices(false);
+        DrawVertices(true);
+
     }
+
+    DrawXRay();
 }
 
 void UpdateMeshEditorPalette() {
@@ -1280,6 +1359,33 @@ static void SendToBack() {
     MarkModified(m);
 }
 
+static void ToggleXRay() {
+    g_mesh_editor.xray = !g_mesh_editor.xray;
+}
+
+static void BeginMeshEditor(AssetData* a) {
+    g_mesh_editor.mesh_data = static_cast<MeshData*>(a);
+    g_view.vtable = {
+        .allow_text_input = MeshViewAllowTextInput
+    };
+
+    PushInputSet(g_mesh_editor.input);
+
+    SelectAll();
+
+    g_mesh_editor.mode = MESH_EDITOR_MODE_VERTEX;
+    g_mesh_editor.weight_bone = -1;
+}
+
+static void EndMeshEditor() {
+    g_mesh_editor.mesh_data = nullptr;
+    PopInputSet();
+}
+
+void ShutdownMeshEditor() {
+    g_mesh_editor = {};
+}
+
 void InitMeshEditor() {
     g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
     if (g_view.palette_count > 0)
@@ -1298,11 +1404,13 @@ void InitMeshEditor() {
         { KEY_1, false, false, false, SetVertexMode },
         { KEY_2, false, false, false, SetEdgeMode },
         { KEY_3, false, false, false, SetFaceMode },
+        { KEY_4, false, false, false, SetWeightMode },
         { KEY_C, false, false, false, CenterMesh },
         { KEY_C, false, false, true, CircleMesh },
         { KEY_E, false, true, false, ExtrudeSelected },
         { KEY_N, false, false, false, NewFace },
         { KEY_V, false, false, true, BeginKnifeCut },
+        { KEY_X, true, false, false, ToggleXRay },
 
         { KEY_LEFT_BRACKET, false, false, false, SendBackward },
         { KEY_RIGHT_BRACKET, false, false, false, BringForward },

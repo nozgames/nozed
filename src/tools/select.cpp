@@ -2,24 +2,24 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-struct KnifeTool {
+struct SelectTool {
     SelectToolOptions options;
 };
 
-static KnifeTool g_knife_tool = {};
+static SelectTool g_select_tool = {};
 
 static void EndSelectTool(bool commit) {
-    if (!commit && g_knife_tool.options.cancel)
-        g_knife_tool.options.cancel();
-    else if (commit && g_knife_tool.options.commit)
-        g_knife_tool.options.commit(g_view.mouse_world_position);
+    if (!commit && g_select_tool.options.cancel)
+        g_select_tool.options.cancel();
+    else if (commit && g_select_tool.options.commit)
+        g_select_tool.options.commit(g_view.mouse_world_position);
 
     EndTool();
 }
 
 static void UpdateSelectTool() {
-    if (g_knife_tool.options.update)
-        g_knife_tool.options.update(g_view.mouse_world_position);
+    if (g_select_tool.options.update)
+        g_select_tool.options.update(g_view.mouse_world_position);
 
     if (WasButtonPressed(KEY_ESCAPE)) {
         EndSelectTool(false);
@@ -32,9 +32,15 @@ static void UpdateSelectTool() {
     }
 }
 
+static void DrawSelectTool() {
+    if (g_select_tool.options.draw)
+        g_select_tool.options.draw(g_view.mouse_world_position);
+}
+
 void BeginSelectTool(const SelectToolOptions& options) {
     static ToolVtable vtable = {
-        .update = UpdateSelectTool
+        .update = UpdateSelectTool,
+        .draw = DrawSelectTool
     };
 
     BeginTool({
@@ -43,7 +49,7 @@ void BeginSelectTool(const SelectToolOptions& options) {
         .input = g_view.input_tool
     });
 
-    g_knife_tool.options = options;
+    g_select_tool.options = options;
 
     SetCursor(SYSTEM_CURSOR_SELECT);
 }

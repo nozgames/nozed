@@ -13,7 +13,7 @@ struct SkeletonEditor {
     Vec2 selection_center_world;
     Shortcut* shortcuts;
     InputSet* input;
-};
+    BoneData saved_bones[MAX_BONES];};
 
 static SkeletonEditor g_skeleton_editor = {};
 
@@ -77,7 +77,7 @@ static void UpdateBoneNames() {
     SkeletonData* s = GetSkeletonData();
     for (u16 i=0; i<s->bone_count; i++) {
         BoneData* b = s->bones + i;
-        Mat3 transform = b->local_to_world * Rotate(s->bones[i].transform.rotation);
+        const Mat3& transform = b->local_to_world;
         Vec2 p = (TransformPoint(Translate(s->position) * transform, Vec2{b->length * 0.5f, }));
         Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [b] {
             Align({.alignment=ALIGNMENT_CENTER_CENTER}, [b] {
@@ -108,20 +108,14 @@ static void UpdateSelectionCenter() {
 
 static void SaveState() {
     SkeletonData* s = GetSkeletonData();
-    for (int i=0; i<s->bone_count; i++) {
-        BoneData& b = s->bones[i];
-        b.saved_transform = b.transform;
-        b.saved_length = b.length;
-    }
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        g_skeleton_editor.saved_bones[bone_index] = s->bones[bone_index];
 }
 
 static void RevertToSavedState() {
     SkeletonData* s = GetSkeletonData();
-    for (int i=0; i<s->bone_count; i++) {
-        BoneData& b = s->bones[i];
-        b.transform = b.saved_transform;
-        b.length = b.saved_length;
-    }
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        s->bones[bone_index] = g_skeleton_editor.saved_bones[bone_index];
 
     UpdateTransforms(s);
     UpdateSelectionCenter();
@@ -236,11 +230,10 @@ static void UpdateMoveTool(const Vec2& delta) {
             continue;
 
         BoneData& b = s->bones[bone_index];
+        BoneData& p = bone_index >= 0 ? s->bones[b.parent_index] : s->bones[0];
+        BoneData& sb = g_skeleton_editor.saved_bones[bone_index];
 
-        if (IsCtrlDown())
-            b.transform.position = SnapToGrid(s->position + b.saved_transform.position + delta) - s->position;
-        else
-            b.transform.position = b.saved_transform.position + delta;
+        b.transform.position = TransformPoint(p.world_to_local, TransformPoint(sb.local_to_world) + delta);
     }
 
     UpdateTransforms(s);
@@ -276,10 +269,11 @@ static void UpdateRotateTool(float angle) {
             continue;
 
         BoneData& b = s->bones[bone_index];
+        BoneData& sb = g_skeleton_editor.saved_bones[bone_index];
         if (IsCtrlDown())
-            b.transform.rotation = SnapAngle(b.saved_transform.rotation + angle);
+            b.transform.rotation = SnapAngle(sb.transform.rotation + angle);
         else
-            b.transform.rotation = b.saved_transform.rotation + angle;
+            b.transform.rotation = sb.transform.rotation + angle;
     }
 
     UpdateTransforms(s);
@@ -304,7 +298,8 @@ static void UpdateScaleTool(float scale) {
             continue;
 
         BoneData& b = s->bones[bone_index];
-        b.length = Clamp(b.saved_length * scale, 0.05f, 10.0f);
+        BoneData& sb = g_skeleton_editor.saved_bones[bone_index];
+        b.length = Clamp(sb.length * scale, 0.05f, 10.0f);
     }
 
     UpdateTransforms(s);
@@ -378,8 +373,7 @@ static void CommitUnparentTool(const Vec2& position) {
     SkeletonData* s = GetSkeletonData();
     for (int i=0; i<s->skin_count; i++) {
         Skin& sm = s->skins[i];
-        Vec2 bone_position = TransformPoint(s->bones[sm.bone_index].local_to_world) + s->position;
-        if (!sm.mesh || !OverlapPoint(sm.mesh, bone_position, position))
+        if (!sm.mesh || !OverlapPoint(sm.mesh, s->position, position))
             continue;
 
         RecordUndo(s);
@@ -470,6 +464,43 @@ static void EndSkeletonEditor() {
     PopInputSet();
 }
 
+static void ResetRotation() {
+    SkeletonData* s = GetSkeletonData();
+    RecordUndo(s);
+    for (int bone_index=1; bone_index<s->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index))
+            continue;
+
+        BoneData& b = s->bones[bone_index];
+        b.transform.rotation = 0;
+    }
+
+    UpdateTransforms(s);
+    MarkModified(s);
+}
+
+static void ResetTranslation() {
+    SkeletonData* s = GetSkeletonData();
+    RecordUndo(s);
+
+    if (IsBoneSelected(0)) {
+        BoneData& bone = s->bones[0];
+        bone.transform.position = VEC2_ZERO;
+    }
+
+    for (int bone_index=1; bone_index<s->bone_count; bone_index++) {
+        if (!IsBoneSelected(bone_index))
+            continue;
+
+        BoneData& b = s->bones[bone_index];
+        BoneData& p = s->bones[b.parent_index];
+        b.transform.position = Vec2{p.length, 0};
+    }
+
+    UpdateTransforms(s);
+    MarkModified(s);
+}
+
 void InitSkeletonEditor(SkeletonData* s) {
     s->vtable.editor_begin = BeginSkeletonEditor;
     s->vtable.editor_end = EndSkeletonEditor;
@@ -482,11 +513,13 @@ void InitSkeletonEditor() {
         { KEY_G, false, false, false, BeginMoveTool },
         { KEY_P, false, false, false, BeginParentTool },
         { KEY_P, false, true, false, BeginUnparentTool },
-        { KEY_E, false, false, false, BeginExtrudeTool },
+        { KEY_E, false, true, false, BeginExtrudeTool },
         { KEY_R, false, false, false, BeginRotateTool },
         { KEY_X, false, false, false, HandleRemove },
         { KEY_S, false, false, false, BeginScaleTool },
         { KEY_F2, false, false, false, BeginRenameCommand },
+        { KEY_R, true, false, false, ResetRotation },
+        { KEY_G, true, false, false, ResetTranslation },
         { INPUT_CODE_NONE }
     };
 

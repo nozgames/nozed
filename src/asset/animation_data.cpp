@@ -16,12 +16,13 @@ void UpdateTransforms(AnimationData* n) {
 
         n->animator->bones[bone_index] = TRS(
             b->transform.position + frame.position,
-            frame.rotation,
+            b->transform.rotation + frame.rotation,
             b->transform.scale);
     }
 
     for (int bone_index=1; bone_index<s->bone_count; bone_index++)
-        n->animator->bones[bone_index] = n->animator->bones[s->bones[bone_index].parent_index] * n->animator->bones[bone_index];
+        n->animator->bones[bone_index] =
+            n->animator->bones[s->bones[bone_index].parent_index] * n->animator->bones[bone_index];
 }
 
 void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& position) {
@@ -30,12 +31,12 @@ void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& posit
     if (parent_index < 0)
         parent_index = bone_index;
 
-    Mat3 eb = n->animator->bones[bone_index] * Rotate(s->bones[bone_index].transform.rotation);
-    Mat3 ep = n->animator->bones[parent_index];
+    Mat3 bt = n->animator->bones[bone_index];
+    Mat3 pt = n->animator->bones[parent_index];
 
-    Vec2 p0 = TransformPoint(eb);
-    Vec2 p1 = TransformPoint(eb, Vec2 {s->bones[bone_index].length, 0});
-    Vec2 pp = TransformPoint(ep);
+    Vec2 p0 = TransformPoint(bt);
+    Vec2 p1 = TransformPoint(bt, Vec2 {s->bones[bone_index].length, 0});
+    Vec2 pp = TransformPoint(pt);
     DrawDashedLine(pp + position, p0 + position);
     DrawBone(p0 + position, p1 + position);
 }
@@ -46,13 +47,13 @@ void DrawAnimationData(AssetData* a) {
     SkeletonData* s = GetSkeletonData(n);
 
     BindColor(COLOR_WHITE);
-    BindMaterial(g_view.shaded_material);
+    BindSkeleton(&s->bones[0].world_to_local, sizeof(BoneData), n->animator->bones, 0, s->bone_count);
     for (int i=0; i<s->skin_count; i++) {
         MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(a->position) * n->animator->bones[s->skins[i].bone_index]);
+        DrawMesh(skinned_mesh, Translate(a->position), g_view.shaded_skinned_material);
     }
 }
 
@@ -469,20 +470,6 @@ AssetData* NewAnimationData(const std::filesystem::path& path) {
     return LoadAnimationData(full_path);
 }
 
-static bool EditorAnimationOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point)
-{
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    return Contains(en->bounds + position, overlap_point);
-}
-
-static bool EditorAnimationOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds)
-{
-    assert(ea->type == ASSET_TYPE_ANIMATION);
-    AnimationData* en = (AnimationData*)ea;
-    return Intersects(en->bounds + ea->position, overlap_bounds);
-}
-
 static void HandleAnimationUndoRedo(AssetData* a) {
     assert(a->type == ASSET_TYPE_ANIMATION);
     AnimationData* n = static_cast<AnimationData*>(a);
@@ -536,8 +523,6 @@ static void InitAnimationData(AnimationData* a) {
         .save = SaveAnimationData,
         .load_metadata = LoadAnimationMetadata,
         .draw = DrawAnimationData,
-        .overlap_point = EditorAnimationOverlapPoint,
-        .overlap_bounds = EditorAnimationOverlapBounds,
         .clone = CloneAnimationData,
         .undo_redo = HandleAnimationUndoRedo
     };

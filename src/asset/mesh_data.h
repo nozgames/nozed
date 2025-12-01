@@ -141,3 +141,4 @@ extern int GetSelectedVertices(MeshData* m, int vertices[MAX_VERTICES]);
 extern int GetSelectedEdges(MeshData* m, int edges[MAX_EDGES]);
 extern void SerializeMesh(Mesh* m, Stream* stream);
 extern void SwapFace(MeshData* m, int face_index_a, int face_index_b);
+extern void SetOrigin(MeshData* m, const Vec2& origin);

@@ -8,36 +8,29 @@ extern void InitSkeletonEditor(SkeletonData* s);
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetType asset_type, AssetLoaderFunc loader, Stream* stream);
 
 void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& position) {
-    BoneData* eb = s->bones + bone_index;
-    Mat3 local_to_world = eb->local_to_world * Rotate(eb->transform.rotation);
+    BoneData* b = s->bones + bone_index;
     DrawBone(
-        local_to_world,
-        GetParentLocalToWorld(s, eb, local_to_world),
+        b->local_to_world,
+        GetParentLocalToWorld(s, b, b->local_to_world),
         position,
-        eb->length);
+        b->length);
 }
 
 void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
-    Mat3 test[MAX_BONES];
-    for (int i=0; i<s->bone_count; i++) {
-        test[i] = MAT3_IDENTITY;
-    }
-
-    BindSkeleton(test, s->bone_count);
-
     // Draw default skin
+    BindIdentitySkeleton();
     BindColor(COLOR_WHITE);
     BindDepth(0.0);
+    Mat3 local_to_world = Translate(s->position);
     for (int i=0; i<s->skin_count; i++) {
-        BoneData& bone = s->bones[s->skins[i].bone_index];
         MeshData* skinned_mesh = s->skins[i].mesh;
         if (!skinned_mesh)
             continue;
 
-        Mat3 local_to_world = Translate(s->position) * bone.local_to_world;
         DrawMesh(skinned_mesh, local_to_world, g_view.shaded_skinned_material);
     }
 
+#if 0
     // Draw anchors
     BindColor(COLOR_BLACK);
     BindDepth(GetApplicationTraits()->renderer.max_depth - 0.01f);
@@ -51,6 +44,7 @@ void DrawSkeletonData(SkeletonData* s, const Vec2& position) {
         for (int anchor_index=0;anchor_index<skinned_mesh->anchor_count;anchor_index++)
             DrawVertex(TransformPoint(local_to_world, skinned_mesh->anchors[anchor_index].position));
     }
+#endif
 
     BindDepth(0.0f);
     BindMaterial(g_view.vertex_material);
@@ -66,12 +60,12 @@ static void DrawSkeletonData(AssetData* a) {
     DrawSkeletonData(s, a->position);
 }
 
-int HitTestBone(SkeletonData* s, const Vec2& world_pos) {
+int HitTestBone(SkeletonData* s, const Mat3& transform, const Vec2& world_pos) {
     float best_dist = F32_MAX;
     int best_bone_index = -1;
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* b = s->bones + bone_index;
-        Mat3 local_to_world = Translate(s->position) * b->local_to_world * Rotate(b->transform.rotation);
+        Mat3 local_to_world = transform * b->local_to_world;
         if (!OverlapPoint(g_view.bone_collider, local_to_world * Scale(b->length), world_pos))
             continue;
 
@@ -85,6 +79,10 @@ int HitTestBone(SkeletonData* s, const Vec2& world_pos) {
     }
 
     return best_bone_index;
+}
+
+int HitTestBone(SkeletonData* s, const Vec2& world_pos) {
+    return HitTestBone(s, Translate(s->position), world_pos);
 }
 
 static void ParseBonePosition(BoneData& eb, Tokenizer& tk)
@@ -208,13 +206,13 @@ void UpdateTransforms(SkeletonData* s) {
         return;
 
     BoneData& root = s->bones[0];
-    root.local_to_world = Translate(root.transform.position);
+    root.local_to_world = TRS(root.transform.position, root.transform.rotation, VEC2_ONE);
     root.world_to_local = Inverse(root.local_to_world);
 
     for (int bone_index=1; bone_index<s->bone_count; bone_index++) {
         BoneData& bone = s->bones[bone_index];
         BoneData& parent = s->bones[bone.parent_index];
-        bone.local_to_world = parent.local_to_world * Translate(bone.transform.position);
+        bone.local_to_world = parent.local_to_world * TRS(bone.transform.position, bone.transform.rotation, VEC2_ONE);
         bone.world_to_local = Inverse(bone.local_to_world);
     }
 
@@ -511,20 +509,6 @@ static void SaveSkeletonMetadata(AssetData* a, Props* meta) {
     }
 }
 
-static bool EditorSkeletonOverlapPoint(AssetData* a, const Vec2& position, const Vec2& overlap_point) {
-    assert(a);
-    assert(a->type == ASSET_TYPE_SKELETON);
-    SkeletonData* es = (SkeletonData*)a;
-    return Contains(es->bounds + position, overlap_point);
-}
-
-static bool EditorSkeletonOverlapBounds(AssetData* a, const Bounds2& overlap_bounds) {
-    assert(a);
-    assert(a->type == ASSET_TYPE_SKELETON);
-    SkeletonData* es = (SkeletonData*)a;
-    return Intersects(es->bounds + a->position, overlap_bounds);
-}
-
 static void SkeletonUndoRedo(AssetData* a) {
     assert(a);
     assert(a->type == ASSET_TYPE_SKELETON);
@@ -568,8 +552,6 @@ static void InitSkeletonData(SkeletonData* s) {
         .load_metadata = LoadSkeletonMetaData,
         .save_metadata = SaveSkeletonMetadata,
         .draw = DrawSkeletonData,
-        .overlap_point = EditorSkeletonOverlapPoint,
-        .overlap_bounds = EditorSkeletonOverlapBounds,
         .clone = CloneSkeletonData,
         .undo_redo = SkeletonUndoRedo
     };

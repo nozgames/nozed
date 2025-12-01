@@ -416,20 +416,6 @@ AssetData* NewVfxData(const std::filesystem::path& path) {
     return LoadVfxData(full_path);
 }
 
-static bool EditorVfxOverlapPoint(AssetData* ea, const Vec2& position, const Vec2& overlap_point) {
-    VfxData* evfx = (VfxData*)ea;
-    assert(evfx);
-    assert(evfx->type == ASSET_TYPE_VFX);
-    return Contains(GetBounds(evfx->vfx) + position, overlap_point);
-}
-
-static bool EditorVfxOverlapBounds(AssetData* ea, const Bounds2& overlap_bounds) {
-    VfxData* evfx = (VfxData*)ea;
-    assert(evfx);
-    assert(evfx->type == ASSET_TYPE_VFX);
-    return Intersects(GetBounds(evfx->vfx) + ea->position, overlap_bounds);
-}
-
 static void EditorVfxClone(AssetData* ea) {
     VfxData* evfx = (VfxData*)ea;
     assert(evfx);
@@ -472,8 +458,6 @@ static void Init(VfxData* evfx) {
         .reload = ReloadVfxData,
         .draw = DrawVfxData,
         .play = PlayVfxData,
-        .overlap_point = EditorVfxOverlapPoint,
-        .overlap_bounds = EditorVfxOverlapBounds,
         .clone = EditorVfxClone
     };
 }

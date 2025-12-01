@@ -301,7 +301,9 @@ static void UpdateViewInternal() {
 
 void DrawView() {
     BindCamera(g_view.camera);
-    DrawGrid(g_view.camera);
+
+    if (g_view.grid)
+        DrawGrid(g_view.camera);
 
     Bounds2 camera_bounds = GetBounds(g_view.camera);
     for (u32 i=0, c=GetAssetCount(); i<c; i++) {
@@ -314,7 +316,8 @@ void DrawView() {
     if (show_names) {
         for (u32 i=0, c=GetAssetCount(); i<c; i++) {
             AssetData* a = GetAssetData(i);
-            assert(a);
+            if (a->clipped)
+                continue;
             DrawBounds(a);
         }
     }
@@ -402,18 +405,18 @@ void UpdateView() {
 }
 
 void InitViewUserConfig(Props* user_config){
-    g_view.light_dir = user_config->GetVec2("view", "light_direction", g_view.light_dir);
     SetPosition(g_view.camera, user_config->GetVec2("view", "camera_position", VEC2_ZERO));
     g_view.zoom = user_config->GetFloat("view", "camera_zoom", ZOOM_DEFAULT);
     g_view.show_names = user_config->GetBool("view", "show_names", false);
+    g_view.grid = user_config->GetBool("view", "show_grid", true);
     UpdateCamera();
 }
 
 void SaveViewUserConfig(Props* user_config) {
-    user_config->SetVec2("view", "light_direction", g_view.light_dir);
     user_config->SetVec2("view", "camera_position", GetPosition(g_view.camera));
     user_config->SetFloat("view", "camera_zoom", g_view.zoom);
     user_config->SetBool("view", "show_names", g_view.show_names);
+    user_config->SetBool("view", "show_grid", g_view.grid);
 }
 
 static void ToggleNames() {
@@ -728,6 +731,59 @@ void CheckCommonShortcuts() {
     CheckShortcuts(g_common_shortcuts, GetInputSet());
 }
 
+static void DrawSetOriginTool(const Vec2& position) {
+    Vec2 snapped_position = position;
+    if (IsCtrlDown())
+        snapped_position = SnapToGrid(position);
+
+    BindColor(COLOR_WHITE);
+    DrawVertex(snapped_position, -0.2f);
+}
+
+static void CommitSetOriginTool(const Vec2& position) {
+    Vec2 snapped_position = position;
+    if (IsCtrlDown())
+        snapped_position = SnapToGrid(position);
+
+    BeginUndoGroup();
+
+    AssetData* selected[MAX_ASSETS];
+    int selected_count = GetSelectedAssets(selected, MAX_ASSETS);
+    for (int i=0; i<selected_count; i++) {
+        AssetData* a = selected[i];
+        if (a->type == ASSET_TYPE_MESH) {
+            RecordUndo(a);
+            SetOrigin(static_cast<MeshData*>(a), snapped_position);
+            MarkModified(a);
+        }
+    }
+
+    EndUndoGroup();
+}
+
+void BeginSetOriginTool() {
+    AssetData* selected[MAX_ASSETS];
+    int selected_count = GetSelectedAssets(selected, MAX_ASSETS);
+    int viable_count = 0;
+    for (int i=0; i<selected_count; i++) {
+        AssetData* a = selected[i];
+        if (a->type == ASSET_TYPE_MESH)
+            viable_count++;
+    }
+
+    if (!viable_count)
+        return;
+
+    BeginSelectTool({
+        .commit = CommitSetOriginTool,
+        .draw = DrawSetOriginTool
+    });
+}
+
+static void ToggleGrid() {
+    g_view.grid = !g_view.grid;
+}
+
 void InitView() {
     InitUndo();
 
@@ -820,6 +876,7 @@ void InitView() {
         { KEY_G, false, false, false, BeginMoveTool },
         { KEY_X, false, false, false, DeleteSelectedAssets },
         { KEY_D, false, true, false, DuplicateAsset },
+        { KEY_O, false, false, true, BeginSetOriginTool },
         { KEY_LEFT_BRACKET, false, false, false, SendBackward },
         { KEY_RIGHT_BRACKET, false, false, false, BringForward },
         { KEY_RIGHT_BRACKET, false, true, false, BringToFront },
@@ -827,6 +884,7 @@ void InitView() {
         { KEY_SEMICOLON, false, false, true, BeginCommandInput },
         { KEY_F2, false, false, false, RenameAsset },
         { KEY_SPACE, false, false, false, PlayAsset },
+        { KEY_QUOTE, false, true, false, ToggleGrid },
         { INPUT_CODE_NONE }
     };
 

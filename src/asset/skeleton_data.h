@@ -12,9 +12,6 @@ struct BoneData {
     Mat3 local_to_world;
     Mat3 world_to_local;
     float length;
-
-    BoneTransform saved_transform;
-    float saved_length;
     bool selected;
 };
 
@@ -36,11 +33,12 @@ struct SkeletonData : AssetData {
 extern void InitSkeletonData(AssetData* a);
 extern AssetData* NewEditorSkeleton(const std::filesystem::path& path);
 extern AssetData* CreateEditorSkeletonAsset(const std::filesystem::path& path, SkeletonData* skeleton);
-extern void DrawSkeletonData(SkeletonData* es, const Vec2& position);
+extern void DrawSkeletonData(SkeletonData* s, const Vec2& position);
 extern void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& position);
 extern int HitTestBone(SkeletonData* s, const Vec2& world_pos);
+extern int HitTestBone(SkeletonData* s, const Mat3& transform, const Vec2& world_pos);
 extern void UpdateTransforms(SkeletonData* s);
-extern void PostLoadEditorAssets(SkeletonData* es);
+extern void PostLoadEditorAssets(SkeletonData* s);
 extern int FindBoneIndex(SkeletonData* s, const Name* name);
 extern void Serialize(SkeletonData* s, Stream* stream);
 extern Skeleton* ToSkeleton(Allocator* allocator, SkeletonData* s);

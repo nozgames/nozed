@@ -62,6 +62,7 @@ extern void BeginWeightTool(const WeightToolOptions& options);
 struct SelectToolOptions {
     void (*update)(const Vec2& position);
     void (*commit)(const Vec2& position);
+    void (*draw)(const Vec2& position);
     void (*cancel)();
 };
 
@@ -71,3 +72,14 @@ extern void BeginSelectTool(const SelectToolOptions& options);
 // @knife
 
 extern void BeginKnifeTool(MeshData* mesh);
+
+// @vertex_weight
+
+struct VertexWeightToolOptions {
+    MeshData* mesh;
+    int vertex_count;
+    int vertices[MAX_VERTICES];
+    int bone_index;
+};
+
+extern void BeginVertexWeightTool(const VertexWeightToolOptions& options);

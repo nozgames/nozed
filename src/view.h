@@ -92,6 +92,7 @@ struct View {
     PaletteDef palettes[MAX_PALETTES];
     u32 palette_count;
     u32 active_palette_index;
+    bool grid;
 };
 
 extern View g_view;

@@ -197,27 +197,15 @@ void SaveAssetData() {
 }
 
 bool OverlapPoint(AssetData* a, const Vec2& overlap_point) {
-    if (!Contains(a->bounds + a->position, overlap_point))
-        return false;
-
-    if (!a->vtable.overlap_point)
-        return true;
-
-    return a->vtable.overlap_point(a, a->position, overlap_point);
+    return Contains(a->bounds + a->position, overlap_point);
 }
 
 bool OverlapPoint(AssetData* a, const Vec2& position, const Vec2& overlap_point) {
-    if (!a->vtable.overlap_point)
-        return false;
-
-    return a->vtable.overlap_point(a, position, overlap_point);
+    return Contains(a->bounds + position, overlap_point);
 }
 
-bool OverlapBounds(AssetData* a, const Bounds2& overlap_bounds) {
-    if (!a->vtable.overlap_bounds)
-        return Intersects(a->bounds + a->position, overlap_bounds);
-
-    return a->vtable.overlap_bounds(a, overlap_bounds);
+bool OverlapBounds(AssetData* a, const Bounds2& bounds) {
+    return Intersects(a->bounds + a->position, bounds);
 }
 
 AssetData* HitTestAssets(const Vec2& overlap_point) {

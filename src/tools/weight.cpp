@@ -24,7 +24,7 @@ static void EndWeightTool(bool commit) {
     EndTool();
 }
 
-static void UpdateWeighTool() {
+static void UpdateVertexWeightTool() {
     if (WasButtonPressed(GetInputSet(), MOUSE_LEFT)) {
         EndWeightTool(true);
         return;
@@ -48,7 +48,7 @@ static void UpdateWeighTool() {
         g_weight.options.update();
 }
 
-static void DrawWeightTool() {
+static void DrawVertexWeightTool() {
     for (int i=0; i<g_weight.options.vertex_count; i++) {
         WeightToolVertex& v = g_weight.options.vertices[i];
         BindColor(COLOR_VERTEX_SELECTED);
@@ -70,8 +70,8 @@ static void DrawWeightTool() {
 
 void BeginWeightTool(const WeightToolOptions& options) {
     static ToolVtable vtable = {
-        .update = UpdateWeighTool,
-        .draw = DrawWeightTool,
+        .update = UpdateVertexWeightTool,
+        .draw = DrawVertexWeightTool,
     };
 
     BeginTool({
