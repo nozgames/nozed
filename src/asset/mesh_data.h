@@ -17,7 +17,6 @@ constexpr int MESH_MAX_VERTICES = 1024;
 constexpr int MESH_MAX_INDICES = 1024;
 constexpr int MESH_MAX_FACES = 256;
 constexpr int MESH_MAX_EDGES = 2048;
-constexpr int MESH_MAX_VERTEX_WEIGHTS = 4;
 
 struct VertexWeight {
     int bone_index;
@@ -82,6 +81,8 @@ struct MeshData : AssetData {
     int selected_edge_count;
     int selected_face_count;
     Mesh* mesh;
+    Mesh* outline;
+    int outline_version;
     Vec2Int edge_color;
     int depth;
     int hold;
@@ -92,6 +93,7 @@ extern AssetData* NewMeshData(const std::filesystem::path& path);
 extern MeshData* Clone(Allocator* allocator, MeshData* m);
 extern MeshData* LoadEditorMesh(const std::filesystem::path& path);
 extern Mesh* ToMesh(MeshData* m, bool upload=true, bool use_cache=true);
+extern Mesh* ToOutlineMesh(MeshData* m);
 extern int HitTestFace(MeshData* m, const Mat3& transform, const Vec2& position);
 extern int HitTestFaces(MeshData* m, const Mat3& transform, const Vec2& position, int* faces, int max_faces=MAX_FACES);
 extern int HitTestVertex(MeshData* m, const Mat3& transform, const Vec2& position, float size_mult=1.0f);

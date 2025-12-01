@@ -78,6 +78,7 @@ static void FrameSelected() {
     Vec2Int screen_size = GetScreenSize();
     f32 target_world_height = max_dimension * FRAME_VIEW_PERCENTAGE;
     g_view.zoom = Clamp((f32)screen_size.y / (g_view.dpi * g_view.ui_scale * target_world_height), ZOOM_MIN, ZOOM_MAX);
+    g_view.zoom_version++;
 
     SetPosition(g_view.camera, center);
     UpdateCamera();
@@ -120,6 +121,7 @@ static void UpdateZoom() {
     f32 zoom_factor = 1.0f + zoom_axis * ZOOM_STEP;
     g_view.zoom *= zoom_factor;
     g_view.zoom = Clamp(g_view.zoom, ZOOM_MIN, ZOOM_MAX);
+    g_view.zoom_version++;
 
     UpdateCamera();
 

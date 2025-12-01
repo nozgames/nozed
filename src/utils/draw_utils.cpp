@@ -111,3 +111,9 @@ void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& p
     DrawDashedLine(pp + position, p0 + position);
     DrawBone(p0 + position, p1 + position);
 }
+
+void DrawBone(const Mat3& transform, float length) {
+    Vec2 p0 = TransformPoint(transform);
+    Vec2 p1 = TransformPoint(transform, Vec2 {length, 0});
+    DrawBone(p0, p1);
+}

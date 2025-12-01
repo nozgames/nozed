@@ -60,21 +60,38 @@ static void DrawSkeletonData(AssetData* a) {
     DrawSkeletonData(s, a->position);
 }
 
-int HitTestBone(SkeletonData* s, const Mat3& transform, const Vec2& world_pos) {
-    float best_dist = F32_MAX;
-    int best_bone_index = -1;
-    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+int HitTestBones(SkeletonData* s, const Mat3& transform, const Vec2& position, int* bones, int max_bones) {
+    int hit_count = 0;
+    for (int bone_index=s->bone_count-1; bone_index>=0 && max_bones > 0; bone_index--) {
         BoneData* b = s->bones + bone_index;
         Mat3 local_to_world = transform * b->local_to_world;
-        if (!OverlapPoint(g_view.bone_collider, local_to_world * Scale(b->length), world_pos))
+        if (!OverlapPoint(g_view.bone_collider, local_to_world * Scale(b->length), position))
             continue;
 
+        bones[hit_count++] = bone_index;
+        max_bones--;
+    }
+
+    return hit_count;
+}
+
+int HitTestBone(SkeletonData* s, const Mat3& transform, const Vec2& position) {
+    int bones[MAX_BONES];
+    int bone_count = HitTestBones(s, transform, position, bones, MAX_BONES);
+    if (bone_count == 0)
+        return -1;
+
+    float best_dist = F32_MAX;
+    int best_bone_index = -1;
+    for (int bone_index=0; bone_index<bone_count; bone_index++) {
+        BoneData* b = s->bones + bones[bone_index];
+        Mat3 local_to_world = transform * b->local_to_world;
         Vec2 b0 = TransformPoint(local_to_world);
         Vec2 b1 = TransformPoint(local_to_world, {b->length, 0});
-        float dist = DistanceFromLine(b0, b1, world_pos);
+        float dist = DistanceFromLine(b0, b1, position);
         if (dist < best_dist) {
             best_dist = dist;
-            best_bone_index = bone_index;
+            best_bone_index = bones[bone_index];
         }
     }
 

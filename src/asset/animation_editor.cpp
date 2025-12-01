@@ -104,47 +104,33 @@ static void ClearSelection() {
         SetBoneSelected(bone_index, false);
 }
 
-static int HitTestBone(AnimationData* n, const Vec2& world_pos) {
-    SkeletonData* s = n->skeleton;
-    UpdateTransforms(n);
+static bool TrySelectBone() {
+    AnimationData* n = GetAnimationData();
 
-    int first_hit_index = -1;
-    Mat3 base_transform = GetBaseTransform();
-    for (int bone_index=s->bone_count-1; bone_index>=0; bone_index--) {
-        AnimationBoneData* b = &n->bones[bone_index];
-        BoneData* sb = &s->bones[bone_index];
-        Mat3 local_to_world = base_transform * n->animator->bones[bone_index] * Scale(sb->length);
+    int hit[MAX_BONES];
+    int hit_count = HitTestBones(n, Translate(n->position), g_view.mouse_world_position, hit, MAX_BONES);
+    if (hit_count == 0) {
+        if (!IsShiftDown())
+            ClearSelection();
+        return false;
+    }
 
-        // Mat3 local_to_world =
-        //     base_transform *
-        //     n->animator->bones[bone_index] *
-        //     Rotate(s->bones[bone_index].transform.rotation) *
-        //     Scale(sb->length);
-
-        if (OverlapPoint(g_view.bone_collider, local_to_world, world_pos)) {
-            if (first_hit_index == -1)
-                first_hit_index = bone_index;
-            if (!b->selected) {
-                return bone_index;
-            }
+    int hit_index=hit_count-1;
+    for (; hit_index>=0; hit_index--) {
+        int bone_index = hit[hit_index];
+        if (IsBoneSelected(bone_index)) {
+            hit_index++;
+            break;
         }
     }
 
-    return first_hit_index;
-}
+    if (hit_index < 0 || hit_index >= hit_count)
+        hit_index = 0;
 
-static bool TrySelectBone() {
-    AnimationData* n = GetAnimationData();
-    int bone_index = HitTestBone(n, g_view.mouse_world_position);
-    if (bone_index == -1)
-        return false;
-
-    if (IsShiftDown()) {
-        SetBoneSelected(bone_index, !IsBoneSelected(bone_index));
-    } else {
+    if (!IsShiftDown())
         ClearSelection();
-        SetBoneSelected(bone_index, true);
-    }
+
+    SetBoneSelected(hit[hit_index], true);
 
     return true;
 }
@@ -222,11 +208,7 @@ static void UpdateBoneNames() {
 
     for (u16 bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* b = &s->bones[bone_index];
-        Mat3 local_to_world =
-            base_transform *
-            n->animator->bones[bone_index] *
-            Rotate(s->bones[bone_index].transform.rotation);
-
+        Mat3 local_to_world = base_transform * n->animator->bones[bone_index];
         Vec2 p = TransformPoint(local_to_world, Vec2{b->length * 0.5f, 0});
         AnimationBoneData* nb = &n->bones[bone_index];
         Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [b,nb] {

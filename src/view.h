@@ -60,6 +60,7 @@ struct View {
     Mesh* edge_mesh;
     Mesh* quad_mesh;
     Collider* bone_collider;
+    int zoom_version;
     float zoom;
     float zoom_ref_scale;
     float select_size;
@@ -148,6 +149,7 @@ extern void DrawOrigin(AssetData* ea);
 extern void DrawBounds(AssetData* ea, float expand=0, const Color& color=COLOR_BLACK);
 extern void DrawBone(const Vec2& a, const Vec2& b);
 extern void DrawBone(const Mat3& transform, const Mat3& parent_transform, const Vec2& position, float length=BONE_DEFAULT_LENGTH);
+extern void DrawBone(const Mat3& transform, float length);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1);
 

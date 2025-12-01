@@ -35,6 +35,7 @@ extern AssetData* NewEditorSkeleton(const std::filesystem::path& path);
 extern AssetData* CreateEditorSkeletonAsset(const std::filesystem::path& path, SkeletonData* skeleton);
 extern void DrawSkeletonData(SkeletonData* s, const Vec2& position);
 extern void DrawEditorSkeletonBone(SkeletonData* s, int bone_index, const Vec2& position);
+extern int HitTestBones(SkeletonData* s, const Mat3& transform, const Vec2& position, int* bones, int max_bones=MAX_BONES);
 extern int HitTestBone(SkeletonData* s, const Vec2& world_pos);
 extern int HitTestBone(SkeletonData* s, const Mat3& transform, const Vec2& world_pos);
 extern void UpdateTransforms(SkeletonData* s);

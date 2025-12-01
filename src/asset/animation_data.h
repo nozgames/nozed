@@ -55,3 +55,5 @@ extern void UpdateTransforms(AnimationData* n);
 extern void UpdateSkeleton(AnimationData* n);
 extern void DrawAnimationData(AssetData* a);
 extern void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& position);
+extern int HitTestBones(AnimationData* n, const Mat3& transform, const Vec2& position, int* bones, int max_bones=MAX_BONES);
+extern int HitTestBone(AnimationData* n, const Mat3& transform, const Vec2& position);

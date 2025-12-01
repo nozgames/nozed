@@ -516,6 +516,27 @@ static void DestroyAnimationData(AssetData* a) {
     d->data = nullptr;
 }
 
+int HitTestBones(AnimationData* n, const Mat3& transform, const Vec2& position, int* bones, int max_bones) {
+    SkeletonData* s = n->skeleton;
+    int bone_count = 0;
+    for (int bone_index=n->bone_count-1; bone_index>=0 && max_bones > 0; bone_index--) {
+        BoneData* sb = &s->bones[bone_index];
+        Mat3 local_to_world = transform * n->animator->bones[bone_index] * Scale(sb->length);
+        if (OverlapPoint(g_view.bone_collider, local_to_world, position)) {
+            bones[bone_count++] = bone_index;
+            max_bones--;
+        }
+    }
+    return bone_count;
+}
+
+int HitTestBone(AnimationData* n, const Mat3& transform, const Vec2& position) {
+    int bones[1];
+    if (0 == HitTestBones(n, transform, position, bones, 1))
+        return -1;
+    return bones[0];
+}
+
 static void InitAnimationData(AnimationData* a) {
     AllocateAnimationRuntimeData(a);
 

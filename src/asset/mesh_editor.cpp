@@ -399,11 +399,25 @@ static bool TrySelectBone() {
     assert(g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT);
 
     SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
-    int bone_index = HitTestBone(s, Translate(GetMeshData()->position), g_view.mouse_world_position);
-    if (bone_index == -1)
+    int hit[MAX_BONES];
+    int hit_count = HitTestBones(s, Translate(GetMeshData()->position), g_view.mouse_world_position, hit, MAX_BONES);
+    if (hit_count == 0) {
+        g_mesh_editor.weight_bone = -1;
         return false;
+    }
 
-    g_mesh_editor.weight_bone = bone_index;
+    if (g_mesh_editor.weight_bone != -1) {
+        for (int hit_index=0; hit_index<hit_count; hit_index++) {
+            int bone_index = hit[hit_index];
+            if (bone_index >= g_mesh_editor.weight_bone)
+                continue;
+
+            g_mesh_editor.weight_bone = bone_index;
+            return true;
+        }
+    }
+
+    g_mesh_editor.weight_bone = hit[0];
     return true;
 }
 
@@ -1169,11 +1183,42 @@ static void DrawVertexWeights(MeshData* m) {
     }
 }
 
-static void DrawXRay() {
+static void DrawSkeleton() {
     MeshData* m = GetMeshData();
+    SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
+    BindDepth(0.0f);
+    BindMaterial(g_view.vertex_material);
+
+    bool bone_used[MAX_BONES] = {};
+    for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+        for (int weight_index=0; weight_index<MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
+            VertexWeight& w = v.weights[weight_index];
+            if (w.bone_index != -1 && w.weight > F32_EPSILON)
+                bone_used[w.bone_index] = true;
+        }
+    }
+
+    Mat3 transform = Translate(m->position);
+    BindColor(SetAlpha(COLOR_BONE, 0.5f));
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        if (!bone_used[bone_index] && bone_index != g_mesh_editor.weight_bone)
+            DrawBone(transform * s->bones[bone_index].local_to_world, s->bones[bone_index].length);
+
+    BindColor(COLOR_WHITE);
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        if (bone_used[bone_index] && bone_index != g_mesh_editor.weight_bone)
+            DrawBone(transform * s->bones[bone_index].local_to_world, s->bones[bone_index].length);
+
+    BindColor(COLOR_VERTEX_SELECTED);
+    if (g_mesh_editor.weight_bone != -1)
+        DrawBone(transform * s->bones[g_mesh_editor.weight_bone].local_to_world, s->bones[g_mesh_editor.weight_bone].length);
+
+}
+
+static void DrawXRay() {
     if (g_mesh_editor.mode != MESH_EDITOR_MODE_WEIGHT && g_mesh_editor.xray) {
-        SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
-        DrawSkeletonData(s, m->position);
+        DrawSkeleton();
     }
 }
 
@@ -1208,13 +1253,12 @@ static void DrawMeshEditor() {
         DrawSelectedFaces(m, m->position);
         DrawFaceCenters(m, m->position);
     } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT) {
-        SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
-        DrawSkeletonData(s, m->position);
+        DrawSkeleton();
 
-        if (g_mesh_editor.weight_bone != -1) {
-            BindColor(COLOR_VERTEX_SELECTED);
-            DrawEditorSkeletonBone(s, g_mesh_editor.weight_bone, m->position);
-        }
+        // if (g_mesh_editor.weight_bone != -1) {
+        //     BindColor(COLOR_VERTEX_SELECTED);
+        //     DrawEditorSkeletonBone(s, g_mesh_editor.weight_bone, m->position);
+        // }
 
         DrawVertexWeights(m);
 

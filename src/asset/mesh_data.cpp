@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-constexpr float OUTLINE_WIDTH = 0.02f;
+constexpr float OUTLINE_WIDTH = 0.015f;
 
 static void Init(MeshData* m);
 extern void InitMeshEditor(MeshData* m);
@@ -32,12 +32,12 @@ static void DrawMesh(AssetData* a) {
 }
 
 void DrawMesh(MeshData* m, const Mat3& transform, Material* material) {
+    BindMaterial(material ? material : g_view.shaded_material);
     if (g_view.draw_mode == VIEW_DRAW_MODE_WIREFRAME) {
         BindColor(COLOR_EDGE);
-        DrawEdges(m, transform);
+        DrawMesh(ToOutlineMesh(m), transform);
     } else {
         BindColor(COLOR_WHITE, GetActivePalette().color_offset_uv);
-        BindMaterial(material ? material : g_view.shaded_material);
         DrawMesh(ToMesh(m), transform);
     }
 
@@ -190,7 +190,9 @@ void UpdateEdges(MeshData* m) {
 
 void MarkDirty(MeshData* m) {
     Free(m->mesh);
+    Free(m->outline);
     m->mesh = nullptr;
+    m->outline = nullptr;
 }
 
 Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
@@ -200,10 +202,11 @@ Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
 
     float depth = 0.01f + 0.99f * (m->depth - MIN_DEPTH) / (float)(MAX_DEPTH-MIN_DEPTH);
-    float edge_depth = depth - 0.01f * 0.5f;
+    //float edge_depth = depth - 0.01f * 0.5f;
     for (int i = 0; i < m->face_count; i++)
         TriangulateFace(m, m->faces + i, builder, depth);
 
+#if 0
     Vec2 edge_uv = ColorUV(m->edge_color.x, m->edge_color.y);
     for (int i=0; i < m->edge_count; i++) {
         const EdgeData& ee = m->edges[i];
@@ -226,6 +229,7 @@ Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
         AddTriangle(builder, base+0, base+1, base+3);
         AddTriangle(builder, base+1, base+2, base+3);
     }
+#endif
 
     Mesh* mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
     m->bounds = mesh ? GetBounds(mesh) : BOUNDS2_ZERO;
@@ -236,6 +240,53 @@ Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
     Free(builder);
 
     return mesh;
+}
+
+static void AddVertexWeights(MeshBuilder* builder, const VertexData& v) {
+    for (int weight_index=0; weight_index < MESH_MAX_VERTEX_WEIGHTS; ++weight_index)
+        if (v.weights[weight_index].weight > F32_EPSILON)
+            AddVertexWeight(builder, v.weights[weight_index].bone_index, v.weights[weight_index].weight);
+}
+
+Mesh* ToOutlineMesh(MeshData* m) {
+    if (m->outline && m->outline_version == g_view.zoom_version)
+        return m->outline;
+
+    PushScratch();
+    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_SCRATCH, MAX_VERTICES, MAX_INDICES);
+
+    float outline_size = g_view.zoom_ref_scale * OUTLINE_WIDTH * 0.5f;
+
+    for (int i=0; i < m->edge_count; i++) {
+        const EdgeData& ee = m->edges[i];
+        if (ee.face_count > 1)
+            continue;
+
+        const VertexData& v0 = m->vertices[ee.v0];
+        const VertexData& v1 = m->vertices[ee.v1];
+        Vec2 p0 = {v0.position.x, v0.position.y};
+        Vec2 p1 = {v1.position.x, v1.position.y};
+        Vec2 n = Perpendicular(Normalize(p1 - p0));
+        u16 base = GetVertexCount(builder);
+        AddVertex(builder, p0 - n * outline_size);
+        AddVertexWeights(builder, v0);
+        AddVertex(builder, p0 + n * outline_size);
+        AddVertexWeights(builder, v0);
+        AddVertex(builder, p1 + n * outline_size);
+        AddVertexWeights(builder, v1);
+        AddVertex(builder, p1 - n * outline_size);
+        AddVertexWeights(builder, v1);
+        AddTriangle(builder, base+0, base+1, base+3);
+        AddTriangle(builder, base+1, base+2, base+3);
+    }
+
+    m->outline = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, true);
+    m->outline_version = g_view.zoom_version;
+
+    Free(builder);
+    PopScratch();
+
+    return m->outline;
 }
 
 void SetEdgeColor(MeshData* m, const Vec2Int& color) {
@@ -1067,6 +1118,7 @@ static void CloneMeshData(AssetData* a) {
     assert(a->type == ASSET_TYPE_MESH);
     MeshData* m = static_cast<MeshData*>(a);
     m->mesh = nullptr;
+    m->outline = nullptr;
 
     MeshRuntimeData* old_data = m->data;
     AllocateData(m);
