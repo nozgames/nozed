@@ -22,12 +22,6 @@ enum MeshEditorMode {
     MESH_EDITOR_MODE_WEIGHT
 };
 
-struct MeshEditorVertex {
-    float saved_edge_size;
-    Vec2 saved_position;
-};
-
-
 struct MeshEditor {
     MeshEditorMode mode;
     Vec2 selection_drag_start;
@@ -40,7 +34,7 @@ struct MeshEditor {
     bool use_negative_fixed_value;
     float fixed_value;
     Shortcut* shortcuts;
-    MeshEditorVertex vertices[MAX_VERTICES];
+    VertexData saved[MAX_VERTICES];
     InputSet* input;
     Mesh* color_picker_mesh;
     MeshData* mesh_data;
@@ -287,22 +281,14 @@ static void SelectFace(int face_index, bool selected) {
 
 static void SaveMeshState() {
     MeshData* m = GetMeshData();
-    for (int i=0; i<m->vertex_count; i++) {
-        MeshEditorVertex& ev = g_mesh_editor.vertices[i];
-        VertexData& v = m->vertices[i];
-        ev.saved_position = v.position;
-        ev.saved_edge_size = v.edge_size;
-    }
+    for (int i=0; i<m->vertex_count; i++)
+        g_mesh_editor.saved[i] = m->vertices[i];
 }
 
 static void RevertMeshState() {
     MeshData* m = GetMeshData();
-    for (int i=0; i<m->vertex_count; i++) {
-        VertexData& ev = m->vertices[i];
-        MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
-        ev.position = mvv.saved_position;
-        ev.edge_size = mvv.saved_edge_size;
-    }
+    for (int i=0; i<m->vertex_count; i++)
+        m->vertices[i] = g_mesh_editor.saved[i];
 
     MarkDirty(m);
     MarkModified(m);
@@ -723,9 +709,9 @@ static void UpdateMoveTool(const Vec2& delta) {
     bool snap = IsCtrlDown(GetInputSet());
     for (int i=0; i<m->vertex_count; i++) {
         VertexData& v = m->vertices[i];
-        MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
+        VertexData& s = g_mesh_editor.saved[i];
         if (v.selected)
-            v.position = snap ? SnapToGrid(m->position + mvv.saved_position + delta) - m->position : mvv.saved_position + delta;
+            v.position = snap ? SnapToGrid(m->position + s.position + delta) - m->position : s.position + delta;
     }
 
     UpdateEdges(m);
@@ -753,8 +739,8 @@ static void UpdateRotateTool(float angle) {
         if (!ev.selected)
             continue;
 
-        MeshEditorVertex& mvv = g_mesh_editor.vertices[i];
-        Vec2 relative_pos = mvv.saved_position - g_mesh_editor.selection_center;
+        VertexData& s = g_mesh_editor.saved[i];
+        Vec2 relative_pos = s.position - g_mesh_editor.selection_center;
 
         Vec2 rotated_pos;
         rotated_pos.x = relative_pos.x * cos_angle - relative_pos.y * sin_angle;
@@ -791,8 +777,7 @@ static void UpdateScaleTool(float scale) {
         if (!v.selected)
             continue;
 
-        MeshEditorVertex& ev = g_mesh_editor.vertices[i];
-        Vec2 dir = ev.saved_position - center;
+        Vec2 dir = g_mesh_editor.saved[i].position - center;
         v.position = center + dir * scale;
     }
 
@@ -811,19 +796,25 @@ static void BeginScaleTool() {
     BeginScaleTool({.origin=g_mesh_editor.selection_center+m->position, .update=UpdateScaleTool, .cancel=CancelMeshTool});
 }
 
-static void UpdateOutlineToolVertex(float weight, void* user_data) {
-    VertexData* v = (VertexData*)user_data;
-    v->edge_size = weight;
+static void UpdateWeightToolVertex(float weight, void* user_data) {
+    int vertex_index = (int)(i64)user_data;
+    SetVertexWeight(GetMeshData(), vertex_index, g_mesh_editor.weight_bone, weight);
 }
 
-static void UpdateOutlineTool() {
+static void UpdateWeightTool() {
     MeshData* m = GetMeshData();
     UpdateEdges(m);
     MarkDirty(m);
     MarkModified();
 }
 
-static void BeginOutlineTool() {
+static void BeginWeightTool() {
+    if (g_mesh_editor.mode != MESH_EDITOR_MODE_WEIGHT)
+        return;
+
+    if (g_mesh_editor.weight_bone == -1)
+        return;
+
     MeshData* m = GetMeshData();
     if (m->selected_vertex_count == 0)
         return;
@@ -831,21 +822,21 @@ static void BeginOutlineTool() {
     WeightToolOptions options = {
         .vertex_count = 0,
         .min_weight = 0,
-        .max_weight = 2,
-        .update = UpdateOutlineTool,
+        .max_weight = 1,
+        .update = UpdateWeightTool,
         .cancel = CancelMeshTool,
-        .update_vertex = UpdateOutlineToolVertex,
+        .update_vertex = UpdateWeightToolVertex,
     };
 
     for (int i=0; i<m->vertex_count; i++) {
-        VertexData& ev = m->vertices[i];
-        if (!ev.selected) // || !IsVertexOnOutsideEdge(m, i))
+        VertexData& v = m->vertices[i];
+        if (!v.selected)
             continue;
 
         options.vertices[options.vertex_count++] = {
-            .position = ev.position + GetMeshData()->position,
-            .weight = ev.edge_size,
-            .user_data = &ev,
+            .position = v.position + GetMeshData()->position,
+            .weight = GetVertexWeight(m, i, g_mesh_editor.weight_bone),
+            .user_data = (void*)(i64)i,
         };
     }
 
@@ -1147,18 +1138,16 @@ static void DrawVertexWeights(MeshData* m) {
         if (v.selected)
             continue;
 
-        int arc = 0;
-        for (int weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
-            if (v.weights[weight_index].bone_index == g_mesh_editor.weight_bone) {
-                arc = (int)(Clamp01(v.weights[weight_index].weight) * 100.0f);
-                break;
-            }
-        }
-
+        float weight = GetVertexWeight(m, vertex_index, g_mesh_editor.weight_bone);
+        int arc = (int)(Clamp01(weight) * 100.0f);
         BindColor(SetAlpha(COLOR_BLACK, 0.5f));
-        DrawMesh(g_view.circle_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_OUTLINE_SIZE * g_view.zoom_ref_scale));
-        BindColor(SetAlpha(COLOR_VERTEX_SELECTED, 0.5f));
-        DrawMesh(g_view.arc_mesh[arc], TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_CONTROL_SIZE * g_view.zoom_ref_scale));
+        DrawMesh(g_view.circle_stroke_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_OUTLINE_SIZE * g_view.zoom_ref_scale));
+        if (arc > 0) {
+            BindColor(SetAlpha(COLOR_BLACK, 0.5f));
+            DrawMesh(g_view.arc_mesh[arc], TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_CONTROL_SIZE * g_view.zoom_ref_scale));
+        }
+        BindColor(SetAlpha(COLOR_BLACK, 0.5f));
+        DrawMesh(g_view.circle_stroke_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_OUTLINE_SIZE * g_view.zoom_ref_scale));
     }
 
     for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
@@ -1166,20 +1155,17 @@ static void DrawVertexWeights(MeshData* m) {
         if (!v.selected)
             continue;
 
-        int arc = 0;
-        for (int weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
-            if (v.weights[weight_index].bone_index == g_mesh_editor.weight_bone) {
-                arc = (int)(Clamp01(v.weights[weight_index].weight) * 100.0f);
-                break;
-            }
-        }
+        float weight = GetVertexWeight(m, vertex_index, g_mesh_editor.weight_bone);
+        int arc = (int)(Clamp01(weight) * 100.0f);
 
-        BindColor(COLOR_VERTEX_SELECTED);
-        DrawMesh(g_view.circle_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_OUTLINE_SIZE * g_view.zoom_ref_scale));
-        BindColor(COLOR_GREEN);
+        BindColor(SetAlpha(COLOR_BLACK, 0.5f));
         DrawMesh(g_view.circle_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_CONTROL_SIZE * g_view.zoom_ref_scale));
-        BindColor(COLOR_BLUE);
-        DrawMesh(g_view.arc_mesh[arc], TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_CONTROL_SIZE * g_view.zoom_ref_scale));
+        if (arc > 0) {
+            BindColor(arc == 0 ? SetAlpha(COLOR_VERTEX_SELECTED, 0.5f) : COLOR_VERTEX_SELECTED);
+            DrawMesh(g_view.arc_mesh[arc], TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_CONTROL_SIZE * g_view.zoom_ref_scale));
+        }
+        BindColor(COLOR_VERTEX_SELECTED);
+        DrawMesh(g_view.circle_stroke_mesh, TRS(v.position + m->position, 0, VEC2_ONE * VERTEX_WEIGHT_OUTLINE_SIZE * g_view.zoom_ref_scale));
     }
 }
 
@@ -1189,9 +1175,11 @@ static void DrawSkeleton() {
     BindDepth(0.0f);
     BindMaterial(g_view.vertex_material);
 
+    // Determine which bones are used by selected vertices
     bool bone_used[MAX_BONES] = {};
     for (int vertex_index=0; vertex_index<m->vertex_count; vertex_index++) {
         VertexData& v = m->vertices[vertex_index];
+        if (!v.selected) continue;
         for (int weight_index=0; weight_index<MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
             VertexWeight& w = v.weights[weight_index];
             if (w.bone_index != -1 && w.weight > F32_EPSILON)
@@ -1254,18 +1242,11 @@ static void DrawMeshEditor() {
         DrawFaceCenters(m, m->position);
     } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT) {
         DrawSkeleton();
-
-        // if (g_mesh_editor.weight_bone != -1) {
-        //     BindColor(COLOR_VERTEX_SELECTED);
-        //     DrawEditorSkeletonBone(s, g_mesh_editor.weight_bone, m->position);
-        // }
-
         DrawVertexWeights(m);
-
         BindColor(COLOR_VERTEX);
         DrawVertices(false);
+        BindColor(COLOR_VERTEX_SELECTED);
         DrawVertices(true);
-
     }
 
     DrawXRay();
@@ -1440,7 +1421,7 @@ void InitMeshEditor() {
         { KEY_R, false, false, false, BeginRotateTool },
         { KEY_S, false, false, false, BeginScaleTool },
         { KEY_S, false, false, true, SubDivide },
-        { KEY_W, false, false, false, BeginOutlineTool },
+        { KEY_W, false, false, false, BeginWeightTool },
         { KEY_A, false, false, false, SelectAll },
         { KEY_A, false, false, true, ToggleAnchor },
         { KEY_X, false, false, false, DissolveSelected },

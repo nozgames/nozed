@@ -147,3 +147,6 @@ extern int GetSelectedEdges(MeshData* m, int edges[MAX_EDGES]);
 extern void SerializeMesh(Mesh* m, Stream* stream);
 extern void SwapFace(MeshData* m, int face_index_a, int face_index_b);
 extern void SetOrigin(MeshData* m, const Vec2& origin);
+extern float GetVertexWeight(MeshData* m, int vertex_index, int bone_index);
+extern void AddVertexWeight(MeshData* m, int vertex_index, int bone_index, float weight);
+extern void SetVertexWeight(MeshData* m, int vertex_index, int bone_index, float weight);

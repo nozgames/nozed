@@ -56,6 +56,7 @@ struct View {
     Mesh* vertex_mesh;
     Mesh* arrow_mesh;
     Mesh* circle_mesh;
+    Mesh* circle_stroke_mesh;
     Mesh* arc_mesh[101];
     Mesh* edge_mesh;
     Mesh* quad_mesh;

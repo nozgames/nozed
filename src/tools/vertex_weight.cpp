@@ -45,26 +45,10 @@ static void UpdateVertexWeightTool() {
     }
 
     float delta = (g_view.mouse_position.y - g_view.drag_position.y) / (g_view.dpi * WEIGHT_TOOL_SIZE);
-
     MeshData* m = g_vertex_weight.options.mesh;
     int bone_index = g_vertex_weight.options.bone_index;
     for (int vertex_index=0; vertex_index<g_vertex_weight.options.vertex_count; vertex_index++) {
-        VertexData& v = m->vertices[g_vertex_weight.options.vertices[vertex_index]];
-        int weight_index = 0;
-        for (; weight_index<MESH_MAX_VERTEX_WEIGHTS && v.weights[weight_index].bone_index != bone_index; weight_index++);
-        if (weight_index >= MESH_MAX_VERTEX_WEIGHTS) {
-            for (weight_index=0; weight_index<MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
-                if (v.weights[weight_index].weight <= F32_EPSILON) {
-                    v.weights[weight_index].bone_index = bone_index;
-                    v.weights[weight_index].weight = 0.0f;
-                    break;
-                }
-            }
-        }
-
-        if (weight_index < MESH_MAX_VERTEX_WEIGHTS) {
-            v.weights[weight_index].weight = Clamp(g_vertex_weight.initial_weights[vertex_index * MESH_MAX_VERTEX_WEIGHTS + weight_index] - delta, 0.0f, 1.0f);
-        }
+        AddVertexWeight(m, vertex_index, bone_index, delta);
     }
 }
 

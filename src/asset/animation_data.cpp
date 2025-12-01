@@ -45,6 +45,8 @@ void DrawAnimationData(AssetData* a) {
     assert(a->type == ASSET_TYPE_ANIMATION);
     AnimationData* n = static_cast<AnimationData*>(a);
     SkeletonData* s = GetSkeletonData(n);
+    if (!s)
+        return;
 
     BindColor(COLOR_WHITE);
     BindSkeleton(&s->bones[0].world_to_local, sizeof(BoneData), n->animator->bones, 0, s->bone_count);
@@ -103,13 +105,14 @@ static void ParseSkeleton(AnimationData* n, Tokenizer& tk, int* bone_map) {
     n->skeleton_name = GetName(tk);
 
     SkeletonData* s = static_cast<SkeletonData*>(GetAssetData(ASSET_TYPE_SKELETON, n->skeleton_name));
+    if (!s)
+        return;
     assert(s);
 
     if (!s->loaded)
         LoadAssetData(s);
 
-    for (int i=0; i<s->bone_count; i++)
-    {
+    for (int i=0; i<s->bone_count; i++) {
         AnimationBoneData& enb = n->bones[i];
         BoneData& eb = s->bones[i];
         enb.name = eb.name;
@@ -123,8 +126,7 @@ static void ParseSkeleton(AnimationData* n, Tokenizer& tk, int* bone_map) {
             SetIdentity(n->frames[frame_index].transforms[bone_index]);
 
     int bone_index = 0;
-    while (!IsEOF(tk))
-    {
+    while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "b"))
             ParseSkeletonBone(tk, s, bone_index++, bone_map);
         else
@@ -270,7 +272,8 @@ static void LoadAnimationData(AssetData* a) {
         else {
             char error[1024];
             GetString(tk, error, sizeof(error) - 1);
-            ThrowError("invalid token '%s' in animation", error);
+            return;
+            //ThrowError("invalid token '%s' in animation", error);
         }
     }
 

@@ -201,37 +201,12 @@ Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
     if (use_cache && m->mesh)
         return m->mesh;
 
-    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, MAX_VERTICES, MAX_INDICES);
+    PushScratch();
+    MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_SCRATCH, MAX_VERTICES, MAX_INDICES);
 
     float depth = 0.01f + 0.99f * (m->depth - MIN_DEPTH) / (float)(MAX_DEPTH-MIN_DEPTH);
-    //float edge_depth = depth - 0.01f * 0.5f;
     for (int i = 0; i < m->face_count; i++)
         TriangulateFace(m, m->faces + i, builder, depth);
-
-#if 0
-    Vec2 edge_uv = ColorUV(m->edge_color.x, m->edge_color.y);
-    for (int i=0; i < m->edge_count; i++) {
-        const EdgeData& ee = m->edges[i];
-        if (ee.face_count > 1)
-            continue;
-
-        const VertexData& v0 = m->vertices[ee.v0];
-        const VertexData& v1 = m->vertices[ee.v1];
-
-        if (v0.edge_size < 0.01f && v1.edge_size < 0.01f)
-            continue;
-
-        Vec2 p0 = {v0.position.x, v0.position.y};
-        Vec2 p1 = {v1.position.x, v1.position.y};
-        u16 base = GetVertexCount(builder);
-        AddVertex(builder, p0, edge_uv, edge_depth);
-        AddVertex(builder, p0 + v0.edge_normal * v0.edge_size * OUTLINE_WIDTH, edge_uv, edge_depth);
-        AddVertex(builder, p1 + v1.edge_normal * v1.edge_size * OUTLINE_WIDTH, edge_uv, edge_depth);
-        AddVertex(builder, p1, edge_uv, edge_depth);
-        AddTriangle(builder, base+0, base+1, base+3);
-        AddTriangle(builder, base+1, base+2, base+3);
-    }
-#endif
 
     Mesh* mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
     m->bounds = mesh ? GetBounds(mesh) : BOUNDS2_ZERO;
@@ -239,7 +214,7 @@ Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
     if (use_cache)
         m->mesh = mesh;
 
-    Free(builder);
+    PopScratch();
 
     return mesh;
 }
@@ -1388,6 +1363,65 @@ void SetOrigin(MeshData* m, const Vec2& origin) {
     m->position = origin;
     UpdateEdges(m);
     MarkDirty(m);
+}
+
+float GetVertexWeight(MeshData* m, int vertex_index, int bone_index) {
+    if (bone_index < 0)
+        return 0.0f;
+
+    for (int weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
+        const VertexWeight& w = m->vertices[vertex_index].weights[weight_index];
+        if (w.bone_index == bone_index)
+            return w.weight;
+    }
+
+    return 0.0f;
+}
+
+int GetVertexWeightIndex(MeshData* m, int vertex_index, int bone_index) {
+    for (int weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
+        const VertexWeight& w = m->vertices[vertex_index].weights[weight_index];
+        if (w.bone_index == bone_index && w.weight > F32_EPSILON)
+            return weight_index;
+    }
+
+    return -1;
+}
+
+int GetOrAddVertexWeightIndex(MeshData* m, int vertex_index, int bone_index) {
+    int weight_index = GetVertexWeightIndex(m, vertex_index, bone_index);
+    if (weight_index != -1)
+        return weight_index;
+
+    for (weight_index = 0; weight_index < MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
+        const VertexWeight& w = m->vertices[vertex_index].weights[weight_index];
+        if (w.weight <= F32_EPSILON)
+            return weight_index;
+    }
+
+    return -1;
+}
+
+void SetVertexWeight(MeshData* m, int vertex_index, int bone_index, float weight) {
+    int weight_index = GetOrAddVertexWeightIndex(m, vertex_index, bone_index);
+    if (weight_index == -1)
+        return;
+
+    VertexData& v = m->vertices[vertex_index];
+    VertexWeight& w = v.weights[weight_index];
+    w.bone_index = bone_index;
+    w.weight = weight;
+}
+
+void AddVertexWeight(MeshData* m, int vertex_index, int bone_index, float weight) {
+    int weight_index = GetOrAddVertexWeightIndex(m, vertex_index, bone_index);
+    if (weight_index == -1)
+        return;
+
+    VertexData& v = m->vertices[vertex_index];
+    VertexWeight& w = v.weights[weight_index];
+    w.bone_index = bone_index;
+    w.weight = Clamp01(w.weight + weight);
 }
 
 static void DestroyMeshData(AssetData* a) {

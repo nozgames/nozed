@@ -200,6 +200,7 @@ static int GetFacesWithEdge(MeshData* m, int v0, int v1, int faces[2]) {
     return count;
 }
 
+#ifdef KNIFE_LOG
 static const char* GetPointTypeName(KnifePointType type) {
     switch (type) {
         case KNIFE_POINT_NONE:   return "NONE";
@@ -221,6 +222,7 @@ static const char* GetActionTypeName(KnifeActionType type) {
     }
     return "???";
 }
+#endif
 
 static int BuildKnifePath(MeshData* m, KnifePathPoint* path) {
     int path_count = 0;
@@ -570,11 +572,13 @@ static int BuildKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, 
     int boundary_indices[256];
     int boundary_count = FindBoundaryPoints(path, path_count, boundary_indices);
 
+#ifdef KNIFE_LOG
     LogInfo("Found %d boundary points:", boundary_count);
     for (int i = 0; i < boundary_count; i++) {
         int bi = boundary_indices[i];
         LogInfo("  boundary[%d] = path[%d] type=%s", i, bi, GetPointTypeName(path[bi].type));
     }
+#endif
 
     if (boundary_count == 0)
         return BuildActionsNoBoundary(path, path_count, actions);
@@ -585,6 +589,7 @@ static int BuildKnifeActions(MeshData* m, KnifePathPoint* path, int path_count, 
     return BuildActionsMultipleBoundary(m, path, path_count, boundary_indices, boundary_count, actions);
 }
 
+#ifdef KNIFE_LOG
 static void LogKnifePath(MeshData* m, KnifePathPoint* path, int path_count) {
     LogInfo("=== Knife Path (%d points) ===", path_count);
     for (int i = 0; i < path_count; i++) {
@@ -628,6 +633,7 @@ static void LogKnifeActions(KnifeAction* actions, int action_count) {
             i, GetActionTypeName(a.type), a.start_index, a.end_index, a.face_index);
     }
 }
+#endif
 
 static int GetOrCreateVertex(MeshData* m, KnifePathPoint& pt) {
     // If it's already a vertex, just return it
@@ -710,36 +716,27 @@ void EnsureEdgeVertexInFace(MeshData* m, int face_index, KnifePathPoint& pt) {
 }
 
 static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& action) {
-    if (action.face_index < 0) {
-        LogInfo("ExecuteFaceSplit: face_index < 0");
+    if (action.face_index < 0)
         return;
-    }
 
     KnifePathPoint& start_pt = path[action.start_index];
     KnifePathPoint& end_pt = path[action.end_index];
 
     // Handle closed loop with same start/end point
-    if (action.start_index == action.end_index) {
-        // Same point - nothing to split (edge insertion already done in pass 1)
-        LogInfo("ExecuteFaceSplit: same start/end index");
+    if (action.start_index == action.end_index)
         return;
-    }
 
     // For VERTEX type, check if it's the same vertex
-    if (start_pt.type == KNIFE_POINT_VERTEX && end_pt.type == KNIFE_POINT_VERTEX &&
+    if (start_pt.type == KNIFE_POINT_VERTEX &&
+        end_pt.type == KNIFE_POINT_VERTEX &&
         start_pt.vertex_index == end_pt.vertex_index) {
-        LogInfo("ExecuteFaceSplit: same vertex");
         return;
     }
 
     // Vertices were already created in pass 1
     int v0 = start_pt.vertex_index;
     int v1 = end_pt.vertex_index;
-
-    LogInfo("ExecuteFaceSplit: v0=%d, v1=%d", v0, v1);
-
     if (v0 < 0 || v1 < 0) {
-        LogInfo("ExecuteFaceSplit: v0 or v1 < 0");
         return;
     }
 
@@ -774,7 +771,6 @@ static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     }
 
     if (v0_pos_count == 0 || v1_pos_count == 0) {
-        LogInfo("ExecuteFaceSplit: v0_pos_count=%d, v1_pos_count=%d - not found in face", v0_pos_count, v1_pos_count);
         return;
     }
 
@@ -822,9 +818,6 @@ static void ExecuteFaceSplit(MeshData* m, KnifePathPoint* path, KnifeAction& act
             }
         }
     }
-
-    LogInfo("Split face %d: v0=%d (pos %d), v1=%d (pos %d), has_slit=%d",
-        action.face_index, v0, best_pos0, v1, best_pos1, has_slit ? 1 : 0);
 
     // Split the face using positions
     SplitFaceAtPositions(m, action.face_index, best_pos0, best_pos1, cut_vertices, cut_count);
@@ -1006,11 +999,8 @@ static void ExecuteInnerSlit(MeshData* m, KnifePathPoint* path, KnifeAction& act
     }
 
     if (pos0 < 0 || pos1 < 0) {
-        LogInfo("ExecuteInnerSlit: Could not find adjacent v0=%d, v1=%d in face %d", v0, v1, action.face_index);
         return;
     }
-
-    LogInfo("ExecuteInnerSlit: v0=%d (pos %d), v1=%d (pos %d), cut_count=%d", v0, pos0, v1, pos1, cut_count);
 
     // Split the face using positions
     SplitFaceAtPositions(m, action.face_index, pos0, pos1, cut_vertices, cut_count);
@@ -1101,6 +1091,7 @@ static void ExecuteKnifeActions(MeshData* m, KnifePathPoint* path, int path_coun
     }
 }
 
+#ifdef KNIFE_LOG
 static void LogMesh(MeshData* m, const char* label) {
     LogInfo("=== Mesh %s ===", label);
     LogInfo("Vertices (%d):", m->vertex_count);
@@ -1128,6 +1119,7 @@ static void LogMesh(MeshData* m, const char* label) {
         LogInfo("  [%d] %d-%d faces: %s", i, e.v0, e.v1, buf);
     }
 }
+#endif
 
 static void CommitKnifeCuts() {
     MeshData* m = g_knife_tool.mesh;
@@ -1137,14 +1129,19 @@ static void CommitKnifeCuts() {
     // Phase 1: Build complete path with edge intersections
     KnifePathPoint path[512];
     int path_count = BuildKnifePath(m, path);
+
+#ifdef KNIFE_LOG
     LogKnifePath(m, path, path_count);
+#endif
 
     // Phase 2: Segment path into actions
     KnifeAction actions[128];
     int action_count = BuildKnifeActions(m, path, path_count, actions);
-    LogKnifeActions(actions, action_count);
 
+#ifdef KNIFE_LOG
+    LogKnifeActions(actions, action_count);
     LogMesh(m, "BEFORE");
+#endif
 
     // Phase 3: Execute actions
     ExecuteKnifeActions(m, path, path_count, actions, action_count);
@@ -1152,21 +1149,15 @@ static void CommitKnifeCuts() {
     UpdateEdges(m);
     MarkDirty(m);
 
+#ifdef KNIFE_LOG
     LogMesh(m, "AFTER");
+#endif
 }
 
 static void EndKnifeTool(bool commit) {
     if (commit) {
-        LogInfo("%d knife cuts to commit:", g_knife_tool.cut_count);
-        for (int i=0; i<g_knife_tool.cut_count; i++) {
-            LogInfo("v %d: (%.3f, %.3f)", i,
-                g_knife_tool.cuts[i].position.x,
-                g_knife_tool.cuts[i].position.y);
-        }
-
         RecordUndo(g_knife_tool.mesh);
         CommitKnifeCuts();
-        //CommitKnifeCutsNew();
         MarkModified(g_knife_tool.mesh);
     }
 
