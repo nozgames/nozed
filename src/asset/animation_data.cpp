@@ -408,22 +408,25 @@ static void SaveAnimationData(AssetData* ea, const std::filesystem::path& path) 
     Free(stream);
 }
 
-int InsertFrame(AnimationData* n, int frame_index) {
-    int copy_frame = Max(0,frame_index - 1);
-
-    SkeletonData* s = GetSkeletonData(n);
-    for (int i=frame_index + 1; i<=n->frame_count; i++)
-        n->frames[i] = n->frames[i - 1];
+int InsertFrame(AnimationData* n, int insert_at) {
+    if (n->frame_count >= MAX_ANIMATION_FRAMES)
+        return -1;
 
     n->frame_count++;
 
+    int copy_frame = Max(0,insert_at - 1);
+
+    SkeletonData* s = GetSkeletonData(n);
+    for (int frame_index=n->frame_count-1; frame_index>insert_at; frame_index--)
+        n->frames[frame_index] = n->frames[frame_index - 1];
+
     if (copy_frame >= 0)
         for (int j=0; j<s->bone_count; j++)
-            GetFrameTransform(n, j, frame_index) = GetFrameTransform(n, j, copy_frame);
+            GetFrameTransform(n, j, insert_at) = GetFrameTransform(n, j, copy_frame);
 
-    n->frames[frame_index].hold = 0;
+    n->frames[insert_at].hold = 0;
 
-    return frame_index;
+    return insert_at;
 }
 
 int DeleteFrame(AnimationData* en, int frame_index) {

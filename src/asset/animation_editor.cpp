@@ -30,6 +30,7 @@ struct AnimationEditor {
     AnimationFrameData clipboard;
     Vec2 root_motion_delta;
     bool root_motion;
+    float play_speed;
 };
 
 static AnimationEditor g_animation_editor = {};
@@ -244,7 +245,7 @@ static void UpdatePlayState() {
     if (!n->animation)
         return;
 
-    Update(*n->animator, 1.0f);
+    Update(*n->animator, g_animation_editor.play_speed);
 
     if (!IsPlaying(*n->animator)) {
         Stop(*n->animator);
@@ -369,32 +370,35 @@ static void DrawOnionSkin() {
     n->current_frame = (frame - 1 + n->frame_count) % n->frame_count;
     UpdateTransforms(n);
 
+    Vec2 base_position = TransformPoint(GetBaseTransform());
+
     BindMaterial(g_view.vertex_material);
     BindColor(SetAlpha(COLOR_RED, 0.25f));
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* eb = &s->bones[bone_index];
         DrawBone(
-            n->animator->bones[bone_index] * Rotate(eb->transform.rotation),
+            n->animator->bones[bone_index],
             eb->parent_index < 0
                 ? n->animator->bones[bone_index]
                 : n->animator->bones[eb->parent_index],
-            n->position,
+            base_position,
             eb->length
             );
     }
 
     n->current_frame = (frame + 1 + n->frame_count) % n->frame_count;
     UpdateTransforms(n);
+    base_position = TransformPoint(GetBaseTransform());
 
     BindColor(SetAlpha(COLOR_GREEN, 0.25f));
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* eb = &s->bones[bone_index];
         DrawBone(
-            n->animator->bones[bone_index] * Rotate(eb->transform.rotation),
+            n->animator->bones[bone_index],
             eb->parent_index < 0
                 ? n->animator->bones[bone_index]
                 : n->animator->bones[eb->parent_index],
-            n->position,
+            base_position,
             eb->length);
     }
 
@@ -605,8 +609,21 @@ static void InsertFrameAfter() {
 static void InsertFrameAfterLerp() {
     RecordUndo();
     AnimationData* n = GetAnimationData();
-    // todo: lerp between current and next frame
-    n->current_frame = InsertFrame(n, n->current_frame + 1);
+    SkeletonData* s = GetSkeletonData();
+
+    int prev_frame = n->current_frame;
+    int new_frame = InsertFrame(n, n->current_frame + 1);
+    int next_frame = (new_frame + 1) % n->frame_count;
+
+    // Lerp between current and next frame (next_frame index shifted by 1 due to insert)
+    for (int bone_index = 0; bone_index < s->bone_count; bone_index++) {
+        Transform& new_transform = GetFrameTransform(n, bone_index, new_frame);
+        Transform& next_transform = GetFrameTransform(n, bone_index, next_frame);
+        Transform& prev_transform = GetFrameTransform(n, bone_index, prev_frame);
+        new_transform = Mix(prev_transform, next_transform, 0.5f);
+    }
+
+    n->current_frame = new_frame;
     UpdateTransforms(n);
     MarkModified();
 }
@@ -666,6 +683,7 @@ static void BeginAnimationEditor(AssetData*) {
     PushInputSet(g_animation_editor.input);
     g_animation_editor.root_motion = true;
     g_animation_editor.root_motion_delta = VEC2_ZERO;
+    g_animation_editor.play_speed = 1.0f;
 }
 
 static void EndAnimationEditor() {
@@ -804,6 +822,15 @@ static void BeginParentTool() {
     BeginSelectTool({.commit=CommitParentTool});
 }
 
+static void IncPlaySpeed() {
+    g_animation_editor.play_speed = Min(g_animation_editor.play_speed + 0.1f, 4.0f);
+}
+
+static void DecPlaySpeed() {
+    g_animation_editor.play_speed = Max(g_animation_editor.play_speed - 0.1f, 0.1f);
+}
+
+
 void InitAnimationEditor() {
     g_animation_editor = {};
 
@@ -829,6 +856,8 @@ void InitAnimationEditor() {
         { KEY_M, true, false, false, ToggleRootMotion },
         { KEY_P, false, false, false, BeginParentTool },
         { KEY_P, false, true, false, BeginUnparentTool },
+        { KEY_LEFT, false, false, false, DecPlaySpeed },
+        { KEY_RIGHT, false, false, false, IncPlaySpeed },
 
         { INPUT_CODE_NONE }
     };

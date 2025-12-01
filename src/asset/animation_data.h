@@ -48,7 +48,7 @@ extern void PostLoadEditorAssets(AnimationData* n);
 extern void UpdateBounds(AnimationData* n);
 extern void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s);
 extern Animation* ToAnimation(Allocator* allocator, AnimationData* n);
-extern int InsertFrame(AnimationData* n, int frame_index);
+extern int InsertFrame(AnimationData* n, int insert_at);
 extern int DeleteFrame(AnimationData* n, int frame_index);
 extern Transform& GetFrameTransform(AnimationData* n, int bone_index, int frame_index);
 extern void UpdateTransforms(AnimationData* n);
