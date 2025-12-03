@@ -50,7 +50,7 @@ extern void InitAnimationData(AssetData* a);
 extern AssetData* NewAnimationData(const std::filesystem::path& path);
 extern void PostLoadEditorAssets(AnimationData* n);
 extern void UpdateBounds(AnimationData* n);
-extern void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s);
+extern void Serialize(AnimationData* n, Stream* stream, SkeletonData* s);
 extern Animation* ToAnimation(Allocator* allocator, AnimationData* n);
 extern int InsertFrame(AnimationData* n, int insert_at);
 extern int DeleteFrame(AnimationData* n, int frame_index);
@@ -63,3 +63,6 @@ extern int HitTestBone(AnimationData* n, const Mat3& transform, const Vec2& posi
 extern int GetFrameCountWithHolds(AnimationData* n);
 extern int GetFrameIndexWithHolds(AnimationData* n, int frame_index);
 extern int GetRealFrameIndex(AnimationData* n, int frame_index);
+inline bool IsRootMotion(AnimationData* n) { return (n->flags & ANIMATION_FLAG_ROOT_MOTION) != 0; }
+inline bool IsLooping(AnimationData* n) { return (n->flags & ANIMATION_FLAG_LOOPING) != 0; }
+extern void SetLooping(AnimationData* n, bool looping);

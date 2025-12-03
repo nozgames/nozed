@@ -8,20 +8,14 @@ static void DrawEventData(AssetData* a) {
     DrawMesh(MESH_ASSET_ICON_EVENT, Translate(a->position));
 }
 
-static void LoadMeshData(EventData* e, Tokenizer& tk) {
-    (void)e;
-    (void)tk;
-}
-
 static void LoadEventData(AssetData* a) {
     assert(a);
     assert(a->type == ASSET_TYPE_EVENT);
     EventData* e = static_cast<EventData*>(a);
 
     std::string contents = ReadAllText(ALLOCATOR_DEFAULT, a->path);
-    Tokenizer tk;
-    Init(tk, contents.c_str());
-    LoadMeshData(e, tk);
+    Props* props = Props::Load(contents.c_str(), contents.size());
+    e->id = props->GetInt("event", "id", 0);
 }
 
 static EventData* LoadEventData(const std::filesystem::path& path) {
@@ -54,6 +48,7 @@ void InitEventData(AssetData* a) {
     assert(a);
     assert(a->type == ASSET_TYPE_EVENT);
     EventData* e = static_cast<EventData*>(a);
+    e->editor_only = true;
     e->vtable = {
         .load = LoadEventData,
         .draw = DrawEventData,

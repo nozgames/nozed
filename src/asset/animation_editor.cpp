@@ -181,7 +181,7 @@ static void UpdatePlayState() {
     }
 
     if (g_animation_editor.root_motion)
-        g_animation_editor.root_motion_delta += n->animator->root_motion_delta;
+        g_animation_editor.root_motion_delta.x += n->animator->root_motion_delta;
 }
 
 static void HandleBoxSelect(const Bounds2& bounds) {
@@ -234,7 +234,10 @@ static void SetDefaultState() {
 }
 
 static void ToggleLoop() {
-
+    RecordUndo();
+    AnimationData* n = GetAnimationData();
+    SetLooping(n, !IsLooping(n));
+    MarkModified(n);
 }
 
 static void ToggleOnionSkin() {
@@ -300,6 +303,7 @@ constexpr float DOPESHEET_FRAME_DOT_SIZE = 5;
 constexpr float DOPESHEET_FRAME_DOT_OFFSET_X = DOPESHEET_FRAME_WIDTH * 0.5f - DOPESHEET_FRAME_DOT_SIZE * 0.5f;
 constexpr float DOPESHEET_FRAME_DOT_OFFSET_Y = 5;
 constexpr Color DOPESHEET_FRAME_DOT_COLOR = Color8ToColor(20);
+constexpr Color DOPESHEET_FRAME_LOOP_COLOR = Color8ToColor(90);
 constexpr Color DOPESHEET_SELECTED_FRAME_COLOR = COLOR_VERTEX_SELECTED;
 constexpr Color DOPESHEET_EMPTY_FRAME_COLOR = Color8ToColor(45);
 constexpr Color DOPESHEET_TICK_BACKGROUND_COLOR = Color8ToColor(52);
@@ -328,6 +332,33 @@ static void DopeSheetButton(Mesh* icon, bool state, void (*on_tap)()) {
         .border={.width=DOPESHEET_BUTTON_BORDER_WIDTH, .color=DOPESHEET_BUTTON_BORDER_COLOR}});
     Image(icon);
     End();
+    End();
+}
+
+static void DopeSheetFrame(AnimationData* n, int frame_index, int current_frame) {
+    AnimationFrameData* f = &n->frames[frame_index];
+
+    BeginContainer({
+        .width=DOPESHEET_FRAME_WIDTH + DOPESHEET_FRAME_WIDTH * (f->hold),
+        .height=DOPESHEET_FRAME_HEIGHT,
+        .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X),
+        .color = frame_index == current_frame
+            ? DOPESHEET_SELECTED_FRAME_COLOR
+            : DOPESHEET_FRAME_COLOR,
+        });
+
+        if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
+        if (WasPressed()) {
+            n->current_frame = frame_index;
+            UpdateTransforms(n);
+            SetDefaultState();
+        }
+
+        Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
+
+        BeginAlign({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X)});
+        Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=DOPESHEET_FRAME_DOT_COLOR});
+        End();
     End();
 }
 
@@ -362,6 +393,7 @@ static void DopeSheet() {
         if (WasPressed()) {
             n->current_frame = GetRealFrameIndex(n, frame_index);
             UpdateTransforms(n);
+            SetDefaultState();
         }
 
         if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
@@ -404,27 +436,7 @@ static void DopeSheet() {
         for (frame_index = 0; frame_index<n->frame_count; frame_index++) {
             AnimationFrameData* f = &n->frames[frame_index];
             frame_index_with_holds += 1 + f->hold;
-            BeginContainer({
-                .width=DOPESHEET_FRAME_WIDTH + DOPESHEET_FRAME_WIDTH * (f->hold),
-                .height=DOPESHEET_FRAME_HEIGHT,
-                .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X),
-                .color = frame_index == current_frame
-                    ? DOPESHEET_SELECTED_FRAME_COLOR
-                    : DOPESHEET_FRAME_COLOR,
-            });
-
-            if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
-            if (WasPressed()) {
-                n->current_frame = frame_index;
-                UpdateTransforms(n);
-            }
-
-            Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
-
-            BeginAlign({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X)});
-                Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=DOPESHEET_FRAME_DOT_COLOR});
-            End();
-            End();
+            DopeSheetFrame(n, frame_index, current_frame);
         }
 
         // Empty
@@ -621,7 +633,7 @@ static void UpdateMoveTool(const Vec2& delta) {
         AnimationBoneData* bone = &n->bones[bone_index];
         int parent_index = s->bones[bone_index].parent_index;
         if (parent_index == -1) {
-            SetPosition(frame, bone->saved_transform.position + delta);
+            SetPosition(frame, bone->saved_transform.position + Vec2{delta.x, 0});
         } else {
             Vec2 rotated_delta = TransformVector(Inverse(n->animator->bones[parent_index]), delta);
             SetPosition(frame, bone->saved_transform.position + rotated_delta);
@@ -852,7 +864,7 @@ static void RootUnitCommand(const Command& command) {
 
     for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
         AnimationFrameData* frame = &n->frames[frame_index];
-        SetPosition(frame->transforms[0], Vec2{offset * frame_index, frame->transforms[0].position.y});
+        SetPosition(frame->transforms[0], Vec2{offset * (frame_index + 1), 0.0f});
     }
     MarkModified(n);
     UpdateTransforms(n);

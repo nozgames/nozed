@@ -132,8 +132,7 @@ static void SortAssets(ManifestGenerator& generator) {
     });
 }
 
-bool GenerateAssetManifest(const fs::path& source_path, const fs::path& target_path, Props* config)
-{
+bool GenerateAssetManifest(const fs::path& source_path, const fs::path& target_path, Props* config) {
     (void)target_path;
 
     if (fs::exists(source_path) && !fs::is_directory(source_path))
@@ -349,6 +348,21 @@ static void GenerateHeader(ManifestGenerator& generator) {
             if (bone_index.last)
                 WriteCSTR(stream, "constexpr int BONE_%s_COUNT = %d;\n", bone_index.skeleton_name.c_str(), bone_index.index + 1);
         }
+    }
+
+    bool first_event = true;
+    for (int asset_index=0, asset_count=GetAssetCount(); asset_index<asset_count; asset_index++) {
+        AssetData* a = GetAssetData(asset_index);
+        if (a->type != ASSET_TYPE_EVENT) continue;
+        if (first_event) {
+            WriteCSTR(stream, "\n");
+            WriteCSTR(stream, "// @event\n");
+            first_event = false;
+        }
+        EventData* e = static_cast<EventData*>(a);
+        std::string var_name = a->name->value;
+        Uppercase(var_name.data(), (u32)var_name.size());
+        WriteCSTR(stream, "constexpr int EVENT_%s = %d;\n", var_name.c_str(), e->id);
     }
 
     WriteCSTR(stream, "\n");

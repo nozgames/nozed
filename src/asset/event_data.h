@@ -5,6 +5,7 @@
 #pragma once
 
 struct EventData : AssetData {
+    int id;
 };
 
 extern AssetImporter GetEventImporter();

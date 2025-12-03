@@ -4,6 +4,8 @@
 
 #include "../../../src/internal.h"
 
+#include <complex>
+
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetType asset_type, AssetLoaderFunc loader, Stream* stream);
 static void InitAnimationData(AnimationData* a);
 extern void InitAnimationEditor(AnimationData* a);
@@ -339,68 +341,82 @@ static void SerializeTransform(Stream* stream, const Transform& transform) {
     WriteStruct(stream, bone_transform);
 }
 
-void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
+void Serialize(AnimationData* n, Stream* stream, SkeletonData* s) {
     assert(s);
 
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE;
     header.type = ASSET_TYPE_ANIMATION;
     header.version = 1;
-    WriteAssetHeader(output_stream, &header);
+    WriteAssetHeader(stream, &header);
 
     bool looping = (n->flags & ANIMATION_FLAG_LOOPING) != 0;
+    int real_frame_count = GetFrameCountWithHolds(n);
 
-    int real_frame_count = n->frame_count;
-    for (int frame_index=0; frame_index<n->frame_count; frame_index++)
-        real_frame_count += n->frames[frame_index].hold;
-
-    if (looping && n->frame_count > 1) {
-        real_frame_count--;
-        real_frame_count -= n->frames[n->frame_count - 1].hold;
-    }
-
-    WriteU8(output_stream, (u8)s->bone_count);
-    WriteU8(output_stream, (u8)n->frame_count);
-    WriteU8(output_stream, (u8)real_frame_count);
-    WriteU8(output_stream, (u8)g_config->GetInt("animation", "frame_rate", ANIMATION_FRAME_RATE));
-    WriteU8(output_stream, (u8)n->flags);
+    WriteU8(stream, (u8)s->bone_count);
+    WriteU8(stream, (u8)n->frame_count);
+    WriteU8(stream, (u8)real_frame_count);
+    WriteU8(stream, (u8)g_config->GetInt("animation", "frame_rate", ANIMATION_FRAME_RATE));
+    WriteU8(stream, (u8)n->flags);
 
     // todo: do we need this?
     for (int i=0; i<s->bone_count; i++)
-        WriteU8(output_stream, (u8)n->bones[i].index);
+        WriteU8(stream, (u8)n->bones[i].index);
 
     // frame transforms
     for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
         AnimationFrameData& f = n->frames[frame_index];
-        for (int bone_index=0; bone_index<s->bone_count; bone_index++)
-            SerializeTransform(output_stream, f.transforms[bone_index]);
+        Transform transform = f.transforms[0];
+        transform.position = VEC2_ZERO;
+        SerializeTransform(stream, transform);
+        for (int bone_index=1; bone_index<s->bone_count; bone_index++)
+            SerializeTransform(stream, f.transforms[bone_index]);
     }
+
+    float base_root_motion = n->frames[0].transforms[0].position.x;
 
     // frames
     for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
         AnimationFrameData& fd = n->frames[frame_index];
-
         AnimationFrame f = {};
-        f.event = 0;
+        f.event = fd.event ? fd.event->id : -1;
         f.transform0 = frame_index;
         f.transform1 = looping
             ? (frame_index + 1) % n->frame_count
             : Min(frame_index + 1, n->frame_count - 1);
 
+        float root_motion0 = n->frames[f.transform0].transforms[0].position.x - base_root_motion;
+        float root_motion1 = n->frames[f.transform1].transforms[0].position.x - base_root_motion;
+
+        if (f.transform1 < f.transform0) {
+            root_motion1 += root_motion0 + base_root_motion;
+        }
+
         if (fd.hold == 0) {
             f.fraction0 = 0.0f;
             f.fraction1 = 1.0f;
-            WriteStruct(output_stream, f);
+            f.root_motion0 = root_motion0;
+            f.root_motion1 = root_motion1;
+            WriteStruct(stream, f);
             continue;
         }
 
         int hold_count = fd.hold + 1;
         for (int hold_index=0; hold_index<hold_count; hold_index++) {
             f.fraction1 = (float)(hold_index + 1) / (float)hold_count;
-            WriteStruct(output_stream, f);
+            f.root_motion1 = root_motion0 + (root_motion1 - root_motion0) * f.fraction1;
+            WriteStruct(stream, f);
             f.fraction0 = f.fraction1;
+            f.event = 0;
         }
     }
+
+    // // Alwasy write an extra frame at the end to simplify sampling logic
+    // AnimationFrame f = {};
+    // f.transform0 = n->frame_count - 1;
+    // f.transform1 = n->frame_count - 1;
+    // f.fraction0 = 0.0f;
+    // WriteStruct(stream, f);
 }
 
 Animation* ToAnimation(Allocator* allocator, AnimationData* n) {
@@ -550,6 +566,12 @@ static void LoadAnimationMetadata(AssetData* a, Props* meta) {
         n->flags |= ANIMATION_FLAG_ROOT_MOTION;
 }
 
+static void SaveAnimationMetadata(AssetData* a, Props* meta) {
+    AnimationData* n = static_cast<AnimationData*>(a);
+    meta->SetBool("animation", "loop", IsLooping(n));
+    meta->SetBool("animation", "root_motion", IsRootMotion(n));
+}
+
 static void AllocateAnimationRuntimeData(AssetData* a) {
     assert(a->type == ASSET_TYPE_ANIMATION);
     AnimationData* n = static_cast<AnimationData*>(a);
@@ -598,6 +620,15 @@ int HitTestBone(AnimationData* n, const Mat3& transform, const Vec2& position) {
     return bones[0];
 }
 
+void SetLooping(AnimationData* n, bool looping) {
+    if (looping)
+        n->flags |= ANIMATION_FLAG_LOOPING;
+    else
+        n->flags &= ~ANIMATION_FLAG_LOOPING;
+
+    MarkMetaModified(n);
+}
+
 static void InitAnimationData(AnimationData* a) {
     AllocateAnimationRuntimeData(a);
 
@@ -607,6 +638,7 @@ static void InitAnimationData(AnimationData* a) {
         .post_load = PostLoadAnimationData,
         .save = SaveAnimationData,
         .load_metadata = LoadAnimationMetadata,
+        .save_metadata = SaveAnimationMetadata,
         .draw = DrawAnimationData,
         .clone = CloneAnimationData,
         .undo_redo = HandleAnimationUndoRedo
