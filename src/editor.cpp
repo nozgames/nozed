@@ -169,6 +169,7 @@ static void InitImporters() {
     g_editor.importers[ASSET_TYPE_TEXTURE] = GetTextureImporter();
     g_editor.importers[ASSET_TYPE_VFX] = GetVfxImporter();
     g_editor.importers[ASSET_TYPE_SKELETON] = GetSkeletonImporter();
+    g_editor.importers[ASSET_TYPE_EVENT] = GetEventImporter();
 
 #ifdef _DEBUG
     for (int i=0; i<ASSET_TYPE_COUNT; i++)
@@ -242,15 +243,19 @@ int main(int argc, const char* argv[]) {
     traits.scratch_memory_size = noz::MB * 128;
 
     InitApplication(&traits, argc, argv);
+
     InitEditor();
     InitLog(HandleLog);
-
     InitAssetData();
     LoadAssetData();
     InitNotifications();
     InitImporter();
     InitWindow();
     PostLoadAssetData();
+
+    MESH = g_editor.meshes;
+    MESH_COUNT = MAX_ASSETS;
+
     InitView();
     InitCommandInput();
     InitUserConfig();

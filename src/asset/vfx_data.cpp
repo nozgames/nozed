@@ -319,6 +319,7 @@ void Serialize(VfxData* v, Stream* stream) {
         WriteStruct(stream, particle.gravity);
         WriteStruct(stream, particle.drag);
         WriteStruct(stream, particle.rotation);
+        WriteName(stream, particle.mesh_name);
     }
 }
 
@@ -326,6 +327,7 @@ Vfx* ToVfx(Allocator* allocator, VfxData* v, const Name* name) {
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 8192);
     if (!stream)
         return nullptr;
+
     Serialize(v, stream);
     SeekBegin(stream, 0);
 
@@ -355,12 +357,14 @@ static void LoadVfxData(AssetData* a) {
     v->loop = source->GetBool("vfx", "loop", false);
 
     auto emitter_names = source->GetKeys("emitters");
-    for (const auto& emitter_name : emitter_names)
-    {
+    for (const auto& emitter_name : emitter_names) {
         if (!source->HasGroup(emitter_name.c_str()))
             throw std::exception((std::string("missing emitter ") + emitter_name).c_str());
 
-        std::string particle_section = emitter_name + ".particle";
+        std::string particle_section = source->GetString(emitter_name.c_str(), "particle", "");
+        if (particle_section.empty())
+            particle_section = emitter_name + ".particle";
+
         if (!source->HasGroup(particle_section.c_str()))
             throw std::exception((std::string("missing particle ") + particle_section).c_str());
 
@@ -383,6 +387,10 @@ static void LoadVfxData(AssetData* a) {
         emitter.def.particle_def.gravity = ParseVec2(source->GetString(particle_section.c_str(), "gravity", "(0, 0, 0)"), VFX_VEC2_ZERO);
         emitter.def.particle_def.drag = ParseFloat(source->GetString(particle_section.c_str(), "drag", "0"), VFX_FLOAT_ZERO);
         emitter.def.particle_def.rotation = ParseFloatCurve(source->GetString(particle_section.c_str(), "rotation", "0.0"), VFX_FLOAT_CURVE_ZERO);
+
+        std::string mesh_name = source->GetString(particle_section.c_str(), "mesh", "");
+        if (mesh_name != "")
+            emitter.def.particle_def.mesh_name = GetName(mesh_name.c_str());
     }
 
     v->vfx = ToVfx(ALLOCATOR_DEFAULT, v, v->name);
@@ -431,7 +439,11 @@ static void ReloadVfxData(AssetData* a) {
     Stop(v->handle);
     Free(v->vfx);
 
-    LoadVfxData(a);
+    try {
+        LoadVfxData(a);
+    } catch (const std::exception& e) {
+        LogError("failed to reload vfx '%s': %s", a->name->value, e.what());
+    }
 
     v->vfx = ToVfx(ALLOCATOR_DEFAULT, v, v->name);
     v->bounds = GetBounds(v->vfx);

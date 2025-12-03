@@ -155,9 +155,6 @@ static int SplitFaceAtPositions(MeshData* m, int face_index, int pos0, int pos1,
     // Create new face
     FaceData& new_face = m->faces[m->face_count];
     new_face.color = old_face.color;
-    new_face.gradient_color = old_face.gradient_color;
-    new_face.gradient_dir = old_face.gradient_dir;
-    new_face.gradient_offset = old_face.gradient_offset;
     new_face.normal = old_face.normal;
     new_face.selected = false;
     new_face.vertex_count = 0;
@@ -886,9 +883,6 @@ static void ExecuteInnerFace(MeshData* m, KnifePathPoint* path, KnifeAction& act
 
     FaceData& inner_face = m->faces[m->face_count];
     inner_face.color = f.color;
-    inner_face.gradient_color = f.gradient_color;
-    inner_face.gradient_dir = f.gradient_dir;
-    inner_face.gradient_offset = f.gradient_offset;
     inner_face.normal = f.normal;
     inner_face.selected = false;
     inner_face.vertex_count = 0;

@@ -191,21 +191,9 @@ static void UpdateFaceSelection(MeshData* m) {
 
 }
 
-static void UpdateSelection(MeshEditorMode mode=MESH_EDITOR_MODE_CURRENT) {
+static void UpdateSelectionCenter() {
     MeshData* m = GetMeshData();
     Bounds2 bounds = {VEC2_ZERO, VEC2_ZERO};
-
-    if (mode == MESH_EDITOR_MODE_CURRENT)
-        mode = g_mesh_editor.mode;
-
-    if (mode == MESH_EDITOR_MODE_FACE) {
-        UpdateFaceSelection(m);
-    } else if (mode == MESH_EDITOR_MODE_EDGE) {
-        UpdateEdgeSelection(m);
-    } else {
-        UpdateVertexSelection(m);
-    }
-
     int vertex_index = 0;
     for (; vertex_index<m->vertex_count; vertex_index++) {
         VertexData& v = m->vertices[vertex_index];
@@ -224,6 +212,23 @@ static void UpdateSelection(MeshEditorMode mode=MESH_EDITOR_MODE_CURRENT) {
         g_mesh_editor.selection_center = GetCenter(bounds);
     else
         g_mesh_editor.selection_center = VEC2_ZERO;
+}
+
+static void UpdateSelection(MeshEditorMode mode=MESH_EDITOR_MODE_CURRENT) {
+    MeshData* m = GetMeshData();
+
+    if (mode == MESH_EDITOR_MODE_CURRENT)
+        mode = g_mesh_editor.mode;
+
+    if (mode == MESH_EDITOR_MODE_FACE) {
+        UpdateFaceSelection(m);
+    } else if (mode == MESH_EDITOR_MODE_EDGE) {
+        UpdateEdgeSelection(m);
+    } else {
+        UpdateVertexSelection(m);
+    }
+
+    UpdateSelectionCenter();
 }
 
 static void ClearSelection() {
@@ -691,6 +696,11 @@ static void CancelMeshTool() {
     RevertMeshState();
 }
 
+static void CommitMoveTool(const Vec2& delta) {
+    (void)delta;
+    UpdateSelectionCenter();
+}
+
 static void UpdateMoveTool(const Vec2& delta) {
     MeshData* m = GetMeshData();
     bool snap = IsCtrlDown(GetInputSet());
@@ -713,10 +723,15 @@ static void BeginMoveTool() {
 
     SaveMeshState();
     RecordUndo(m);
-    BeginMoveTool({.update=UpdateMoveTool, .cancel=CancelMeshTool});
+    BeginMoveTool({.update=UpdateMoveTool, .commit=CommitMoveTool, .cancel=CancelMeshTool});
 }
 
 static void UpdateRotateTool(float angle) {
+    if (IsCtrlDown()) {
+        int angle_step = (int)(angle / 15.0f);
+        angle = angle_step * 15.0f;
+    }
+
     float cos_angle = Cos(Radians(angle));
     float sin_angle = Sin(Radians(angle));
 
@@ -1030,23 +1045,18 @@ static bool ExtrudeSelectedEdges(MeshData* m) {
     UpdateEdges(m);
     MarkDirty(m);
 
-    // Clear all selections first
+    // update selection
     ClearSelection();
-
-    // Find and select the new edges by their vertex pairs
     for (int i = 0; i < new_edge_count; i++) {
         int v0 = new_edge_vertex_pairs[i][0];
         int v1 = new_edge_vertex_pairs[i][1];
-
-        // Find the edge with these vertices
-        for (int edge_idx = 0; edge_idx < m->edge_count; edge_idx++) {
-            const EdgeData& ee = m->edges[edge_idx];
-            if ((ee.v0 == v0 && ee.v1 == v1) || (ee.v0 == v1 && ee.v1 == v0)) {
-                SelectEdge(edge_idx, true);
-                break;
-            }
-        }
+        int edge_index = GetEdge(m, v0, v1);
+        assert(edge_index != -1);
+        m->edges[edge_index].selected = true;
     }
+
+    UpdateSelection(MESH_EDITOR_MODE_EDGE);
+
     return true;
 }
 
@@ -1236,6 +1246,9 @@ static void DrawMeshEditor() {
         DrawVertices(true);
     }
 
+    // origin
+    DrawOrigin(m);
+
     DrawXRay();
 }
 
@@ -1375,6 +1388,44 @@ static void ToggleXRay() {
     g_mesh_editor.xray = !g_mesh_editor.xray;
 }
 
+static void DuplicateSelected() {
+    MeshData* m = GetMeshData();
+    if (m->face_count + m->selected_face_count > MAX_FACES)
+        return;
+    if (m->vertex_count + m->selected_vertex_count > MAX_VERTICES)
+        return;
+
+    RecordUndo(m);
+
+    int old_face_count = m->face_count;
+    int old_vertex_count = m->vertex_count;
+
+    for (int vertex_index=0; vertex_index<old_vertex_count; vertex_index++) {
+        VertexData& v = m->vertices[vertex_index];
+        if (!v.selected) continue;
+        m->vertices[m->vertex_count++] = v;
+    }
+
+    for (int face_index=0; face_index<old_face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
+        if (!f.selected) continue;
+        int new_face_index = m->face_count++;
+        FaceData& nf = m->faces[new_face_index];
+        nf = f;
+        f.selected = false;
+        nf.selected = true;
+
+        for (int vertex_index=0; vertex_index<f.vertex_count; vertex_index++)
+            nf.vertices[vertex_index] += m->selected_vertex_count;
+    }
+
+    MarkDirty(m);
+    UpdateEdges(m);
+    UpdateSelection(MESH_EDITOR_MODE_FACE);
+    MarkModified(m);
+    BeginMoveTool();
+}
+
 static void BeginMeshEditor(AssetData* a) {
     g_mesh_editor.mesh_data = static_cast<MeshData*>(a);
     g_view.vtable = {
@@ -1404,6 +1455,7 @@ void InitMeshEditor() {
         SetTexture(g_mesh_editor.color_material, g_view.palettes[0].texture->texture, 0);
 
     static Shortcut shortcuts[] = {
+        { KEY_D, false, true, false, DuplicateSelected },
         { KEY_G, false, false, false, BeginMoveTool },
         { KEY_R, false, false, false, BeginRotateTool },
         { KEY_S, false, false, false, BeginScaleTool },

@@ -2,17 +2,6 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-constexpr float FRAME_SIZE_X = 20;
-constexpr float FRAME_SIZE_Y = 40;
-constexpr float FRAME_BORDER_SIZE = 1;
-constexpr Color FRAME_BORDER_COLOR = Color24ToColor(32,32,32);
-constexpr float FRAME_DOT_SIZE = 5;
-constexpr float FRAME_DOT_OFFSET_X = FRAME_SIZE_X * 0.5f - FRAME_DOT_SIZE * 0.5f;
-constexpr float FRAME_DOT_OFFSET_Y = 5;
-constexpr Color FRAME_DOT_COLOR = FRAME_BORDER_COLOR;
-constexpr Color FRAME_COLOR = Color32ToColor(100, 100, 100, 255);
-constexpr Color FRAME_SELECTED_COLOR = COLOR_VERTEX_SELECTED;
-
 enum AnimationViewState {
     ANIMATION_VIEW_STATE_DEFAULT,
     ANIMATION_VIEW_STATE_PLAY,
@@ -30,6 +19,7 @@ struct AnimationEditor {
     AnimationFrameData clipboard;
     Vec2 root_motion_delta;
     bool root_motion;
+    Animation* playing;
     float play_speed;
 };
 
@@ -108,7 +98,7 @@ static bool TrySelectBone() {
     AnimationData* n = GetAnimationData();
 
     int hit[MAX_BONES];
-    int hit_count = HitTestBones(n, Translate(n->position), g_view.mouse_world_position, hit, MAX_BONES);
+    int hit_count = HitTestBones(n, GetBaseTransform(), g_view.mouse_world_position, hit, MAX_BONES);
     if (hit_count == 0) {
         if (!IsShiftDown())
             ClearSelection();
@@ -180,18 +170,14 @@ static void UpdateBoneNames() {
 }
 
 static void UpdatePlayState() {
+    assert(g_animation_editor.playing);
+
     AnimationData* n = GetAnimationData();
-    if (!n->animation)
-        n->animation = ToAnimation(ALLOCATOR_DEFAULT, n);
-
-    if (!n->animation)
-        return;
-
     Update(*n->animator, g_animation_editor.play_speed);
 
     if (!IsPlaying(*n->animator)) {
         Stop(*n->animator);
-        Play(*n->animator, n->animation, 0, 1.0f);
+        Play(*n->animator, g_animation_editor.playing, 0, 1.0f);
     }
 
     if (g_animation_editor.root_motion)
@@ -204,13 +190,10 @@ static void HandleBoxSelect(const Bounds2& bounds) {
 
     AnimationData* n = GetAnimationData();
     SkeletonData* s = GetSkeletonData();
+    Mat3 base_transform = GetBaseTransform();
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
-        BoneData* eb = &s->bones[bone_index];
-        Mat3 collider_transform =
-            Translate(n->position) *
-            n->animator->bones[bone_index] *
-            Rotate(eb->transform.rotation) *
-            Scale(eb->length);
+        BoneData* b = &s->bones[bone_index];
+        Mat3 collider_transform = base_transform * n->animator->bones[bone_index] * Scale(b->length);
         if (OverlapBounds(g_view.bone_collider, collider_transform, bounds))
             SetBoneSelected(bone_index, true);
     }
@@ -241,16 +224,284 @@ static void SetDefaultState() {
         return;
 
     AnimationData* n = GetAnimationData();
-    if (IsPlaying(*n->animator)) {
-        Stop(*n->animator);
-        g_animation_editor.root_motion_delta = VEC2_ZERO;
-    }
-
-    g_animation_editor.root_motion_delta = VEC2_ZERO;
-
+    Stop(*n->animator);
     UpdateTransforms(n);
 
+    Free(g_animation_editor.playing);
+    g_animation_editor.playing = nullptr;
+    g_animation_editor.root_motion_delta = VEC2_ZERO;
     g_animation_editor.state = ANIMATION_VIEW_STATE_DEFAULT;
+}
+
+static void ToggleLoop() {
+
+}
+
+static void ToggleOnionSkin() {
+    g_animation_editor.onion_skin = !g_animation_editor.onion_skin;
+}
+
+static void ToggleRootMotion() {
+    g_animation_editor.root_motion = !g_animation_editor.root_motion;
+    g_animation_editor.root_motion_delta = VEC2_ZERO;
+    UpdateSelectionCenter();
+    UpdateTransforms(GetAnimationData());
+}
+
+static void Mirror() {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = n->skeleton;
+    RecordUndo(n);
+
+    Mat3 saved_world_transforms[MAX_BONES];
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
+        saved_world_transforms[bone_index] = n->animator->bones[bone_index];
+
+    for (int bone_index=1; bone_index<s->bone_count; bone_index++) {
+        AnimationBoneData* b = &n->bones[bone_index];
+        if (!b->selected) continue;
+
+        int mirror_index = GetMirrorBone(s, bone_index);
+        if (mirror_index == -1) continue;
+
+        BoneData* bone = &s->bones[bone_index];
+        Vec2 desired_world_pos = TransformPoint(saved_world_transforms[mirror_index]);
+        float desired_world_rot = GetRotation(saved_world_transforms[mirror_index]);
+
+        Mat3 parent_world = bone->parent_index >= 0
+            ? n->animator->bones[bone->parent_index]
+            : MAT3_IDENTITY;
+
+        Vec2 local_pos = TransformPoint(Inverse(parent_world), desired_world_pos);
+        Vec2 frame_pos = local_pos - bone->transform.position;
+
+        float parent_world_rot = GetRotation(parent_world);
+        float frame_rot = desired_world_rot - parent_world_rot - bone->transform.rotation;
+
+        Transform& frame = GetFrameTransform(n, bone_index, n->current_frame);
+        SetPosition(frame, frame_pos);
+        SetRotation(frame, frame_rot);
+
+        UpdateTransforms(n);
+    }
+
+    MarkModified(n);
+}
+
+constexpr int   DOPESHEET_MIN_FRAMES = 24;
+constexpr float DOPESHEET_FRAME_WIDTH = 20;
+constexpr float DOPESHEET_FRAME_HEIGHT = 40;
+constexpr float DOPESHEET_PADDING = 8;
+constexpr float DOPESHEET_BORDER_WIDTH = 1;
+constexpr Color DOPESHEET_BORDER_COLOR = Color8ToColor(10);
+constexpr Color DOPESHEET_FRAME_COLOR = Color8ToColor(100);
+constexpr float DOPESHEET_FRAME_MARGIN_X = 0; // -DOPESHEET_FRAME_BORDER_WIDTH * 2;
+constexpr float DOPESHEET_FRAME_DOT_SIZE = 5;
+constexpr float DOPESHEET_FRAME_DOT_OFFSET_X = DOPESHEET_FRAME_WIDTH * 0.5f - DOPESHEET_FRAME_DOT_SIZE * 0.5f;
+constexpr float DOPESHEET_FRAME_DOT_OFFSET_Y = 5;
+constexpr Color DOPESHEET_FRAME_DOT_COLOR = Color8ToColor(20);
+constexpr Color DOPESHEET_SELECTED_FRAME_COLOR = COLOR_VERTEX_SELECTED;
+constexpr Color DOPESHEET_EMPTY_FRAME_COLOR = Color8ToColor(45);
+constexpr Color DOPESHEET_TICK_BACKGROUND_COLOR = Color8ToColor(52);
+constexpr float DOPESHEET_TICK_WIDTH = DOPESHEET_BORDER_WIDTH;
+constexpr float DOPESHEET_TICK_HEIGHT = DOPESHEET_FRAME_HEIGHT * 0.4f;
+constexpr Color DOPESHEET_TICK_COLOR = DOPESHEET_BORDER_COLOR;
+constexpr float DOPESHEET_SHORT_TICK_HEIGHT = DOPESHEET_TICK_HEIGHT * 0.5f;
+constexpr Color DOPESHEET_SHORT_TICK_COLOR = DOPESHEET_BORDER_COLOR;
+constexpr float DOPESHEET_BUTTON_SIZE = DOPESHEET_FRAME_HEIGHT;
+constexpr float DOPESHEET_BUTTON_MARGIN_Y = 6;
+constexpr float DOPESHEET_BUTTON_SPACING = 8;
+constexpr Color DOPESHEET_BUTTON_COLOR = DOPESHEET_FRAME_COLOR;
+constexpr Color DOPESHEET_BUTTON_CHECKED_COLOR = COLOR_VERTEX_SELECTED;
+constexpr float DOPESHEET_BUTTON_BORDER_WIDTH = 1;
+constexpr Color DOPESHEET_BUTTON_BORDER_COLOR = DOPESHEET_BORDER_COLOR;
+
+static void DopeSheetButton(Mesh* icon, bool state, void (*on_tap)()) {
+    BeginGestureDetector({.on_tap = [](const TapDetails& d) { ((void(*)())d.user_data)(); }, .user_data=on_tap});
+    BeginContainer({
+        .width=DOPESHEET_BUTTON_SIZE,
+        .height=DOPESHEET_BUTTON_SIZE,
+        .padding=EdgeInsetsAll(6),
+        .color=state ? DOPESHEET_BUTTON_CHECKED_COLOR : DOPESHEET_BUTTON_COLOR,
+        .border={.width=DOPESHEET_BUTTON_BORDER_WIDTH, .color=DOPESHEET_BUTTON_BORDER_COLOR}});
+    Image(icon);
+    End();
+    End();
+}
+
+static void DopeSheet() {
+    AnimationData* n = GetAnimationData();
+    int frame_count = Max(GetFrameCountWithHolds(n), DOPESHEET_MIN_FRAMES);
+
+    BeginCanvas();
+    BeginAlign({.alignment=ALIGNMENT_BOTTOM_CENTER, .margin=EdgeInsetsBottom(20)});
+    BeginContainer({
+        .width=frame_count * DOPESHEET_FRAME_WIDTH + DOPESHEET_PADDING * 2 + 1,
+        .padding=EdgeInsetsAll(DOPESHEET_PADDING),
+        .color=COLOR_UI_BACKGROUND});
+    BeginColumn();
+
+    Container({.height=DOPESHEET_BORDER_WIDTH, .color=DOPESHEET_TICK_COLOR});
+
+    // Ticks
+    BeginRow();
+    for (int i=0; i<=frame_count; i++) {
+        BeginContainer({
+            .width=i == frame_count ? DOPESHEET_TICK_WIDTH : DOPESHEET_FRAME_WIDTH,
+            .height=DOPESHEET_TICK_HEIGHT,
+            .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X),
+            .color=DOPESHEET_TICK_BACKGROUND_COLOR
+        });
+
+        if (n->frames[i].event_name != nullptr) {
+            BeginAlign({.alignment=ALIGNMENT_CENTER_CENTER});
+            //Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=COLOR_WHITE});
+            BeginSizedBox({.width=DOPESHEET_FRAME_DOT_SIZE * 2, .height=DOPESHEET_FRAME_DOT_SIZE * 2});
+                Image(MESH_ASSET_ICON_EVENT);
+            End();
+            End();
+        }
+
+        // Tick
+        if (i % 4 == 0) {
+            Container({.width=DOPESHEET_BORDER_WIDTH, .color=DOPESHEET_TICK_COLOR});
+        // Short Tick
+        } else {
+            BeginAlign({.alignment=ALIGNMENT_BOTTOM_LEFT});
+                Container({
+                    .width=DOPESHEET_TICK_WIDTH,
+                    .height=DOPESHEET_SHORT_TICK_HEIGHT,
+                    .color=DOPESHEET_SHORT_TICK_COLOR});
+            End();
+        }
+        End();
+    }
+    End();
+
+    Container({.height=DOPESHEET_BORDER_WIDTH, .color=DOPESHEET_TICK_COLOR});
+
+    // Frames
+    BeginRow();
+        int frame_index = 0;
+        int frame_index_with_holds = 0;
+        int current_frame = n->current_frame;
+        for (frame_index = 0; frame_index<n->frame_count; frame_index++) {
+            AnimationFrameData* f = &n->frames[frame_index];
+            frame_index_with_holds += 1 + f->hold;
+            BeginContainer({
+                .width=DOPESHEET_FRAME_WIDTH + DOPESHEET_FRAME_WIDTH * (f->hold),
+                .height=DOPESHEET_FRAME_HEIGHT,
+                .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X),
+                .color = frame_index == current_frame
+                    ? DOPESHEET_SELECTED_FRAME_COLOR
+                    : DOPESHEET_FRAME_COLOR,
+                //.border = {.width=DOPESHEET_FRAME_BORDER_WIDTH, .color=DOPESHEET_FRAME_BORDER_COLOR}
+            });
+
+            Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
+
+            BeginAlign({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X)});
+                Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=DOPESHEET_FRAME_DOT_COLOR});
+            End();
+            End();
+        }
+
+        // Empty
+        for (; frame_index_with_holds<frame_count; frame_index_with_holds++) {
+            BeginContainer({
+                .width=DOPESHEET_FRAME_WIDTH,
+                .height=DOPESHEET_FRAME_HEIGHT,
+                .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X),
+                .color=DOPESHEET_EMPTY_FRAME_COLOR
+            });
+                Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
+            End();
+        }
+
+        // Right Border
+        Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
+    End();
+
+    Container({.height=DOPESHEET_BORDER_WIDTH, .color=DOPESHEET_TICK_COLOR});
+    SizedBox({.height=DOPESHEET_BUTTON_MARGIN_Y});
+
+    // Buttons
+    BeginContainer({.height=DOPESHEET_BUTTON_SIZE, .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X)});
+        BeginRow({.spacing=DOPESHEET_BUTTON_SPACING});
+            DopeSheetButton(MESH_UI_ICON_MIRROR, false, [] { Mirror(); });
+            Expanded();
+            DopeSheetButton(MESH_UI_ICON_LOOP, IsLooping(n->flags), [] { ToggleLoop(); });
+            DopeSheetButton(MESH_UI_ICON_ROOT_MOTION, g_animation_editor.root_motion, [] { ToggleRootMotion(); });
+            DopeSheetButton(MESH_UI_ICON_ONION, g_animation_editor.onion_skin, [] { ToggleOnionSkin(); });
+        End();
+    End();
+
+    End(); // Column
+    End(); // Container
+    End(); // Align
+    End(); // Canvas
+}
+
+constexpr float INSPECTOR_WIDTH = 250.0f;
+constexpr float INSPECTOR_PADDING = 8.0f;
+constexpr float INSPECTOR_LABEL_WIDTH = INSPECTOR_WIDTH * 0.4f;
+constexpr float INSPECTOR_VALUE_WIDTH = INSPECTOR_WIDTH - INSPECTOR_LABEL_WIDTH;
+constexpr Color INSPECTOR_CHECKED_COLOR = COLOR_VERTEX_SELECTED;
+
+static void InspectorHeader(const char* title) {
+    Label(title, {.font=FONT_SEGUISB, .font_size=16, .align=ALIGNMENT_CENTER_LEFT});
+}
+
+static void InspectorRadioButton(const char* name, bool state) {
+    (void)state;
+
+    BeginContainer({.height=20});
+    BeginRow();
+        BeginContainer({.width=INSPECTOR_LABEL_WIDTH});
+            Label(name, {.font=FONT_SEGUISB, .font_size=14, .color=COLOR_UI_TEXT, .align=ALIGNMENT_CENTER_LEFT});
+        End();
+        BeginGestureDetector({});
+            BeginAlign({.alignment=ALIGNMENT_CENTER_LEFT});
+                BeginSizedBox({.width=15, .height=15});
+                    Image(g_view.circle_mesh, {.color=state ? INSPECTOR_CHECKED_COLOR : Color8ToColor(55)});
+                End();
+            End();
+        End();
+    End(); // Row
+    End(); // Container
+}
+
+static void InspectorCheckbox(const char* name, bool state) {
+    BeginContainer({.height=20});
+    BeginRow();
+    BeginContainer({.width=INSPECTOR_LABEL_WIDTH});
+        Label(name, {.font=FONT_SEGUISB, .font_size=14, .color=COLOR_UI_TEXT, .align=ALIGNMENT_CENTER_LEFT});
+    End();
+    BeginContainer({.width=20, .height=20, .color=state ? COLOR_VERTEX_SELECTED : COLOR_UI_BACKGROUND, .border={.width=1, .color=COLOR_BLACK}});
+    End(); // Container
+    End(); // Row
+    End(); // Container
+}
+
+static void Inspector() {
+    BeginCanvas();
+    BeginAlign({.alignment=ALIGNMENT_TOP_RIGHT, .margin=EdgeInsetsTopRight(20)});
+    BeginContainer({
+        .width=INSPECTOR_WIDTH,
+        .padding=EdgeInsetsAll(INSPECTOR_PADDING),
+        .color=COLOR_UI_BACKGROUND});
+    BeginColumn();
+
+    InspectorHeader("Events");
+    InspectorRadioButton("Test 1", true);
+    InspectorRadioButton("Test 2", false);
+    InspectorCheckbox("Event 1", true);
+    InspectorCheckbox("Event 2", true);
+
+    End(); // Column
+    End(); // Container
+    End(); // Align
+    End(); // Canvas
 }
 
 void UpdateAnimationEditor() {
@@ -264,87 +515,38 @@ void UpdateAnimationEditor() {
     else if (g_animation_editor.state == ANIMATION_VIEW_STATE_PLAY)
         UpdatePlayState();
 
-    Canvas([n] {
-        Align({.alignment=ALIGNMENT_BOTTOM_CENTER, .margin=EdgeInsetsBottom(20)}, [n] {
-            Row([n] {
-                Container({
-                    .width=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
-                    .height=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
-                    .margin=EdgeInsetsLeftRight(-FRAME_SIZE_X, FRAME_SIZE_X),
-                    .padding=EdgeInsetsAll(4),
-                    .color=FRAME_COLOR,
-                    .border = {.width=FRAME_BORDER_SIZE, .color=FRAME_BORDER_COLOR}}, [] {
-                    Image(g_animation_editor.root_motion ? MESH_UI_ICON_ROOT_MOTION : MESH_UI_ICON_ROOT_MOTION_OFF);
-                });
+    Inspector();
+    DopeSheet();
+}
 
-                int current_frame = n->current_frame;
-                for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
-                    AnimationFrameData* f = &n->frames[frame_index];
-                    Container({
-                        .width=FRAME_SIZE_X * (1 + f->hold) + FRAME_BORDER_SIZE * 2,
-                        .height=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
-                        .margin=EdgeInsetsLeft(-2),
-                        .color = frame_index == current_frame
-                            ? FRAME_SELECTED_COLOR
-                            : FRAME_COLOR,
-                        .border = {.width=FRAME_BORDER_SIZE, .color=FRAME_BORDER_COLOR}
-                    },
-                    [] {
-                        Align({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(FRAME_DOT_OFFSET_Y, FRAME_DOT_OFFSET_X)}, [] {
-                            Container({.width=FRAME_DOT_SIZE, .height=FRAME_DOT_SIZE, .color=FRAME_DOT_COLOR});
-                        });
-                    });
-                }
-            });
-        });
-    });
+static void DrawOnionSkin(int frame) {
+    AnimationData* n = GetAnimationData();
+    SkeletonData* s = GetSkeletonData();
+
+    UpdateTransforms(n, frame);
+    BindSkeleton(&s->bones->world_to_local, sizeof(BoneData), n->animator->bones, sizeof(Mat3), s->bone_count);
+    BindTransform(GetBaseTransform());
+
+    for (int skin_index=0; skin_index<s->skin_count; skin_index++) {
+        MeshData* skinned_mesh = s->skins[skin_index].mesh;
+        if (!skinned_mesh) continue;
+        DrawMesh(ToOutlineMesh(skinned_mesh));
+    }
 }
 
 static void DrawOnionSkin() {
     AnimationData* n = GetAnimationData();
-    SkeletonData* s = GetSkeletonData();
-
     if (!g_animation_editor.onion_skin || n->frame_count <= 1)
         return;
 
-    int frame = n->current_frame;
+    BindMaterial(g_view.shaded_skinned_material);
 
-    n->current_frame = (frame - 1 + n->frame_count) % n->frame_count;
-    UpdateTransforms(n);
-
-    Vec2 base_position = TransformPoint(GetBaseTransform());
-
-    BindMaterial(g_view.vertex_material);
     BindColor(SetAlpha(COLOR_RED, 0.25f));
-    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
-        BoneData* eb = &s->bones[bone_index];
-        DrawBone(
-            n->animator->bones[bone_index],
-            eb->parent_index < 0
-                ? n->animator->bones[bone_index]
-                : n->animator->bones[eb->parent_index],
-            base_position,
-            eb->length
-            );
-    }
-
-    n->current_frame = (frame + 1 + n->frame_count) % n->frame_count;
-    UpdateTransforms(n);
-    base_position = TransformPoint(GetBaseTransform());
+    DrawOnionSkin((n->current_frame - 1 + n->frame_count) % n->frame_count);
 
     BindColor(SetAlpha(COLOR_GREEN, 0.25f));
-    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
-        BoneData* eb = &s->bones[bone_index];
-        DrawBone(
-            n->animator->bones[bone_index],
-            eb->parent_index < 0
-                ? n->animator->bones[bone_index]
-                : n->animator->bones[eb->parent_index],
-            base_position,
-            eb->length);
-    }
+    DrawOnionSkin((n->current_frame + 1) % n->frame_count);
 
-    n->current_frame = frame;
     UpdateTransforms(n);
 }
 
@@ -352,9 +554,9 @@ void DrawAnimationEditor() {
     AnimationData* n = GetAnimationData();
     SkeletonData* s = GetSkeletonData();
 
-    BindColor(COLOR_WHITE);
     Mat3 base_transform = GetBaseTransform() * Translate(g_animation_editor.root_motion_delta);
 
+    BindColor(COLOR_WHITE);
     BindSkeleton(&s->bones[0].world_to_local, sizeof(BoneData), n->animator->bones, sizeof(Mat3), s->bone_count);
     for (int i=0; i<s->skin_count; i++) {
         MeshData* skinned_mesh = s->skins[i].mesh;
@@ -369,18 +571,19 @@ void DrawAnimationEditor() {
 
     DrawOnionSkin();
 
-    Vec2 base_position = TransformPoint(base_transform);
+    // unselected bones
     BindMaterial(g_view.vertex_material);
     BindColor(COLOR_EDGE);
-    for (int bone_index=0; bone_index<s->bone_count; bone_index++)
-        DrawEditorAnimationBone(n, bone_index, base_position);
+    for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
+        if (IsBoneSelected(bone_index)) continue;
+        DrawBone(base_transform * n->animator->bones[bone_index], s->bones[bone_index].length);
+    }
 
+    // selected bones
     BindColor(COLOR_EDGE_SELECTED);
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
-        if (!IsBoneSelected(bone_index))
-            continue;
-
-        DrawEditorAnimationBone(n, bone_index, base_position);
+        if (!IsBoneSelected(bone_index)) continue;
+        DrawBone(base_transform * n->animator->bones[bone_index], s->bones[bone_index].length);
     }
 }
 
@@ -495,11 +698,12 @@ static void PlayAnimation() {
     if (g_animation_editor.state != ANIMATION_VIEW_STATE_DEFAULT)
         return;
 
+    g_animation_editor.playing = ToAnimation(ALLOCATOR_DEFAULT, n);
     g_animation_editor.root_motion_delta = VEC2_ZERO;
 
     SkeletonData* s = GetSkeletonData();
     Init(*n->animator, ToSkeleton(ALLOCATOR_DEFAULT, s));
-    Play(*n->animator, ToAnimation(ALLOCATOR_DEFAULT, n), 0, 1.0f);
+    Play(*n->animator, g_animation_editor.playing, 0, 1.0f);
 
     g_animation_editor.state = ANIMATION_VIEW_STATE_PLAY;
 }
@@ -578,10 +782,6 @@ static void DeleteFrame() {
     MarkModified();
 }
 
-static void ToggleOnionSkin() {
-    g_animation_editor.onion_skin = !g_animation_editor.onion_skin;
-}
-
 static void AddHoldFrame() {
     AnimationData* n = GetAnimationData();
     RecordUndo();
@@ -610,8 +810,7 @@ static void PasteKeys() {
 
     AnimationData* n = GetAnimationData();
     for (int bone_index=0; bone_index<MAX_BONES; bone_index++) {
-        if (!IsBoneSelected(bone_index))
-            continue;
+        if (!IsBoneSelected(bone_index)) continue;
         n->frames[n->current_frame].transforms[bone_index] = g_animation_editor.clipboard.transforms[bone_index];
     }
 
@@ -637,13 +836,6 @@ static void EndAnimationEditor() {
     UpdateTransforms(n);
 }
 
-static void ToggleRootMotion() {
-    g_animation_editor.root_motion = !g_animation_editor.root_motion;
-    g_animation_editor.root_motion_delta = VEC2_ZERO;
-    UpdateSelectionCenter();
-    UpdateTransforms(GetAnimationData());
-}
-
 static void RootUnitCommand(const Command& command) {
     AnimationData* n = GetAnimationData();
     RecordUndo(n);
@@ -661,58 +853,9 @@ static void RootUnitCommand(const Command& command) {
     UpdateTransforms(n);
 }
 
-static void Mirror(const Command&) {
-    AnimationData* n = GetAnimationData();
-    RecordUndo(n);
-
-    // Save the original world transforms
-    Mat3 saved_transforms[MAX_BONES];
-    for (int bone_index=0; bone_index<n->bone_count; bone_index++)
-        saved_transforms[bone_index] = n->animator->bones[bone_index];
-
-    // Process bones in hierarchy order (parents first, index 0 is root)
-    // After each bone, update transforms so children see the new parent position
-    for (int bone_index=1; bone_index<n->skeleton->bone_count; bone_index++) {
-        AnimationBoneData* b = &n->bones[bone_index];
-        if (!b->selected)
-            continue;
-
-        int mirror = GetMirrorBone(n->skeleton, bone_index);
-        if (mirror == -1)
-            continue;
-
-        // Target is exactly where the mirror bone was (swap positions)
-        Vec2 target_world_pos = TransformPoint(saved_transforms[mirror]);
-
-        BoneData* sb = &n->skeleton->bones[bone_index];
-        Mat3& parent_transform = n->animator->bones[sb->parent_index];
-        Vec2 frame_pos = TransformPoint(Inverse(parent_transform), target_world_pos);
-
-        Transform& frame_transform = GetFrameTransform(n, bone_index, n->current_frame);
-        SetPosition(frame_transform, frame_pos - sb->transform.position);
-
-        // Get world rotation of mirror bone (including its skeleton bone rotation)
-        BoneData* mirror_sb = &n->skeleton->bones[mirror];
-        float mirror_world_rotation = Angle(GetForward(saved_transforms[mirror])) + mirror_sb->transform.rotation;
-
-        // Convert to local rotation for target bone
-        // Target visual rotation = parent_rotation + frame.rotation + skeleton_bone.rotation
-        // So: frame.rotation = mirror_world_rotation - parent_rotation - skeleton_bone.rotation
-        float parent_world_rotation = Angle(GetForward(parent_transform));
-        SetRotation(frame_transform, mirror_world_rotation - parent_world_rotation - sb->transform.rotation);
-
-        // Update transforms so child bones see the new parent position
-        UpdateTransforms(n);
-    }
-
-    MarkModified(n);
-    UpdateTransforms(n);
-}
-
 static void BeginCommandInput() {
     static CommandHandler commands[] = {
         { NAME_RU, NAME_RU, RootUnitCommand },
-        { NAME_MIRROR, NAME_MIRROR, Mirror },
         { nullptr, nullptr, nullptr }
     };
 

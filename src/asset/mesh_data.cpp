@@ -69,7 +69,7 @@ bool IsVertexOnOutsideEdge(MeshData* m, int v0) {
     return false;
 }
 
-static int GetEdge(MeshData* m, int v0, int v1) {
+int GetEdge(MeshData* m, int v0, int v1) {
     int fv0 = Min(v0, v1);
     int fv1 = Max(v0, v1);
     for (int i = 0; i < m->edge_count; i++) {
@@ -159,7 +159,6 @@ void UpdateEdges(MeshData* m) {
     for (int face_index=0; face_index < m->face_count; face_index++) {
         FaceData& f = m->faces[face_index];
 
-        // Compute and cache face centroid
         f.center = ComputeFaceCentroid(m, f);
 
         for (int vertex_index = 0; vertex_index<f.vertex_count - 1; vertex_index++){
@@ -195,6 +194,9 @@ void MarkDirty(MeshData* m) {
     Free(m->outline);
     m->mesh = nullptr;
     m->outline = nullptr;
+
+    if (IsFile(m))
+        g_editor.meshes[GetUnsortedIndex(m)] = nullptr;
 }
 
 Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
@@ -208,11 +210,14 @@ Mesh* ToMesh(MeshData* m, bool upload, bool use_cache) {
     for (int i = 0; i < m->face_count; i++)
         TriangulateFace(m, m->faces + i, builder, depth);
 
-    Mesh* mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, NAME_NONE, upload);
+    Mesh* mesh = CreateMesh(ALLOCATOR_DEFAULT, builder, m->name, upload);
     m->bounds = mesh ? GetBounds(mesh) : BOUNDS2_ZERO;
 
     if (use_cache)
         m->mesh = mesh;
+
+    if (IsFile(m))
+        g_editor.meshes[GetUnsortedIndex(m)] = mesh;
 
     PopScratch();
 

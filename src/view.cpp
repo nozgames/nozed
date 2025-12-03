@@ -585,6 +585,8 @@ static void NewAssetCommand(const Command& command) {
         a = NewVfxData(asset_name->value);
     else if (type == NAME_AM || type == NAME_ANIMATEDMESH)
         a = NewAnimatedMeshData(asset_name->value);
+    else if (type == NAME_EVENT || type == NAME_E)
+        a = NewEventData(asset_name->value);
 
     if (a == nullptr)
         return;
@@ -890,7 +892,7 @@ void InitView() {
         { KEY_SEMICOLON, false, false, true, BeginCommandInput },
         { KEY_F2, false, false, false, RenameAsset },
         { KEY_SPACE, false, false, false, PlayAsset },
-        { KEY_QUOTE, false, true, false, ToggleGrid },
+        { KEY_QUOTE, true, false, false, ToggleGrid },
         { INPUT_CODE_NONE }
     };
 

@@ -16,6 +16,7 @@ constexpr float BOUNDS_PADDING = 0.02f;
 struct TextInputBox;
 struct AssetImporter;
 struct AssetData;
+struct MeshData;
 
 // @tool
 struct ToolVtable {
@@ -67,6 +68,8 @@ struct Editor {
     AssetData* editing_asset;
 
     Tool tool;
+
+    Mesh* meshes[MAX_ASSETS];
 };
 
 extern Editor g_editor;

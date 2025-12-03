@@ -8,8 +8,12 @@
 #include <noz/core_assets.h>
 
 // @Mesh
+extern Mesh* MESH_ASSET_ICON_EVENT;
 extern Mesh* MESH_UI_ICON_ROOT_MOTION_OFF;
 extern Mesh* MESH_UI_ICON_ROOT_MOTION;
+extern Mesh* MESH_UI_ICON_ONION;
+extern Mesh* MESH_UI_ICON_MIRROR;
+extern Mesh* MESH_UI_ICON_LOOP;
 extern Mesh* MESH_ASSET_ICON_VFX;
 extern Mesh* MESH_ASSET_ICON_SOUND;
 extern Mesh* MESH_ASSET_ICON_SHADER;
@@ -48,6 +52,7 @@ extern const Name* NAME_RENAME;
 extern const Name* NAME_SAVE;
 extern const Name* NAME_SKELETON;
 extern const Name* NAME_ANIMATION;
+extern const Name* NAME_EVENT;
 extern const Name* NAME_ANIMATEDMESH;
 extern const Name* NAME_RU;
 extern const Name* NAME_MIRROR;

@@ -255,6 +255,7 @@ static void GenerateSource(ManifestGenerator& generator)
         WriteCSTR(stream, "    };\n");
         WriteCSTR(stream, "\n");
         WriteCSTR(stream, "    %s = _%s;\n", type_name_upper.c_str(), type_name_upper.c_str());
+        WriteCSTR(stream, "    %s_COUNT = sizeof(_%s) / sizeof(void*);\n", type_name_upper.c_str(), type_name_upper.c_str());
     }
 
     WriteCSTR(stream, "\n");

@@ -8,11 +8,32 @@ extern void InitAnimationEditor(AnimationData* a);
 
 inline SkeletonData* GetSkeletonData(AnimationData* en) { return en->skeleton; }
 
-void UpdateTransforms(AnimationData* n) {
+int GetFrameIndexWithHolds(AnimationData* n, int frame_index) {
+    int frame_index_with_holds = 0;
+    for (int i=0; i<frame_index; i++) {
+        frame_index_with_holds++;
+        frame_index_with_holds += n->frames[i].hold;
+    }
+    return frame_index_with_holds;
+}
+
+int GetFrameCountWithHolds(AnimationData* n) {
+    int frame_count = 0;
+    for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
+        frame_count++;
+        frame_count += n->frames[frame_index].hold;
+    }
+    return frame_count;
+}
+
+void UpdateTransforms(AnimationData* n, int frame_index) {
+    if (frame_index == -1)
+        frame_index = n->current_frame;
+
     SkeletonData* s = GetSkeletonData(n);
     for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
         BoneData* b = &s->bones[bone_index];
-        Transform& frame = GetFrameTransform(n, bone_index, n->current_frame);
+        Transform& frame = GetFrameTransform(n, bone_index, frame_index);
 
         n->animator->bones[bone_index] = TRS(
             b->transform.position + frame.position,
@@ -23,22 +44,6 @@ void UpdateTransforms(AnimationData* n) {
     for (int bone_index=1; bone_index<s->bone_count; bone_index++)
         n->animator->bones[bone_index] =
             n->animator->bones[s->bones[bone_index].parent_index] * n->animator->bones[bone_index];
-}
-
-void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& position) {
-    SkeletonData* s = GetSkeletonData(n);
-    int parent_index = s->bones[bone_index].parent_index;
-    if (parent_index < 0)
-        parent_index = bone_index;
-
-    Mat3 bt = n->animator->bones[bone_index];
-    Mat3 pt = n->animator->bones[parent_index];
-
-    Vec2 p0 = TransformPoint(bt);
-    Vec2 p1 = TransformPoint(bt, Vec2 {s->bones[bone_index].length, 0});
-    Vec2 pp = TransformPoint(pt);
-    DrawDashedLine(pp + position, p0 + position);
-    DrawBone(p0 + position, p1 + position);
 }
 
 void DrawAnimationData(AssetData* a) {
@@ -187,12 +192,21 @@ static void ParseFrameScale(AnimationData* n, Tokenizer& tk, int bone_index, int
     SetScale(GetFrameTransform(n, bone_index, frame_index), s);
 }
 
+static void ParseFrameEvent(AnimationData* n, Tokenizer& tk, int frame_index) {
+    if (!ExpectQuotedString(tk))
+        ThrowError("expected event name");
+
+    n->frames[frame_index].event_name = GetName(tk);
+}
+
 static void ParseFrame(AnimationData* n, Tokenizer& tk, int* bone_map) {
     int bone_index = -1;
     n->frame_count++;
     while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "b"))
             bone_index = ParseFrameBone(n, tk, bone_map);
+        else if (ExpectIdentifier(tk, "e"))
+            ParseFrameEvent(n, tk, n->frame_count - 1);
         else if (ExpectIdentifier(tk, "r"))
             ParseFrameRotation(n, tk, bone_index, n->frame_count - 1);
         else if (ExpectIdentifier(tk, "s"))

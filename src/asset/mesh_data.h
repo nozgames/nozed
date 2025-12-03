@@ -44,9 +44,6 @@ struct EdgeData {
 
 struct FaceData {
     Vec2Int color;
-    Vec2Int gradient_color;
-    Vec2 gradient_dir;
-    float gradient_offset;
     Vec3 normal;
     Vec2 center;
     bool selected;
@@ -133,6 +130,7 @@ inline Vec2 GetVertexPoint(MeshData* m, int vertex_index) {
 }
 extern void UpdateEdges(MeshData* m);
 extern void Center(MeshData* m);
+extern int GetEdge(MeshData* m, int v0, int v1);
 extern int GetOrAddEdge(MeshData* m, int v0, int v1, int face_index);
 extern bool FixWinding(MeshData* m, FaceData& ef);
 extern void DrawEdges(MeshData* m, const Vec2& position);

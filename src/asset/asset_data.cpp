@@ -67,6 +67,8 @@ AssetData* CreateAssetData(const std::filesystem::path& path) {
         InitFontData(a);
     else if (a->type == ASSET_TYPE_ANIMATED_MESH)
         InitAnimatedMeshData(a);
+    else if (a->type == ASSET_TYPE_EVENT)
+        InitEventData(a);
 
     return a;
 }

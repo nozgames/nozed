@@ -5,6 +5,8 @@
 #pragma once
 
 struct SkeletonData;
+struct EventData;
+
 
 struct AnimationBoneData {
     const Name* name;
@@ -15,6 +17,8 @@ struct AnimationBoneData {
 
 struct AnimationFrameData {
     Transform transforms[MAX_BONES];
+    EventData* event;
+    const Name* event_name;
     int hold;
 };
 
@@ -51,9 +55,10 @@ extern Animation* ToAnimation(Allocator* allocator, AnimationData* n);
 extern int InsertFrame(AnimationData* n, int insert_at);
 extern int DeleteFrame(AnimationData* n, int frame_index);
 extern Transform& GetFrameTransform(AnimationData* n, int bone_index, int frame_index);
-extern void UpdateTransforms(AnimationData* n);
+extern void UpdateTransforms(AnimationData* n, int frame_index=-1);
 extern void UpdateSkeleton(AnimationData* n);
 extern void DrawAnimationData(AssetData* a);
-extern void DrawEditorAnimationBone(AnimationData* n, int bone_index, const Vec2& position);
 extern int HitTestBones(AnimationData* n, const Mat3& transform, const Vec2& position, int* bones, int max_bones=MAX_BONES);
 extern int HitTestBone(AnimationData* n, const Mat3& transform, const Vec2& position);
+extern int GetFrameCountWithHolds(AnimationData* n);
+extern int GetFrameIndexWithHolds(AnimationData* n, int frame_index);

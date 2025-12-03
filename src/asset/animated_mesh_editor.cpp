@@ -6,12 +6,12 @@ constexpr float FRAME_SIZE_X = 20;
 constexpr float FRAME_SIZE_Y = 40;
 constexpr float FRAME_BORDER_SIZE = 1;
 constexpr Color FRAME_BORDER_COLOR = Color24ToColor(32,32,32);
-constexpr float FRAME_DOT_SIZE = 5;
-constexpr float FRAME_DOT_OFFSET_X = FRAME_SIZE_X * 0.5f - FRAME_DOT_SIZE * 0.5f;
-constexpr float FRAME_DOT_OFFSET_Y = 5;
-constexpr Color FRAME_DOT_COLOR = FRAME_BORDER_COLOR;
+constexpr float DOPESHEET_FRAME_DOT_SIZE = 5;
+constexpr float DOPESHEET_FRAME_DOT_OFFSET_X = FRAME_SIZE_X * 0.5f - DOPESHEET_FRAME_DOT_SIZE * 0.5f;
+constexpr float DOPESHEET_FRAME_DOT_OFFSET_Y = 5;
+constexpr Color DOPESHEET_FRAME_DOT_COLOR = FRAME_BORDER_COLOR;
 constexpr Color FRAME_COLOR = Color32ToColor(100, 100, 100, 255);
-constexpr Color FRAME_SELECTED_COLOR = COLOR_VERTEX_SELECTED;
+constexpr Color DOPESHEET_SELECTED_FRAME_COLOR = COLOR_VERTEX_SELECTED;
 
 struct AnimatedMeshEditor {
     AnimatedMeshData* data;
@@ -100,13 +100,13 @@ static void UpdateAnimatedMeshEditor() {
                         .height=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
                         .margin=EdgeInsetsLeft(-2),
                         .color = frame_index == current_frame
-                            ? FRAME_SELECTED_COLOR
+                            ? DOPESHEET_SELECTED_FRAME_COLOR
                             : FRAME_COLOR,
                         .border = {.width=FRAME_BORDER_SIZE, .color=FRAME_BORDER_COLOR}
                     },
                     [] {
-                        Align({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(FRAME_DOT_OFFSET_Y, FRAME_DOT_OFFSET_X)}, [] {
-                            Container({.width=FRAME_DOT_SIZE, .height=FRAME_DOT_SIZE, .color=FRAME_DOT_COLOR});
+                        Align({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X)}, [] {
+                            Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=DOPESHEET_FRAME_DOT_COLOR});
                         });
                     });
                 }

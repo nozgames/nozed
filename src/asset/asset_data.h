@@ -81,6 +81,14 @@ inline AssetData* GetAssetData(u32 index) {
     return a;
 }
 
+inline bool IsFile(AssetData* a) {
+    return a->importer != nullptr;
+}
+
+inline int GetUnsortedIndex(AssetData* a) {
+    return GetIndex(g_editor.asset_allocator, a);
+}
+
 extern void InitAssetData();
 extern void LoadAssetData(AssetData* a);
 extern void PostLoadAssetData(AssetData* a);
@@ -130,10 +138,12 @@ inline Bounds2 GetBounds(AssetData* a) { return a->bounds; }
 #include "sound_data.h"
 #include "font_data.h"
 #include "animated_mesh_data.h"
+#include "event_data.h"
 
 union FatAssetData {
     AssetData asset;
     MeshData mesh;
+    EventData event;
     TextureData texture;
     SkeletonData skeleton;
     VfxData vfx;

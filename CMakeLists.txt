@@ -21,6 +21,7 @@ set(SOURCE_FILES
     src/asset/animated_mesh_editor.cpp
     src/asset/animated_mesh_data.cpp
     src/asset/asset_data.cpp
+    src/asset/event_data.cpp
     src/asset/mesh_data.cpp
     src/asset/mesh_editor.cpp
     src/asset/texture_data.cpp
@@ -50,6 +51,7 @@ set(SOURCE_FILES
     src/tools/weight.cpp
 
     src/import/importer.cpp
+    src/import/event_importer.cpp
     src/import/mesh_importer.cpp
     src/import/font_importer.cpp
     src/import/shader_importer.cpp

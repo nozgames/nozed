@@ -45,6 +45,11 @@ static bool ParseCommand(const char* str, Command& command) {
     return true;
 }
 
+constexpr int   COMMAND_FONT_SIZE = 24;
+constexpr float COMMAND_HEIGHT = 40.0f;
+constexpr float COMMAND_WIDTH = 600.0f;
+constexpr float COMMAND_PADDING = 8.0f;
+
 void UpdateCommandInput() {
     if (!g_command_input.enabled)
         return;
@@ -52,55 +57,54 @@ void UpdateCommandInput() {
     if (g_command_input.hide_empty && GetTextInput().length == 0)
         return;
 
-    Canvas([] {
-        Align({.alignment={.y=1}, .margin=EdgeInsetsBottom(40)}, [] {
-            Container({
-                .width=600,
-                .height=50,
-                .padding=EdgeInsetsLeft(10),
-                .color=COLOR_UI_BACKGROUND,
-                .border={.width=UI_BORDER_WIDTH, .color=COLOR_UI_BORDER}},
-                [] {
-                Row([] {
-                    const TextInput& i = GetTextInput();
-                    if (g_command_input.prefix) {
-                        Label(g_command_input.prefix, {
-                            .font = FONT_SEGUISB,
-                            .font_size = 30,
-                            .color = Color24ToColor(0x777776),
-                            .align = ALIGNMENT_CENTER_LEFT
-                        });
-                        SizedBox({.width = 5.0f});
-                    }
-
-                    bool show_cursor = true;
-                    if (i.length > 0) {
-                        Label(i.value, {
-                            .font = FONT_SEGUISB,
-                            .font_size = 30,
-                            .color = COLOR_UI_TEXT,
-                            .align = ALIGNMENT_CENTER_LEFT
-                        });
-                    } else if (g_command_input.placeholder) {
-                        show_cursor = false;
-                        Container({.color = COLOR_UI_TEXT}, [] {
-                            Label(g_command_input.placeholder, {
-                                .font = FONT_SEGUISB,
-                                .font_size = 30,
-                                .color = COLOR_UI_BACKGROUND,
-                                .align = ALIGNMENT_CENTER_LEFT
-                            });
-                        });
-                    }
-
-                    if (show_cursor)
-                        Align({.alignment=ALIGNMENT_CENTER_LEFT}, [] {
-                            Container({.width=4, .height=30, .color=COLOR_WHITE});
-                        });
+    BeginCanvas();
+    BeginAlign({.alignment={.y=1}, .margin=EdgeInsetsBottom(160)});
+    BeginContainer({
+        .width=COMMAND_WIDTH,
+        .height=COMMAND_HEIGHT,
+        .padding=EdgeInsetsLeft(COMMAND_PADDING),
+        .color=COLOR_UI_BACKGROUND});
+        BeginRow();
+            const TextInput& i = GetTextInput();
+            if (g_command_input.prefix) {
+                Label(g_command_input.prefix, {
+                    .font = FONT_SEGUISB,
+                    .font_size = COMMAND_FONT_SIZE,
+                    .color = Color24ToColor(0x777776),
+                    .align = ALIGNMENT_CENTER_LEFT
                 });
-            });
-        });
-    });
+                SizedBox({.width = 5.0f});
+            }
+
+            bool show_cursor = true;
+            if (i.length > 0) {
+                Label(i.value, {
+                    .font = FONT_SEGUISB,
+                    .font_size = COMMAND_FONT_SIZE,
+                    .color = COLOR_UI_TEXT,
+                    .align = ALIGNMENT_CENTER_LEFT
+                });
+            } else if (g_command_input.placeholder) {
+                show_cursor = false;
+                BeginContainer({.color = COLOR_UI_TEXT});
+                    Label(g_command_input.placeholder, {
+                        .font = FONT_SEGUISB,
+                        .font_size = COMMAND_FONT_SIZE,
+                        .color = COLOR_UI_BACKGROUND,
+                        .align = ALIGNMENT_CENTER_LEFT
+                    });
+                End();
+            }
+
+            if (show_cursor) {
+                BeginAlign({.alignment=ALIGNMENT_CENTER_LEFT});
+                    Container({.width=4, .height=COMMAND_FONT_SIZE, .color=COLOR_WHITE});
+                End();
+            }
+        End(); // Row
+    End(); // Container
+    End(); // Align
+    End(); // Canvas
 }
 
 static void HandleTextInputChange(EventId event_id, const void* event_data) {
