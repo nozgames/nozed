@@ -398,7 +398,7 @@ static void DopeSheet() {
 
         if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
 
-        if (n->frames[frame_index].event_name != nullptr) {
+        if (frame_index < n->frame_count && n->frames[frame_index].event_name != nullptr) {
             BeginAlign({.alignment=ALIGNMENT_CENTER_CENTER});
             //Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=COLOR_WHITE});
             BeginSizedBox({.width=DOPESHEET_FRAME_DOT_SIZE * 2, .height=DOPESHEET_FRAME_DOT_SIZE * 2});

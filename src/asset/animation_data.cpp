@@ -65,6 +65,11 @@ void DrawAnimationData(AssetData* a) {
     if (!s)
         return;
 
+    Mat3 transform = Translate(a->position);
+
+    if (!a->editing)
+        transform = Translate(-GetFrameTransform(n, 0, n->current_frame).position) * transform;
+
     BindColor(COLOR_WHITE);
     BindSkeleton(&s->bones[0].world_to_local, sizeof(BoneData), n->animator->bones, 0, s->bone_count);
     for (int i=0; i<s->skin_count; i++) {
@@ -72,7 +77,7 @@ void DrawAnimationData(AssetData* a) {
         if (!skinned_mesh || skinned_mesh->type != ASSET_TYPE_MESH)
             continue;
 
-        DrawMesh(skinned_mesh, Translate(a->position), g_view.shaded_skinned_material);
+        DrawMesh(skinned_mesh, transform, g_view.shaded_skinned_material);
     }
 }
 
@@ -258,7 +263,6 @@ void UpdateBounds(AnimationData* n) {
     }
 
     s->bounds = Expand(bounds, BOUNDS_PADDING);
-
 }
 
 static void PostLoadAnimationData(AssetData* a) {
@@ -268,6 +272,12 @@ static void PostLoadAnimationData(AssetData* a) {
     n->skeleton = static_cast<SkeletonData*>(GetAssetData(ASSET_TYPE_SKELETON, n->skeleton_name));
     if (!n->skeleton)
         return;
+
+    for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
+        AnimationFrameData& f = n->frames[frame_index];
+        if (!f.event_name) continue;
+        f.event = static_cast<EventData*>(GetAssetData(ASSET_TYPE_EVENT, f.event_name));
+    }
 
     PostLoadAssetData(n->skeleton);
     UpdateTransforms(n->skeleton);
@@ -379,7 +389,11 @@ void Serialize(AnimationData* n, Stream* stream, SkeletonData* s) {
     for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
         AnimationFrameData& fd = n->frames[frame_index];
         AnimationFrame f = {};
-        f.event = fd.event ? fd.event->id : -1;
+        EventData* e = fd.event_name
+            ? static_cast<EventData*>(GetAssetData(ASSET_TYPE_EVENT, fd.event_name))
+            : nullptr;
+
+        f.event = e ? e->id : 0;
         f.transform0 = frame_index;
         f.transform1 = looping
             ? (frame_index + 1) % n->frame_count
