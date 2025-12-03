@@ -62,3 +62,4 @@ extern int HitTestBones(AnimationData* n, const Mat3& transform, const Vec2& pos
 extern int HitTestBone(AnimationData* n, const Mat3& transform, const Vec2& position);
 extern int GetFrameCountWithHolds(AnimationData* n);
 extern int GetFrameIndexWithHolds(AnimationData* n, int frame_index);
+extern int GetRealFrameIndex(AnimationData* n, int frame_index);

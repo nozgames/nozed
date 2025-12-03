@@ -154,6 +154,16 @@ extern void DrawBone(const Mat3& transform, float length);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1, f32 width, f32 length);
 extern void DrawDashedLine(const Vec2& v0, const Vec2& v1);
 
+// @inspector
+extern void BeginInspector();
+extern void EndInspector();
+extern void InspectorHeader(const char* title);
+extern void BeginRadioButtonGroup();
+extern int InspectorRadioButton(const char* name, int state);
+extern bool InspectorCheckbox(const char* name, bool state);
+extern void BeginInspectorGroup();
+extern void EndInspectorGroup();
+
 // @shortcut
 struct Shortcut
 {

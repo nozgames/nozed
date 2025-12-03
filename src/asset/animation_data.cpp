@@ -2,11 +2,21 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
+#include "../../../src/internal.h"
+
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetType asset_type, AssetLoaderFunc loader, Stream* stream);
 static void InitAnimationData(AnimationData* a);
 extern void InitAnimationEditor(AnimationData* a);
 
 inline SkeletonData* GetSkeletonData(AnimationData* en) { return en->skeleton; }
+
+int GetRealFrameIndex(AnimationData* n, int frame_index) {
+    for (int i=0; i<n->frame_count; i++)
+        for (int h=0; h<=n->frames[i].hold; h++, frame_index--)
+            if (frame_index == 0) return i;
+
+    return 0;
+}
 
 int GetFrameIndexWithHolds(AnimationData* n, int frame_index) {
     int frame_index_with_holds = 0;
@@ -350,43 +360,46 @@ void Serialize(AnimationData* n, Stream* output_stream, SkeletonData* s) {
     }
 
     WriteU8(output_stream, (u8)s->bone_count);
+    WriteU8(output_stream, (u8)n->frame_count);
     WriteU8(output_stream, (u8)real_frame_count);
     WriteU8(output_stream, (u8)g_config->GetInt("animation", "frame_rate", ANIMATION_FRAME_RATE));
     WriteU8(output_stream, (u8)n->flags);
 
+    // todo: do we need this?
     for (int i=0; i<s->bone_count; i++)
         WriteU8(output_stream, (u8)n->bones[i].index);
 
+    // frame transforms
     for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
         AnimationFrameData& f = n->frames[frame_index];
         for (int bone_index=0; bone_index<s->bone_count; bone_index++)
             SerializeTransform(output_stream, f.transforms[bone_index]);
+    }
 
-        if (looping && frame_index == n->frame_count - 1)
-            continue;
+    // frames
+    for (int frame_index=0; frame_index<n->frame_count; frame_index++) {
+        AnimationFrameData& fd = n->frames[frame_index];
 
-        if (f.hold == 0)
-            continue;
-
-        int next_frame_index = looping
+        AnimationFrame f = {};
+        f.event = 0;
+        f.transform0 = frame_index;
+        f.transform1 = looping
             ? (frame_index + 1) % n->frame_count
             : Min(frame_index + 1, n->frame_count - 1);
 
-        AnimationFrameData& nf = n->frames[next_frame_index];
-        for (int i=0; i<f.hold; i++) {
-            for (int bone_index=0; bone_index<s->bone_count; bone_index++) {
-                const Transform& t = f.transforms[bone_index];
-                const Transform& nt = nf.transforms[bone_index];
-                SerializeTransform(output_stream, Mix(t, nt, (float)(i + 1) / (float)(f.hold + 1)));
-            }
+        if (fd.hold == 0) {
+            f.fraction0 = 0.0f;
+            f.fraction1 = 1.0f;
+            WriteStruct(output_stream, f);
+            continue;
         }
-    }
 
-    // Write one more frame at the end for non-looping animations
-    if (!looping || n->frame_count == 1) {
-        AnimationFrameData& f = n->frames[n->frame_count-1];
-        for (int bone_index=0; bone_index<s->bone_count; bone_index++)
-            SerializeTransform(output_stream, f.transforms[bone_index]);
+        int hold_count = fd.hold + 1;
+        for (int hold_index=0; hold_index<hold_count; hold_index++) {
+            f.fraction1 = (float)(hold_index + 1) / (float)hold_count;
+            WriteStruct(output_stream, f);
+            f.fraction0 = f.fraction1;
+        }
     }
 }
 
@@ -420,9 +433,15 @@ static void SaveAnimationData(AssetData* ea, const std::filesystem::path& path) 
     }
 
     for (int frame_index=0; frame_index<en->frame_count; frame_index++) {
+        AnimationFrameData& f = en->frames[frame_index];
+
         WriteCSTR(stream, "f");
-        if (en->frames[frame_index].hold > 0)
-            WriteCSTR(stream, " h %d", en->frames[frame_index].hold);
+
+        if (f.hold > 0)
+            WriteCSTR(stream, " h %d", f.hold);
+        if (f.event_name)
+            WriteCSTR(stream, " e \"%s\"", f.event_name->value);
+
         WriteCSTR(stream, "\n");
 
         for (int bone_index=0; bone_index<es->bone_count; bone_index++) {

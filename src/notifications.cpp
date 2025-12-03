@@ -43,6 +43,9 @@ void UpdateNotifications() {
     if (!IsWindowFocused())
         return;
 
+    if (g_notifications.buffer->count <= 0)
+        return;
+
     Canvas([] {
         Align({.alignment = ALIGNMENT_BOTTOM_RIGHT, .margin = EdgeInsetsBottomRight(10)}, [] {
             Column({.spacing = 10}, [] {

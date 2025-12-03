@@ -306,6 +306,7 @@ constexpr Color DOPESHEET_TICK_BACKGROUND_COLOR = Color8ToColor(52);
 constexpr float DOPESHEET_TICK_WIDTH = DOPESHEET_BORDER_WIDTH;
 constexpr float DOPESHEET_TICK_HEIGHT = DOPESHEET_FRAME_HEIGHT * 0.4f;
 constexpr Color DOPESHEET_TICK_COLOR = DOPESHEET_BORDER_COLOR;
+constexpr Color DOPESHEET_TICK_HOVER_COLOR = Color32ToColor(255,255,255,10);
 constexpr float DOPESHEET_SHORT_TICK_HEIGHT = DOPESHEET_TICK_HEIGHT * 0.5f;
 constexpr Color DOPESHEET_SHORT_TICK_COLOR = DOPESHEET_BORDER_COLOR;
 constexpr float DOPESHEET_BUTTON_SIZE = DOPESHEET_FRAME_HEIGHT;
@@ -315,6 +316,7 @@ constexpr Color DOPESHEET_BUTTON_COLOR = DOPESHEET_FRAME_COLOR;
 constexpr Color DOPESHEET_BUTTON_CHECKED_COLOR = COLOR_VERTEX_SELECTED;
 constexpr float DOPESHEET_BUTTON_BORDER_WIDTH = 1;
 constexpr Color DOPESHEET_BUTTON_BORDER_COLOR = DOPESHEET_BORDER_COLOR;
+constexpr Color DOPESHEET_EVENT_COLOR = Color8ToColor(180);
 
 static void DopeSheetButton(Mesh* icon, bool state, void (*on_tap)()) {
     BeginGestureDetector({.on_tap = [](const TapDetails& d) { ((void(*)())d.user_data)(); }, .user_data=on_tap});
@@ -345,26 +347,37 @@ static void DopeSheet() {
 
     // Ticks
     BeginRow();
-    for (int i=0; i<=frame_count; i++) {
+    bool playing = IsPlaying(*n->animator);
+    int current_frame = playing
+        ? GetFrameIndex(*n->animator)
+        : n->current_frame;
+    for (int frame_index=0; frame_index<=frame_count; frame_index++) {
         BeginContainer({
-            .width=i == frame_count ? DOPESHEET_TICK_WIDTH : DOPESHEET_FRAME_WIDTH,
+            .width=frame_index == frame_count ? DOPESHEET_TICK_WIDTH : DOPESHEET_FRAME_WIDTH,
             .height=DOPESHEET_TICK_HEIGHT,
             .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X),
             .color=DOPESHEET_TICK_BACKGROUND_COLOR
         });
 
-        if (n->frames[i].event_name != nullptr) {
+        if (WasPressed()) {
+            n->current_frame = GetRealFrameIndex(n, frame_index);
+            UpdateTransforms(n);
+        }
+
+        if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
+
+        if (n->frames[frame_index].event_name != nullptr) {
             BeginAlign({.alignment=ALIGNMENT_CENTER_CENTER});
             //Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=COLOR_WHITE});
             BeginSizedBox({.width=DOPESHEET_FRAME_DOT_SIZE * 2, .height=DOPESHEET_FRAME_DOT_SIZE * 2});
-                Image(MESH_ASSET_ICON_EVENT);
+                Image(MESH_ASSET_ICON_EVENT, {.color = frame_index == current_frame ? COLOR_WHITE : DOPESHEET_EVENT_COLOR});
             End();
             End();
         }
 
         // Tick
-        if (i % 4 == 0) {
-            Container({.width=DOPESHEET_BORDER_WIDTH, .color=DOPESHEET_TICK_COLOR});
+        if (frame_index % 4 == 0 || (playing && frame_index == current_frame)) {
+            Container({.width=DOPESHEET_BORDER_WIDTH, .color=playing && frame_index == current_frame ? COLOR_WHITE : DOPESHEET_TICK_COLOR});
         // Short Tick
         } else {
             BeginAlign({.alignment=ALIGNMENT_BOTTOM_LEFT});
@@ -384,7 +397,10 @@ static void DopeSheet() {
     BeginRow();
         int frame_index = 0;
         int frame_index_with_holds = 0;
-        int current_frame = n->current_frame;
+
+        current_frame = IsPlaying(*n->animator)
+            ? GetRealFrameIndex(n, GetFrameIndex(*n->animator))
+            : n->current_frame;
         for (frame_index = 0; frame_index<n->frame_count; frame_index++) {
             AnimationFrameData* f = &n->frames[frame_index];
             frame_index_with_holds += 1 + f->hold;
@@ -395,8 +411,13 @@ static void DopeSheet() {
                 .color = frame_index == current_frame
                     ? DOPESHEET_SELECTED_FRAME_COLOR
                     : DOPESHEET_FRAME_COLOR,
-                //.border = {.width=DOPESHEET_FRAME_BORDER_WIDTH, .color=DOPESHEET_FRAME_BORDER_COLOR}
             });
+
+            if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
+            if (WasPressed()) {
+                n->current_frame = frame_index;
+                UpdateTransforms(n);
+            }
 
             Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
 
@@ -442,66 +463,50 @@ static void DopeSheet() {
     End(); // Canvas
 }
 
-constexpr float INSPECTOR_WIDTH = 250.0f;
-constexpr float INSPECTOR_PADDING = 8.0f;
-constexpr float INSPECTOR_LABEL_WIDTH = INSPECTOR_WIDTH * 0.4f;
-constexpr float INSPECTOR_VALUE_WIDTH = INSPECTOR_WIDTH - INSPECTOR_LABEL_WIDTH;
-constexpr Color INSPECTOR_CHECKED_COLOR = COLOR_VERTEX_SELECTED;
-
-static void InspectorHeader(const char* title) {
-    Label(title, {.font=FONT_SEGUISB, .font_size=16, .align=ALIGNMENT_CENTER_LEFT});
-}
-
-static void InspectorRadioButton(const char* name, bool state) {
-    (void)state;
-
-    BeginContainer({.height=20});
-    BeginRow();
-        BeginContainer({.width=INSPECTOR_LABEL_WIDTH});
-            Label(name, {.font=FONT_SEGUISB, .font_size=14, .color=COLOR_UI_TEXT, .align=ALIGNMENT_CENTER_LEFT});
-        End();
-        BeginGestureDetector({});
-            BeginAlign({.alignment=ALIGNMENT_CENTER_LEFT});
-                BeginSizedBox({.width=15, .height=15});
-                    Image(g_view.circle_mesh, {.color=state ? INSPECTOR_CHECKED_COLOR : Color8ToColor(55)});
-                End();
-            End();
-        End();
-    End(); // Row
-    End(); // Container
-}
-
-static void InspectorCheckbox(const char* name, bool state) {
-    BeginContainer({.height=20});
-    BeginRow();
-    BeginContainer({.width=INSPECTOR_LABEL_WIDTH});
-        Label(name, {.font=FONT_SEGUISB, .font_size=14, .color=COLOR_UI_TEXT, .align=ALIGNMENT_CENTER_LEFT});
-    End();
-    BeginContainer({.width=20, .height=20, .color=state ? COLOR_VERTEX_SELECTED : COLOR_UI_BACKGROUND, .border={.width=1, .color=COLOR_BLACK}});
-    End(); // Container
-    End(); // Row
-    End(); // Container
-}
-
 static void Inspector() {
-    BeginCanvas();
-    BeginAlign({.alignment=ALIGNMENT_TOP_RIGHT, .margin=EdgeInsetsTopRight(20)});
-    BeginContainer({
-        .width=INSPECTOR_WIDTH,
-        .padding=EdgeInsetsAll(INSPECTOR_PADDING),
-        .color=COLOR_UI_BACKGROUND});
-    BeginColumn();
+    AnimationData* n = GetAnimationData();
 
-    InspectorHeader("Events");
-    InspectorRadioButton("Test 1", true);
-    InspectorRadioButton("Test 2", false);
-    InspectorCheckbox("Event 1", true);
-    InspectorCheckbox("Event 2", true);
+    BeginInspector();
+    BeginInspectorGroup();
+        InspectorHeader("Event");
 
-    End(); // Column
-    End(); // Container
-    End(); // Align
-    End(); // Canvas
+        EventData* events[MAX_ASSETS];
+
+        AnimationFrameData& frame = n->frames[n->current_frame];
+        int current_event_index = 0;
+        int event_count = 0;;
+        for (int asset_index=0, asset_count=GetAssetCount(); asset_index<asset_count; asset_index++) {
+            AssetData* a = GetAssetData(asset_index);
+            if (a->type != ASSET_TYPE_EVENT) continue;
+            if (a->name == frame.event_name)
+                current_event_index = event_count + 1;
+            events[event_count++] = static_cast<EventData*>(a);
+        }
+
+        current_event_index = InspectorRadioButton("None", current_event_index);
+
+        for (int event_index=0; event_index<event_count; event_index++) {
+            current_event_index = InspectorRadioButton(events[event_index]->name->value, current_event_index);
+        }
+
+        const Name* current_event_name = current_event_index == 0
+            ? nullptr
+            : events[current_event_index-1]->name;
+
+        if (current_event_name != frame.event_name) {
+            RecordUndo(n);
+            frame.event_name = current_event_name;
+            frame.event = current_event_index == 0 ? nullptr : events[current_event_index-1];
+            MarkModified(n);
+        }
+    EndInspectorGroup();
+
+#if 0
+    BeginInspectorGroup();
+        InspectorHeader("States");
+    EndInspectorGroup();
+#endif
+    EndInspector();
 }
 
 void UpdateAnimationEditor() {

@@ -69,6 +69,6 @@ void ShowConfirmDialog(const char* message, const std::function<void()>& callbac
     g_confirm.callback = callback;
 }
 
-Color GetButtonHoverColor(ElementState state, float, void*) {
-    return state == ELEMENT_STATE_HOVERED ? COLOR_UI_BUTTON_HOVER : COLOR_UI_BUTTON;
+Color GetButtonHoverColor(ElementFlags state, float, void*) {
+    return state == ELEMENT_FLAG_HOVERED ? COLOR_UI_BUTTON_HOVER : COLOR_UI_BUTTON;
 }

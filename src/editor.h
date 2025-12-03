@@ -132,7 +132,7 @@ extern Vec2 SnapToGrid(const Vec2& position);
 extern float SnapAngle(float angle);
 
 // @ui
-extern Color GetButtonHoverColor(ElementState state, float time, void* user_data);
+extern Color GetButtonHoverColor(ElementFlags state, float time, void* user_data);
 extern void UpdateConfirmDialog();
 extern void ShowConfirmDialog(const char* message, const std::function<void()>& callback);
 

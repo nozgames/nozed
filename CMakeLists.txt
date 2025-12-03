@@ -79,6 +79,7 @@ set(SOURCE_FILES
     src/editor_server.cpp
     src/editor.cpp
     src/command.cpp
+    src/inspector.cpp
 )
 
 
