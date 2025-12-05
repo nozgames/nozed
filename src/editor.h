@@ -61,6 +61,7 @@ struct Editor {
     AssetImporter* importers;
     std::filesystem::file_time_type config_timestamp;
     std::filesystem::path output_dir;
+    std::filesystem::path unity_path;
 
     PoolAllocator* asset_allocator;
     int assets[MAX_ASSETS];
@@ -70,6 +71,10 @@ struct Editor {
     Tool tool;
 
     Mesh* meshes[MAX_ASSETS];
+    Texture* textures[MAX_ASSETS];
+
+    bool unity;
+    std::filesystem::path save_dir;
 };
 
 extern Editor g_editor;

@@ -8,7 +8,6 @@
 #include <noz/core_assets.h>
 
 // @Mesh
-extern Mesh* MESH_ASSET_ICON_EVENT;
 extern Mesh* MESH_UI_ICON_ROOT_MOTION_OFF;
 extern Mesh* MESH_UI_ICON_ROOT_MOTION;
 extern Mesh* MESH_UI_ICON_ONION;
@@ -18,9 +17,7 @@ extern Mesh* MESH_ASSET_ICON_VFX;
 extern Mesh* MESH_ASSET_ICON_SOUND;
 extern Mesh* MESH_ASSET_ICON_SHADER;
 extern Mesh* MESH_ASSET_ICON_FONT;
-
-// @Texture
-extern Texture* TEXTURE_PALETTE;
+extern Mesh* MESH_ASSET_ICON_EVENT;
 
 // @Font
 extern Font* FONT_SEGUISB;

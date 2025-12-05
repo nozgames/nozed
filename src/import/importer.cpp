@@ -148,6 +148,16 @@ static void ExecuteJob(void* data) {
     Lowercase(target_dir_lower.data(), (u32)target_dir_lower.size());
 
     bool result = SaveStream(target_stream, target_dir_lower);
+
+    if (g_editor.unity) {
+        fs::path unity_dir =
+            g_editor.unity_path /
+            ToString(job->asset->importer->type) /
+            (std::string(job->asset->name->value) + ".noz");
+
+        SaveStream(target_stream, unity_dir);
+    }
+
     Free(target_stream);
 
     if (!result)

@@ -45,6 +45,7 @@ static void LoadTextureMetaData(AssetData* a, Props* meta) {
     UpdateBounds(t);
 }
 
+
 static void SaveTextureMetaData(AssetData* a, Props* meta) {
     assert(a);
     assert(a->type == ASSET_TYPE_TEXTURE);

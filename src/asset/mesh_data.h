@@ -116,6 +116,7 @@ extern void SetEdgeColor(MeshData* m, const Vec2Int& color);
 extern void DissolveSelectedVertices(MeshData* m);
 extern void DissolveSelectedEdges(MeshData* m);
 extern void DissolveSelectedFaces(MeshData* m);
+extern void DeleteVertex(MeshData* m, int vertex_index);
 extern void SetHeight(MeshData* m, int index, float height);
 extern int SplitEdge(MeshData* m, int edge_index, float edge_pos, bool update=true);
 extern int SplitTriangle(MeshData* m, int triangle_index, const Vec2& position);

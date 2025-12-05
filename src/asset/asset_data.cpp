@@ -29,14 +29,14 @@ static void DestroyAssetData(void* p) {
 
 AssetData* CreateAssetData(const std::filesystem::path& path) {
     AssetData* a = (AssetData*)Alloc(g_editor.asset_allocator, sizeof(FatAssetData), DestroyAssetData);
-    Copy(a->path, sizeof(a->path), path.string().c_str());
+    Copy(a->path, sizeof(a->path), canonical(path).string().c_str());
+    Lowercase(a->path, sizeof(a->path));
     a->name = MakeCanonicalAssetName(path);
     a->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
     a->asset_path_index = -1;
 
     for (int i=0; i<g_editor.asset_path_count; i++) {
-        fs::path relative = path.lexically_relative(g_editor.asset_paths[i]);
-        if (!relative.empty() && relative.string().find("..") == std::string::npos) {
+        if (Equals(g_editor.asset_paths[i], a->path, Length(g_editor.asset_paths[i]), true)) {
             a->asset_path_index = i;
             break;
         }

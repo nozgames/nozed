@@ -456,6 +456,11 @@ static void DissolveSelected() {
 
     RecordUndo(m);
 
+    // Track selected vertices before dissolving (for orphan cleanup)
+    bool was_selected[MAX_VERTICES] = {};
+    for (int i=0; i<m->vertex_count; i++)
+        was_selected[i] = m->vertices[i].selected;
+
     if (g_mesh_editor.mode == MESH_EDITOR_MODE_VERTEX) {
         DissolveSelectedVertices(m);
     } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_EDGE) {
@@ -465,6 +470,12 @@ static void DissolveSelected() {
         ClearSelection();
     } else if (g_mesh_editor.mode == MESH_EDITOR_MODE_FACE) {
         DissolveSelectedFaces(m);
+    }
+
+    // Remove vertices that were selected and are now orphaned
+    for (int i=m->vertex_count-1; i>=0; i--) {
+        if (was_selected[i] && m->vertices[i].ref_count == 0)
+            DeleteVertex(m, i);
     }
 
     MarkDirty(m);
@@ -1400,9 +1411,11 @@ static void DuplicateSelected() {
     int old_face_count = m->face_count;
     int old_vertex_count = m->vertex_count;
 
+    int vertex_map[MESH_MAX_VERTICES];
     for (int vertex_index=0; vertex_index<old_vertex_count; vertex_index++) {
         VertexData& v = m->vertices[vertex_index];
         if (!v.selected) continue;
+        vertex_map[vertex_index] = m->vertex_count;
         m->vertices[m->vertex_count++] = v;
     }
 
@@ -1416,7 +1429,7 @@ static void DuplicateSelected() {
         nf.selected = true;
 
         for (int vertex_index=0; vertex_index<f.vertex_count; vertex_index++)
-            nf.vertices[vertex_index] += m->selected_vertex_count;
+            nf.vertices[vertex_index] = vertex_map[nf.vertices[vertex_index]];
     }
 
     MarkDirty(m);
@@ -1490,6 +1503,7 @@ void InitMeshEditor() {
 
     g_mesh_editor.shortcuts = shortcuts;
     EnableButton(g_mesh_editor.input, KEY_Q);
+    EnableButton(g_mesh_editor.input, KEY_O);
     EnableButton(g_mesh_editor.input, KEY_SPACE);
     EnableButton(g_mesh_editor.input, KEY_H);
     EnableShortcuts(shortcuts, g_mesh_editor.input);

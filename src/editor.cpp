@@ -150,10 +150,17 @@ static void InitConfig() {
     for (auto& path : g_config->GetKeys("source")) {
         std::filesystem::path full_path = std::filesystem::current_path() / path;
         full_path = canonical(full_path);
-        Copy(g_editor.asset_paths[g_editor.asset_path_count++], 4096, full_path.string().c_str());
+        if (!std::filesystem::exists(full_path))
+            std::filesystem::create_directories(full_path);
+        Copy(g_editor.asset_paths[g_editor.asset_path_count], 4096, full_path.string().c_str());
+        Lowercase(g_editor.asset_paths[g_editor.asset_path_count], 4096);
+        g_editor.asset_path_count++;
     }
 
-    g_editor.output_dir = fs::absolute(fs::path(g_config->GetString("output", "directory", "assets")));
+    g_editor.output_dir = fs::absolute(fs::path(g_config->GetString("editor", "output_path", "assets")));
+    g_editor.unity_path = fs::absolute(fs::path(g_config->GetString("editor", "unity_path", "./assets/noz")));
+    g_editor.save_dir = g_config->GetString("editor", "save_path", "assets");
+    g_editor.unity = g_config->GetBool("editor", "unity", false);
 
     fs::create_directories(g_editor.output_dir);
 }
@@ -233,10 +240,13 @@ int main(int argc, const char* argv[]) {
 
     InitConfig();
 
+    text_t assets_path;
+    SetValue(assets_path, g_editor.output_dir.string().c_str());
+
     ApplicationTraits traits = {};
     Init(traits);
     traits.title = "NoZ Editor";
-    traits.assets_path = "build/assets";
+    traits.assets_path = assets_path.value;
     traits.load_assets = LoadAssets;
     traits.unload_assets = UnloadAssets;
     traits.hotload_asset = EditorHotLoad;
@@ -248,6 +258,7 @@ int main(int argc, const char* argv[]) {
     InitLog(HandleLog);
     InitAssetData();
     LoadAssetData();
+
     InitNotifications();
     InitImporter();
     InitWindow();

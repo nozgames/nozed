@@ -11,7 +11,7 @@ static void RemoveFaceVertices(MeshData* m, int face_index, int remove_at, int r
 static void InsertFaceVertices(MeshData* m, int face_index, int insert_at, int count);
 static void MergeFaces(MeshData* m, const EdgeData& shared_edge);
 static void DeleteFace(MeshData* m, int face_index);
-static void DeleteVertex(MeshData* m, int vertex_index);
+void DeleteVertex(MeshData* m, int vertex_index);
 static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, float depth);
 
 static int GetFaceEdgeIndex(const FaceData& f, const EdgeData& e) {
@@ -352,7 +352,7 @@ void DissolveEdge(MeshData* m, int edge_index) {
     CollapseEdge(m, edge_index);
 }
 
-static void DeleteVertex(MeshData* m, int vertex_index) {
+void DeleteVertex(MeshData* m, int vertex_index) {
     assert(vertex_index >= 0 && vertex_index < m->vertex_count);
 
     for (int face_index=m->face_count-1; face_index >= 0; face_index--) {
@@ -406,8 +406,7 @@ static void DeleteFace(MeshData* m, int face_index) {
 }
 
 void DissolveSelectedFaces(MeshData* m) {
-    for (int face_index=m->face_count - 1; face_index>=0; face_index--)
-    {
+    for (int face_index=m->face_count - 1; face_index>=0; face_index--) {
         FaceData& ef = m->faces[face_index];
         if (!ef.selected)
             continue;
@@ -1095,7 +1094,9 @@ AssetData* NewMeshData(const std::filesystem::path& path) {
             text = ReadAllText(ALLOCATOR_DEFAULT, selected->path);
     }
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "meshes" / path : path;
+    std::filesystem::path full_path = path.is_relative()
+        ? std::filesystem::current_path() / g_editor.save_dir / "meshes" / path
+        : path;
     full_path += ".mesh";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);

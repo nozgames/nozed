@@ -652,6 +652,7 @@ static void SetPalette(u32 index) {
     SetTexture(g_view.editor_material, palette_texture);
     SetTexture(g_view.shaded_material, palette_texture);
     SetTexture(g_view.shaded_skinned_material, palette_texture);
+    SetPaletteTexture(palette_texture);
 
     extern void UpdateMeshEditorPalette();
 
