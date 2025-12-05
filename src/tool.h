@@ -19,8 +19,8 @@ extern void BeginMoveTool(const MoveToolOptions& options);
 // @scale
 struct ScaleToolOptions {
     Vec2 origin;
-    void (*update)(float scale);
-    void (*commit)(float scale);
+    void (*update)(const Vec2& scale);
+    void (*commit)(const Vec2& scale);
     void (*cancel)();
 };
 

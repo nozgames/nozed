@@ -5,6 +5,7 @@
 struct MoveTool {
     Vec2 delta_position;
     MoveToolOptions options;
+    Vec2 delta_scale;
 };
 
 static MoveTool g_move = {};
@@ -15,13 +16,22 @@ static void EndMove(bool commit) {
     else if (!commit && g_move.options.cancel)
         g_move.options.cancel();
 
+    if (IsCommandInputActive())
+        EndCommandInput();
+
     EndDrag();
     EndTool();
 }
 
 static void UpdateMove() {
-    if (WasButtonPressed(GetInputSet(), MOUSE_LEFT)) {
+    if (WasButtonPressed(MOUSE_LEFT)) {
         EndMove(true);
+        return;
+    }
+
+    if (IsCommandInputActive() && WasButtonPressed(GetInputSet(), KEY_ESCAPE)) {
+        g_move.delta_scale = VEC2_ONE;
+        EndCommandInput();
         return;
     }
 
@@ -30,7 +40,19 @@ static void UpdateMove() {
         return;
     }
 
-    Vec2 delta = g_view.drag_world_delta;
+    if (WasButtonPressed(GetInputSet(), KEY_X)) {
+        static CommandHandler commands[] = {{ nullptr, nullptr, nullptr }};
+        BeginCommandInput({.commands=commands, .prefix="x", .input=GetInputSet()});
+        g_move.delta_scale = {1.0f, 0.0f};
+    }
+
+    if (WasButtonPressed(GetInputSet(), KEY_Y)) {
+        static CommandHandler commands[] = {{ nullptr, nullptr, nullptr }};
+        BeginCommandInput({.commands=commands, .prefix="y", .input=GetInputSet()});
+        g_move.delta_scale = {0.0f, 1.0f};
+    }
+
+    Vec2 delta = g_view.drag_world_delta * g_move.delta_scale;
     if (g_move.delta_position == delta)
         return;
 
@@ -53,6 +75,7 @@ void BeginMoveTool(const MoveToolOptions& options) {
 
     g_move = {};
     g_move.options = options;
+    g_move.delta_scale = VEC2_ONE;
 
     BeginDrag();
 }

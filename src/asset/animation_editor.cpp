@@ -879,7 +879,6 @@ static void BeginCommandInput() {
     BeginCommandInput({.commands=commands, .prefix=":"});
 }
 
-
 static void CommitUnparentTool(const Vec2& ) {
 #if 0
     SkeletonData* s = GetSkeletonData();

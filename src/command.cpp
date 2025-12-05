@@ -10,9 +10,14 @@ struct CommandInput {
     bool hide_empty;
     InputSet* input;
     Command command;
+    bool pop_input;
 };
 
 static CommandInput g_command_input = {};
+
+bool IsCommandInputActive() {
+    return g_command_input.enabled;
+}
 
 static void HandleCommand(const Command& command) {
     for (const CommandHandler* cmd = g_command_input.commands; cmd->name != nullptr; cmd++) {
@@ -139,7 +144,17 @@ void BeginCommandInput(const CommandInputOptions& options) {
     g_command_input.prefix = options.prefix;
     g_command_input.placeholder = options.placeholder;
     g_command_input.hide_empty = options.hide_empty;
-    PushInputSet(g_command_input.input);
+
+    if (!options.input) {
+        PushInputSet(g_command_input.input);
+        g_command_input.pop_input = true;
+    } else if (options.input != GetInputSet()) {
+        PushInputSet(options.input);
+        g_command_input.pop_input = true;
+    } else {
+        g_command_input.pop_input = false;
+    }
+
     Listen(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
     Listen(EVENT_TEXTINPUT_CANCEL, HandleTextInputCancel);
     Listen(EVENT_TEXTINPUT_COMMIT, HandleTextInputCommit);
@@ -150,7 +165,10 @@ void EndCommandInput() {
     Unlisten(EVENT_TEXTINPUT_CHANGE, HandleTextInputChange);
     Unlisten(EVENT_TEXTINPUT_CANCEL, HandleTextInputCancel);
     Unlisten(EVENT_TEXTINPUT_COMMIT, HandleTextInputCommit);
-    PopInputSet();
+
+    if (g_command_input.pop_input)
+        PopInputSet();
+
     EndTextInput();
     g_command_input.enabled = false;
     g_command_input.commands = nullptr;

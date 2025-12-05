@@ -291,7 +291,7 @@ static void BeginRotateTool() {
     BeginRotateTool({.origin=g_skeleton_editor.selection_center_world, .update=UpdateRotateTool, .cancel=CancelSkeletonTool});
 }
 
-static void UpdateScaleTool(float scale) {
+static void UpdateScaleTool(const Vec2& scale) {
     SkeletonData* s = GetSkeletonData();
     for (i32 bone_index=0; bone_index<s->bone_count; bone_index++) {
         if (!IsBoneSelected(bone_index))
@@ -299,7 +299,7 @@ static void UpdateScaleTool(float scale) {
 
         BoneData& b = s->bones[bone_index];
         BoneData& sb = g_skeleton_editor.saved_bones[bone_index];
-        b.length = Clamp(sb.length * scale, 0.05f, 10.0f);
+        b.length = Clamp(sb.length * scale.x, 0.05f, 10.0f);
     }
 
     UpdateTransforms(s);

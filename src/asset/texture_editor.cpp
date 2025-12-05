@@ -39,13 +39,13 @@ static void DrawTextureEditor() {
 static void BeginTextureMove() {
 }
 
-static void UpdateTextureScaleTool(float scale) {
+static void UpdateTextureScaleTool(const Vec2& scale) {
     TextureData* t = static_cast<TextureData*>(GetAssetData());
-    t->scale = g_texture_editor.saved_scale * scale;
+    t->scale = g_texture_editor.saved_scale * scale.x;
     UpdateBounds(t);
 }
 
-static void CommitTextureScaleTool(float) {
+static void CommitTextureScaleTool(const Vec2&) {
     TextureData* t = static_cast<TextureData*>(GetAssetData());
     MarkMetaModified(t);
     MarkModified(t);

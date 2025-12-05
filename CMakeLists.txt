@@ -36,7 +36,7 @@ set(SOURCE_FILES
     src/utils/file_watcher.cpp
     src/utils/rect_packer.cpp
     src/utils/props.cpp
-    src/utils/tokenizer.cpp
+
     src/utils/file_helpers.cpp
     src/utils/draw_utils.cpp
     src/utils/ui_utils.cpp

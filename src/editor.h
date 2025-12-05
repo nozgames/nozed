@@ -100,6 +100,7 @@ struct CommandInputOptions {
     const char* prefix;
     const char* placeholder;
     bool hide_empty;
+    InputSet* input;
 };
 
 extern void InitCommandInput();
@@ -107,6 +108,7 @@ extern void ShutdownCommandInput();
 extern void BeginCommandInput(const CommandInputOptions& options);
 extern void UpdateCommandInput();
 extern void EndCommandInput();
+extern bool IsCommandInputActive();
 extern const char* GetVarTypeNameFromAssetType(AssetType asset_type);
 
 // @import

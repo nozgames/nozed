@@ -824,6 +824,8 @@ void InitView() {
     EnableButton(g_view.input_tool, KEY_ENTER);
     EnableButton(g_view.input_tool, MOUSE_LEFT);
     EnableButton(g_view.input_tool, MOUSE_RIGHT);
+    EnableButton(g_view.input_tool, KEY_X);
+    EnableButton(g_view.input_tool, KEY_Y);
 
     MeshBuilder* builder = CreateMeshBuilder(ALLOCATOR_DEFAULT, 1024, 1024);
     AddCircle(builder, VEC2_ZERO, 0.5f, 8, ColorUV(7,0));

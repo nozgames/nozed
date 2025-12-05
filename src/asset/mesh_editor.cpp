@@ -776,7 +776,7 @@ static void BeginRotateTool() {
     BeginRotateTool({.origin=g_mesh_editor.selection_center+m->position, .update=UpdateRotateTool, .cancel=CancelMeshTool});
 }
 
-static void UpdateScaleTool(float scale) {
+static void UpdateScaleTool(const Vec2& scale) {
     MeshData* m = GetMeshData();
 
     Vec2 center = g_mesh_editor.selection_center;
@@ -1399,6 +1399,39 @@ static void ToggleXRay() {
     g_mesh_editor.xray = !g_mesh_editor.xray;
 }
 
+static void FlipHorizontal() {
+    MeshData* m = GetMeshData();
+    if (m->selected_vertex_count == 0)
+        return;
+
+    RecordUndo(m);
+
+    // Flip selected vertices horizontally around their center
+    for (int i=0; i<m->vertex_count; i++) {
+        VertexData& v = m->vertices[i];
+        if (!v.selected)
+            continue;
+        v.position.x = g_mesh_editor.selection_center.x - (v.position.x - g_mesh_editor.selection_center.x);
+    }
+
+    // Reverse winding order of selected faces
+    for (int face_index=0; face_index<m->face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
+        if (!f.selected)
+            continue;
+
+        for (int i=0; i<f.vertex_count / 2; i++) {
+            int temp = f.vertices[i];
+            f.vertices[i] = f.vertices[f.vertex_count - 1 - i];
+            f.vertices[f.vertex_count - 1 - i] = temp;
+        }
+    }
+
+    UpdateEdges(m);
+    MarkDirty(m);
+    MarkModified(m);
+}
+
 static void DuplicateSelected() {
     MeshData* m = GetMeshData();
     if (m->face_count + m->selected_face_count > MAX_FACES)
@@ -1471,6 +1504,7 @@ void InitMeshEditor() {
         { KEY_D, false, true, false, DuplicateSelected },
         { KEY_G, false, false, false, BeginMoveTool },
         { KEY_R, false, false, false, BeginRotateTool },
+        { KEY_R, false, false, true, FlipHorizontal },
         { KEY_S, false, false, false, BeginScaleTool },
         { KEY_S, false, false, true, SubDivide },
         { KEY_W, false, false, false, BeginWeightTool },

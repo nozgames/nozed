@@ -5,7 +5,7 @@
 // @STL - This file uses STL since it's tools-only
 
 #include "props.h"
-#include "tokenizer.h"
+#include "../../noz/include/noz/tokenizer.h"
 #include <cstdio>
 
 void Props::Clear()
