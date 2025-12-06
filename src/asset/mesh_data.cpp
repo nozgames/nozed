@@ -37,7 +37,7 @@ void DrawMesh(MeshData* m, const Mat3& transform, Material* material) {
         BindColor(COLOR_EDGE);
         DrawMesh(ToOutlineMesh(m), transform);
     } else {
-        BindColor(COLOR_WHITE, GetActivePalette().color_offset_uv);
+        BindColor(COLOR_WHITE, ToVec2(GetActivePalette().color_offset));
         DrawMesh(ToMesh(m), transform);
     }
 

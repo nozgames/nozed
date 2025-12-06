@@ -43,7 +43,7 @@ struct Shortcut;
 
 struct PaletteDef {
     TextureData* texture;
-    Vec2 color_offset_uv;
+    Vec2Int color_offset;
 };
 
 struct View {
@@ -93,7 +93,7 @@ struct View {
     ViewDrawMode draw_mode;
     PaletteDef palettes[MAX_PALETTES];
     u32 palette_count;
-    u32 active_palette_index;
+    int active_palette_index;
     bool grid;
 };
 

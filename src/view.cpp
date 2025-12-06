@@ -908,22 +908,18 @@ void InitView() {
         Tokenizer tk;
         Init(tk, palette_value.c_str());
         Token name_token;
-        float uv_x = 0.0f;
-        float uv_y = 0.0f;
+        int palette_id = 0;
         ExpectToken(tk, &name_token);
         const Name* palette_name = GetName(tk);
         if (ExpectDelimiter(tk, ','))
-            ExpectFloat(tk, &uv_x);
-        if (ExpectDelimiter(tk, ','))
-            ExpectFloat(tk, &uv_y);
-
+            ExpectInt(tk, &palette_id);
         TextureData* palette_texture = static_cast<TextureData*>(GetAssetData(ASSET_TYPE_TEXTURE, palette_name));
         if (!palette_texture)
             continue;
 
         g_view.palettes[g_view.palette_count++] = {
             .texture = palette_texture,
-            .color_offset_uv = Vec2{uv_x, uv_y}
+            .color_offset = Vec2Int{0, palette_id}
         };
     }
 

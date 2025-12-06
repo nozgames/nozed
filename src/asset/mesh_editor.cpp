@@ -601,7 +601,11 @@ static void UpdateColorPicker(){
                     ConsumeButton(MOUSE_LEFT);
                 }
             }});
-            Image(g_mesh_editor.color_picker_mesh);
+            BeginRow();
+            for (int i=0; i<COLOR_COUNT; i++) {
+                Container({.width=COLOR_PICKER_COLOR_SIZE, .height=COLOR_PICKER_COLOR_SIZE, .color=COLOR_WHITE, .color_offset=Vec2Int{i,g_view.palettes[g_view.active_palette_index].color_offset.y}});
+            }
+            End();
         End();
 
         for (int i=0; i<64; i++) {
