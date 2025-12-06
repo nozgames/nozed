@@ -532,7 +532,7 @@ void EndEdit() {
     if (a->vtable.editor_end)
         a->vtable.editor_end();
 
-    SetCursor(SYSTEM_CURSOR_DEFAULT);
+    SetSystemCursor(SYSTEM_CURSOR_DEFAULT);
     SetState(VIEW_STATE_DEFAULT);
 }
 

@@ -241,9 +241,6 @@ Mesh* ToOutlineMesh(MeshData* m) {
 
     for (int i=0; i < m->edge_count; i++) {
         const EdgeData& ee = m->edges[i];
-        if (ee.face_count > 1)
-            continue;
-
         const VertexData& v0 = m->vertices[ee.v0];
         const VertexData& v1 = m->vertices[ee.v1];
         Vec2 p0 = {v0.position.x, v0.position.y};
@@ -271,23 +268,16 @@ Mesh* ToOutlineMesh(MeshData* m) {
     return m->outline;
 }
 
-void SetEdgeColor(MeshData* m, const Vec2Int& color) {
-    m->edge_color = color;
-    MarkDirty(m);
-}
-
-void SetSelectedTrianglesColor(MeshData* m, const Vec2Int& color) {
+void SetSelecteFaceColor(MeshData* m, const Vec2Int& color) {
     int count = 0;
-    for (i32 i = 0; i < m->face_count; i++) {
-        FaceData& et = m->faces[i];
-        if (et.selected) {
-            et.color = color;
-            count++;
-        }
+    for (i32 face_index = 0; face_index < m->face_count; face_index++) {
+        FaceData& f = m->faces[face_index];
+        if (!f.selected) continue;
+        f.color = color;
+        count++;
     }
 
-    if (!count)
-        return;
+    if (!count) return;
 
     MarkDirty(m);
 }
@@ -876,7 +866,7 @@ static void ParseEdgeColor(MeshData* em, Tokenizer& tk) {
     em->edge_color = {(u8)cx, (u8)cy};
 }
 
-static void ParseFaceColor(FaceData& ef, Tokenizer& tk) {
+static void ParseFaceColor(FaceData& f, Tokenizer& tk) {
     int cx;
     if (!ExpectInt(tk, &cx))
         ThrowError("missing face color x value");
@@ -885,7 +875,7 @@ static void ParseFaceColor(FaceData& ef, Tokenizer& tk) {
     if (!ExpectInt(tk, &cy))
         ThrowError("missing face color y value");
 
-    ef.color = {(u8)cx, (u8)cy};
+    f.color = {(u8)cx, (u8)cy};
 }
 
 static void ParseFaceNormal(FaceData& ef, Tokenizer& tk) {
@@ -1181,7 +1171,7 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
     if (f->vertex_count < 3)
         return;
 
-    Vec2 uv_color = ColorUV(f->color.x, f->color.y);
+    Vec2 uv_color = ToVec2(f->color);
 
     for (int vertex_index = 0; vertex_index < f->vertex_count; vertex_index++) {
         VertexData& v = m->vertices[f->vertices[vertex_index]];
@@ -1194,6 +1184,7 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
         mv.bone_indices.y = v.weights[1].bone_index;
         mv.bone_indices.z = v.weights[2].bone_index;
         mv.bone_indices.w = v.weights[3].bone_index;
+        mv.normal = v.edge_normal;
         AddVertex(builder, mv);
     }
 

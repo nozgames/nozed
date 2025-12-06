@@ -17,7 +17,7 @@ int GetRealFrameIndex(AnimationData* n, int frame_index) {
         for (int h=0; h<=n->frames[i].hold; h++, frame_index--)
             if (frame_index == 0) return i;
 
-    return 0;
+    return n->frame_count;
 }
 
 int GetFrameIndexWithHolds(AnimationData* n, int frame_index) {

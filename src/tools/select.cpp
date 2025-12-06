@@ -51,5 +51,5 @@ void BeginSelectTool(const SelectToolOptions& options) {
 
     g_select_tool.options = options;
 
-    SetCursor(SYSTEM_CURSOR_SELECT);
+    SetSystemCursor(SYSTEM_CURSOR_SELECT);
 }

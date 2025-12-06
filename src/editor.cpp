@@ -222,7 +222,7 @@ void EndTool() {
     assert(g_editor.tool.type != TOOL_TYPE_NONE);
     g_editor.tool = {};
     PopInputSet();
-    SetCursor(SYSTEM_CURSOR_DEFAULT);
+    SetSystemCursor(SYSTEM_CURSOR_DEFAULT);
 }
 
 void CancelTool() {
@@ -240,7 +240,7 @@ int main(int argc, const char* argv[]) {
 
     InitConfig();
 
-    text_t assets_path;
+    Text assets_path;
     SetValue(assets_path, g_editor.output_dir.string().c_str());
 
     ApplicationTraits traits = {};

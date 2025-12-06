@@ -1278,5 +1278,5 @@ void BeginKnifeTool(MeshData* mesh) {
     g_knife_tool.cut_count = 0;
     g_knife_tool.vertex_count = 0;
 
-    SetCursor(SYSTEM_CURSOR_SELECT);
+    SetSystemCursor(SYSTEM_CURSOR_SELECT);
 }

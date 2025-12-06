@@ -253,7 +253,7 @@ static void BeginMoveTool(bool record_undo) {
     if (record_undo)
         RecordUndo();
 
-    SetCursor(SYSTEM_CURSOR_MOVE);
+    SetSystemCursor(SYSTEM_CURSOR_MOVE);
     BeginMoveTool({.update=UpdateMoveTool, .commit=CommitMoveTool, .cancel=CancelSkeletonTool});
 }
 

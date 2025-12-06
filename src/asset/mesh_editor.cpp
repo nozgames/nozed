@@ -521,12 +521,7 @@ static bool HandleColorPickerInput(const Vec2& position) {
     float x = Clamp01(position.x / COLOR_PICKER_WIDTH);
     i32 col = (i32)(x * 64.0f);
     RecordUndo(GetMeshData());
-
-    if (IsCtrlDown(g_mesh_editor.input))
-        SetEdgeColor(GetMeshData(), {col, 0});
-    else
-        SetSelectedTrianglesColor(GetMeshData(), {col, 0});
-
+    SetSelecteFaceColor(GetMeshData(), {col, 0});
     MarkModified(GetMeshData());
     return true;
 }
@@ -541,7 +536,7 @@ constexpr float STATS_HEIGHT = STAT_COUNT * STAT_HEIGHT + (STAT_COUNT - 1) * STA
 constexpr float STATS_MARGIN = 10.0f;
 
 static void AddStat(const char* name, int value) {
-    text_t text;
+    Text text;
 
     BeginContainer({.height=STAT_HEIGHT});
     BeginRow();

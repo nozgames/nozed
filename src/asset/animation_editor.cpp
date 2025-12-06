@@ -382,6 +382,7 @@ static void DopeSheet() {
     int current_frame = playing
         ? GetFrameIndex(*n->animator)
         : n->current_frame;
+    int last_real_frame_index = -1;
     for (int frame_index=0; frame_index<=frame_count; frame_index++) {
         BeginContainer({
             .width=frame_index == frame_count ? DOPESHEET_TICK_WIDTH : DOPESHEET_FRAME_WIDTH,
@@ -390,22 +391,24 @@ static void DopeSheet() {
             .color=DOPESHEET_TICK_BACKGROUND_COLOR
         });
 
+        int real_frame_index = GetRealFrameIndex(n, frame_index);
         if (WasPressed()) {
-            n->current_frame = GetRealFrameIndex(n, frame_index);
+            n->current_frame = real_frame_index;
             UpdateTransforms(n);
             SetDefaultState();
         }
 
         if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
 
-        if (frame_index < n->frame_count && n->frames[frame_index].event_name != nullptr) {
+        if (real_frame_index < n->frame_count && real_frame_index != last_real_frame_index && n->frames[real_frame_index].event_name != nullptr) {
             BeginAlign({.alignment=ALIGNMENT_CENTER_CENTER});
-            //Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=COLOR_WHITE});
             BeginSizedBox({.width=DOPESHEET_FRAME_DOT_SIZE * 2, .height=DOPESHEET_FRAME_DOT_SIZE * 2});
-                Image(MESH_ASSET_ICON_EVENT, {.color = frame_index == current_frame ? COLOR_WHITE : DOPESHEET_EVENT_COLOR});
+                Image(MESH_ASSET_ICON_EVENT, {.color = real_frame_index == current_frame ? COLOR_WHITE : DOPESHEET_EVENT_COLOR});
             End();
             End();
         }
+
+        last_real_frame_index = real_frame_index;
 
         // Tick
         if (frame_index % 4 == 0 || (playing && frame_index == current_frame)) {

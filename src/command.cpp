@@ -59,7 +59,7 @@ void UpdateCommandInput() {
     if (!g_command_input.enabled)
         return;
 
-    if (g_command_input.hide_empty && GetTextInput().length == 0)
+    if (g_command_input.hide_empty && GetTextInput().value.length == 0)
         return;
 
     BeginCanvas();
@@ -82,7 +82,7 @@ void UpdateCommandInput() {
             }
 
             bool show_cursor = true;
-            if (i.length > 0) {
+            if (i.value.length > 0) {
                 Label(i.value, {
                     .font = FONT_SEGUISB,
                     .font_size = COMMAND_FONT_SIZE,
@@ -114,7 +114,7 @@ void UpdateCommandInput() {
 
 static void HandleTextInputChange(EventId event_id, const void* event_data) {
     (void)event_id;
-    ParseCommand(static_cast<const TextInput*>(event_data)->value, g_command_input.command);
+    ParseCommand(static_cast<const TextInput*>(event_data)->value.value, g_command_input.command);
 }
 
 static void HandleTextInputCancel(EventId event_id, const void* event_data) {
@@ -122,7 +122,7 @@ static void HandleTextInputCancel(EventId event_id, const void* event_data) {
     (void) event_data;
 
     const TextInput& input = GetTextInput();
-    if (input.length > 0) {
+    if (input.value.length > 0) {
         ClearTextInput();
         return;
     }
