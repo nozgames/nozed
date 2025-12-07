@@ -37,17 +37,9 @@ void DrawMesh(MeshData* m, const Mat3& transform, Material* material) {
         BindColor(COLOR_EDGE);
         DrawMesh(ToOutlineMesh(m), transform);
     } else {
-        BindColor(COLOR_WHITE, ToVec2(GetActivePalette().color_offset));
+        BindColor(COLOR_WHITE);
         DrawMesh(ToMesh(m), transform);
     }
-
-#if 0
-    BindColor(COLOR_BLACK);
-    BindDepth(GetApplicationTraits()->renderer.max_depth - 0.01f);
-    for (int i=0;i<m->tag_count;i++)
-        DrawVertex(m->anchors[i].position + m->position);
-    BindDepth(0.0f);
-#endif
 }
 
 Vec2 GetFaceCenter(MeshData* m, FaceData* f) {
@@ -268,7 +260,7 @@ Mesh* ToOutlineMesh(MeshData* m) {
     return m->outline;
 }
 
-void SetSelecteFaceColor(MeshData* m, const Vec2Int& color) {
+void SetSelecteFaceColor(MeshData* m, int color) {
     int count = 0;
     for (i32 face_index = 0; face_index < m->face_count; face_index++) {
         FaceData& f = m->faces[face_index];
@@ -493,18 +485,17 @@ int CreateFace(MeshData* m) {
         if (edge_index != -1) {
             const EdgeData& e = m->edges[edge_index];
             for (int face_idx = 0; face_idx < e.face_count; face_idx++) {
-                int color_x = m->faces[e.face_index[face_idx]].color.x;
-                color_counts[color_x]++;
+                color_counts[m->faces[e.face_index[face_idx]].color]++;
             }
         }
     }
 
-    Vec2Int best_color = {1, 0};
+    int best_color = 0;
     int best_count = 0;
     for (int i = 0; i < 64; i++) {
         if (color_counts[i] > best_count) {
             best_count = color_counts[i];
-            best_color = {i, 0};
+            best_color = i;
         }
     }
 
@@ -867,15 +858,13 @@ static void ParseEdgeColor(MeshData* em, Tokenizer& tk) {
 }
 
 static void ParseFaceColor(FaceData& f, Tokenizer& tk) {
-    int cx;
-    if (!ExpectInt(tk, &cx))
+    f.color = 0;
+    if (!ExpectInt(tk, &f.color))
         ThrowError("missing face color x value");
 
+    // Ignore old face color
     int cy;
-    if (!ExpectInt(tk, &cy))
-        ThrowError("missing face color y value");
-
-    f.color = {(u8)cx, (u8)cy};
+    ExpectInt(tk, &cy);
 }
 
 static void ParseFaceNormal(FaceData& ef, Tokenizer& tk) {
@@ -925,7 +914,7 @@ static void ParseFace(MeshData* m, Tokenizer& tk) {
     if (v0 < 0 || v0 >= m->vertex_count || v1 < 0 || v1 >= m->vertex_count || v2 < 0 || v2 >= m->vertex_count)
         ThrowError("face vertex index out of range");
 
-    f.color = {0, 0};
+    f.color = 0;
 
     while (!IsEOF(tk))
     {
@@ -946,6 +935,14 @@ static void ParseDepth(MeshData* m, Tokenizer& tk) {
     m->depth = (int)(depth * (MAX_DEPTH - MIN_DEPTH) + MIN_DEPTH);
 }
 
+static void ParsePalette(MeshData* m, Tokenizer& tk) {
+    int palette = 0;
+    if (!ExpectInt(tk, &palette))
+        ThrowError("missing mesh palette value");
+
+    m->palette = palette;
+}
+
 void LoadMeshData(MeshData* m, Tokenizer& tk, bool multiple_mesh=false) {
     while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "v")) {
@@ -954,6 +951,8 @@ void LoadMeshData(MeshData* m, Tokenizer& tk, bool multiple_mesh=false) {
             ParseTag(m, tk);
         } else if (ExpectIdentifier(tk, "d")) {
             ParseDepth(m, tk);
+        } else if (ExpectIdentifier(tk, "p")) {
+            ParsePalette(m, tk);
         } else if (ExpectIdentifier(tk, "f")) {
             ParseFace(m, tk);
         } else if (ExpectIdentifier(tk, "e")) {
@@ -1014,6 +1013,20 @@ MeshData* LoadMeshData(const std::filesystem::path& path) {
     return m;
 }
 
+static void LoadMeshMetaData(AssetData* a, Props* meta) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_MESH);
+    MeshData* m = static_cast<MeshData*>(a);
+    meta->SetInt("mesh", "palette", m->palette);
+}
+
+static void SaveMeshMetaData(AssetData* a, Props* meta) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_MESH);
+    MeshData* m = static_cast<MeshData*>(a);
+    meta->SetInt("mesh", "palette", m->palette);
+}
+
 static void WriteVertexWeights(Stream* stream, const VertexWeight* weights) {
     for (int weight_index=0; weight_index<MESH_MAX_VERTEX_WEIGHTS; weight_index++) {
         const VertexWeight& w = weights[weight_index];
@@ -1026,6 +1039,7 @@ static void WriteVertexWeights(Stream* stream, const VertexWeight* weights) {
 
 void SaveMeshData(MeshData* m, Stream* stream) {
     WriteCSTR(stream, "d %f\n", (m->depth - MIN_DEPTH) / (float)(MAX_DEPTH - MIN_DEPTH));
+    WriteCSTR(stream, "p %d\n", m->palette);
     WriteCSTR(stream, "e %d %d\n", m->edge_color.x, m->edge_color.y);
     WriteCSTR(stream, "\n");
 
@@ -1052,7 +1066,7 @@ void SaveMeshData(MeshData* m, Stream* stream) {
         for (int vertex_index=0; vertex_index<f.vertex_count; vertex_index++)
             WriteCSTR(stream, " %d", f.vertices[vertex_index]);
 
-        WriteCSTR(stream, " c %d %d n %f %f %f\n", f.color.x, f.color.y, f.normal.x, f.normal.y, f.normal.z);
+        WriteCSTR(stream, " c %d n %f %f %f\n", f.color, f.color, f.normal.x, f.normal.y, f.normal.z);
     }
 }
 
@@ -1171,7 +1185,7 @@ static void TriangulateFace(MeshData* m, FaceData* f, MeshBuilder* builder, floa
     if (f->vertex_count < 3)
         return;
 
-    Vec2 uv_color = ToVec2(f->color);
+    Vec2 uv_color = ToVec2(Vec2Int(f->color, m->palette));
 
     for (int vertex_index = 0; vertex_index < f->vertex_count; vertex_index++) {
         VertexData& v = m->vertices[f->vertices[vertex_index]];
@@ -1434,6 +1448,8 @@ static void Init(MeshData* m) {
         .destructor = DestroyMeshData,
         .load = LoadMeshData,
         .save = SaveMeshData,
+        .load_metadata = LoadMeshMetaData,
+        .save_metadata = SaveMeshMetaData,
         .draw = DrawMesh,
         .clone = CloneMeshData
     };

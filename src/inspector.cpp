@@ -23,12 +23,12 @@ void InspectorHeader(const char* title) {
         .font=FONT_SEGUISB,
         .font_size=INSPECTOR_HEADER_FONT_SIZE,
         .color=INSPECTOR_HEADER_COLOR,
-        .align=ALIGNMENT_CENTER_LEFT});
+        .align=ALIGN_CENTER_LEFT});
 }
 
 void BeginInspectorGroup() {
     if (g_inspector.group_index > 0)
-        SizedBox({.height=10});
+        Spacer(10);
 }
 
 extern void EndInspectorGroup() {
@@ -42,19 +42,25 @@ void BeginRadioButtonGroup() {
 int InspectorRadioButton(const char* name, int state) {
     BeginContainer({.height=20});
     BeginRow();
+    {
+        // name
         BeginContainer({.width=INSPECTOR_LABEL_WIDTH});
-            Label(name, {.font=FONT_SEGUISB, .font_size=14, .color=INSPECTOR_LABEL_COLOR, .align=ALIGNMENT_CENTER_LEFT});
-        End();
+        Label(name, {
+            .font=FONT_SEGUISB,
+            .font_size=14,
+            .color=INSPECTOR_LABEL_COLOR,
+            .align=ALIGN_CENTER_LEFT});
+        EndContainer();
 
-        BeginAlign({.alignment=ALIGNMENT_CENTER_LEFT});
-            BeginSizedBox({.width=15, .height=15});
-                Image(g_view.circle_mesh, {.color=g_inspector.radio_button_id == state ? INSPECTOR_CHECKED_COLOR : Color8ToColor(55)});
-                if (WasPressed())
-                    state = g_inspector.radio_button_id;
-            End();
-        End();
-    End(); // Row
-    End(); // Container
+        // control
+        BeginContainer({.width=15, .height=15, .align=ALIGN_CENTER_LEFT});
+        Image(g_view.circle_mesh, {.color=g_inspector.radio_button_id == state ? INSPECTOR_CHECKED_COLOR : Color8ToColor(55)});
+        if (WasPressed())
+            state = g_inspector.radio_button_id;
+        EndContainer();
+    }
+    EndRow();
+    EndContainer();
 
     g_inspector.radio_button_id++;
 
@@ -64,18 +70,20 @@ int InspectorRadioButton(const char* name, int state) {
 bool InspectorCheckbox(const char* name, bool state) {
     BeginContainer({.height=20});
     BeginRow();
-    BeginContainer({.width=INSPECTOR_LABEL_WIDTH});
-    Label(name, {.font=FONT_SEGUISB, .font_size=14, .color=INSPECTOR_LABEL_COLOR, .align=ALIGNMENT_CENTER_LEFT});
-    End();
-    BeginAlign({.alignment=ALIGNMENT_CENTER_LEFT});
-    BeginContainer({.width=15, .height=15, .color=state ? COLOR_VERTEX_SELECTED : Color8ToColor(55)});
+    {
+        // name
+        BeginContainer({.width=INSPECTOR_LABEL_WIDTH});
+        Label(name, {.font=FONT_SEGUISB, .font_size=14, .color=INSPECTOR_LABEL_COLOR, .align=ALIGN_CENTER_LEFT});
+        EndContainer();
+
+        // control
+        BeginContainer({.width=15, .height=15, .align=ALIGN_CENTER_LEFT, .color=state ? COLOR_VERTEX_SELECTED : Color8ToColor(55)});
         if (WasPressed())
             state = !state;
-    End(); // Align
-    End(); // Container
-    End(); // Row
-    End(); // Container
-
+        EndContainer();
+    }
+    EndRow();
+    EndContainer();
     return state;
 }
 
@@ -84,17 +92,17 @@ void BeginInspector() {
     g_inspector.group_index = 0;
 
     BeginCanvas();
-    BeginAlign({.alignment=ALIGNMENT_TOP_RIGHT, .margin=EdgeInsetsTopRight(20)});
     BeginContainer({
         .width=INSPECTOR_WIDTH,
+        .align=ALIGN_TOP_RIGHT,
+        .margin=EdgeInsetsTopRight(20),
         .padding=EdgeInsetsAll(INSPECTOR_PADDING),
         .color=COLOR_UI_BACKGROUND});
     BeginColumn();
 }
 
 void EndInspector() {
-    End(); // Column
-    End(); // Container
-    End(); // Align
-    End(); // Canvas
+    EndColumn();
+    EndContainer();
+    EndCanvas();
 }

@@ -43,7 +43,7 @@ struct EdgeData {
 };
 
 struct FaceData {
-    Vec2Int color;
+    int color;
     Vec3 normal;
     Vec2 center;
     bool selected;
@@ -73,6 +73,7 @@ struct MeshData : AssetData {
     FaceData* faces;
     TagData* tags;
 
+    int palette;
     int vertex_count;
     int edge_count;
     int face_count;
@@ -111,7 +112,7 @@ extern void AddTag(MeshData* m, const Vec2& position);
 extern void RemoveTag(MeshData* m, int index);
 extern Bounds2 GetSelectedBounds(MeshData* m);
 extern void MarkDirty(MeshData* m);
-extern void SetSelecteFaceColor(MeshData* m, const Vec2Int& color);
+extern void SetSelecteFaceColor(MeshData* m, int color);
 extern void DissolveSelectedVertices(MeshData* m);
 extern void DissolveSelectedEdges(MeshData* m);
 extern void DissolveSelectedFaces(MeshData* m);

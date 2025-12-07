@@ -13,7 +13,7 @@ static void DrawAnimatedMeshData(AssetData* a) {
 
     if (m->playing) {
         m->play_time = Update(m->playing, m->play_time);
-        BindColor(COLOR_WHITE, ToVec2(GetActivePalette().color_offset));
+        BindColor(COLOR_WHITE, Vec2Int(0,0));
         BindMaterial(g_view.shaded_material);
         DrawMesh(m->playing, Translate(a->position), m->play_time);
     } else if (m->frame_count > 0) {

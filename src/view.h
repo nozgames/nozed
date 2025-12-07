@@ -42,8 +42,8 @@ struct ViewVtable {
 struct Shortcut;
 
 struct PaletteDef {
-    TextureData* texture;
-    Vec2Int color_offset;
+    const Name* name;
+    int id;
 };
 
 struct View {
@@ -91,9 +91,9 @@ struct View {
     Shortcut* shortcuts;
     bool show_names;
     ViewDrawMode draw_mode;
-    PaletteDef palettes[MAX_PALETTES];
-    u32 palette_count;
-    int active_palette_index;
+    PaletteDef palettes[COLOR_PALETTE_COUNT];
+    int palette_map[COLOR_PALETTE_COUNT];
+    int palette_count;
     bool grid;
 };
 
@@ -114,7 +114,6 @@ extern void EndEdit();
 extern void BeginDrag();
 extern void EndDrag();
 extern void EnableCommonShortcuts(InputSet* input_set);
-inline const PaletteDef& GetActivePalette() { return g_view.palettes[g_view.active_palette_index]; }
 
 // @grid
 extern void InitGrid(Allocator* allocator);

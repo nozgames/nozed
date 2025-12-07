@@ -3,11 +3,10 @@
 //
 
 constexpr float COLOR_PICKER_BORDER_WIDTH = 4.0f;
-constexpr Color COLOR_PICKER_BORDER_COLOR = COLOR_BLACK;
-constexpr float COLOR_PICKER_COLOR_SIZE = 28.0f;
+constexpr Color COLOR_PICKER_BORDER_COLOR = STYLE_BACKGROUND_COLOR;
+constexpr float COLOR_PICKER_COLOR_SIZE = 26.0f;
 constexpr float COLOR_PICKER_WIDTH = COLOR_PICKER_COLOR_SIZE * 64 + COLOR_PICKER_BORDER_WIDTH * 2;
 constexpr float COLOR_PICKER_HEIGHT = COLOR_PICKER_COLOR_SIZE + COLOR_PICKER_BORDER_WIDTH * 2;
-constexpr float COLOR_PICKER_MARGIN = 16.0f;
 constexpr float COLOR_PICKER_SELECTION_BORDER_WIDTH = 3.0f;
 constexpr Color COLOR_PICKER_SELECTION_BORDER_COLOR = COLOR_VERTEX_SELECTED;
 
@@ -41,6 +40,7 @@ struct MeshEditor {
     MeshData* mesh_data;
     int weight_bone;
     bool xray;
+    bool show_palette_picker;
 };
 
 static MeshEditor g_mesh_editor = {};
@@ -517,15 +517,6 @@ static void UpdateDefaultState() {
     }
 }
 
-static bool HandleColorPickerInput(const Vec2& position) {
-    float x = Clamp01(position.x / COLOR_PICKER_WIDTH);
-    i32 col = (i32)(x * 64.0f);
-    RecordUndo(GetMeshData());
-    SetSelecteFaceColor(GetMeshData(), {col, 0});
-    MarkModified(GetMeshData());
-    return true;
-}
-
 constexpr int   STAT_FONT_SIZE = 22;
 constexpr int   STAT_COUNT = 4;
 constexpr float STAT_HEIGHT = 24.0f;
@@ -540,86 +531,163 @@ static void AddStat(const char* name, int value) {
 
     BeginContainer({.height=STAT_HEIGHT});
     BeginRow();
-    BeginExpanded({.flex=2.0f});
+    {
+        // label
+        BeginExpanded({.flex=2.0f});
         Label(name, {.font=FONT_SEGUISB, .font_size=STAT_FONT_SIZE, .color=SetAlpha(COLOR_UI_TEXT, 0.4f)});
-    End();
-    BeginExpanded({.flex=1.0f});
+        EndExpanded();
+
+        // value
+        BeginExpanded({.flex=1.0f});
         Format(text, "%d", value);
         Label(text, {.font=FONT_SEGUISB, .font_size=STAT_FONT_SIZE, .color=COLOR_UI_TEXT});
-    End();
-    End();
-    End();
+        EndExpanded();
+    }
+    EndRow();
+    EndContainer();
 }
 
-static void UpdateStats() {
+void MeshStats() {
     MeshData* m = GetMeshData();
 
     BeginCanvas();
-    BeginAlign({.alignment=ALIGNMENT_TOP_RIGHT});
     BeginContainer({
         .width=STATS_WIDTH,
         .height=STATS_HEIGHT,
+        .align=ALIGN_TOP_RIGHT,
         .margin=EdgeInsetsTopRight(STATS_MARGIN),
         .padding=EdgeInsetsAll(STATS_PADDING),
         .color=COLOR_UI_BACKGROUND});
     BeginColumn({.spacing=STAT_SPACING});
+    {
         AddStat("Vertices", m->vertex_count);
         AddStat("Edges", m->edge_count);
         AddStat("Faces", m->face_count);
         if (m->mesh)
             AddStat("Triangles", GetIndexCount(m->mesh) / 3);
-    End();
-    End();
-    End();
-    End();
+    }
+    EndColumn();
+    EndContainer();
+    EndCanvas();
 }
 
-static void UpdateColorPicker(){
-    static bool selected_colors[64] = {};
-    memset(selected_colors, 0, sizeof(selected_colors));
-    MeshData* em = GetMeshData();
-    for (int face_index=0; face_index<em->face_count; face_index++) {
-        FaceData& ef = em->faces[face_index];
-        if (!ef.selected)
-
-            continue;
-
-        selected_colors[ef.color.x] = true;
-    }
-
-    BeginCanvas();
-    BeginAlign({.alignment=ALIGNMENT_BOTTOM_CENTER});
+static bool Palette(int palette_index, bool* selected_colors) {
     BeginContainer({
         .width=COLOR_PICKER_WIDTH,
         .height=COLOR_PICKER_HEIGHT,
-        .margin=EdgeInsetsBottomLeft(COLOR_PICKER_MARGIN),
-        .border={.width=COLOR_PICKER_BORDER_WIDTH, .color=COLOR_PICKER_BORDER_COLOR}});
+        .padding=EdgeInsetsAll(COLOR_PICKER_BORDER_WIDTH),
+        .color=STYLE_BACKGROUND_COLOR});
 
-        BeginGestureDetector(
-            {.on_tap = [](const TapDetails& details) {
-                if (HandleColorPickerInput(details.position)) {
-                    ConsumeButton(MOUSE_LEFT);
-                }
-            }});
-            BeginRow();
-            for (int i=0; i<COLOR_COUNT; i++) {
-                Container({.width=COLOR_PICKER_COLOR_SIZE, .height=COLOR_PICKER_COLOR_SIZE, .color=COLOR_WHITE, .color_offset=Vec2Int{i,g_view.palettes[g_view.active_palette_index].color_offset.y}});
+    BeginRow();
+    for (int i=0; i<COLOR_COUNT; i++) {
+        BeginContainer({
+            .width=COLOR_PICKER_COLOR_SIZE,
+            .height=COLOR_PICKER_COLOR_SIZE,
+            .border={
+                .width=(selected_colors && selected_colors[i])?2.0f:0.0f,
+                .color=COLOR_VERTEX_SELECTED
+            } });
+        BeginContainer({.color=COLOR_WHITE, .color_offset=Vec2Int{i,g_view.palettes[palette_index].id}});
+        if (!g_mesh_editor.show_palette_picker && WasPressed()) {
+            RecordUndo(GetMeshData());
+            SetSelecteFaceColor(GetMeshData(), i);
+            MarkModified(GetMeshData());
+        }
+        EndContainer();
+        EndContainer();
+    }
+    EndRow();
+
+    bool pressed = false;
+    if (g_mesh_editor.show_palette_picker) {
+        BeginContainer({
+            .width=100,
+            .height=COLOR_PICKER_HEIGHT - COLOR_PICKER_BORDER_WIDTH * 2,
+            .margin=EdgeInsetsLeft(-106),
+            .padding=EdgeInsetsRight(COLOR_PICKER_BORDER_WIDTH),
+            .color=STYLE_BACKGROUND_COLOR});
+        Label(g_view.palettes[palette_index].name, {
+            .font=FONT_SEGUISB,
+            .font_size=STYLE_TEXT_FONT_SIZE,
+            .color=STYLE_TEXT_COLOR,
+            .align=ALIGN_CENTER_RIGHT});
+        pressed = WasPressed();
+        EndContainer();
+
+        pressed |= WasPressed();
+    }
+
+    EndContainer();
+
+    return pressed;
+}
+
+static void ColorPicker(){
+    static bool selected_colors[COLOR_COUNT] = {};
+    memset(selected_colors, 0, sizeof(selected_colors));
+    MeshData* m = GetMeshData();
+    for (int face_index=0; face_index<m->face_count; face_index++) {
+        FaceData* f = &m->faces[face_index];
+        if (!f->selected) continue;
+        selected_colors[f->color] = true;
+    }
+
+    bool show_palette_picker = g_mesh_editor.show_palette_picker;
+    int current_palette_index = g_view.palette_map[m->palette];
+
+    BeginCanvas();
+    BeginContainer({
+        .width=COLOR_PICKER_WIDTH,
+        .align=ALIGN_BOTTOM_CENTER,
+        .margin=EdgeInsetsBottom(STYLE_WORKSPACE_PADDING)
+    });
+
+    BeginColumn();
+    {
+        // Palettes
+        BeginColumn();
+        {
+            // Expander
+            BeginContainer({
+                .width=40,
+                .height=20,
+                .align=ALIGN_CENTER,
+                .padding=EdgeInsetsAll(STYLE_BUTTON_PADDING),
+                .color=STYLE_BACKGROUND_COLOR});
+            {
+                if (WasPressed())
+                    show_palette_picker = !g_mesh_editor.show_palette_picker;
+
+                Image(g_mesh_editor.show_palette_picker ? MESH_ICON_EXPAND_DOWN : MESH_ICON_EXPAND_UP, {.color=STYLE_ICON_COLOR});
             }
-            End();
-        End();
+            EndContainer();
 
-        for (int i=0; i<64; i++) {
-            if (selected_colors[i]) {
-                BeginTransformed({.translate=Vec2{(i % 64) * COLOR_PICKER_COLOR_SIZE, 0}});
-                BeginSizedBox({.width=COLOR_PICKER_COLOR_SIZE, .height=COLOR_PICKER_COLOR_SIZE});
-                    Border({.width=COLOR_PICKER_SELECTION_BORDER_WIDTH,.color=COLOR_PICKER_SELECTION_BORDER_COLOR});
-                End();
-                End();
+            if (g_mesh_editor.show_palette_picker) {
+                for (int palette_index=0; palette_index<g_view.palette_count; palette_index++) {
+                    if (palette_index == current_palette_index) continue;
+                    if (Palette(palette_index, nullptr)) {
+                        RecordUndo(m);
+                        m->palette = g_view.palettes[palette_index].id;
+                        MarkDirty(m);
+                        MarkModified(m);
+                        show_palette_picker = false;
+                    }
+
+                    Spacer(2.0f);
+                }
             }
         }
-    End();
-    End();
-    End();
+        EndColumn();
+
+        // Colors
+        if (Palette(current_palette_index, selected_colors))
+            show_palette_picker = false;
+    }
+    EndColumn();
+    EndContainer();
+    EndCanvas();
+
+    g_mesh_editor.show_palette_picker = show_palette_picker;
 }
 
 static Bounds2 GetMeshEditorBounds() {
@@ -1006,7 +1074,7 @@ static bool ExtrudeSelectedEdges(MeshData* m) {
         }
 
         // Find the face that contains this edge to inherit its color and determine orientation
-        Vec2Int face_color = {1, 0}; // Default color
+        int face_color = 0; // Default color
         Vec3 face_normal = {0, 0, 1}; // Default normal
         bool edge_reversed = false; // Track if edge direction is reversed in the face
         bool found_face = false;
@@ -1106,7 +1174,7 @@ static void NewFace() {
 
         FaceData& f = m->faces[m->face_count++];
         f = {
-            .color = { 0, 0 },
+            .color = 0,
             .normal = { 0, 0, 0 },
             .vertex_count = 4
         };
@@ -1132,8 +1200,8 @@ static void NewFace() {
 }
 
 static void UpdateMeshEditor() {
-    UpdateColorPicker();
-    UpdateStats();
+    ColorPicker();
+    //MeshStats();
     CheckShortcuts(g_mesh_editor.shortcuts, g_mesh_editor.input);
     UpdateDefaultState();
 }
@@ -1221,7 +1289,7 @@ static void DrawMeshEditor() {
     MeshData* m = GetMeshData();
 
     // Mesh
-    BindColor(COLOR_WHITE);
+    BindColor(COLOR_WHITE, Vec2Int{0,m->palette});
     DrawMesh(m, Translate(m->position));
 
     // Edges
@@ -1260,10 +1328,6 @@ static void DrawMeshEditor() {
     DrawOrigin(m);
 
     DrawXRay();
-}
-
-void UpdateMeshEditorPalette() {
-    SetTexture(g_mesh_editor.color_material, g_view.palettes[g_view.active_palette_index].texture->texture, 0);
 }
 
 static void SubDivide() {
@@ -1496,8 +1560,6 @@ void ShutdownMeshEditor() {
 
 void InitMeshEditor() {
     g_mesh_editor.color_material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_UI);
-    if (g_view.palette_count > 0)
-        SetTexture(g_mesh_editor.color_material, g_view.palettes[0].texture->texture, 0);
 
     static Shortcut shortcuts[] = {
         { KEY_D, false, true, false, DuplicateSelected },

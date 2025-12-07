@@ -63,53 +63,55 @@ void UpdateCommandInput() {
         return;
 
     BeginCanvas();
-    BeginAlign({.alignment={.y=1}, .margin=EdgeInsetsBottom(160)});
+    BeginContainer({.align=ALIGN_BOTTOM, .margin=EdgeInsetsBottom(160)});
     BeginContainer({
         .width=COMMAND_WIDTH,
         .height=COMMAND_HEIGHT,
         .padding=EdgeInsetsLeft(COMMAND_PADDING),
         .color=COLOR_UI_BACKGROUND});
-        BeginRow();
-            const TextInput& i = GetTextInput();
-            if (g_command_input.prefix) {
-                Label(g_command_input.prefix, {
-                    .font = FONT_SEGUISB,
-                    .font_size = COMMAND_FONT_SIZE,
-                    .color = Color24ToColor(0x777776),
-                    .align = ALIGNMENT_CENTER_LEFT
-                });
-                SizedBox({.width = 5.0f});
-            }
+    BeginRow();
+    {
+        const TextInput& i = GetTextInput();
+        if (g_command_input.prefix) {
+            Label(g_command_input.prefix, {
+                .font = FONT_SEGUISB,
+                .font_size = COMMAND_FONT_SIZE,
+                .color = Color24ToColor(0x777776),
+                .align = ALIGN_CENTER_LEFT
+            });
+            Spacer(5.0f);;
+        }
 
-            bool show_cursor = true;
-            if (i.value.length > 0) {
-                Label(i.value, {
-                    .font = FONT_SEGUISB,
-                    .font_size = COMMAND_FONT_SIZE,
-                    .color = COLOR_UI_TEXT,
-                    .align = ALIGNMENT_CENTER_LEFT
-                });
-            } else if (g_command_input.placeholder) {
-                show_cursor = false;
-                BeginContainer({.color = COLOR_UI_TEXT});
-                    Label(g_command_input.placeholder, {
-                        .font = FONT_SEGUISB,
-                        .font_size = COMMAND_FONT_SIZE,
-                        .color = COLOR_UI_BACKGROUND,
-                        .align = ALIGNMENT_CENTER_LEFT
-                    });
-                End();
-            }
+        bool show_cursor = true;
+        if (i.value.length > 0) {
+            Label(i.value, {
+                .font = FONT_SEGUISB,
+                .font_size = COMMAND_FONT_SIZE,
+                .color = COLOR_UI_TEXT,
+                .align = ALIGN_CENTER_LEFT
+            });
+        } else if (g_command_input.placeholder) {
+            show_cursor = false;
+            BeginContainer({.color = COLOR_UI_TEXT});
+            Label(g_command_input.placeholder, {
+                .font = FONT_SEGUISB,
+                .font_size = COMMAND_FONT_SIZE,
+                .color = COLOR_UI_BACKGROUND,
+                .align = ALIGN_CENTER_LEFT
+            });
+            EndContainer();
+        }
 
-            if (show_cursor) {
-                BeginAlign({.alignment=ALIGNMENT_CENTER_LEFT});
-                    Container({.width=4, .height=COMMAND_FONT_SIZE, .color=COLOR_WHITE});
-                End();
-            }
-        End(); // Row
-    End(); // Container
-    End(); // Align
-    End(); // Canvas
+        if (show_cursor) {
+            BeginContainer({.align=ALIGN_CENTER_LEFT});
+            Container({.width=4, .height=COMMAND_FONT_SIZE, .color=COLOR_WHITE});
+            EndContainer();
+        }
+    }
+    EndRow();
+    EndContainer();
+    EndContainer();
+    EndCanvas();
 }
 
 static void HandleTextInputChange(EventId event_id, const void* event_data) {

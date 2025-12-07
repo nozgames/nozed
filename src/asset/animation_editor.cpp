@@ -161,11 +161,11 @@ static void UpdateBoneNames() {
         Mat3 local_to_world = base_transform * n->animator->bones[bone_index];
         Vec2 p = TransformPoint(local_to_world, Vec2{b->length * 0.5f, 0});
         AnimationBoneData* nb = &n->bones[bone_index];
-        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [b,nb] {
-            Align({.alignment=ALIGNMENT_CENTER_CENTER}, [b,nb] {
-                Label(b->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=nb->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
-            });
-        });
+        BeginCanvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}});
+        BeginCenter();
+        Label(b->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=nb->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
+        EndCenter();
+        EndCanvas();
     }
 }
 
@@ -323,16 +323,15 @@ constexpr Color DOPESHEET_BUTTON_BORDER_COLOR = DOPESHEET_BORDER_COLOR;
 constexpr Color DOPESHEET_EVENT_COLOR = Color8ToColor(180);
 
 static void DopeSheetButton(Mesh* icon, bool state, void (*on_tap)()) {
-    BeginGestureDetector({.on_tap = [](const TapDetails& d) { ((void(*)())d.user_data)(); }, .user_data=on_tap});
     BeginContainer({
         .width=DOPESHEET_BUTTON_SIZE,
         .height=DOPESHEET_BUTTON_SIZE,
         .padding=EdgeInsetsAll(6),
         .color=state ? DOPESHEET_BUTTON_CHECKED_COLOR : DOPESHEET_BUTTON_COLOR,
         .border={.width=DOPESHEET_BUTTON_BORDER_WIDTH, .color=DOPESHEET_BUTTON_BORDER_COLOR}});
+    if (WasPressed()) on_tap();
     Image(icon);
-    End();
-    End();
+    EndContainer();
 }
 
 static void DopeSheetFrame(AnimationData* n, int frame_index, int current_frame) {
@@ -347,19 +346,24 @@ static void DopeSheetFrame(AnimationData* n, int frame_index, int current_frame)
             : DOPESHEET_FRAME_COLOR,
         });
 
-        if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
-        if (WasPressed()) {
-            n->current_frame = frame_index;
-            UpdateTransforms(n);
-            SetDefaultState();
-        }
+    if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
+    if (WasPressed()) {
+        n->current_frame = frame_index;
+        UpdateTransforms(n);
+        SetDefaultState();
+    }
 
-        Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
+    Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
 
-        BeginAlign({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X)});
-        Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=DOPESHEET_FRAME_DOT_COLOR});
-        End();
-    End();
+    // dot
+    Container({
+        .width=DOPESHEET_FRAME_DOT_SIZE,
+        .height=DOPESHEET_FRAME_DOT_SIZE,
+        .align=ALIGN_BOTTOM_LEFT,
+        .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X),
+        .color=DOPESHEET_FRAME_DOT_COLOR});
+
+    EndContainer();
 }
 
 static void DopeSheet() {
@@ -367,7 +371,7 @@ static void DopeSheet() {
     int frame_count = Max(GetFrameCountWithHolds(n), DOPESHEET_MIN_FRAMES);
 
     BeginCanvas();
-    BeginAlign({.alignment=ALIGNMENT_BOTTOM_CENTER, .margin=EdgeInsetsBottom(20)});
+    BeginContainer({.align=ALIGN_BOTTOM_CENTER, .margin=EdgeInsetsBottom(20)});
     BeginContainer({
         .width=frame_count * DOPESHEET_FRAME_WIDTH + DOPESHEET_PADDING * 2 + 1,
         .padding=EdgeInsetsAll(DOPESHEET_PADDING),
@@ -401,11 +405,11 @@ static void DopeSheet() {
         if (IsHovered()) Rectangle({.color=DOPESHEET_TICK_HOVER_COLOR});
 
         if (real_frame_index < n->frame_count && real_frame_index != last_real_frame_index && n->frames[real_frame_index].event_name != nullptr) {
-            BeginAlign({.alignment=ALIGNMENT_CENTER_CENTER});
-            BeginSizedBox({.width=DOPESHEET_FRAME_DOT_SIZE * 2, .height=DOPESHEET_FRAME_DOT_SIZE * 2});
-                Image(MESH_ASSET_ICON_EVENT, {.color = real_frame_index == current_frame ? COLOR_WHITE : DOPESHEET_EVENT_COLOR});
-            End();
-            End();
+            BeginContainer({.align=ALIGN_CENTER});
+            BeginContainer({.width=DOPESHEET_FRAME_DOT_SIZE * 2, .height=DOPESHEET_FRAME_DOT_SIZE * 2});
+            Image(MESH_ASSET_ICON_EVENT, {.color = real_frame_index == current_frame ? COLOR_WHITE : DOPESHEET_EVENT_COLOR});
+            EndContainer();
+            EndContainer();
         }
 
         last_real_frame_index = real_frame_index;
@@ -415,21 +419,22 @@ static void DopeSheet() {
             Container({.width=DOPESHEET_BORDER_WIDTH, .color=playing && frame_index == current_frame ? COLOR_WHITE : DOPESHEET_TICK_COLOR});
         // Short Tick
         } else {
-            BeginAlign({.alignment=ALIGNMENT_BOTTOM_LEFT});
-                Container({
-                    .width=DOPESHEET_TICK_WIDTH,
-                    .height=DOPESHEET_SHORT_TICK_HEIGHT,
-                    .color=DOPESHEET_SHORT_TICK_COLOR});
-            End();
+            Container({
+                .width=DOPESHEET_TICK_WIDTH,
+                .height=DOPESHEET_SHORT_TICK_HEIGHT,
+                .align=ALIGN_BOTTOM_LEFT,
+                .color=DOPESHEET_SHORT_TICK_COLOR
+            });
         }
-        End();
+        EndContainer();
     }
-    End();
+    EndRow();
 
     Container({.height=DOPESHEET_BORDER_WIDTH, .color=DOPESHEET_TICK_COLOR});
 
     // Frames
     BeginRow();
+    {
         int frame_index = 0;
         int frame_index_with_holds = 0;
 
@@ -450,32 +455,36 @@ static void DopeSheet() {
                 .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X),
                 .color=DOPESHEET_EMPTY_FRAME_COLOR
             });
-                Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
-            End();
+            Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
+            EndContainer();
         }
 
         // Right Border
         Container({.width=DOPESHEET_BORDER_WIDTH, .height=DOPESHEET_FRAME_HEIGHT, .color=DOPESHEET_TICK_COLOR});
-    End();
+    }
+    EndRow();
 
     Container({.height=DOPESHEET_BORDER_WIDTH, .color=DOPESHEET_TICK_COLOR});
-    SizedBox({.height=DOPESHEET_BUTTON_MARGIN_Y});
+
+    Spacer(DOPESHEET_BUTTON_MARGIN_Y);
 
     // Buttons
     BeginContainer({.height=DOPESHEET_BUTTON_SIZE, .margin=EdgeInsetsLeft(DOPESHEET_FRAME_MARGIN_X)});
-        BeginRow({.spacing=DOPESHEET_BUTTON_SPACING});
-            DopeSheetButton(MESH_UI_ICON_MIRROR, false, [] { Mirror(); });
-            Expanded();
-            DopeSheetButton(MESH_UI_ICON_LOOP, IsLooping(n->flags), [] { ToggleLoop(); });
-            DopeSheetButton(MESH_UI_ICON_ROOT_MOTION, g_animation_editor.root_motion, [] { ToggleRootMotion(); });
-            DopeSheetButton(MESH_UI_ICON_ONION, g_animation_editor.onion_skin, [] { ToggleOnionSkin(); });
-        End();
-    End();
+    BeginRow({.spacing=DOPESHEET_BUTTON_SPACING});
+    {
+        DopeSheetButton(MESH_UI_ICON_MIRROR, false, [] { Mirror(); });
+        Expanded();
+        DopeSheetButton(MESH_UI_ICON_LOOP, IsLooping(n->flags), [] { ToggleLoop(); });
+        DopeSheetButton(MESH_UI_ICON_ROOT_MOTION, g_animation_editor.root_motion, [] { ToggleRootMotion(); });
+        DopeSheetButton(MESH_UI_ICON_ONION, g_animation_editor.onion_skin, [] { ToggleOnionSkin(); });
+    }
+    EndRow();
+    EndContainer();
 
-    End(); // Column
-    End(); // Container
-    End(); // Align
-    End(); // Canvas
+    EndColumn();
+    EndContainer();
+    EndContainer();
+    EndCanvas();
 }
 
 static void Inspector() {

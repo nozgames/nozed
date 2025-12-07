@@ -7,6 +7,8 @@
 
 constexpr int MAX_NOTIFICATIONS = 8;
 constexpr float NOTIFICATION_DURATION = 3.0f;
+constexpr float NOTIFICATION_SPACING = 8.0f;
+constexpr float NOTIFICATION_PADDING = 8.0f;
 
 struct Notification
 {
@@ -46,37 +48,38 @@ void UpdateNotifications() {
     if (g_notifications.buffer->count <= 0)
         return;
 
-    Canvas([] {
-        Align({.alignment = ALIGNMENT_BOTTOM_RIGHT, .margin = EdgeInsetsBottomRight(10)}, [] {
-            Column({.spacing = 10}, [] {
-                for (int i=0, c=g_notifications.buffer->count; i<c; i++) {
-                    Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
-                    n->elapsed += GetFrameTime();
-                    if (n->elapsed > NOTIFICATION_DURATION) {
-                       PopFront(g_notifications.buffer);
-                       i--;
-                       c--;
-                       continue;
-                    }
+    BeginCanvas();
+    BeginContainer({.align=ALIGN_BOTTOM_RIGHT, .margin=EdgeInsetsBottomRight(STYLE_WORKSPACE_PADDING)});
+    BeginColumn({.spacing=NOTIFICATION_SPACING});
 
-                    Container({
-                        .width=300,
-                        .height=40,
-                        .padding=EdgeInsetsAll(10),
-                        .color=COLOR_UI_BACKGROUND,
-                        .border={.width=UI_BORDER_WIDTH, .color=COLOR_UI_BORDER}},
-                    [n] {
-                        Label(n->text, {
-                            .font=FONT_SEGUISB,
-                            .font_size=18,
-                            .color=n->type == NOTIFICATION_TYPE_ERROR
-                                ? COLOR_UI_ERROR_TEXT
-                                : COLOR_UI_TEXT});
-                    });
-                }
-           });
-        });
-    });
+    for (int i=0, c=g_notifications.buffer->count; i<c; i++) {
+        Notification* n = (Notification*)GetAt(g_notifications.buffer, i);
+        n->elapsed += GetFrameTime();
+        if (n->elapsed > NOTIFICATION_DURATION) {
+           PopFront(g_notifications.buffer);
+           i--;
+           c--;
+           continue;
+        }
+
+        BeginContainer({
+            .width=300,
+            .height=40,
+            .padding=EdgeInsetsAll(NOTIFICATION_PADDING),
+            .color=STYLE_BACKGROUND_COLOR_LIGHT});
+        Label(n->text, {
+            .font=FONT_SEGUISB,
+            .font_size=STYLE_TEXT_FONT_SIZE,
+            .color=n->type == NOTIFICATION_TYPE_ERROR
+                ? STYLE_ERROR_COLOR
+                : STYLE_TEXT_COLOR,
+            .align=ALIGN_CENTER_LEFT});
+        EndContainer();
+    }
+
+    EndColumn();
+    EndContainer();
+    EndCanvas();
 }
 
 void InitNotifications() {

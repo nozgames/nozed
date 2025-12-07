@@ -73,10 +73,10 @@ static void DrawAnimatedMeshEditor() {
 
 static void UpdateAnimatedMeshEditor() {
     AnimatedMeshData* m = static_cast<AnimatedMeshData*>(GetAssetData());
-    MeshData* f = GetAnimatedMeshFrameData();
-    if (f && f->modified) {
+    MeshData* current = GetAnimatedMeshFrameData();
+    if (current && current->modified) {
         MarkModified(m);
-        f->modified = false;
+        current->modified = false;
     }
 
     if (g_animated_mesh_editor.playing) {
@@ -87,32 +87,32 @@ static void UpdateAnimatedMeshEditor() {
 
     CheckShortcuts(g_animated_mesh_editor.shortcuts, GetInputSet());
 
-    f->vtable.editor_update();
+    current->vtable.editor_update();
 
-    Canvas([m] {
-        Align({.alignment=ALIGNMENT_BOTTOM_CENTER, .margin=EdgeInsetsBottom(60)}, [m] {
-            Row([m] {
-                int current_frame = m->current_frame;
-                for (int frame_index=0; frame_index<m->frame_count; frame_index++) {
-                    MeshData* f = &m->frames[frame_index];
-                    Container({
-                        .width=FRAME_SIZE_X * (1 + f->hold) + FRAME_BORDER_SIZE * 2,
-                        .height=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
-                        .margin=EdgeInsetsLeft(-2),
-                        .color = frame_index == current_frame
-                            ? DOPESHEET_SELECTED_FRAME_COLOR
-                            : FRAME_COLOR,
-                        .border = {.width=FRAME_BORDER_SIZE, .color=FRAME_BORDER_COLOR}
-                    },
-                    [] {
-                        Align({.alignment=ALIGNMENT_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X)}, [] {
-                            Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=DOPESHEET_FRAME_DOT_COLOR});
-                        });
-                    });
-                }
-            });
+    BeginCanvas();
+    BeginContainer({.align=ALIGN_BOTTOM_CENTER, .margin=EdgeInsetsBottom(60)});
+    BeginRow();
+
+    int current_frame = m->current_frame;
+    for (int frame_index=0; frame_index<m->frame_count; frame_index++) {
+        MeshData* f = &m->frames[frame_index];
+        BeginContainer({
+            .width=FRAME_SIZE_X * (1 + f->hold) + FRAME_BORDER_SIZE * 2,
+            .height=FRAME_SIZE_Y + FRAME_BORDER_SIZE * 2,
+            .margin=EdgeInsetsLeft(-2),
+            .color = frame_index == current_frame
+                ? DOPESHEET_SELECTED_FRAME_COLOR
+                : FRAME_COLOR,
+            .border = {.width=FRAME_BORDER_SIZE, .color=FRAME_BORDER_COLOR}
         });
-    });
+        BeginContainer({.align=ALIGN_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X)});
+            Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=DOPESHEET_FRAME_DOT_COLOR});
+        EndContainer();
+    }
+
+    EndRow();
+    EndContainer();
+    EndCanvas();
 }
 
 static void SetFrame(int frame_count) {

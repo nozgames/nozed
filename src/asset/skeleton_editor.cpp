@@ -79,11 +79,11 @@ static void UpdateBoneNames() {
         BoneData* b = s->bones + i;
         const Mat3& transform = b->local_to_world;
         Vec2 p = (TransformPoint(Translate(s->position) * transform, Vec2{b->length * 0.5f, }));
-        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}}, [b] {
-            Align({.alignment=ALIGNMENT_CENTER_CENTER}, [b] {
+        BeginCanvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,1}});
+            BeginCenter();
                 Label(b->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=b->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
-            });
-        });
+            EndCenter();
+        EndCanvas();
     }
 }
 

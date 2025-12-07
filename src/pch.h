@@ -63,6 +63,7 @@ enum EditorEvent
 #include <utils/props.h>
 #include <../noz/include/noz/tokenizer.h>
 #include <utils/file_helpers.h>
+#include "style.h"
 #include "editor.h"
 #include "nozed_assets.h"
 

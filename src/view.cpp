@@ -383,11 +383,11 @@ static void UpdateAssetNames() {
 
         Bounds2 bounds = GetBounds(a);
         Vec2 p = a->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(a).min.y};
-        Canvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,0}}, [a] {
-            Align({.alignment=ALIGNMENT_CENTER_CENTER, .margin=EdgeInsetsTop(16)}, [a] {
-                Label(a->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=a->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
-            });
-        });
+        BeginCanvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,0}});
+        BeginContainer({.align=ALIGN_CENTER, .margin=EdgeInsetsTop(16)});
+        Label(a->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=a->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
+        EndContainer();
+        EndCanvas();
     }
 }
 
@@ -643,30 +643,6 @@ static void BeginCommandInput() {
     BeginCommandInput({.commands=commands, .prefix=":"});
 }
 
-static void SetPalette(u32 index) {
-    if (index >= g_view.palette_count)
-        return;
-
-    g_view.active_palette_index = index;
-    Texture* palette_texture = g_view.palettes[g_view.active_palette_index].texture->texture;
-    SetTexture(g_view.editor_material, palette_texture);
-    SetTexture(g_view.shaded_material, palette_texture);
-    SetTexture(g_view.shaded_skinned_material, palette_texture);
-    SetPaletteTexture(palette_texture);
-
-    extern void UpdateMeshEditorPalette();
-
-    UpdateMeshEditorPalette();
-}
-
-static void PrevPalette() {
-    SetPalette((g_view.active_palette_index + g_view.palette_count - 1) % g_view.palette_count);
-}
-
-static void NextPalette() {
-    SetPalette((g_view.active_palette_index + 1) % g_view.palette_count);
-}
-
 static void HandleRenameCommand(const Command& command) {
     AssetData* a = GetFirstSelectedAsset();
     if (!a)
@@ -720,8 +696,6 @@ static Shortcut g_common_shortcuts[] = {
     { KEY_Z, false, true, false, HandleUndo },
     { KEY_Y, false, true, false, HandleRedo },
     { KEY_TAB, false, false, false, ToggleEdit },
-    { KEY_COMMA, false, false, false, PrevPalette },
-    { KEY_PERIOD, false, false, false, NextPalette },
     { INPUT_CODE_NONE }
 };
 
@@ -902,24 +876,16 @@ void InitView() {
     g_view.shortcuts = shortcuts;
     EnableShortcuts(shortcuts);
 
+    // Palettes
     for (auto& palette_key : g_config->GetKeys("palettes")) {
         std::string palette_value = g_config->GetString("palettes", palette_key.c_str(), nullptr);
-
         Tokenizer tk;
         Init(tk, palette_value.c_str());
-        Token name_token;
-        int palette_id = 0;
-        ExpectToken(tk, &name_token);
-        const Name* palette_name = GetName(tk);
-        if (ExpectDelimiter(tk, ','))
-            ExpectInt(tk, &palette_id);
-        TextureData* palette_texture = static_cast<TextureData*>(GetAssetData(ASSET_TYPE_TEXTURE, palette_name));
-        if (!palette_texture)
-            continue;
-
+        int palette_id = ExpectInt(tk);
+        g_view.palette_map[palette_id] = g_view.palette_count;
         g_view.palettes[g_view.palette_count++] = {
-            .texture = palette_texture,
-            .color_offset = Vec2Int{0, palette_id}
+            .name = GetName(palette_key.c_str()),
+            .id = palette_id
         };
     }
 
@@ -929,9 +895,14 @@ void InitView() {
     InitAnimationEditor();
     InitAnimatedMeshEditor();
 
-    SetPalette(0);
+    TextureData* palette_texture_data = static_cast<TextureData*>(GetAssetData(ASSET_TYPE_TEXTURE, GetName(g_config->GetString("editor", "palette", "palette").c_str())));
+    if (palette_texture_data) {
+        SetTexture(g_view.editor_material, palette_texture_data->texture);
+        SetTexture(g_view.shaded_material, palette_texture_data->texture);
+        SetTexture(g_view.shaded_skinned_material, palette_texture_data->texture);
+        SetPaletteTexture(palette_texture_data->texture);
+    }
 }
-
 
 void ShutdownView() {
     extern void ShutdownMeshEditor();
