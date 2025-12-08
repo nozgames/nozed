@@ -330,7 +330,7 @@ static void DopeSheetButton(Mesh* icon, bool state, void (*on_tap)()) {
         .color=state ? DOPESHEET_BUTTON_CHECKED_COLOR : DOPESHEET_BUTTON_COLOR,
         .border={.width=DOPESHEET_BUTTON_BORDER_WIDTH, .color=DOPESHEET_BUTTON_BORDER_COLOR}});
     if (WasPressed()) on_tap();
-    Image(icon);
+    Image(icon, {.align=ALIGN_CENTER});
     EndContainer();
 }
 
@@ -374,6 +374,7 @@ static void DopeSheet() {
     BeginContainer({.align=ALIGN_BOTTOM_CENTER, .margin=EdgeInsetsBottom(20)});
     BeginContainer({
         .width=frame_count * DOPESHEET_FRAME_WIDTH + DOPESHEET_PADDING * 2 + 1,
+        .align=ALIGN_TOP_CENTER,
         .padding=EdgeInsetsAll(DOPESHEET_PADDING),
         .color=COLOR_UI_BACKGROUND});
     BeginColumn();
@@ -417,7 +418,7 @@ static void DopeSheet() {
         // Tick
         if (frame_index % 4 == 0 || (playing && frame_index == current_frame)) {
             Container({.width=DOPESHEET_BORDER_WIDTH, .color=playing && frame_index == current_frame ? COLOR_WHITE : DOPESHEET_TICK_COLOR});
-        // Short Tick
+            // Short Tick
         } else {
             Container({
                 .width=DOPESHEET_TICK_WIDTH,
@@ -492,42 +493,42 @@ static void Inspector() {
 
     BeginInspector();
     BeginInspectorGroup();
-        InspectorHeader("Event");
+    InspectorHeader("Event");
 
-        EventData* events[MAX_ASSETS];
+    EventData* events[MAX_ASSETS];
 
-        AnimationFrameData& frame = n->frames[n->current_frame];
-        int current_event_index = 0;
-        int event_count = 0;;
-        for (int asset_index=0, asset_count=GetAssetCount(); asset_index<asset_count; asset_index++) {
-            AssetData* a = GetAssetData(asset_index);
-            if (a->type != ASSET_TYPE_EVENT) continue;
-            if (a->name == frame.event_name)
-                current_event_index = event_count + 1;
-            events[event_count++] = static_cast<EventData*>(a);
-        }
+    AnimationFrameData& frame = n->frames[n->current_frame];
+    int current_event_index = 0;
+    int event_count = 0;;
+    for (int asset_index=0, asset_count=GetAssetCount(); asset_index<asset_count; asset_index++) {
+        AssetData* a = GetAssetData(asset_index);
+        if (a->type != ASSET_TYPE_EVENT) continue;
+        if (a->name == frame.event_name)
+            current_event_index = event_count + 1;
+        events[event_count++] = static_cast<EventData*>(a);
+    }
 
-        current_event_index = InspectorRadioButton("None", current_event_index);
+    current_event_index = InspectorRadioButton("None", current_event_index);
 
-        for (int event_index=0; event_index<event_count; event_index++) {
-            current_event_index = InspectorRadioButton(events[event_index]->name->value, current_event_index);
-        }
+    for (int event_index=0; event_index<event_count; event_index++) {
+        current_event_index = InspectorRadioButton(events[event_index]->name->value, current_event_index);
+    }
 
-        const Name* current_event_name = current_event_index == 0
-            ? nullptr
-            : events[current_event_index-1]->name;
+    const Name* current_event_name = current_event_index == 0
+        ? nullptr
+        : events[current_event_index-1]->name;
 
-        if (current_event_name != frame.event_name) {
-            RecordUndo(n);
-            frame.event_name = current_event_name;
-            frame.event = current_event_index == 0 ? nullptr : events[current_event_index-1];
-            MarkModified(n);
-        }
+    if (current_event_name != frame.event_name) {
+        RecordUndo(n);
+        frame.event_name = current_event_name;
+        frame.event = current_event_index == 0 ? nullptr : events[current_event_index-1];
+        MarkModified(n);
+    }
     EndInspectorGroup();
 
 #if 0
     BeginInspectorGroup();
-        InspectorHeader("States");
+    InspectorHeader("States");
     EndInspectorGroup();
 #endif
     EndInspector();

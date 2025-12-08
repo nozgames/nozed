@@ -43,6 +43,11 @@ struct Tool {
     bool hide_selected;
 };
 
+struct PaletteDef {
+    const Name* name;
+    int id;
+};
+
 void BeginTool(const Tool& tool);
 void CancelTool();
 void EndTool();
@@ -75,6 +80,11 @@ struct Editor {
 
     bool unity;
     std::filesystem::path save_dir;
+
+    PaletteDef palettes[COLOR_PALETTE_COUNT];
+    int palette_map[COLOR_PALETTE_COUNT];
+    int palette_count;
+
 };
 
 extern Editor g_editor;

@@ -41,11 +41,6 @@ struct ViewVtable {
 
 struct Shortcut;
 
-struct PaletteDef {
-    const Name* name;
-    int id;
-};
-
 struct View {
     ViewState state;
     Camera* camera;
@@ -91,9 +86,6 @@ struct View {
     Shortcut* shortcuts;
     bool show_names;
     ViewDrawMode draw_mode;
-    PaletteDef palettes[COLOR_PALETTE_COUNT];
-    int palette_map[COLOR_PALETTE_COUNT];
-    int palette_count;
     bool grid;
 };
 

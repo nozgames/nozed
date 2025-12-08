@@ -587,7 +587,7 @@ static bool Palette(int palette_index, bool* selected_colors) {
                 .width=(selected_colors && selected_colors[i])?2.0f:0.0f,
                 .color=COLOR_VERTEX_SELECTED
             } });
-        BeginContainer({.color=COLOR_WHITE, .color_offset=Vec2Int{i,g_view.palettes[palette_index].id}});
+        BeginContainer({.color=COLOR_WHITE, .color_offset=Vec2Int{i,g_editor.palettes[palette_index].id}});
         if (!g_mesh_editor.show_palette_picker && WasPressed()) {
             RecordUndo(GetMeshData());
             SetSelecteFaceColor(GetMeshData(), i);
@@ -606,7 +606,7 @@ static bool Palette(int palette_index, bool* selected_colors) {
             .margin=EdgeInsetsLeft(-106),
             .padding=EdgeInsetsRight(COLOR_PICKER_BORDER_WIDTH),
             .color=STYLE_BACKGROUND_COLOR});
-        Label(g_view.palettes[palette_index].name, {
+        Label(g_editor.palettes[palette_index].name, {
             .font=FONT_SEGUISB,
             .font_size=STYLE_TEXT_FONT_SIZE,
             .color=STYLE_TEXT_COLOR,
@@ -633,7 +633,7 @@ static void ColorPicker(){
     }
 
     bool show_palette_picker = g_mesh_editor.show_palette_picker;
-    int current_palette_index = g_view.palette_map[m->palette];
+    int current_palette_index = g_editor.palette_map[m->palette];
 
     BeginCanvas();
     BeginContainer({
@@ -644,40 +644,38 @@ static void ColorPicker(){
 
     BeginColumn();
     {
-        // Palettes
-        BeginColumn();
+        // Expander
+        BeginContainer({
+            .width=40,
+            .height=20,
+            .align=ALIGN_TOP_CENTER,
+            .padding=EdgeInsetsAll(STYLE_BUTTON_PADDING),
+            .color=STYLE_BACKGROUND_COLOR});
         {
-            // Expander
-            BeginContainer({
-                .width=40,
-                .height=20,
+            if (WasPressed())
+                show_palette_picker = !g_mesh_editor.show_palette_picker;
+
+            Image(g_mesh_editor.show_palette_picker ? MESH_ICON_EXPAND_DOWN : MESH_ICON_EXPAND_UP, {
                 .align=ALIGN_CENTER,
-                .padding=EdgeInsetsAll(STYLE_BUTTON_PADDING),
-                .color=STYLE_BACKGROUND_COLOR});
-            {
-                if (WasPressed())
-                    show_palette_picker = !g_mesh_editor.show_palette_picker;
+                .color=STYLE_ICON_COLOR,
+            });
+        }
+        EndContainer();
 
-                Image(g_mesh_editor.show_palette_picker ? MESH_ICON_EXPAND_DOWN : MESH_ICON_EXPAND_UP, {.color=STYLE_ICON_COLOR});
-            }
-            EndContainer();
-
-            if (g_mesh_editor.show_palette_picker) {
-                for (int palette_index=0; palette_index<g_view.palette_count; palette_index++) {
-                    if (palette_index == current_palette_index) continue;
-                    if (Palette(palette_index, nullptr)) {
-                        RecordUndo(m);
-                        m->palette = g_view.palettes[palette_index].id;
-                        MarkDirty(m);
-                        MarkModified(m);
-                        show_palette_picker = false;
-                    }
-
-                    Spacer(2.0f);
+        if (g_mesh_editor.show_palette_picker) {
+            for (int palette_index=0; palette_index<g_editor.palette_count; palette_index++) {
+                if (palette_index == current_palette_index) continue;
+                if (Palette(palette_index, nullptr)) {
+                    RecordUndo(m);
+                    m->palette = g_editor.palettes[palette_index].id;
+                    MarkDirty(m);
+                    MarkModified(m);
+                    show_palette_picker = false;
                 }
+
+                Spacer(2.0f);
             }
         }
-        EndColumn();
 
         // Colors
         if (Palette(current_palette_index, selected_colors))

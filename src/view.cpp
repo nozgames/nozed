@@ -876,19 +876,6 @@ void InitView() {
     g_view.shortcuts = shortcuts;
     EnableShortcuts(shortcuts);
 
-    // Palettes
-    for (auto& palette_key : g_config->GetKeys("palettes")) {
-        std::string palette_value = g_config->GetString("palettes", palette_key.c_str(), nullptr);
-        Tokenizer tk;
-        Init(tk, palette_value.c_str());
-        int palette_id = ExpectInt(tk);
-        g_view.palette_map[palette_id] = g_view.palette_count;
-        g_view.palettes[g_view.palette_count++] = {
-            .name = GetName(palette_key.c_str()),
-            .id = palette_id
-        };
-    }
-
     InitMeshEditor();
     InitTextureEditor();
     InitSkeletonEditor();

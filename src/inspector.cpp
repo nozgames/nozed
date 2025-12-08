@@ -19,11 +19,12 @@ struct Inspector {
 static Inspector g_inspector = {};
 
 void InspectorHeader(const char* title) {
+    BeginContainer({.height=20});
     Label(title, {
         .font=FONT_SEGUISB,
         .font_size=INSPECTOR_HEADER_FONT_SIZE,
-        .color=INSPECTOR_HEADER_COLOR,
-        .align=ALIGN_CENTER_LEFT});
+        .color=INSPECTOR_HEADER_COLOR});
+    EndContainer();
 }
 
 void BeginInspectorGroup() {
@@ -95,7 +96,7 @@ void BeginInspector() {
     BeginContainer({
         .width=INSPECTOR_WIDTH,
         .align=ALIGN_TOP_RIGHT,
-        .margin=EdgeInsetsTopRight(20),
+        .margin=EdgeInsetsTopRight(STYLE_WORKSPACE_PADDING),
         .padding=EdgeInsetsAll(INSPECTOR_PADDING),
         .color=COLOR_UI_BACKGROUND});
     BeginColumn();

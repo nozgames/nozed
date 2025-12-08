@@ -233,6 +233,20 @@ void CancelTool() {
     EndTool();
 }
 
+static void InitPalettes() {
+    for (auto& palette_key : g_config->GetKeys("palettes")) {
+        std::string palette_value = g_config->GetString("palettes", palette_key.c_str(), nullptr);
+        Tokenizer tk;
+        Init(tk, palette_value.c_str());
+        int palette_id = ExpectInt(tk);
+        g_editor.palette_map[palette_id] = g_editor.palette_count;
+        g_editor.palettes[g_editor.palette_count++] = {
+            .name = GetName(palette_key.c_str()),
+            .id = palette_id
+        };
+    }
+}
+
 int main(int argc, const char* argv[]) {
     g_editor.exe = argv[0];
 
@@ -253,6 +267,7 @@ int main(int argc, const char* argv[]) {
     traits.scratch_memory_size = noz::MB * 128;
 
     InitApplication(&traits, argc, argv);
+    InitPalettes();
 
     InitEditor();
     InitLog(HandleLog);

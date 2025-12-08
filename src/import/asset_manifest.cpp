@@ -473,6 +473,14 @@ static void GenerateHeader(ManifestGenerator& generator) {
     }
 
     WriteCSTR(stream, "\n");
+    WriteCSTR(stream, "// @palette\n");
+    for (int palette_index=0, palette_count=g_editor.palette_count; palette_index<palette_count; palette_index++) {
+        std::string var_name = g_editor.palettes[palette_index].name->value;
+        Uppercase(var_name.data(), (u32)var_name.size());
+        WriteCSTR(stream, "constexpr int PALETTE_%s = %d;\n", var_name.c_str(), g_editor.palettes[palette_index].id);
+    }
+
+    WriteCSTR(stream, "\n");
     WriteCSTR(stream, "\nextern bool LoadAssets(Allocator* allocator);\n");
     WriteCSTR(stream, "extern void UnloadAssets();\n");
     WriteCSTR(stream, "\n");
