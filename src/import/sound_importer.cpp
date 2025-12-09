@@ -71,10 +71,11 @@ bool ValidateWavDataChunk(const WavDataChunk* data)
     );
 }
 
-static void ImportSound(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
-{
+static void ImportSound(AssetData* ea, const fs::path& path, Props* config, Props* meta) {
     (void)config;
     (void)meta;
+    
+    Stream* stream = CreateStream(nullptr,  4096);  
 
     std::ifstream input_file(ea->path, std::ios::binary);
     if (!input_file.is_open())
@@ -160,13 +161,13 @@ static void ImportSound(AssetData* ea, Stream* output_stream, Props* config, Pro
     asset_header.version = 1;
     asset_header.flags = 0;
     
-    WriteAssetHeader(output_stream, &asset_header);
+    WriteAssetHeader(stream, &asset_header);
     
     // Write sound header
-    WriteU32(output_stream, fmt_chunk.sample_rate);
-    WriteU32(output_stream, fmt_chunk.num_channels);
-    WriteU32(output_stream, fmt_chunk.bits_per_sample);
-    WriteU32(output_stream, data_chunk.sub_chunk2_size);
+    WriteU32(stream, fmt_chunk.sample_rate);
+    WriteU32(stream, fmt_chunk.num_channels);
+    WriteU32(stream, fmt_chunk.bits_per_sample);
+    WriteU32(stream, data_chunk.sub_chunk2_size);
     
     // Copy audio data
     std::vector<char> audio_data(data_chunk.sub_chunk2_size);
@@ -177,7 +178,10 @@ static void ImportSound(AssetData* ea, Stream* output_stream, Props* config, Pro
         throw std::runtime_error("Failed to read complete audio data");
     }
     
-    WriteBytes(output_stream, audio_data.data(), data_chunk.sub_chunk2_size);
+    WriteBytes(stream, audio_data.data(), data_chunk.sub_chunk2_size);
+    
+    SaveStream(stream, path);
+    Free(stream);
 }
 
 AssetImporter GetSoundImporter()

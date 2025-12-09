@@ -6,14 +6,12 @@
 #include "../msdf/shape.h"
 #include "../ttf/TrueTypeFont.h"
 #include "../utils/rect_packer.h"
-#include <filesystem>
 
 namespace fs = std::filesystem;
 
 using namespace noz;
 
-struct ImportFontGlyph
-{
+struct ImportFontGlyph {
     const ttf::TrueTypeFont::Glyph* ttf;
     Vec2Double size;
     Vec2Double scale;
@@ -77,8 +75,7 @@ static void WriteFontData(
     WriteBytes(stream, atlas_data.data(), (u32)atlas_data.size());
 }
 
-static void ImportFont(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
-{
+static void ImportFont(AssetData* ea, const std::filesystem::path& path, Props* config, Props* meta) {
     (void)config;
 
     // Parse font properties from meta props (with defaults)
@@ -103,8 +100,8 @@ static void ImportFont(AssetData* ea, Stream* output_stream, Props* config, Prop
     file.close();
 
     // Create stream for font loading
-    Stream* stream = LoadStream(nullptr, fontData.data(), (u32)fontData.size());
-    auto ttf = std::shared_ptr<ttf::TrueTypeFont>(ttf::TrueTypeFont::load(stream, font_size, characters));
+    Stream* font_stream = LoadStream(nullptr, fontData.data(), (u32)fontData.size());
+    auto ttf = std::shared_ptr<ttf::TrueTypeFont>(ttf::TrueTypeFont::load(font_stream, font_size, characters));
 
     // Build the imported glyph list
     std::vector<ImportFontGlyph> glyphs;
@@ -191,7 +188,10 @@ static void ImportFont(AssetData* ea, Stream* output_stream, Props* config, Prop
         delete shape;
     }
 
-    WriteFontData(output_stream, ttf.get(), image, imageSize, glyphs, font_size);
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+    WriteFontData(stream, ttf.get(), image, imageSize, glyphs, font_size);
+    SaveStream(stream, path);
+    Free(stream);
 }
 
 AssetImporter GetFontImporter()

@@ -14,7 +14,7 @@ struct OutlineConfig {
     float boundary_taper;
 };
 
-static void ImportMesh(AssetData* a, Stream* output_stream, Props* config, Props* meta) {
+static void ImportMesh(AssetData* a, const std::filesystem::path& path, Props* config, Props* meta) {
     (void)config;
     (void)meta;
 
@@ -28,9 +28,12 @@ static void ImportMesh(AssetData* a, Stream* output_stream, Props* config, Props
     header.signature = ASSET_SIGNATURE;
     header.type = ASSET_TYPE_MESH;
     header.version = 1;
-    WriteAssetHeader(output_stream, &header);
 
-    SerializeMesh(m, output_stream);
+    Stream* stream = CreateStream(nullptr, 4096);
+    WriteAssetHeader(stream, &header);
+    SerializeMesh(m, stream);
+    SaveStream(stream, path);
+    Free(stream);
 }
 
 AssetImporter GetMeshImporter() {

@@ -120,10 +120,6 @@ static void ExecuteJob(void* data) {
     if (!fs::exists(job->source_path))
         return;
 
-    Stream* target_stream = CreateStream(nullptr, 4096);
-    if (!target_stream)
-        return;
-
     Props* meta = nullptr;
     std::filesystem::path meta_path = job->source_path;
     meta_path += ".meta";
@@ -137,8 +133,6 @@ static void ExecuteJob(void* data) {
 
     std::unique_ptr<Props> meta_guard(meta);
 
-    job->asset->importer->import_func(job->asset, target_stream, g_config, meta);
-
     fs::path target_dir =
         g_editor.output_dir /
         ToString(job->asset->importer->type) /
@@ -147,7 +141,8 @@ static void ExecuteJob(void* data) {
     std::string target_dir_lower = target_dir.string();
     Lowercase(target_dir_lower.data(), (u32)target_dir_lower.size());
 
-    bool result = SaveStream(target_stream, target_dir_lower);
+    job->asset->importer->import_func(job->asset, target_dir_lower, g_config, meta);
+
 
     if (g_editor.unity) {
         fs::path unity_dir =
@@ -155,13 +150,8 @@ static void ExecuteJob(void* data) {
             ToString(job->asset->importer->type) /
             (std::string(job->asset->name->value) + ".noz");
 
-        SaveStream(target_stream, unity_dir);
+        //SaveStream(target_stream, unity_dir);
     }
-
-    Free(target_stream);
-
-    if (!result)
-        throw std::runtime_error("Failed to save output file");
 
     // todo: Check if any other assets depend on this and if so requeue them
 
@@ -178,6 +168,8 @@ static void CleanupOrphanedAssets() {
     for (u32 i=0, c=GetAssetCount(); i<c; i++)
         source_paths.insert(GetTargetPath(GetAssetData(i)));
 
+    // todo: this was deleting the glsl files, etc
+#if 0
     std::vector<fs::path> target_paths;
     GetFilesInDirectory(g_editor.output_dir, target_paths);
 
@@ -187,6 +179,7 @@ static void CleanupOrphanedAssets() {
             AddNotification(NOTIFICATION_TYPE_INFO, "Removed '%s'", target_path.filename().string().c_str());
         }
     }
+#endif
 }
 
 static void PostImportJob(void *data) {

@@ -59,10 +59,10 @@ static void WriteTextureData(
     WriteBytes(stream, data, width * height * channels);
 }
 
-static void ImportTexture(AssetData* ea, Stream* output_stream, Props* config, Props* meta) {
+static void ImportTexture(AssetData* a, const std::filesystem::path& path, Props* config, Props* meta) {
     (void)config;
 
-    fs::path src_path = ea->path;
+    fs::path src_path = a->path;
     
     int width;
     int height;
@@ -94,8 +94,9 @@ static void ImportTexture(AssetData* ea, Stream* output_stream, Props* config, P
     if (convert_from_srgb)
         ConvertSRGBToLinear(rgba_data.data(), width, height, channels);
 
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
     WriteTextureData(
-        output_stream,
+        stream,
         rgba_data.data(),
         width,
         height,
@@ -103,6 +104,8 @@ static void ImportTexture(AssetData* ea, Stream* output_stream, Props* config, P
         filter,
         clamp
     );
+    SaveStream(stream, path);
+    Free(stream);
 }
 
 AssetImporter GetTextureImporter() {

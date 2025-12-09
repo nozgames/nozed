@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-static void ImportAnimatedMesh(AssetData* a, Stream* stream, Props* config, Props* meta) {
+static void ImportAnimatedMesh(AssetData* a, const std::filesystem::path& path, Props* config, Props* meta) {
     (void)config;
     (void)meta;
 
@@ -14,6 +14,9 @@ static void ImportAnimatedMesh(AssetData* a, Stream* stream, Props* config, Prop
     header.signature = ASSET_SIGNATURE;
     header.type = ASSET_TYPE_ANIMATED_MESH;
     header.version = 1;
+
+
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
     WriteAssetHeader(stream, &header);
     WriteStruct(stream, m->bounds);
     WriteU8(stream, (u8)ANIMATION_FRAME_RATE);
@@ -22,6 +25,9 @@ static void ImportAnimatedMesh(AssetData* a, Stream* stream, Props* config, Prop
         MeshData* frame = &m->frames[i];
         SerializeMesh(ToMesh(frame, false), stream);
     }
+
+    SaveStream(stream, path);
+    Free(stream);
 }
 
 AssetImporter GetAnimatedMeshImporter() {

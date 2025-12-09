@@ -4,8 +4,7 @@
 
 namespace fs = std::filesystem;
 
-static void ImportAnimation(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
-{
+static void ImportAnimation(AssetData* ea, const std::filesystem::path& path, Props* config, Props* meta) {
     (void)config;
     (void)meta;
 
@@ -17,7 +16,10 @@ static void ImportAnimation(AssetData* ea, Stream* output_stream, Props* config,
     if (!es)
         ThrowError("invalid skeleton");
 
-    Serialize(en, output_stream, es);
+    Stream* stream = CreateStream(nullptr, 4096);
+    Serialize(en, stream, es);
+    SaveStream(stream, path);
+    Free(stream);
 }
 
 static bool DoesAnimationDependOn(AssetData* ea, AssetData* dependency)

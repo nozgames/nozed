@@ -6,10 +6,9 @@
 
 class Props;
 
-struct AssetImporter
-{
+struct AssetImporter {
     AssetType type;
     const char* ext;
-    void (*import_func) (AssetData* ea, Stream* output_stream, Props* config, Props* meta);
+    void (*import_func) (AssetData* ea, const std::filesystem::path& path, Props* config, Props* meta);
     bool (*does_depend_on) (AssetData* ea, AssetData* dependency);
 };

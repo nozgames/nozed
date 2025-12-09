@@ -4,12 +4,55 @@
 
 #include "../../../src/internal.h"
 #include "../utils/props.h"
+#include "../editor.h"
 #include <glslang_c_interface.h>
 
 namespace fs = std::filesystem;
 
+extern Editor g_editor;
+
 static std::string ProcessIncludes(const std::string& source, const fs::path& base_dir);
 static std::vector<u32> CompileGLSLToSPIRV(const std::string& source, glslang_stage_t stage, const std::string& filename);
+
+// Convert Vulkan GLSL to OpenGL GLSL
+// - Adds #version directive if missing
+// - Removes "set = X," from layout qualifiers (OpenGL doesn't have descriptor sets)
+// - Replaces "row_major" with "std140" for uniform blocks
+// - Changes #version 450 to #version 430 core for OpenGL compatibility
+static std::string ConvertToOpenGLSL(const std::string& source) {
+    std::string result = source;
+
+    // Change version to OpenGL 4.3 core (supports most features we need)
+    std::regex version_pattern(R"(#version\s+450\b)");
+    result = std::regex_replace(result, version_pattern, "#version 430 core");
+
+    // If no #version directive exists, prepend one
+    if (result.find("#version") == std::string::npos) {
+        result = "#version 430 core\n" + result;
+    }
+
+    // Remove "set = X," from layout qualifiers
+    // Pattern matches: layout(set = 0, binding = 1) -> layout(binding = 1)
+    std::regex set_pattern(R"(layout\s*\(\s*set\s*=\s*\d+\s*,\s*)");
+    result = std::regex_replace(result, set_pattern, "layout(");
+
+    // Replace "row_major" with "std140" in uniform block layouts
+    // layout(binding = 0, row_major) -> layout(std140, binding = 0)
+    std::regex row_major_pattern(R"(layout\s*\(([^)]*)\brow_major\b([^)]*)\))");
+    result = std::regex_replace(result, row_major_pattern, "layout(std140, $1$2)");
+
+    // Clean up any double commas or trailing commas from the replacements
+    std::regex double_comma(R"(\s*,\s*,\s*)");
+    result = std::regex_replace(result, double_comma, ", ");
+
+    std::regex trailing_comma(R"(,\s*\))");
+    result = std::regex_replace(result, trailing_comma, ")");
+
+    std::regex leading_comma(R"(\(\s*,)");
+    result = std::regex_replace(result, leading_comma, "(");
+
+    return result;
+}
 
 static std::string ExtractStage(const std::string& source, const std::string& stage)
 {
@@ -61,20 +104,45 @@ static std::string ExtractStage(const std::string& source, const std::string& st
     return result;
 }
 
-static void WriteCompiledShader(
+static void WriteGLSL(const fs::path& path, const std::string& vertex_source, const std::string& fragment_source, ShaderFlags flags) {
+    // Convert Vulkan GLSL to OpenGL-compatible GLSL
+    std::string gl_vertex = ConvertToOpenGLSL(vertex_source);
+    std::string gl_fragment = ConvertToOpenGLSL(fragment_source);
+
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+
+    AssetHeader header = {};
+    header.signature = ASSET_SIGNATURE;
+    header.type = ASSET_TYPE_SHADER;
+    header.version = 2;
+    header.flags = 0;
+    WriteAssetHeader(stream, &header);
+    WriteU32(stream, (u32)gl_vertex.size());
+    WriteBytes(stream, gl_vertex.data(), (u32)gl_vertex.size());
+    WriteU32(stream, 0);
+    WriteU32(stream, (u32)gl_fragment.size());
+    WriteBytes(stream, gl_fragment.data(), (u32)gl_fragment.size());
+    WriteU8(stream, (u8)flags);
+    SaveStream(stream, path);
+}
+
+static void WriteSPIRV(
+    const fs::path& path,
     const std::string& vertex_shader,
     const std::string& geometry_shader,
     const std::string& fragment_shader,
-    const Props& meta,
-    Stream* output_stream,
     const fs::path& include_dir,
-    const std::string& source_path)
-{
+    const std::string& source_path,
+    ShaderFlags flags
+    ) {
+    Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
+
     // Preprocess includes and compile GLSL shaders to SPIR-V using glslang
     fs::path base_dir = include_dir;
     std::string processed_vertex = ProcessIncludes(vertex_shader, base_dir);
     std::string processed_fragment = ProcessIncludes(fragment_shader, base_dir);
-    
+    std::string processed_geometry;
+
     std::vector<u32> vertex_spirv = CompileGLSLToSPIRV(processed_vertex, GLSLANG_STAGE_VERTEX, source_path + ".vert");
     if (vertex_spirv.empty())
         throw std::runtime_error("Failed to compile vertex shader");
@@ -88,8 +156,8 @@ static void WriteCompiledShader(
         {
             throw std::runtime_error("Geometry shader is missing required layout declarations (e.g., 'layout(triangles) in;' and 'layout(...) out;')");
         }
-        
-        std::string processed_geometry = ProcessIncludes(geometry_shader, base_dir);
+
+        processed_geometry = ProcessIncludes(geometry_shader, base_dir);
         geometry_spirv = CompileGLSLToSPIRV(processed_geometry, GLSLANG_STAGE_GEOMETRY, source_path + ".geom");
         if (geometry_spirv.empty())
             throw std::runtime_error("Failed to compile geometry shader");
@@ -99,55 +167,34 @@ static void WriteCompiledShader(
     if (fragment_spirv.empty())
         throw std::runtime_error("Failed to compile fragment shader");
 
-    // Write asset header
+    // Write asset header (version 2 includes embedded GLSL)
     AssetHeader header = {};
     header.signature = ASSET_SIGNATURE;
     header.type = ASSET_TYPE_SHADER;
-    header.version = 1;
+    header.version = 2;
     header.flags = 0;
-    WriteAssetHeader(output_stream, &header);
+    WriteAssetHeader(stream, &header);
 
-    // Write bytecode sizes and data
-    WriteU32(output_stream, (u32)(vertex_spirv.size() * sizeof(u32)));
-    WriteBytes(output_stream, vertex_spirv.data(), (u32)(vertex_spirv.size() * sizeof(u32)));
-    
+    WriteU32(stream, (u32)(vertex_spirv.size() * sizeof(u32)));
+    WriteBytes(stream, vertex_spirv.data(), (u32)(vertex_spirv.size() * sizeof(u32)));
+
     // Write geometry shader bytecode (0 size if no geometry shader)
-    WriteU32(output_stream, (u32)(geometry_spirv.size() * sizeof(u32)));
+    WriteU32(stream, (u32)(geometry_spirv.size() * sizeof(u32)));
     if (!geometry_spirv.empty())
-        WriteBytes(output_stream, geometry_spirv.data(), (u32)(geometry_spirv.size() * sizeof(u32)));
-    
-    WriteU32(output_stream, (u32)(fragment_spirv.size() * sizeof(u32)));
-    WriteBytes(output_stream, fragment_spirv.data(), (u32)(fragment_spirv.size() * sizeof(u32)));
+        WriteBytes(stream, geometry_spirv.data(), (u32)(geometry_spirv.size() * sizeof(u32)));
 
-    // Parse shader flags from meta file
-    ShaderFlags flags = SHADER_FLAGS_NONE;
-    if (meta.GetBool("shader", "blend", false))
-        flags |= SHADER_FLAGS_BLEND;
+    WriteU32(stream, (u32)(fragment_spirv.size() * sizeof(u32)));
+    WriteBytes(stream, fragment_spirv.data(), (u32)(fragment_spirv.size() * sizeof(u32)));
 
-    if (meta.GetBool("shader", "depth", false))
-        flags |= SHADER_FLAGS_DEPTH;
-
-    if (meta.GetBool("shader", "depth_less", false))
-        flags |= SHADER_FLAGS_DEPTH_LESS;
-
-    if (meta.GetBool("shader", "postproc", false))
-        flags |= SHADER_FLAGS_POSTPROCESS;
-
-    if (meta.GetBool("shader", "composite", false))
-        flags |= SHADER_FLAGS_UI_COMPOSITE;
-
-    if (meta.GetBool("shader", "premultiplied", false))
-        flags |= SHADER_FLAGS_PREMULTIPLIED_ALPHA;
-
-    WriteU8(output_stream, (u8)flags);
+    WriteU8(stream, (u8)flags);
+    SaveStream(stream, path.string());
 }
 
-static void ImportShader(AssetData* ea, Stream* output_stream, Props* config, Props* meta)
-{
+static void ImportShader(AssetData* a, const std::filesystem::path& path, Props* config, Props* meta) {
     (void)config;
 
     // Read source file
-    std::ifstream file(ea->path, std::ios::binary);
+    std::ifstream file(a->path, std::ios::binary);
     if (!file.is_open())
         throw std::runtime_error("could not read file");
 
@@ -160,13 +207,35 @@ static void ImportShader(AssetData* ea, Stream* output_stream, Props* config, Pr
     std::string vertex_shader = ExtractStage(source, "VERTEX_SHADER");
     std::string geometry_shader = ExtractStage(source, "GEOMETRY_SHADER");
     std::string fragment_shader = ExtractStage(source, "FRAGMENT_SHADER");
-    fs::path include_dir = fs::path(ea->path).parent_path();
+    fs::path include_dir = fs::path(a->path).parent_path();
+
+    // Parse shader flags from meta file
+    ShaderFlags flags = SHADER_FLAGS_NONE;
+    if (meta->GetBool("shader", "blend", false))
+        flags |= SHADER_FLAGS_BLEND;
+
+    if (meta->GetBool("shader", "depth", false))
+        flags |= SHADER_FLAGS_DEPTH;
+
+    if (meta->GetBool("shader", "depth_less", false))
+        flags |= SHADER_FLAGS_DEPTH_LESS;
+
+    if (meta->GetBool("shader", "postproc", false))
+        flags |= SHADER_FLAGS_POSTPROCESS;
+
+    if (meta->GetBool("shader", "composite", false))
+        flags |= SHADER_FLAGS_UI_COMPOSITE;
+
+    if (meta->GetBool("shader", "premultiplied", false))
+        flags |= SHADER_FLAGS_PREMULTIPLIED_ALPHA;
+
 
     try {
-        WriteCompiledShader(vertex_shader, geometry_shader, fragment_shader, *meta, output_stream, include_dir, ea->path);
+        WriteSPIRV(path, vertex_shader, geometry_shader, fragment_shader, include_dir, a->path, flags);
+        WriteGLSL(path.string() + ".glsl", vertex_shader, fragment_shader, flags);
+
     } catch (const std::runtime_error& e) {
         LogError(e.what());
-//        throw std::runtime_error(std::string("Shader compilation error: ") + e.what());
     }
 }
 
