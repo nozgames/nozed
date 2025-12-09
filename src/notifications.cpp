@@ -42,7 +42,7 @@ void AddNotification(NotificationType type, const char* format, ...) {
 }
 
 void UpdateNotifications() {
-    if (!IsWindowFocused())
+    if (!PlatformIsWindowFocused())
         return;
 
     if (g_notifications.buffer->count <= 0)

@@ -16,7 +16,7 @@ static std::vector<u32> CompileGLSLToSPIRV(const std::string& source, glslang_st
 
 // Convert Vulkan GLSL to OpenGL GLSL
 // - Adds #version directive if missing
-// - Removes "set = X," from layout qualifiers (OpenGL doesn't have descriptor sets)
+// - Converts "set = X, binding = Y" to "binding = X" (uses set as binding in OpenGL)
 // - Replaces "row_major" with "std140" for uniform blocks
 // - Changes #version 450 to #version 430 core for OpenGL compatibility
 static std::string ConvertToOpenGLSL(const std::string& source) {
@@ -31,10 +31,10 @@ static std::string ConvertToOpenGLSL(const std::string& source) {
         result = "#version 430 core\n" + result;
     }
 
-    // Remove "set = X," from layout qualifiers
-    // Pattern matches: layout(set = 0, binding = 1) -> layout(binding = 1)
-    std::regex set_pattern(R"(layout\s*\(\s*set\s*=\s*\d+\s*,\s*)");
-    result = std::regex_replace(result, set_pattern, "layout(");
+    // Convert "set = X, binding = Y" to "binding = X" (use set number as OpenGL binding)
+    // This ensures unique bindings since Vulkan uses different sets for different resources
+    std::regex set_binding_pattern(R"(layout\s*\(\s*set\s*=\s*(\d+)\s*,\s*binding\s*=\s*\d+)");
+    result = std::regex_replace(result, set_binding_pattern, "layout(binding = $1");
 
     // Replace "row_major" with "std140" in uniform block layouts
     // layout(binding = 0, row_major) -> layout(std140, binding = 0)

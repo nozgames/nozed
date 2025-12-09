@@ -295,10 +295,7 @@ int main(int argc, const char* argv[]) {
 
     SaveUserConfig();
     ShutdownCommandInput();
-
-    if (IsWindowCreated())
-        ShutdownView();
-
+    ShutdownView();
     ShutdownEditor();
     ShutdownApplication();
 
