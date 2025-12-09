@@ -6,6 +6,7 @@
 #include "../utils/props.h"
 #include "../editor.h"
 #include <glslang_c_interface.h>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -16,7 +17,8 @@ static std::vector<u32> CompileGLSLToSPIRV(const std::string& source, glslang_st
 
 // Convert Vulkan GLSL to OpenGL GLSL
 // - Adds #version directive if missing
-// - Converts "set = X, binding = Y" to "binding = X" (uses set as binding in OpenGL)
+// - Converts "set = X, binding = Y" to "binding = X" for uniform blocks (uses set as binding)
+// - Converts "set = X, binding = Y" to "binding = 0" for samplers (textures use unit 0)
 // - Replaces "row_major" with "std140" for uniform blocks
 // - Changes #version 450 to #version 430 core for OpenGL compatibility
 static std::string ConvertToOpenGLSL(const std::string& source) {
@@ -31,15 +33,45 @@ static std::string ConvertToOpenGLSL(const std::string& source) {
         result = "#version 430 core\n" + result;
     }
 
-    // Convert "set = X, binding = Y" to "binding = X" (use set number as OpenGL binding)
-    // This ensures unique bindings since Vulkan uses different sets for different resources
-    std::regex set_binding_pattern(R"(layout\s*\(\s*set\s*=\s*(\d+)\s*,\s*binding\s*=\s*\d+)");
-    result = std::regex_replace(result, set_binding_pattern, "layout(binding = $1");
+    // Process line by line to handle samplers vs uniform blocks differently
+    std::istringstream stream(result);
+    std::ostringstream output;
+    std::string line;
 
-    // Replace "row_major" with "std140" in uniform block layouts
-    // layout(binding = 0, row_major) -> layout(std140, binding = 0)
-    std::regex row_major_pattern(R"(layout\s*\(([^)]*)\brow_major\b([^)]*)\))");
-    result = std::regex_replace(result, row_major_pattern, "layout(std140, $1$2)");
+    std::regex set_binding_pattern(R"(layout\s*\(\s*set\s*=\s*(\d+)\s*,\s*binding\s*=\s*\d+)");
+
+    while (std::getline(stream, line)) {
+        // For sampler lines, use binding = 0 (textures are bound to unit 0)
+        if (line.find("sampler") != std::string::npos) {
+            line = std::regex_replace(line, set_binding_pattern, "layout(binding = 0");
+        } else {
+            // For uniform blocks, use set number as binding
+            line = std::regex_replace(line, set_binding_pattern, "layout(binding = $1");
+        }
+        output << line << "\n";
+    }
+    result = output.str();
+
+    // Add std140 to all uniform block layouts (not samplers)
+    // We need to process line by line to distinguish uniform blocks from samplers
+    std::istringstream pass2_stream(result);
+    std::ostringstream pass2_output;
+    std::string pass2_line;
+
+    std::regex layout_uniform_pattern(R"(layout\s*\(([^)]*)\)\s*uniform\s+)");
+
+    while (std::getline(pass2_stream, pass2_line)) {
+        // Check if this is a uniform block (not a sampler) - samplers have sampler2D, samplerCube, etc.
+        if (pass2_line.find("uniform") != std::string::npos &&
+            pass2_line.find("sampler") == std::string::npos) {
+            // This is likely a uniform block, add std140 if not already present
+            if (pass2_line.find("std140") == std::string::npos) {
+                pass2_line = std::regex_replace(pass2_line, layout_uniform_pattern, "layout(std140, $1) uniform ");
+            }
+        }
+        pass2_output << pass2_line << "\n";
+    }
+    result = pass2_output.str();
 
     // Clean up any double commas or trailing commas from the replacements
     std::regex double_comma(R"(\s*,\s*,\s*)");
