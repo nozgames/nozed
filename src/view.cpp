@@ -383,9 +383,18 @@ static void UpdateAssetNames() {
 
         Bounds2 bounds = GetBounds(a);
         Vec2 p = a->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(a).min.y};
-        BeginCanvas({.type = CANVAS_TYPE_WORLD, .world_camera=g_view.camera, .world_position=p, .world_size={6,0}});
+        BeginCanvas({
+            .type=CANVAS_TYPE_WORLD,
+            .world_camera=g_view.camera,
+            .world_position=p,
+            .world_size={6,1}
+        });
         BeginContainer({.align=ALIGN_CENTER, .margin=EdgeInsetsTop(16)});
-        Label(a->name->value, {.font = FONT_SEGUISB, .font_size=12, .color=a->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE} );
+        Label(a->name->value, {
+            .font = FONT_SEGUISB,
+            .font_size=12,
+            .color=a->selected ? COLOR_VERTEX_SELECTED : COLOR_WHITE
+        });
         EndContainer();
         EndCanvas();
     }

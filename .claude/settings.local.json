@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Read(//d/**)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(git mv:*)"
     ],
     "deny": [],
     "ask": []

@@ -162,7 +162,12 @@ static void ImportShader(AssetData* ea, Stream* output_stream, Props* config, Pr
     std::string fragment_shader = ExtractStage(source, "FRAGMENT_SHADER");
     fs::path include_dir = fs::path(ea->path).parent_path();
 
-    WriteCompiledShader(vertex_shader, geometry_shader, fragment_shader, *meta, output_stream, include_dir, ea->path);
+    try {
+        WriteCompiledShader(vertex_shader, geometry_shader, fragment_shader, *meta, output_stream, include_dir, ea->path);
+    } catch (const std::runtime_error& e) {
+        LogError(e.what());
+//        throw std::runtime_error(std::string("Shader compilation error: ") + e.what());
+    }
 }
 
 static std::vector<u32> CompileGLSLToSPIRV(const std::string& source, glslang_stage_t stage, const std::string& filename)

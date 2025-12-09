@@ -11,12 +11,12 @@
 #endif
 
 // @Mesh
-Mesh* MESH_ICON_EXPAND_UP = nullptr;
-Mesh* MESH_ICON_EXPAND_DOWN = nullptr;
 Mesh* MESH_UI_ICON_ROOT_MOTION = nullptr;
 Mesh* MESH_UI_ICON_ONION = nullptr;
 Mesh* MESH_UI_ICON_MIRROR = nullptr;
 Mesh* MESH_UI_ICON_LOOP = nullptr;
+Mesh* MESH_ICON_EXPAND_UP = nullptr;
+Mesh* MESH_ICON_EXPAND_DOWN = nullptr;
 Mesh* MESH_ASSET_ICON_VFX = nullptr;
 Mesh* MESH_ASSET_ICON_SOUND = nullptr;
 Mesh* MESH_ASSET_ICON_SHADER = nullptr;
@@ -29,6 +29,7 @@ Font* FONT_SEGUISB = nullptr;
 // @Shader
 Shader* SHADER_VFX = nullptr;
 Shader* SHADER_UI_VIGNETTE = nullptr;
+Shader* SHADER_UI_IMAGE = nullptr;
 Shader* SHADER_UI = nullptr;
 Shader* SHADER_TEXT = nullptr;
 Shader* SHADER_SKINNED_MESH = nullptr;
@@ -61,9 +62,9 @@ const Name* NAME_RU = nullptr;
 const Name* NAME_MIRROR = nullptr;
 
 // @path
-const Name* PATH_MESH_ICON_EXPAND_UP = nullptr;
 const Name* PATH_SHADER_VFX = nullptr;
 const Name* PATH_SHADER_UI_VIGNETTE = nullptr;
+const Name* PATH_SHADER_UI_IMAGE = nullptr;
 const Name* PATH_SHADER_UI = nullptr;
 const Name* PATH_SHADER_TEXT = nullptr;
 const Name* PATH_SHADER_SKINNED_MESH = nullptr;
@@ -71,11 +72,12 @@ const Name* PATH_SHADER_POSTPROCESS_UI_COMPOSITE = nullptr;
 const Name* PATH_SHADER_POSTPROCESS_DESATURATE = nullptr;
 const Name* PATH_SHADER_MESH = nullptr;
 const Name* PATH_SHADER_SOLID = nullptr;
-const Name* PATH_MESH_ICON_EXPAND_DOWN = nullptr;
 const Name* PATH_MESH_UI_ICON_ROOT_MOTION = nullptr;
 const Name* PATH_MESH_UI_ICON_ONION = nullptr;
 const Name* PATH_MESH_UI_ICON_MIRROR = nullptr;
 const Name* PATH_MESH_UI_ICON_LOOP = nullptr;
+const Name* PATH_MESH_ICON_EXPAND_UP = nullptr;
+const Name* PATH_MESH_ICON_EXPAND_DOWN = nullptr;
 const Name* PATH_MESH_ASSET_ICON_VFX = nullptr;
 const Name* PATH_MESH_ASSET_ICON_SOUND = nullptr;
 const Name* PATH_MESH_ASSET_ICON_SHADER = nullptr;
@@ -110,9 +112,9 @@ bool LoadAssets(Allocator* allocator)
     NAME_MIRROR = GetName("mirror");
 
     // @path
-    PATH_MESH_ICON_EXPAND_UP = GetName("icon_expand_up");
     PATH_SHADER_VFX = GetName("vfx");
     PATH_SHADER_UI_VIGNETTE = GetName("ui_vignette");
+    PATH_SHADER_UI_IMAGE = GetName("ui_image");
     PATH_SHADER_UI = GetName("ui");
     PATH_SHADER_TEXT = GetName("text");
     PATH_SHADER_SKINNED_MESH = GetName("skinned_mesh");
@@ -120,11 +122,12 @@ bool LoadAssets(Allocator* allocator)
     PATH_SHADER_POSTPROCESS_DESATURATE = GetName("postprocess_desaturate");
     PATH_SHADER_MESH = GetName("mesh");
     PATH_SHADER_SOLID = GetName("solid");
-    PATH_MESH_ICON_EXPAND_DOWN = GetName("icon_expand_down");
     PATH_MESH_UI_ICON_ROOT_MOTION = GetName("ui_icon_root_motion");
     PATH_MESH_UI_ICON_ONION = GetName("ui_icon_onion");
     PATH_MESH_UI_ICON_MIRROR = GetName("ui_icon_mirror");
     PATH_MESH_UI_ICON_LOOP = GetName("ui_icon_loop");
+    PATH_MESH_ICON_EXPAND_UP = GetName("icon_expand_up");
+    PATH_MESH_ICON_EXPAND_DOWN = GetName("icon_expand_down");
     PATH_MESH_ASSET_ICON_VFX = GetName("asset_icon_vfx");
     PATH_MESH_ASSET_ICON_SOUND = GetName("asset_icon_sound");
     PATH_MESH_ASSET_ICON_SHADER = GetName("asset_icon_shader");
@@ -133,12 +136,12 @@ bool LoadAssets(Allocator* allocator)
     PATH_FONT_SEGUISB = GetName("seguisb");
 
     // @Mesh
-    NOZ_LOAD_MESH(allocator, PATH_MESH_ICON_EXPAND_UP, MESH_ICON_EXPAND_UP);
-    NOZ_LOAD_MESH(allocator, PATH_MESH_ICON_EXPAND_DOWN, MESH_ICON_EXPAND_DOWN);
     NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_ROOT_MOTION, MESH_UI_ICON_ROOT_MOTION);
     NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_ONION, MESH_UI_ICON_ONION);
     NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_MIRROR, MESH_UI_ICON_MIRROR);
     NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_LOOP, MESH_UI_ICON_LOOP);
+    NOZ_LOAD_MESH(allocator, PATH_MESH_ICON_EXPAND_UP, MESH_ICON_EXPAND_UP);
+    NOZ_LOAD_MESH(allocator, PATH_MESH_ICON_EXPAND_DOWN, MESH_ICON_EXPAND_DOWN);
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_VFX, MESH_ASSET_ICON_VFX);
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_SOUND, MESH_ASSET_ICON_SOUND);
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_SHADER, MESH_ASSET_ICON_SHADER);
@@ -146,12 +149,12 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_EVENT, MESH_ASSET_ICON_EVENT);
 
     static Mesh* _MESH[] = {
-        MESH_ICON_EXPAND_UP,
-        MESH_ICON_EXPAND_DOWN,
         MESH_UI_ICON_ROOT_MOTION,
         MESH_UI_ICON_ONION,
         MESH_UI_ICON_MIRROR,
         MESH_UI_ICON_LOOP,
+        MESH_ICON_EXPAND_UP,
+        MESH_ICON_EXPAND_DOWN,
         MESH_ASSET_ICON_VFX,
         MESH_ASSET_ICON_SOUND,
         MESH_ASSET_ICON_SHADER,
@@ -177,6 +180,7 @@ bool LoadAssets(Allocator* allocator)
     // @Shader
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_VFX, SHADER_VFX);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_UI_VIGNETTE, SHADER_UI_VIGNETTE);
+    NOZ_LOAD_SHADER(allocator, PATH_SHADER_UI_IMAGE, SHADER_UI_IMAGE);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_UI, SHADER_UI);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_TEXT, SHADER_TEXT);
     NOZ_LOAD_SHADER(allocator, PATH_SHADER_SKINNED_MESH, SHADER_SKINNED_MESH);
@@ -188,6 +192,7 @@ bool LoadAssets(Allocator* allocator)
     static Shader* _SHADER[] = {
         SHADER_VFX,
         SHADER_UI_VIGNETTE,
+        SHADER_UI_IMAGE,
         SHADER_UI,
         SHADER_TEXT,
         SHADER_SKINNED_MESH,
@@ -208,12 +213,12 @@ bool LoadAssets(Allocator* allocator)
 void UnloadAssets()
 {
     // @Mesh
-    Free(MESH_ICON_EXPAND_UP);
-    Free(MESH_ICON_EXPAND_DOWN);
     Free(MESH_UI_ICON_ROOT_MOTION);
     Free(MESH_UI_ICON_ONION);
     Free(MESH_UI_ICON_MIRROR);
     Free(MESH_UI_ICON_LOOP);
+    Free(MESH_ICON_EXPAND_UP);
+    Free(MESH_ICON_EXPAND_DOWN);
     Free(MESH_ASSET_ICON_VFX);
     Free(MESH_ASSET_ICON_SOUND);
     Free(MESH_ASSET_ICON_SHADER);
@@ -226,6 +231,7 @@ void UnloadAssets()
     // @Shader
     Free(SHADER_VFX);
     Free(SHADER_UI_VIGNETTE);
+    Free(SHADER_UI_IMAGE);
     Free(SHADER_UI);
     Free(SHADER_TEXT);
     Free(SHADER_SKINNED_MESH);
@@ -240,12 +246,12 @@ void UnloadAssets()
 void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
 {
     // @Mesh
-    NOZ_RELOAD_MESH(PATH_MESH_ICON_EXPAND_UP, MESH_ICON_EXPAND_UP);
-    NOZ_RELOAD_MESH(PATH_MESH_ICON_EXPAND_DOWN, MESH_ICON_EXPAND_DOWN);
     NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_ROOT_MOTION, MESH_UI_ICON_ROOT_MOTION);
     NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_ONION, MESH_UI_ICON_ONION);
     NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_MIRROR, MESH_UI_ICON_MIRROR);
     NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_LOOP, MESH_UI_ICON_LOOP);
+    NOZ_RELOAD_MESH(PATH_MESH_ICON_EXPAND_UP, MESH_ICON_EXPAND_UP);
+    NOZ_RELOAD_MESH(PATH_MESH_ICON_EXPAND_DOWN, MESH_ICON_EXPAND_DOWN);
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_VFX, MESH_ASSET_ICON_VFX);
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_SOUND, MESH_ASSET_ICON_SOUND);
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_SHADER, MESH_ASSET_ICON_SHADER);
@@ -258,6 +264,7 @@ void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
     // @Shader
     NOZ_RELOAD_SHADER(PATH_SHADER_VFX, SHADER_VFX);
     NOZ_RELOAD_SHADER(PATH_SHADER_UI_VIGNETTE, SHADER_UI_VIGNETTE);
+    NOZ_RELOAD_SHADER(PATH_SHADER_UI_IMAGE, SHADER_UI_IMAGE);
     NOZ_RELOAD_SHADER(PATH_SHADER_UI, SHADER_UI);
     NOZ_RELOAD_SHADER(PATH_SHADER_TEXT, SHADER_TEXT);
     NOZ_RELOAD_SHADER(PATH_SHADER_SKINNED_MESH, SHADER_SKINNED_MESH);

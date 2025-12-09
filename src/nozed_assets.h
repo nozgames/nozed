@@ -8,12 +8,12 @@
 #include <noz/core_assets.h>
 
 // @Mesh
-extern Mesh* MESH_ICON_EXPAND_UP;
-extern Mesh* MESH_ICON_EXPAND_DOWN;
 extern Mesh* MESH_UI_ICON_ROOT_MOTION;
 extern Mesh* MESH_UI_ICON_ONION;
 extern Mesh* MESH_UI_ICON_MIRROR;
 extern Mesh* MESH_UI_ICON_LOOP;
+extern Mesh* MESH_ICON_EXPAND_UP;
+extern Mesh* MESH_ICON_EXPAND_DOWN;
 extern Mesh* MESH_ASSET_ICON_VFX;
 extern Mesh* MESH_ASSET_ICON_SOUND;
 extern Mesh* MESH_ASSET_ICON_SHADER;
@@ -26,6 +26,7 @@ extern Font* FONT_SEGUISB;
 // @Shader
 extern Shader* SHADER_VFX;
 extern Shader* SHADER_UI_VIGNETTE;
+extern Shader* SHADER_UI_IMAGE;
 extern Shader* SHADER_UI;
 extern Shader* SHADER_TEXT;
 extern Shader* SHADER_SKINNED_MESH;
@@ -56,6 +57,9 @@ extern const Name* NAME_EVENT;
 extern const Name* NAME_ANIMATEDMESH;
 extern const Name* NAME_RU;
 extern const Name* NAME_MIRROR;
+
+// @palette
+constexpr int PALETTE_DEFAULT = 0;
 
 
 extern bool LoadAssets(Allocator* allocator);
