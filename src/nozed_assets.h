@@ -28,6 +28,7 @@ extern Shader* SHADER_VFX;
 extern Shader* SHADER_UI_VIGNETTE;
 extern Shader* SHADER_UI_IMAGE;
 extern Shader* SHADER_UI;
+extern Shader* SHADER_TEXTURED_MESH;
 extern Shader* SHADER_TEXT;
 extern Shader* SHADER_SKINNED_MESH;
 extern Shader* SHADER_POSTPROCESS_UI_COMPOSITE;

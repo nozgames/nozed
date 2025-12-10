@@ -7,6 +7,8 @@
 constexpr Color STYLE_BACKGROUND_COLOR = Color24ToColor(0x262525);
 constexpr Color STYLE_BACKGROUND_COLOR_LIGHT = Color24ToColor(0x2E2D2C);
 
+constexpr Color STYLE_SELECTED_COLOR = Color32ToColor(255, 121, 0, 255);
+
 constexpr Color STYLE_BUTTON_BACKGROUND = STYLE_BACKGROUND_COLOR;
 constexpr float STYLE_BUTTON_PADDING = 8.0f;
 

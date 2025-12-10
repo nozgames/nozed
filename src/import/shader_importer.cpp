@@ -73,6 +73,11 @@ static std::string ConvertToOpenGLSL(const std::string& source) {
     }
     result = pass2_output.str();
 
+    // Remove row_major qualifier - OpenGL std140 handles it differently than Vulkan
+    // We'll transpose matrices on the CPU side instead
+    std::regex row_major_pattern(R"(,?\s*row_major\s*,?)");
+    result = std::regex_replace(result, row_major_pattern, ", ");
+
     // Clean up any double commas or trailing commas from the replacements
     std::regex double_comma(R"(\s*,\s*,\s*)");
     result = std::regex_replace(result, double_comma, ", ");

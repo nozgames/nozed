@@ -25,8 +25,7 @@ struct Grid
 
 static Grid g_grid = {};
 
-static void DrawZeroGrid(Camera* camera)
-{
+static void DrawZeroGrid(Camera* camera) {
     BindColor(ZERO_GRID_COLOR);
 
     Vec2Int screen_size = GetScreenSize();
@@ -52,8 +51,7 @@ static void DrawZeroGrid(Camera* camera)
     DrawMesh(g_grid.quad_mesh);
 }
 
-static void DrawGridLines(Camera* camera, float spacing, const Color& color, float alpha)
-{
+static void DrawGridLines(Camera* camera, float spacing, const Color& color, float alpha) {
     if (alpha <= 0.0f) return;
     
     // Get camera bounds to determine which lines to draw
@@ -76,8 +74,7 @@ static void DrawGridLines(Camera* camera, float spacing, const Color& color, flo
     
     // Draw vertical lines
     float start_x = floorf(left / spacing) * spacing;
-    for (float x = start_x; x <= right + spacing; x += spacing)
-    {
+    for (float x = start_x; x <= right + spacing; x += spacing) {
         Vec2 line_center = { x, (top + bottom) * 0.5f };
         Vec2 line_scale = { line_thickness, (top - bottom) * 0.5f };
         BindTransform(TRS(line_center, 0, line_scale));
@@ -86,8 +83,7 @@ static void DrawGridLines(Camera* camera, float spacing, const Color& color, flo
     
     // Draw horizontal lines
     float start_y = floorf(bottom / spacing) * spacing;
-    for (float y = start_y; y <= top + spacing; y += spacing)
-    {
+    for (float y = start_y; y <= top + spacing; y += spacing) {
         Vec2 line_center = { (left + right) * 0.5f, y };
         Vec2 line_scale = { (right - left) * 0.5f, line_thickness };
         BindTransform(TRS(line_center, 0, line_scale));
@@ -95,8 +91,7 @@ static void DrawGridLines(Camera* camera, float spacing, const Color& color, flo
     }
 }
 
-static void DrawGridInternal(Camera* camera, float min_pixels, float grid_spacing, float min_alpha, float max_alpha)
-{
+static void DrawGridInternal(Camera* camera, float min_pixels, float grid_spacing, float min_alpha, float max_alpha) {
     BindMaterial(g_grid.material);
 
     // Use camera to find how big this spacing is on screen
@@ -105,15 +100,13 @@ static void DrawGridInternal(Camera* camera, float min_pixels, float grid_spacin
     f32 pixels_per_grid = Length(world_1 - world_0);
 
     // Scale up by 10x as long as grid is smaller than threshold
-    while (pixels_per_grid < min_pixels)
-    {
+    while (pixels_per_grid < min_pixels) {
         grid_spacing *= 10.0f;
         pixels_per_grid *= 10.0f;
     }
 
     // Scale down by 10x as long as grid is larger than threshold * 10
-    while (pixels_per_grid > min_pixels * 10.0f)
-    {
+    while (pixels_per_grid > min_pixels * 10.0f) {
         grid_spacing *= 0.1f;
         pixels_per_grid *= 0.1f;
     }
@@ -132,7 +125,7 @@ void DrawGrid(Camera* camera) {
 }
 
 void InitGrid(Allocator* allocator) {
-    g_grid.material = CreateMaterial(allocator, SHADER_UI);
+    g_grid.material = CreateMaterial(allocator, SHADER_TEXTURED_MESH);
     g_grid.grid_spacing = GRID_SPACING;
 
     MeshBuilder* builder = CreateMeshBuilder(allocator, 4, 6);

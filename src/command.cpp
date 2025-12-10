@@ -63,12 +63,15 @@ void UpdateCommandInput() {
         return;
 
     BeginCanvas();
-    BeginContainer({.align=ALIGN_BOTTOM, .margin=EdgeInsetsBottom(160)});
     BeginContainer({
         .width=COMMAND_WIDTH,
         .height=COMMAND_HEIGHT,
+        .align=ALIGN_BOTTOM_CENTER,
+        .margin=EdgeInsetsBottom(160),
         .padding=EdgeInsetsLeft(COMMAND_PADDING),
-        .color=COLOR_UI_BACKGROUND});
+        .color=COLOR_UI_BACKGROUND,
+    .border={.radius=10, .width=2, .color=STYLE_SELECTED_COLOR}});
+
     BeginRow();
     {
         const TextInput& i = GetTextInput();
@@ -79,7 +82,7 @@ void UpdateCommandInput() {
                 .color = Color24ToColor(0x777776),
                 .align = ALIGN_CENTER_LEFT
             });
-            Spacer(5.0f);;
+            Spacer(5.0f);
         }
 
         bool show_cursor = true;
@@ -92,7 +95,7 @@ void UpdateCommandInput() {
             });
         } else if (g_command_input.placeholder) {
             show_cursor = false;
-            BeginContainer({.color = COLOR_UI_TEXT});
+            BeginContainer({.align=ALIGN_CENTER_LEFT, .color = COLOR_UI_TEXT});
             Label(g_command_input.placeholder, {
                 .font = FONT_SEGUISB,
                 .font_size = COMMAND_FONT_SIZE,
@@ -108,8 +111,11 @@ void UpdateCommandInput() {
             EndContainer();
         }
     }
+
+
     EndRow();
-    EndContainer();
+
+
     EndContainer();
     EndCanvas();
 }

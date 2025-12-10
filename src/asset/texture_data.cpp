@@ -57,7 +57,7 @@ void PostLoadTextureData(AssetData* a) {
     assert(a->type == ASSET_TYPE_TEXTURE);
     TextureData* t = static_cast<TextureData*>(a);
     t->texture = (Texture*)LoadAssetInternal(ALLOCATOR_DEFAULT, a->name, ASSET_TYPE_TEXTURE, LoadTexture);
-    t->material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_MESH);
+    t->material = CreateMaterial(ALLOCATOR_DEFAULT, SHADER_TEXTURED_MESH);
     SetTexture(t->material, t->texture, 0);
     UpdateBounds(t);
 }
