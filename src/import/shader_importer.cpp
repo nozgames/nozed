@@ -15,70 +15,27 @@ extern Editor g_editor;
 static std::string ProcessIncludes(const std::string& source, const fs::path& base_dir);
 static std::vector<u32> CompileGLSLToSPIRV(const std::string& source, glslang_stage_t stage, const std::string& filename);
 
-// Convert Vulkan GLSL to OpenGL GLSL
-// - Adds #version directive if missing
-// - Converts "set = X, binding = Y" to "binding = X" for uniform blocks (uses set as binding)
-// - Converts "set = X, binding = Y" to "binding = 0" for samplers (textures use unit 0)
-// - Replaces "row_major" with "std140" for uniform blocks
-// - Changes #version 450 to #version 430 core for OpenGL compatibility
+// Convert Vulkan GLSL to desktop OpenGL 4.3 compatible GLSL
+// - Changes #version 450 to #version 430 core
+// - Removes set=X from layout qualifiers (Vulkan-specific)
+// - Removes row_major qualifier, replaces with std140
+// - Adds std140 to uniform blocks
 static std::string ConvertToOpenGLSL(const std::string& source) {
     std::string result = source;
 
-    // Change version to OpenGL 4.3 core (supports most features we need)
-    std::regex version_pattern(R"(#version\s+450\b)");
-    result = std::regex_replace(result, version_pattern, "#version 430 core");
+    // Remove #version directive - we'll add the correct one at the start
+    std::regex version_pattern(R"(#version\s+\d+[^\n]*\n?)");
+    result = std::regex_replace(result, version_pattern, "");
 
-    // If no #version directive exists, prepend one
-    if (result.find("#version") == std::string::npos) {
-        result = "#version 430 core\n" + result;
-    }
+    // Remove set = X from inside layout() - Vulkan-specific, but keep binding
+    std::regex set_pattern(R"(,?\s*set\s*=\s*\d+\s*,?)");
+    result = std::regex_replace(result, set_pattern, ",");
 
-    // Process line by line to handle samplers vs uniform blocks differently
-    std::istringstream stream(result);
-    std::ostringstream output;
-    std::string line;
+    // Replace row_major with std140 for uniform blocks
+    std::regex row_major_pattern(R"(\brow_major\b)");
+    result = std::regex_replace(result, row_major_pattern, "std140");
 
-    std::regex set_binding_pattern(R"(layout\s*\(\s*set\s*=\s*(\d+)\s*,\s*binding\s*=\s*\d+)");
-
-    while (std::getline(stream, line)) {
-        // For sampler lines, use binding = 0 (textures are bound to unit 0)
-        if (line.find("sampler") != std::string::npos) {
-            line = std::regex_replace(line, set_binding_pattern, "layout(binding = 0");
-        } else {
-            // For uniform blocks, use set number as binding
-            line = std::regex_replace(line, set_binding_pattern, "layout(binding = $1");
-        }
-        output << line << "\n";
-    }
-    result = output.str();
-
-    // Add std140 to all uniform block layouts (not samplers)
-    // We need to process line by line to distinguish uniform blocks from samplers
-    std::istringstream pass2_stream(result);
-    std::ostringstream pass2_output;
-    std::string pass2_line;
-
-    std::regex layout_uniform_pattern(R"(layout\s*\(([^)]*)\)\s*uniform\s+)");
-
-    while (std::getline(pass2_stream, pass2_line)) {
-        // Check if this is a uniform block (not a sampler) - samplers have sampler2D, samplerCube, etc.
-        if (pass2_line.find("uniform") != std::string::npos &&
-            pass2_line.find("sampler") == std::string::npos) {
-            // This is likely a uniform block, add std140 if not already present
-            if (pass2_line.find("std140") == std::string::npos) {
-                pass2_line = std::regex_replace(pass2_line, layout_uniform_pattern, "layout(std140, $1) uniform ");
-            }
-        }
-        pass2_output << pass2_line << "\n";
-    }
-    result = pass2_output.str();
-
-    // Remove row_major qualifier - OpenGL std140 handles it differently than Vulkan
-    // We'll transpose matrices on the CPU side instead
-    std::regex row_major_pattern(R"(,?\s*row_major\s*,?)");
-    result = std::regex_replace(result, row_major_pattern, ", ");
-
-    // Clean up any double commas or trailing commas from the replacements
+    // Clean up any double commas or trailing/leading commas in layout()
     std::regex double_comma(R"(\s*,\s*,\s*)");
     result = std::regex_replace(result, double_comma, ", ");
 
@@ -87,6 +44,135 @@ static std::string ConvertToOpenGLSL(const std::string& source) {
 
     std::regex leading_comma(R"(\(\s*,)");
     result = std::regex_replace(result, leading_comma, "(");
+
+    // Clean up empty layout() declarations
+    std::regex empty_layout(R"(layout\s*\(\s*\)\s*)");
+    result = std::regex_replace(result, empty_layout, "");
+
+    // Add std140 to uniform blocks that don't have it
+    std::istringstream stream(result);
+    std::ostringstream output;
+    std::string line;
+
+    std::regex uniform_block_no_layout(R"(^(\s*)uniform\s+(\w+)\s*\{)");
+    std::regex layout_without_std140(R"(layout\s*\(([^)]*)\)\s*uniform\s+)");
+
+    while (std::getline(stream, line)) {
+        if (line.find("uniform") != std::string::npos &&
+            line.find("sampler") == std::string::npos &&
+            line.find("{") != std::string::npos) {
+            if (line.find("layout") == std::string::npos) {
+                // No layout, add layout(std140)
+                line = std::regex_replace(line, uniform_block_no_layout, "$1layout(std140) uniform $2 {");
+            } else if (line.find("std140") == std::string::npos) {
+                // Has layout but no std140, add it
+                line = std::regex_replace(line, layout_without_std140, "layout(std140, $1) uniform ");
+            }
+        }
+        output << line << "\n";
+    }
+    result = output.str();
+
+    // Final cleanup pass
+    result = std::regex_replace(result, double_comma, ", ");
+    result = std::regex_replace(result, trailing_comma, ")");
+    result = std::regex_replace(result, leading_comma, "(");
+    result = std::regex_replace(result, empty_layout, "");
+
+    // Prepend OpenGL 4.3 core version
+    std::string header = "#version 430 core\n\n";
+
+    result = header + result;
+
+    return result;
+}
+
+
+// Convert Vulkan GLSL to GLES 3.0 compatible GLSL for a single stage
+// - Changes #version 450 to #version 300 es
+// - Adds precision qualifiers required by GLES
+// - Removes set=X and binding=Y from layout qualifiers (not supported in GLES 3.0)
+// - Removes row_major qualifier, replaces with std140
+// - Adds std140 to uniform blocks
+// - Removes layout(location) from in/out (not fully supported in GLES 3.0)
+static std::string ConvertToOpenGLES(const std::string& source) {
+    std::string result = source;
+
+    // Remove #version directive - we'll add the correct one at the start
+    std::regex version_pattern(R"(#version\s+\d+[^\n]*\n?)");
+    result = std::regex_replace(result, version_pattern, "");
+
+    // Remove set = X and binding = Y from inside layout() - these are Vulkan-specific
+    std::regex set_pattern(R"(,?\s*set\s*=\s*\d+\s*,?)");
+    std::regex binding_pattern(R"(,?\s*binding\s*=\s*\d+\s*,?)");
+    result = std::regex_replace(result, set_pattern, ",");
+    result = std::regex_replace(result, binding_pattern, ",");
+
+    // Replace row_major with std140 for uniform blocks
+    std::regex row_major_pattern(R"(\brow_major\b)");
+    result = std::regex_replace(result, row_major_pattern, "std140");
+
+    // Remove layout(location = X) from in/out variables - GLES 3.0 has limited support
+    // Vertex shader: location only valid on 'in', not 'out'
+    // Fragment shader: location only valid on 'out', not 'in'
+    // Simpler to just remove all location qualifiers and let the linker match by name
+    std::regex location_pattern(R"(,?\s*location\s*=\s*\d+\s*,?)");
+    result = std::regex_replace(result, location_pattern, ",");
+
+    // Remove 'f' suffix from float literals - GLES 3.0 doesn't support it
+    std::regex float_suffix_pattern(R"((\d+\.\d*|\d*\.\d+|\d+)[fF]\b)");
+    result = std::regex_replace(result, float_suffix_pattern, "$1");
+
+    // Clean up any double commas or trailing/leading commas in layout()
+    std::regex double_comma(R"(\s*,\s*,\s*)");
+    result = std::regex_replace(result, double_comma, ", ");
+
+    std::regex trailing_comma(R"(,\s*\))");
+    result = std::regex_replace(result, trailing_comma, ")");
+
+    std::regex leading_comma(R"(\(\s*,)");
+    result = std::regex_replace(result, leading_comma, "(");
+
+    // Clean up empty layout() declarations
+    std::regex empty_layout(R"(layout\s*\(\s*\)\s*)");
+    result = std::regex_replace(result, empty_layout, "");
+
+    // Add std140 to uniform blocks that don't have it
+    std::istringstream stream(result);
+    std::ostringstream output;
+    std::string line;
+
+    std::regex uniform_block_no_layout(R"(^(\s*)uniform\s+(\w+)\s*\{)");
+    std::regex layout_without_std140(R"(layout\s*\(([^)]*)\)\s*uniform\s+)");
+
+    while (std::getline(stream, line)) {
+        if (line.find("uniform") != std::string::npos &&
+            line.find("sampler") == std::string::npos &&
+            line.find("{") != std::string::npos) {
+            if (line.find("layout") == std::string::npos) {
+                // No layout, add layout(std140)
+                line = std::regex_replace(line, uniform_block_no_layout, "$1layout(std140) uniform $2 {");
+            } else if (line.find("std140") == std::string::npos) {
+                // Has layout but no std140, add it
+                line = std::regex_replace(line, layout_without_std140, "layout(std140, $1) uniform ");
+            }
+        }
+        output << line << "\n";
+    }
+    result = output.str();
+
+    // Final cleanup pass
+    result = std::regex_replace(result, double_comma, ", ");
+    result = std::regex_replace(result, trailing_comma, ")");
+    result = std::regex_replace(result, leading_comma, "(");
+    result = std::regex_replace(result, empty_layout, "");
+
+    // Prepend GLES 3.0 version and precision qualifiers
+    std::string header = "#version 300 es\n"
+                         "precision highp float;\n"
+                         "precision highp int;\n\n";
+
+    result = header + result;
 
     return result;
 }
@@ -141,10 +227,9 @@ static std::string ExtractStage(const std::string& source, const std::string& st
     return result;
 }
 
-static void WriteGLSL(const fs::path& path, const std::string& vertex_source, const std::string& fragment_source, ShaderFlags flags) {
-    // Convert Vulkan GLSL to OpenGL-compatible GLSL
-    std::string gl_vertex = ConvertToOpenGLSL(vertex_source);
-    std::string gl_fragment = ConvertToOpenGLSL(fragment_source);
+static void WriteGLSL(const fs::path& path, const std::string& vertex_source, const std::string& fragment_source, ShaderFlags flags, std::string (*convert_func)(const std::string&)) {
+    std::string gl_vertex = convert_func(vertex_source);
+    std::string gl_fragment = convert_func(fragment_source);
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
 
@@ -156,7 +241,6 @@ static void WriteGLSL(const fs::path& path, const std::string& vertex_source, co
     WriteAssetHeader(stream, &header);
     WriteU32(stream, (u32)gl_vertex.size());
     WriteBytes(stream, gl_vertex.data(), (u32)gl_vertex.size());
-    WriteU32(stream, 0);
     WriteU32(stream, (u32)gl_fragment.size());
     WriteBytes(stream, gl_fragment.data(), (u32)gl_fragment.size());
     WriteU8(stream, (u8)flags);
@@ -166,7 +250,6 @@ static void WriteGLSL(const fs::path& path, const std::string& vertex_source, co
 static void WriteSPIRV(
     const fs::path& path,
     const std::string& vertex_shader,
-    const std::string& geometry_shader,
     const std::string& fragment_shader,
     const fs::path& include_dir,
     const std::string& source_path,
@@ -184,22 +267,6 @@ static void WriteSPIRV(
     if (vertex_spirv.empty())
         throw std::runtime_error("Failed to compile vertex shader");
 
-    // Compile geometry shader if present (ExtractStage already trims whitespace)
-    std::vector<u32> geometry_spirv;
-    if (!geometry_shader.empty())
-    {
-        // Validate that geometry shader has required layout declarations
-        if (geometry_shader.find("layout(") == std::string::npos)
-        {
-            throw std::runtime_error("Geometry shader is missing required layout declarations (e.g., 'layout(triangles) in;' and 'layout(...) out;')");
-        }
-
-        processed_geometry = ProcessIncludes(geometry_shader, base_dir);
-        geometry_spirv = CompileGLSLToSPIRV(processed_geometry, GLSLANG_STAGE_GEOMETRY, source_path + ".geom");
-        if (geometry_spirv.empty())
-            throw std::runtime_error("Failed to compile geometry shader");
-    }
-
     std::vector<u32> fragment_spirv = CompileGLSLToSPIRV(processed_fragment, GLSLANG_STAGE_FRAGMENT, source_path + ".frag");
     if (fragment_spirv.empty())
         throw std::runtime_error("Failed to compile fragment shader");
@@ -214,15 +281,8 @@ static void WriteSPIRV(
 
     WriteU32(stream, (u32)(vertex_spirv.size() * sizeof(u32)));
     WriteBytes(stream, vertex_spirv.data(), (u32)(vertex_spirv.size() * sizeof(u32)));
-
-    // Write geometry shader bytecode (0 size if no geometry shader)
-    WriteU32(stream, (u32)(geometry_spirv.size() * sizeof(u32)));
-    if (!geometry_spirv.empty())
-        WriteBytes(stream, geometry_spirv.data(), (u32)(geometry_spirv.size() * sizeof(u32)));
-
     WriteU32(stream, (u32)(fragment_spirv.size() * sizeof(u32)));
     WriteBytes(stream, fragment_spirv.data(), (u32)(fragment_spirv.size() * sizeof(u32)));
-
     WriteU8(stream, (u8)flags);
     SaveStream(stream, path.string());
 }
@@ -242,7 +302,6 @@ static void ImportShader(AssetData* a, const std::filesystem::path& path, Props*
 
     // Extract each stage and write the shader
     std::string vertex_shader = ExtractStage(source, "VERTEX_SHADER");
-    std::string geometry_shader = ExtractStage(source, "GEOMETRY_SHADER");
     std::string fragment_shader = ExtractStage(source, "FRAGMENT_SHADER");
     fs::path include_dir = fs::path(a->path).parent_path();
 
@@ -268,8 +327,9 @@ static void ImportShader(AssetData* a, const std::filesystem::path& path, Props*
 
 
     try {
-        WriteSPIRV(path, vertex_shader, geometry_shader, fragment_shader, include_dir, a->path, flags);
-        WriteGLSL(path.string() + ".glsl", vertex_shader, fragment_shader, flags);
+        WriteSPIRV(path, vertex_shader, fragment_shader, include_dir, a->path, flags);
+        WriteGLSL(path.string() + ".glsl", vertex_shader, fragment_shader, flags, ConvertToOpenGLSL);
+        WriteGLSL(path.string() + ".gles", vertex_shader, fragment_shader, flags, ConvertToOpenGLES);
 
     } catch (const std::runtime_error& e) {
         LogError(e.what());

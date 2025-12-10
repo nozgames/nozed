@@ -32,7 +32,7 @@ static void UpdateCamera() {
     f32 world_height = screen_size.y / ((f32)screen_size.y * DPI / (f32)screen_size.y);
     f32 half_width = world_width * 0.5f;
     f32 half_height = world_height * 0.5f;
-    SetExtents(g_view.camera, -half_width, half_width, half_height, -half_height, false);
+    SetExtents(g_view.camera, -half_width, half_width, -half_height, half_height);
 
     g_view.zoom_ref_scale = 1.0f / g_view.zoom;
     g_view.select_size = Abs((ScreenToWorld(g_view.camera, Vec2{0, SELECT_SIZE}) - ScreenToWorld(g_view.camera, VEC2_ZERO)).y);
@@ -408,11 +408,11 @@ void UpdateView() {
     UpdateConfirmDialog();
     EndUI();
 
-    BeginRenderFrame(VIEW_COLOR);
+    BeginRender(VIEW_COLOR);
     DrawView();
     DrawVfx();
     DrawUI();
-    EndRenderFrame();
+    EndRender();
 }
 
 void InitViewUserConfig(Props* user_config){
@@ -637,7 +637,8 @@ static void DuplicateAsset() {
     BeginMoveTool();
 }
 
-static void BuildAssets(const Command&) {
+static void BuildAssets(const Command& command) {
+    (void)command;
     Build();
 }
 
@@ -793,6 +794,8 @@ void InitView() {
     g_view.dpi = 72.0f;
     g_view.light_dir = { -1, 0 };
     g_view.draw_mode = VIEW_DRAW_MODE_SHADED;
+
+    SetUICompositeMaterial(CreateMaterial(ALLOCATOR_DEFAULT, SHADER_POSTPROCESS_UI_COMPOSITE));
 
     UpdateCamera();
 
