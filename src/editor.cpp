@@ -70,10 +70,11 @@ static void ProcessQueuedLogMessages()
     }
 }
 
-static void UpdateEditor()
-{
+static void UpdateEditor() {
+    UpdateImporter();
     ProcessQueuedLogMessages();
     UpdateEditorServer();
+    UpdateView();
 }
 
 void HandleStatsEvents(EventId event_id, const void* event_data)
@@ -199,6 +200,9 @@ void InitEditor() {
 }
 
 void ShutdownEditor() {
+    SaveUserConfig();
+    ShutdownCommandInput();
+    ShutdownView();
     ShutdownEditorServer();
     ShutdownImporter();
 }
@@ -247,9 +251,8 @@ static void InitPalettes() {
     }
 }
 
-int main(int argc, const char* argv[]) {
-    g_editor.exe = argv[0];
 
+void Main() {
     g_main_thread_id = std::this_thread::get_id();
 
     InitConfig();
@@ -265,8 +268,10 @@ int main(int argc, const char* argv[]) {
     traits.unload_assets = UnloadAssets;
     traits.hotload_asset = EditorHotLoad;
     traits.scratch_memory_size = noz::MB * 128;
+    traits.update = UpdateEditor;
+    traits.shutdown = ShutdownEditor;
 
-    InitApplication(&traits, argc, argv);
+    InitApplication(&traits);
     InitPalettes();
 
     InitEditor();
@@ -286,18 +291,5 @@ int main(int argc, const char* argv[]) {
     InitCommandInput();
     InitUserConfig();
     InitEditorServer(g_config);
-
-    while (UpdateApplication()) {
-        UpdateImporter();
-        UpdateEditor();
-        UpdateView();
-    }
-
-    SaveUserConfig();
-    ShutdownCommandInput();
-    ShutdownView();
-    ShutdownEditor();
-    ShutdownApplication();
-
-    return 0;
 }
+

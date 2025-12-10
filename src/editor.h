@@ -60,7 +60,6 @@ struct Editor {
     bool auto_quit;
     int fps;
     bool stats_requested;
-    const char* exe;
     char asset_paths[MAX_ASSET_PATHS][4096];
     int asset_path_count;
     AssetImporter* importers;

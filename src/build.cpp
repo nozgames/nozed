@@ -12,23 +12,29 @@ static bool BuildAsset(u32, void* item_data, void* user_data) {
     BuildData* data = static_cast<BuildData*>(user_data);
     AssetData* a = static_cast<AssetData*>(item_data);
 
+    if (a->editor_only)
+        return true;
+
     std::string type_upper = ToString(a->type);
     Uppercase(type_upper.data(), (u32)type_upper.size());
 
     std::string name_upper = a->name->value;
     Uppercase(name_upper.data(), (u32)name_upper.size());
 
-    fprintf(data->file, "static u8 %s_%s_DATA[] = {\n", type_upper.c_str(), name_upper.c_str());
+    fprintf(data->file, "static u8 %s_%s_DATA[] = {", type_upper.c_str(), name_upper.c_str());
 
     FILE* asset_file = fopen(GetTargetPath(a).string().c_str(), "rb");
     if (asset_file) {
         char buffer[1024];
-        size_t bytes_read = 0;
+        size_t bytes_read;
+        bool first = true;
         while ((bytes_read = fread(buffer, 1, sizeof(buffer), asset_file)) > 0) {
             for (size_t i = 0; i < bytes_read; i++) {
-                fprintf(data->file, "0x%02X,", static_cast<unsigned char>(buffer[i]));
+                fprintf(data->file, first ? "%u" : ",%u", static_cast<unsigned char>(buffer[i]));
+                first = false;
             }
         }
+        fclose(asset_file);
     }
 
     fprintf(data->file, "};\n\n");
