@@ -70,7 +70,7 @@ void UpdateCommandInput() {
         .margin=EdgeInsetsBottom(160),
         .padding=EdgeInsetsLeft(COMMAND_PADDING),
         .color=COLOR_UI_BACKGROUND,
-    .border={.radius=10, .width=2, .color=STYLE_SELECTED_COLOR}});
+        .border={.radius=10, .width=2, .color=STYLE_SELECTED_COLOR}});
 
     BeginRow();
     {

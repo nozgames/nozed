@@ -381,6 +381,7 @@ static void DopeSheet() {
 
     Container({.height=DOPESHEET_BORDER_WIDTH, .color=DOPESHEET_TICK_COLOR});
 
+
     // Ticks
     BeginRow();
     bool playing = IsPlaying(*n->animator);
@@ -481,7 +482,6 @@ static void DopeSheet() {
     }
     EndRow();
     EndContainer();
-
     EndColumn();
     EndContainer();
     EndContainer();

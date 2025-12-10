@@ -587,13 +587,15 @@ static bool Palette(int palette_index, bool* selected_colors) {
                 .width=(selected_colors && selected_colors[i])?2.0f:0.0f,
                 .color=COLOR_VERTEX_SELECTED
             } });
-        BeginContainer({.color=COLOR_WHITE, .color_offset=Vec2Int{i,g_editor.palettes[palette_index].id}});
+        Image(g_view.edge_mesh, {
+            .stretch = IMAGE_STRETCH_FILL,
+            .color_offset=Vec2Int{i,g_editor.palettes[palette_index].id}
+        });
         if (!g_mesh_editor.show_palette_picker && WasPressed()) {
             RecordUndo(GetMeshData());
             SetSelecteFaceColor(GetMeshData(), i);
             MarkModified(GetMeshData());
         }
-        EndContainer();
         EndContainer();
     }
     EndRow();
