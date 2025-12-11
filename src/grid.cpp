@@ -12,9 +12,9 @@ constexpr float SECONDARY_GRID_FADE_MIN = 0.02f;  // Start fading in when grid c
 constexpr float SECONDARY_GRID_FADE_MAX = 0.1f;  // Fully visible when grid cell is 10% of screen
 constexpr float TRANSITION_START = MAX_GRID_PIXELS * 0.3f; // Start fading in secondary at 30% of max
 constexpr float TRANSITION_END = MIN_GRID_PIXELS; // Complete transition at min
-constexpr Color PRIMARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.3f };
-constexpr Color SECONDARY_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.1f };
-constexpr Color ZERO_GRID_COLOR = { 0.0f, 0.0f, 0.0f, 0.5f };
+constexpr Color GRID_PRIMARY_COLOR = Color24ToColor(0x353535); // { 0.0f, 0.0f, 0.0f, 0.3f };
+constexpr Color GRID_SECONDARY_COLOR = Color24ToColor(0x353535);
+constexpr Color GRID_ZERO_COLOR = Color24ToColor(0x252525);
 
 struct Grid
 {
@@ -26,7 +26,7 @@ struct Grid
 static Grid g_grid = {};
 
 static void DrawZeroGrid(Camera* camera) {
-    BindColor(ZERO_GRID_COLOR);
+    BindColor(GRID_ZERO_COLOR);
 
     Vec2Int screen_size = GetScreenSize();
     Bounds2 bounds = GetBounds(camera);
@@ -112,7 +112,7 @@ static void DrawGridInternal(Camera* camera, float min_pixels, float grid_spacin
     }
 
     f32 alpha = Mix(min_alpha, max_alpha, (pixels_per_grid - min_pixels) / (min_pixels * 10.0f));
-    DrawGridLines(camera, grid_spacing, PRIMARY_GRID_COLOR, alpha);
+    DrawGridLines(camera, grid_spacing, GRID_PRIMARY_COLOR, alpha);
 }
 
 void DrawGrid(Camera* camera) {

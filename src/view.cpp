@@ -17,7 +17,6 @@ constexpr float ZOOM_STEP = 0.1f;
 constexpr float ZOOM_DEFAULT = 1.0f;
 constexpr float VERTEX_SIZE = 0.1f;
 constexpr Color VERTEX_COLOR = { 0.95f, 0.95f, 0.95f, 1.0f};
-constexpr Color VIEW_COLOR = {0.05f, 0.05f, 0.05f, 1.0f};
 constexpr float FRAME_VIEW_PERCENTAGE = 1.0f / 0.75f;
 
 View g_view = {};
@@ -382,7 +381,7 @@ static void UpdateAssetNames() {
             continue;
 
         Bounds2 bounds = GetBounds(a);
-        Vec2 p = a->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(a).min.y};
+        Vec2 p = a->position + Vec2{(bounds.min.x + bounds.max.x) * 0.5f, GetBounds(a).max.y};
         BeginCanvas({
             .type=CANVAS_TYPE_WORLD,
             .world_camera=g_view.camera,
@@ -408,7 +407,7 @@ void UpdateView() {
     UpdateConfirmDialog();
     EndUI();
 
-    BeginRender(VIEW_COLOR);
+    BeginRender(STYLE_WORKSPACE_COLOR);
     DrawView();
     DrawVfx();
     DrawUI();
@@ -642,11 +641,115 @@ static void BuildAssets(const Command& command) {
     Build();
 }
 
+static void FlipYCommand(const Command& command) {
+    (void)command;
+
+    int mesh_count = 0;
+    int skeleton_count = 0;
+    int animation_count = 0;
+
+    for (u32 i = 0, c = GetAssetCount(); i < c; i++) {
+        AssetData* a = GetAssetData(i);
+
+        if (a->type == ASSET_TYPE_ANIMATED_MESH) {
+            AnimatedMeshData* am = static_cast<AnimatedMeshData*>(a);
+            for (int frame_index=0; frame_index<am->frame_count; frame_index++) {
+                MeshData* m = &am->data->frames[frame_index];
+                // Negate Y for all vertices
+                for (int v = 0; v < m->vertex_count; v++)
+                    m->vertices[v].position.y = -m->vertices[v].position.y;
+
+                // Negate Y for all tags
+                for (int t = 0; t < m->tag_count; t++)
+                    m->tags[t].position.y = -m->tags[t].position.y;
+
+                // Reverse face windings
+                for (int face_index = 0; face_index < m->face_count; face_index++) {
+                    FaceData& face = m->faces[face_index];
+                    for (int vertex_index = 0; vertex_index < face.vertex_count / 2; vertex_index++) {
+                        int temp = face.vertices[vertex_index];
+                        face.vertices[vertex_index] = face.vertices[face.vertex_count - 1 - vertex_index];
+                        face.vertices[face.vertex_count - 1 - vertex_index] = temp;
+                    }
+                }
+
+                mesh_count++;
+
+            }
+
+            MarkModified(am);
+        }
+
+#if 0
+        if (a->type == ASSET_TYPE_MESH) {
+            MeshData* m = static_cast<MeshData*>(a);
+
+            MarkModified(m);
+
+            // Negate Y for all vertices
+            for (int v = 0; v < m->vertex_count; v++)
+                m->vertices[v].position.y = -m->vertices[v].position.y;
+
+            // Negate Y for all tags
+            for (int t = 0; t < m->tag_count; t++)
+                m->tags[t].position.y = -m->tags[t].position.y;
+
+            // Reverse face windings
+            for (int f = 0; f < m->face_count; f++) {
+                FaceData& face = m->faces[f];
+                for (int j = 0; j < face.vertex_count / 2; j++) {
+                    int temp = face.vertices[j];
+                    face.vertices[j] = face.vertices[face.vertex_count - 1 - j];
+                    face.vertices[face.vertex_count - 1 - j] = temp;
+                }
+            }
+
+            UpdateEdges(m);
+            MarkDirty(m);
+            mesh_count++;
+        }
+        else if (a->type == ASSET_TYPE_SKELETON) {
+            SkeletonData* s = static_cast<SkeletonData*>(a);
+
+            MarkModified(s);
+
+            // Negate Y and rotation for all bones
+            for (int b = 0; b < s->bone_count; b++) {
+                s->bones[b].transform.position.y = -s->bones[b].transform.position.y;
+                s->bones[b].transform.rotation = -s->bones[b].transform.rotation;
+            }
+
+            UpdateTransforms(s);
+            skeleton_count++;
+        }
+        else if (a->type == ASSET_TYPE_ANIMATION) {
+            AnimationData* n = static_cast<AnimationData*>(a);
+
+            MarkModified(n);
+
+            // Negate Y and rotation for all frames and bones
+            for (int f = 0; f < n->frame_count; f++) {
+                for (int b = 0; b < n->bone_count; b++) {
+                    n->frames[f].transforms[b].position.y = -n->frames[f].transforms[b].position.y;
+                    n->frames[f].transforms[b].rotation = -n->frames[f].transforms[b].rotation;
+                }
+            }
+
+            UpdateTransforms(n);
+            animation_count++;
+        }
+#endif
+    }
+
+    AddNotification(NOTIFICATION_TYPE_INFO, "flipped %d meshes, %d skeletons, %d animations", mesh_count, skeleton_count, animation_count);
+}
+
 static void BeginCommandInput() {
     static CommandHandler commands[] = {
         { NAME_S, NAME_SAVE, SaveAssetsCommand },
         { NAME_N, NAME_NEW, NewAssetCommand },
         { NAME_B, NAME_BUILD, BuildAssets },
+        { GetName("upmesh"), GetName("upmesh"), FlipYCommand },
         { nullptr, nullptr, nullptr }
     };
 
@@ -902,7 +1005,9 @@ void InitView() {
     InitAnimationEditor();
     InitAnimatedMeshEditor();
 
-    TextureData* palette_texture_data = static_cast<TextureData*>(GetAssetData(ASSET_TYPE_TEXTURE, GetName(g_config->GetString("editor", "palette", "palette").c_str())));
+    TextureData* palette_texture_data = static_cast<TextureData*>(GetAssetData(
+        ASSET_TYPE_TEXTURE,
+        GetName(g_config->GetString("editor", "palette", "palette").c_str())));
     if (palette_texture_data) {
         SetTexture(g_view.editor_material, palette_texture_data->texture);
         SetTexture(g_view.shaded_material, palette_texture_data->texture);

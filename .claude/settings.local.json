@@ -6,7 +6,8 @@
       "Bash(mkdir:*)",
       "Bash(git mv:*)",
       "Bash(find:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(cmake:*)"
     ],
     "deny": [],
     "ask": []

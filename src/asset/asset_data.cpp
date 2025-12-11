@@ -35,8 +35,8 @@ AssetData* CreateAssetData(const std::filesystem::path& path) {
     a->bounds = Bounds2{{-0.5f, -0.5f}, {0.5f, 0.5f}};
     a->asset_path_index = -1;
 
-    for (int i=0; i<g_editor.asset_path_count; i++) {
-        if (Equals(g_editor.asset_paths[i], a->path, Length(g_editor.asset_paths[i]), true)) {
+    for (int i=0; i<g_editor.source_path_count; i++) {
+        if (Equals(g_editor.source_paths[i].value, a->path, g_editor.source_paths[i].length, true)) {
             a->asset_path_index = i;
             break;
         }
@@ -320,9 +320,9 @@ AssetData* CreateAssetDataForImport(const std::filesystem::path& path) {
 }
 
 void InitAssetData() {
-    for (int i=0; i<g_editor.asset_path_count; i++) {
+    for (int i=0; i<g_editor.source_path_count; i++) {
         std::vector<fs::path> asset_paths;
-        GetFilesInDirectory(g_editor.asset_paths[i], asset_paths);
+        GetFilesInDirectory(g_editor.source_paths[i].value, asset_paths);
 
         for (auto& asset_path : asset_paths) {
             std::filesystem::path ext = asset_path.extension();
@@ -395,13 +395,12 @@ void MarkMetaModified(AssetData* a) {
 }
 
 std::filesystem::path GetEditorAssetPath(const Name* name, const char* ext) {
-    if (g_editor.asset_path_count == 0)
+    if (g_editor.source_path_count == 0)
         return "";
 
     std::filesystem::path path;
-    for (int p = 0; p<g_editor.asset_path_count; p++)
-    {
-        path = std::filesystem::current_path() / g_editor.asset_paths[p] / name->value;
+    for (int p = 0; p<g_editor.source_path_count; p++) {
+        path = std::filesystem::current_path() / g_editor.source_paths[p].value / name->value;
         path += ext;
         if (std::filesystem::exists(path))
             break;
@@ -435,9 +434,9 @@ void SortAssets() {
 fs::path GetTargetPath(AssetData* a) {
     std::string type_name_lower = ToString(a->importer->type);
     Lowercase(type_name_lower.data(), (u32)type_name_lower.size());
-    fs::path source_relative_path = fs::relative(a->path, g_editor.asset_paths[a->asset_path_index]);
+    fs::path source_relative_path = fs::relative(a->path, g_editor.source_paths[a->asset_path_index].value);
     fs::path target_short_path = type_name_lower / GetSafeFilename(source_relative_path.filename().string().c_str());
-    fs::path target_path = g_editor.output_dir / target_short_path;
+    fs::path target_path = g_editor.output_path / target_short_path;
     target_path.replace_extension("");
     return target_path;
 }

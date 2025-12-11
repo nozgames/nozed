@@ -47,15 +47,13 @@
 #define NOUSER
 
 #include <noz/noz.h>
-#include "../../../src/vfx/vfx_internal.h"
+#include "../../noz/src/internal.h"
 
-struct EditorEventStats
-{
+struct EditorEventStats {
     i32 fps;
 };
 
-enum EditorEvent
-{
+enum EditorEvent {
     EDITOR_EVENT_STATS,
     EDITOR_EVENT_IMPORTED
 };

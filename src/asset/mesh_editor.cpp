@@ -390,9 +390,12 @@ static bool TrySelectFace() {
 static bool TrySelectBone() {
     assert(g_mesh_editor.mode == MESH_EDITOR_MODE_WEIGHT);
 
-    SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
+    MeshData* m = GetMeshData();
+    if (m->skeleton == nullptr)
+        return false;
+
     int hit[MAX_BONES];
-    int hit_count = HitTestBones(s, Translate(GetMeshData()->position), g_view.mouse_world_position, hit, MAX_BONES);
+    int hit_count = HitTestBones(m->skeleton, Translate(GetMeshData()->position), g_view.mouse_world_position, hit, MAX_BONES);
     if (hit_count == 0) {
         g_mesh_editor.weight_bone = -1;
         return false;
@@ -1246,7 +1249,10 @@ static void DrawVertexWeights(MeshData* m) {
 
 static void DrawSkeleton() {
     MeshData* m = GetMeshData();
-    SkeletonData* s = (SkeletonData*)GetAssetData(ASSET_TYPE_SKELETON, GetName("stick"));
+    SkeletonData* s = m->skeleton;
+    if (!s)
+        return;
+
     BindDepth(0.0f);
     BindMaterial(g_view.vertex_material);
 

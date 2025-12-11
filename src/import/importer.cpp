@@ -134,15 +134,19 @@ static void ExecuteJob(void* data) {
     std::unique_ptr<Props> meta_guard(meta);
 
     fs::path target_dir =
-        g_editor.output_dir /
+        fs::path(g_editor.output_path) /
         ToString(job->asset->importer->type) /
         job->asset->name->value;
 
     std::string target_dir_lower = target_dir.string();
     Lowercase(target_dir_lower.data(), (u32)target_dir_lower.size());
 
-    job->asset->importer->import_func(job->asset, target_dir_lower, g_config, meta);
-
+    try {
+        job->asset->importer->import_func(job->asset, target_dir_lower, g_config, meta);
+    } catch (const std::exception& e) {
+        AddNotification(NOTIFICATION_TYPE_ERROR, "Failed to import asset '%s': %s", job->asset->name->value, e.what());
+        return;
+    }
 
     if (g_editor.unity) {
         fs::path unity_dir =
@@ -155,12 +159,11 @@ static void ExecuteJob(void* data) {
 
     // todo: Check if any other assets depend on this and if so requeue them
 
-    g_importer.mutex.lock();
+    std::lock_guard lock(g_importer.mutex);
     g_importer.import_events.push_back({
         .name =  job->asset->name,
         .type = job->asset->importer->type
     });
-    g_importer.mutex.unlock();
 }
 
 static void CleanupOrphanedAssets() {
@@ -171,7 +174,7 @@ static void CleanupOrphanedAssets() {
     // todo: this was deleting the glsl files, etc
 #if 0
     std::vector<fs::path> target_paths;
-    GetFilesInDirectory(g_editor.output_dir, target_paths);
+    GetFilesInDirectory(g_editor.output_path, target_paths);
 
     for (const fs::path& target_path : target_paths) {
         if (!source_paths.contains(target_path)) {
@@ -185,7 +188,7 @@ static void CleanupOrphanedAssets() {
 static void PostImportJob(void *data) {
     (void)data;
 
-    GenerateAssetManifest(g_editor.output_dir, g_importer.manifest_path, g_config);
+    GenerateAssetManifest(g_editor.output_path, g_importer.manifest_path, g_config);
 }
 
 static bool UpdateJobs() {
@@ -227,14 +230,13 @@ static void InitialImport() {
 }
 
 static void RunImporter() {
-    if (g_editor.asset_path_count == 0)
+    if (g_editor.source_path_count == 0)
         return;
 
-    // Initialize file watcher
     const char* dirs[MAX_ASSET_PATHS];
-    for (int p=0; p<g_editor.asset_path_count; p++)
-        dirs[p] = g_editor.asset_paths[p];
-    dirs[g_editor.asset_path_count] = nullptr;
+    for (int p=0; p<g_editor.source_path_count; p++)
+        dirs[p] = g_editor.source_paths[p].value;
+    dirs[g_editor.source_path_count] = nullptr;
     InitFileWatcher(500, dirs);
 
     while (g_importer.running) {
@@ -252,15 +254,14 @@ void UpdateImporter() {
     if (UpdateJobs())
         return;
 
-    g_importer.mutex.lock();
-    if (g_importer.import_events.empty())
+    std::vector<ImportEvent> events;
     {
-        g_importer.mutex.unlock();
-        return;
-    }
+        std::lock_guard lock(g_importer.mutex);
+        if (g_importer.import_events.empty())
+            return;
 
-    std::vector<ImportEvent> events = std::move(g_importer.import_events);
-    g_importer.mutex.unlock();
+        events = std::move(g_importer.import_events);
+    }
 
     SortAssets();
     CleanupOrphanedAssets();
@@ -278,7 +279,7 @@ void InitImporter() {
 
     g_importer.running = true;
     g_importer.thread_running = true;
-    g_importer.manifest_path = g_config->GetString("manifest", "output_file", "src/assets.cpp");
+    g_importer.manifest_path = fs::canonical(fs::path(g_editor.project_path) / g_config->GetString("manifest", "output_file", "src/assets.cpp"));
     g_importer.thread = std::make_unique<std::thread>([] {
         RunImporter();
         g_importer.thread_running = false;

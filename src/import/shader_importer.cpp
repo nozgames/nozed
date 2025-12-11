@@ -2,7 +2,7 @@
 //  NoZ Game Engine - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../../../src/internal.h"
+#include "../../noz/src/internal.h"
 #include "../utils/props.h"
 #include "../editor.h"
 #include <glslang_c_interface.h>

@@ -8,7 +8,8 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_subdirectory(noz noz)
-    
+target_compile_definitions(noz PUBLIC NOZ_EDITOR)
+
 set(SOURCE_FILES
 
     src/grid.cpp
@@ -76,12 +77,10 @@ set(SOURCE_FILES
     src/shortcut.cpp
     src/undo.cpp
     src/nozed_assets.cpp
-    src/editor_server.cpp
     src/editor.cpp
     src/command.cpp
     src/inspector.cpp
 )
-
 
 add_executable(nozed ${SOURCE_FILES} res/windows/nozed.rc)
 
@@ -98,7 +97,6 @@ target_link_libraries(nozed PRIVATE
     optimized ${CMAKE_CURRENT_SOURCE_DIR}/external/glslang/SPVRemapper.lib
     optimized ${CMAKE_CURRENT_SOURCE_DIR}/external/glslang/SPIRV-Tools.lib
     optimized ${CMAKE_CURRENT_SOURCE_DIR}/external/glslang/SPIRV-Tools-opt.lib
-    ${CMAKE_CURRENT_SOURCE_DIR}/noz/external/enet/enet.lib
 )
 
 if(MSVC)
@@ -115,5 +113,4 @@ target_include_directories(nozed PRIVATE
     res/windows
     ${CMAKE_CURRENT_SOURCE_DIR}/noz/external
     ${CMAKE_CURRENT_SOURCE_DIR}/external/glslang/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/external/enet/include
 )

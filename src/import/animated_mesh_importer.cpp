@@ -15,7 +15,6 @@ static void ImportAnimatedMesh(AssetData* a, const std::filesystem::path& path, 
     header.type = ASSET_TYPE_ANIMATED_MESH;
     header.version = 1;
 
-
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
     WriteAssetHeader(stream, &header);
     WriteStruct(stream, m->bounds);

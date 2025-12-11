@@ -943,10 +943,19 @@ static void ParsePalette(MeshData* m, Tokenizer& tk) {
     m->palette = palette;
 }
 
+static void ParseSkeleton(MeshData* m, Tokenizer& tk) {
+    if (!ExpectQuotedString(tk))
+        ThrowError("missing skeleton name");
+
+    m->skeleton_name = GetName(tk);
+}
+
 void LoadMeshData(MeshData* m, Tokenizer& tk, bool multiple_mesh=false) {
     while (!IsEOF(tk)) {
         if (ExpectIdentifier(tk, "v")) {
             ParseVertex(m, tk);
+        } else if (ExpectIdentifier(tk, "s")) {
+            ParseSkeleton(m, tk);
         } else if (ExpectIdentifier(tk, "t")) {
             ParseTag(m, tk);
         } else if (ExpectIdentifier(tk, "d")) {
@@ -1038,6 +1047,9 @@ static void WriteVertexWeights(Stream* stream, const VertexWeight* weights) {
 }
 
 void SaveMeshData(MeshData* m, Stream* stream) {
+    if (m->skeleton_name != nullptr)
+        WriteCSTR(stream, "s \"%s\"\n", m->skeleton_name->value);
+
     WriteCSTR(stream, "d %f\n", (m->depth - MIN_DEPTH) / (float)(MAX_DEPTH - MIN_DEPTH));
     WriteCSTR(stream, "p %d\n", m->palette);
     WriteCSTR(stream, "e %d %d\n", m->edge_color.x, m->edge_color.y);
@@ -1435,6 +1447,14 @@ void AddVertexWeight(MeshData* m, int vertex_index, int bone_index, float weight
     w.weight = Clamp01(w.weight + weight);
 }
 
+static void PostLoadMeshData(AssetData* a) {
+    assert(a);
+    assert(a->type == ASSET_TYPE_MESH);
+    MeshData* m = static_cast<MeshData*>(a);
+    if (m->skeleton_name)
+        m->skeleton = static_cast<SkeletonData*>(GetAssetData(ASSET_TYPE_SKELETON, m->skeleton_name));
+}
+
 static void DestroyMeshData(AssetData* a) {
     MeshData* m = static_cast<MeshData*>(a);
     Free(m->data);
@@ -1447,6 +1467,7 @@ static void Init(MeshData* m) {
     m->vtable = {
         .destructor = DestroyMeshData,
         .load = LoadMeshData,
+        .post_load = PostLoadMeshData,
         .save = SaveMeshData,
         .load_metadata = LoadMeshMetaData,
         .save_metadata = SaveMeshMetaData,

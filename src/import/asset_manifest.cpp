@@ -102,7 +102,7 @@ static std::string GetNameVar(const Name* name) {
 }
 
 static AssetType ReadAssetHeader(AssetData* ea, ManifestGenerator& generator, std::vector<const Name*>& out_names) {
-    fs::path path = g_editor.output_dir / ToString(ea->importer->type) / ea->name->value;
+    fs::path path = fs::path(g_editor.output_path) / ToString(ea->importer->type) / ea->name->value;
     Stream* stream = LoadStream(nullptr, path);
     if (!stream)
         return ASSET_TYPE_UNKNOWN;

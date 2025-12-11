@@ -60,12 +60,18 @@ struct Editor {
     bool auto_quit;
     int fps;
     bool stats_requested;
-    char asset_paths[MAX_ASSET_PATHS][4096];
-    int asset_path_count;
     AssetImporter* importers;
     std::filesystem::file_time_type config_timestamp;
-    std::filesystem::path output_dir;
+    std::string output_path;
     std::filesystem::path unity_path;
+
+    std::string project_path;
+    std::string editor_assets_path;
+    const char* asset_paths[3];
+    int asset_path_count;
+
+    Text source_paths[MAX_ASSET_PATHS];
+    int source_path_count;
 
     PoolAllocator* asset_allocator;
     int assets[MAX_ASSETS];

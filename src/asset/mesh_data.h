@@ -72,6 +72,8 @@ struct MeshData : AssetData {
     EdgeData* edges;
     FaceData* faces;
     TagData* tags;
+    SkeletonData* skeleton;
+    const Name* skeleton_name;
 
     int palette;
     int vertex_count;

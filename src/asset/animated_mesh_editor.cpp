@@ -108,6 +108,7 @@ static void UpdateAnimatedMeshEditor() {
         BeginContainer({.align=ALIGN_BOTTOM_LEFT, .margin=EdgeInsetsBottomLeft(DOPESHEET_FRAME_DOT_OFFSET_Y, DOPESHEET_FRAME_DOT_OFFSET_X)});
             Container({.width=DOPESHEET_FRAME_DOT_SIZE, .height=DOPESHEET_FRAME_DOT_SIZE, .color=DOPESHEET_FRAME_DOT_COLOR});
         EndContainer();
+        EndContainer();
     }
 
     EndRow();

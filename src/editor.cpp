@@ -73,7 +73,7 @@ static void ProcessQueuedLogMessages()
 static void UpdateEditor() {
     UpdateImporter();
     ProcessQueuedLogMessages();
-    UpdateEditorServer();
+//    UpdateEditorServer();
     UpdateView();
 }
 
@@ -94,7 +94,9 @@ void HandleImported(EventId event_id, const void* event_data) {
 
     AddNotification(NOTIFICATION_TYPE_INFO, "imported '%s'", import_event->name->value);
 
+#if 0
     BroadcastAssetChange(import_event->name, import_event->type);
+#endif
 }
 
 static void SaveUserConfig(Props* user_config) {
@@ -133,9 +135,22 @@ static void InitUserConfig() {
 }
 
 static void InitConfig() {
-    std::filesystem::path config_path = "./editor.cfg";
+    // Determine config path - use project path if specified, otherwise current directory
+    fs::path config_path;
+    const char* project_arg = GetArgValue("project");
+    if (project_arg) {
+        fs::path project_path = project_arg;
+        if (project_path.is_relative()) {
+            project_path = fs::current_path() / project_path;
+        }
+        config_path = fs::absolute(project_path) / "editor.cfg";
+    } else {
+        config_path = "./editor.cfg";
+    }
 
-    g_editor.config_timestamp = std::filesystem::last_write_time(config_path);
+    if (fs::exists(config_path)) {
+        g_editor.config_timestamp = fs::last_write_time(config_path);
+    }
 
     if (Stream* config_stream = LoadStream(nullptr, config_path)) {
         g_config = Props::Load(config_stream);
@@ -147,23 +162,28 @@ static void InitConfig() {
         g_config = new Props();
     }
 
+    fs::path project_path = project_arg
+        ? fs::absolute(fs::path(project_arg).is_relative() ? fs::current_path() / project_arg : fs::path(project_arg))
+        : fs::current_path();
+
     // Read in the source paths
     for (auto& path : g_config->GetKeys("source")) {
-        std::filesystem::path full_path = std::filesystem::current_path() / path;
+        fs::path full_path = project_path / path;
         full_path = canonical(full_path);
-        if (!std::filesystem::exists(full_path))
-            std::filesystem::create_directories(full_path);
-        Copy(g_editor.asset_paths[g_editor.asset_path_count], 4096, full_path.string().c_str());
-        Lowercase(g_editor.asset_paths[g_editor.asset_path_count], 4096);
-        g_editor.asset_path_count++;
+        if (!fs::exists(full_path))
+            fs::create_directories(full_path);
+        SetValue(g_editor.source_paths[g_editor.source_path_count], full_path.string().c_str());
+        Lowercase(g_editor.source_paths[g_editor.source_path_count]);
+        g_editor.source_path_count++;
     }
 
-    g_editor.output_dir = fs::absolute(fs::path(g_config->GetString("editor", "output_path", "assets")));
-    g_editor.unity_path = fs::absolute(fs::path(g_config->GetString("editor", "unity_path", "./assets/noz")));
+    g_editor.output_path = fs::absolute(project_path / fs::path(g_config->GetString("editor", "output_path", "assets"))).string();
+    g_editor.unity_path = fs::absolute(project_path / fs::path(g_config->GetString("editor", "unity_path", "./assets/noz")));
     g_editor.save_dir = g_config->GetString("editor", "save_path", "assets");
     g_editor.unity = g_config->GetBool("editor", "unity", false);
+    g_editor.project_path = project_path.string();
 
-    fs::create_directories(g_editor.output_dir);
+    fs::create_directories(g_editor.output_path);
 }
 
 static void InitImporters() {
@@ -203,7 +223,7 @@ void ShutdownEditor() {
     SaveUserConfig();
     ShutdownCommandInput();
     ShutdownView();
-    ShutdownEditorServer();
+    //ShutdownEditorServer();
     ShutdownImporter();
 }
 
@@ -251,22 +271,27 @@ static void InitPalettes() {
     }
 }
 
+static void ResolveAssetPaths() {
+    g_editor.editor_assets_path = fs::absolute(fs::current_path() / "assets").string();
+    g_editor.asset_paths[g_editor.asset_path_count++] = g_editor.output_path.c_str();
+    g_editor.asset_paths[g_editor.asset_path_count++] = g_editor.editor_assets_path.c_str();
+    g_editor.asset_paths[g_editor.asset_path_count] = nullptr;
+}
 
 void Main() {
     g_main_thread_id = std::this_thread::get_id();
 
     InitConfig();
-
-    Text assets_path;
-    SetValue(assets_path, g_editor.output_dir.string().c_str());
+    ResolveAssetPaths();
 
     ApplicationTraits traits = {};
     Init(traits);
     traits.title = "NoZ Editor";
-    traits.assets_path = assets_path.value;
+    traits.asset_paths = g_editor.asset_paths;
     traits.load_assets = LoadAssets;
     traits.unload_assets = UnloadAssets;
     traits.hotload_asset = EditorHotLoad;
+    traits.renderer.msaa = true;
     traits.scratch_memory_size = noz::MB * 128;
     traits.update = UpdateEditor;
     traits.shutdown = ShutdownEditor;
@@ -290,6 +315,6 @@ void Main() {
     InitView();
     InitCommandInput();
     InitUserConfig();
-    InitEditorServer(g_config);
+    //InitEditorServer(g_config);
 }
 

@@ -4,6 +4,7 @@
 
 #pragma once
 
+
 constexpr Color STYLE_BACKGROUND_COLOR = Color24ToColor(0x262525);
 constexpr Color STYLE_BACKGROUND_COLOR_LIGHT = Color24ToColor(0x2E2D2C);
 
@@ -19,5 +20,6 @@ constexpr Color STYLE_ICON_COLOR = Color24ToColor(180,180,170);
 
 constexpr Color STYLE_ERROR_COLOR = Color24ToColor(0xdf6b6d);
 
+constexpr Color STYLE_WORKSPACE_COLOR = Color24ToColor(0x3d3c3c);
 constexpr float STYLE_WORKSPACE_PADDING = 16.0f;
 

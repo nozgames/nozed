@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "../../../src/vfx/vfx_internal.h"
+#include "../../noz/src/vfx/vfx_internal.h"
 
 constexpr int MAX_EMITTERS_PER_VFX = 32;
 

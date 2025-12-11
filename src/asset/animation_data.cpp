@@ -2,8 +2,6 @@
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
-#include "../../../src/internal.h"
-
 #include <complex>
 
 extern Asset* LoadAssetInternal(Allocator* allocator, const Name* asset_name, AssetType asset_type, AssetLoaderFunc loader, Stream* stream);

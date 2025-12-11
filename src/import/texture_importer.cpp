@@ -6,25 +6,25 @@
 #include "../external/stb_image.h"
 
 namespace fs = std::filesystem;
-
-static float SRGBToLinear(float srgb) {
-    if (srgb <= 0.04045f)
-        return srgb / 12.92f;
-
-    return std::pow((srgb + 0.055f) / 1.055f, 2.4f);
-}
-
-static void ConvertSRGBToLinear(uint8_t* pixels, int width, int height, int channels) {
-    int total_pixels = width * height;
-    for (int i = 0; i < total_pixels; ++i) {
-        for (int c = 0; c < Min(3, channels); ++c) {
-            uint8_t srgb_value = pixels[i * channels + c];
-            float srgb_float = (float)srgb_value / 255.0f;
-            float linear_float = SRGBToLinear(srgb_float);
-            pixels[i * channels + c] = static_cast<uint8_t>(std::round(linear_float * 255.0f));
-        }
-    }
-}
+//
+// static float SRGBToLinear(float srgb) {
+//     if (srgb <= 0.04045f)
+//         return srgb / 12.92f;
+//
+//     return std::pow((srgb + 0.055f) / 1.055f, 2.4f);
+// }
+//
+// static void ConvertSRGBToLinear(uint8_t* pixels, int width, int height, int channels) {
+//     int total_pixels = width * height;
+//     for (int i = 0; i < total_pixels; ++i) {
+//         for (int c = 0; c < Min(3, channels); ++c) {
+//             uint8_t srgb_value = pixels[i * channels + c];
+//             float srgb_float = (float)srgb_value / 255.0f;
+//             float linear_float = SRGBToLinear(srgb_float);
+//             pixels[i * channels + c] = static_cast<uint8_t>(std::round(linear_float * 255.0f));
+//         }
+//     }
+// }
 
 static void WriteTextureData(
     Stream* stream,
@@ -74,7 +74,7 @@ static void ImportTexture(AssetData* a, const std::filesystem::path& path, Props
 
     std::string filter = meta->GetString("texture", "filter", "linear");
     std::string clamp = meta->GetString("texture", "clamp", "clamp");
-    bool convert_from_srgb = meta->GetBool("texture", "srgb", false);
+    //bool convert_from_srgb = meta->GetBool("texture", "srgb", false);
 
     std::vector<uint8_t> rgba_data;
     if (channels != 4) {
@@ -91,8 +91,8 @@ static void ImportTexture(AssetData* a, const std::filesystem::path& path, Props
     
     stbi_image_free(image_data);
     
-    if (convert_from_srgb)
-        ConvertSRGBToLinear(rgba_data.data(), width, height, channels);
+    // if (convert_from_srgb)
+    //     ConvertSRGBToLinear(rgba_data.data(), width, height, channels);
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);
     WriteTextureData(

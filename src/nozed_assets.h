@@ -20,6 +20,9 @@ extern Mesh* MESH_ASSET_ICON_SHADER;
 extern Mesh* MESH_ASSET_ICON_FONT;
 extern Mesh* MESH_ASSET_ICON_EVENT;
 
+// @Texture
+extern Texture* TEXTURE_PALETTE;
+
 // @Font
 extern Font* FONT_SEGUISB;
 

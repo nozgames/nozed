@@ -93,9 +93,7 @@ void Build() {
             data.extension = ".glsl";
             Enumerate(g_editor.asset_allocator, BuildAsset, &data);
 
-            Enumerate(g_editor.asset_allocator, BuildAsset, &data);
             fprintf(file, "#else\n\n");
-
             Enumerate(g_editor.asset_allocator, BuildAsset, &data);
             fprintf(file, "#endif\n\n");
 

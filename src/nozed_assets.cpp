@@ -23,6 +23,9 @@ Mesh* MESH_ASSET_ICON_SHADER = nullptr;
 Mesh* MESH_ASSET_ICON_FONT = nullptr;
 Mesh* MESH_ASSET_ICON_EVENT = nullptr;
 
+// @Texture
+Texture* TEXTURE_PALETTE = nullptr;
+
 // @Font
 Font* FONT_SEGUISB = nullptr;
 
@@ -73,6 +76,7 @@ const Name* PATH_SHADER_SKINNED_MESH = nullptr;
 const Name* PATH_SHADER_POSTPROCESS_UI_COMPOSITE = nullptr;
 const Name* PATH_SHADER_POSTPROCESS_DESATURATE = nullptr;
 const Name* PATH_SHADER_MESH = nullptr;
+const Name* PATH_TEXTURE_PALETTE = nullptr;
 const Name* PATH_SHADER_SOLID = nullptr;
 const Name* PATH_MESH_UI_ICON_ROOT_MOTION = nullptr;
 const Name* PATH_MESH_UI_ICON_ONION = nullptr;
@@ -124,6 +128,7 @@ bool LoadAssets(Allocator* allocator)
     PATH_SHADER_POSTPROCESS_UI_COMPOSITE = GetName("postprocess_ui_composite");
     PATH_SHADER_POSTPROCESS_DESATURATE = GetName("postprocess_desaturate");
     PATH_SHADER_MESH = GetName("mesh");
+    PATH_TEXTURE_PALETTE = GetName("palette");
     PATH_SHADER_SOLID = GetName("solid");
     PATH_MESH_UI_ICON_ROOT_MOTION = GetName("ui_icon_root_motion");
     PATH_MESH_UI_ICON_ONION = GetName("ui_icon_onion");
@@ -168,6 +173,17 @@ bool LoadAssets(Allocator* allocator)
 
     MESH = _MESH;
     MESH_COUNT = sizeof(_MESH) / sizeof(void*);
+
+    // @Texture
+    NOZ_LOAD_TEXTURE(allocator, PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
+
+    static Texture* _TEXTURE[] = {
+        TEXTURE_PALETTE,
+        nullptr
+    };
+
+    TEXTURE = _TEXTURE;
+    TEXTURE_COUNT = sizeof(_TEXTURE) / sizeof(void*);
 
     // @Font
     NOZ_LOAD_FONT(allocator, PATH_FONT_SEGUISB, FONT_SEGUISB);
@@ -230,6 +246,9 @@ void UnloadAssets()
     Free(MESH_ASSET_ICON_FONT);
     Free(MESH_ASSET_ICON_EVENT);
 
+    // @Texture
+    Free(TEXTURE_PALETTE);
+
     // @Font
     Free(FONT_SEGUISB);
 
@@ -263,6 +282,9 @@ void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_SHADER, MESH_ASSET_ICON_SHADER);
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_FONT, MESH_ASSET_ICON_FONT);
     NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_EVENT, MESH_ASSET_ICON_EVENT);
+
+    // @Texture
+    NOZ_RELOAD_TEXTURE(PATH_TEXTURE_PALETTE, TEXTURE_PALETTE);
 
     // @Font
     NOZ_RELOAD_FONT(PATH_FONT_SEGUISB, FONT_SEGUISB);
