@@ -190,7 +190,7 @@ static void SaveSkeletonData(AssetData* a, const std::filesystem::path& path) {
 AssetData* NewEditorSkeleton(const std::filesystem::path& path) {
     const char* default_mesh = "b \"root\" -1 p 0 0\n";
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "skeletons" / path : path;
+    std::filesystem::path full_path = path.is_relative() ? std::filesystem::path(g_editor.project_path) / "assets" / "skeletons" / path : path;
     full_path += ".skel";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);

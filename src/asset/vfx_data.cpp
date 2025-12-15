@@ -411,7 +411,7 @@ static VfxData* LoadVfxData(const std::filesystem::path& path) {
 }
 
 AssetData* NewVfxData(const std::filesystem::path& path) {
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "vfx" / path : path;
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::path(g_editor.project_path) / "assets" / "vfx" / path : path;
     full_path += ".vfx";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);

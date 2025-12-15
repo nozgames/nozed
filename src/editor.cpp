@@ -198,6 +198,7 @@ static void InitImporters() {
     g_editor.importers[ASSET_TYPE_VFX] = GetVfxImporter();
     g_editor.importers[ASSET_TYPE_SKELETON] = GetSkeletonImporter();
     g_editor.importers[ASSET_TYPE_EVENT] = GetEventImporter();
+    g_editor.importers[ASSET_TYPE_BIN] = GetBinImporter();
 
 #ifdef _DEBUG
     for (int i=0; i<ASSET_TYPE_COUNT; i++)

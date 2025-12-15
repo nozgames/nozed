@@ -542,7 +542,7 @@ AssetData* NewAnimationData(const std::filesystem::path& path) {
         return nullptr;
     }
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "animations" / path : path;
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::path(g_editor.project_path) / "assets" / "animations" / path : path;
     full_path += ".anim";
 
     AssetData* skeleton_asset = GetFirstSelectedAsset();

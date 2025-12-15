@@ -33,7 +33,7 @@ static EventData* LoadEventData(const std::filesystem::path& path) {
 AssetData* NewEventData(const std::filesystem::path& path) {
     constexpr const char* default_event = "\n";
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "events" / path : path;
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::path(g_editor.project_path) / "assets" / "events" / path : path;
     full_path += ".event";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);

@@ -8,6 +8,7 @@
 #include <noz/core_assets.h>
 
 // @Mesh
+extern Mesh* MESH_ASSET_ICON_BIN;
 extern Mesh* MESH_UI_ICON_ROOT_MOTION;
 extern Mesh* MESH_UI_ICON_ONION;
 extern Mesh* MESH_UI_ICON_MIRROR;

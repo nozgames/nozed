@@ -65,11 +65,10 @@ static void WriteFontData(
 
     // Write kerning count and kerning data
     WriteU16(stream, static_cast<uint16_t>(ttf->kerning().size()));
-    for (const auto& k : ttf->kerning())
-    {
+    for (const auto& k : ttf->kerning()) {
         WriteU32(stream, k.left);
         WriteU32(stream, k.right);
-        WriteFloat(stream, k.value);
+        WriteFloat(stream, k.value * font_size_inv);
     }
 
     WriteBytes(stream, atlas_data.data(), (u32)atlas_data.size());

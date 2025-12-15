@@ -10,77 +10,13 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 add_subdirectory(noz noz)
 target_compile_definitions(noz PUBLIC NOZ_EDITOR)
 
-set(SOURCE_FILES
-
-    src/grid.cpp
-    src/build.cpp
-    src/view.cpp
-    src/notifications.cpp
-
-    src/asset/animation_editor.cpp
-    src/asset/animation_data.cpp
-    src/asset/animated_mesh_editor.cpp
-    src/asset/animated_mesh_data.cpp
-    src/asset/asset_data.cpp
-    src/asset/event_data.cpp
-    src/asset/mesh_data.cpp
-    src/asset/mesh_editor.cpp
-    src/asset/texture_data.cpp
-    src/asset/texture_editor.cpp
-    src/asset/skeleton_data.cpp
-    src/asset/skeleton_editor.cpp
-    src/asset/shader_data.cpp
-    src/asset/sound_data.cpp
-    src/asset/font_data.cpp
-    src/asset/vfx_data.cpp
-
-    src/utils/file_watcher.cpp
-    src/utils/rect_packer.cpp
-    src/utils/props.cpp
-
-    src/utils/file_helpers.cpp
-    src/utils/draw_utils.cpp
-    src/utils/ui_utils.cpp
-
-    src/tools/box_select.cpp
-    src/tools/knife.cpp
-    src/tools/move.cpp
-    src/tools/scale.cpp
-    src/tools/rotate.cpp
-    src/tools/select.cpp
-    src/tools/vertex_weight.cpp
-    src/tools/weight.cpp
-
-    src/import/importer.cpp
-    src/import/event_importer.cpp
-    src/import/mesh_importer.cpp
-    src/import/font_importer.cpp
-    src/import/shader_importer.cpp
-    src/import/animation_importer.cpp
-    src/import/skeleton_importer.cpp
-    src/import/vfx_importer.cpp
-    src/import/texture_importer.cpp
-    src/import/sound_importer.cpp
-    src/import/asset_manifest.cpp
-    src/import/animated_mesh_importer.cpp
-
-    src/msdf/Contour.cpp
-    src/msdf/Edge.cpp
-    src/msdf/Shape.cpp
-    src/msdf/Math.cpp
-    src/msdf/msdf.cpp
-    src/msdf/SignedDistance.cpp
-
-    src/ttf/TrueTypeFont.cpp
-    src/ttf/TrueTypeFontReader.cpp
-
-    src/shortcut.cpp
-    src/undo.cpp
-    src/nozed_assets.cpp
-    src/editor.cpp
-    src/command.cpp
-    src/inspector.cpp
+file(GLOB SRC_FILES
+        src/*.cpp
+        src/*.h
+        src/**/*.cpp
+        src/**/*.h
 )
+set(SOURCE_FILES ${SRC_FILES})
 
 add_executable(nozed ${SOURCE_FILES} res/windows/nozed.rc)
 

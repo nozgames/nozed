@@ -1110,8 +1110,8 @@ AssetData* NewMeshData(const std::filesystem::path& path) {
             text = ReadAllText(ALLOCATOR_DEFAULT, selected->path);
     }
 
-    std::filesystem::path full_path = path.is_relative()
-        ? std::filesystem::current_path() / g_editor.save_dir / "meshes" / path
+    std::filesystem::path full_path =  path.is_relative()
+        ? std::filesystem::path(g_editor.project_path) / g_editor.save_dir / "meshes" / path
         : path;
     full_path += ".mesh";
 

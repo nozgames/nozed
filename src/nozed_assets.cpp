@@ -11,6 +11,7 @@
 #endif
 
 // @Mesh
+Mesh* MESH_ASSET_ICON_BIN = nullptr;
 Mesh* MESH_UI_ICON_ROOT_MOTION = nullptr;
 Mesh* MESH_UI_ICON_ONION = nullptr;
 Mesh* MESH_UI_ICON_MIRROR = nullptr;
@@ -66,6 +67,7 @@ const Name* NAME_RU = nullptr;
 const Name* NAME_MIRROR = nullptr;
 
 // @path
+const Name* PATH_MESH_ASSET_ICON_BIN = nullptr;
 const Name* PATH_SHADER_VFX = nullptr;
 const Name* PATH_SHADER_UI_VIGNETTE = nullptr;
 const Name* PATH_SHADER_UI_IMAGE = nullptr;
@@ -118,6 +120,7 @@ bool LoadAssets(Allocator* allocator)
     NAME_MIRROR = GetName("mirror");
 
     // @path
+    PATH_MESH_ASSET_ICON_BIN = GetName("asset_icon_bin");
     PATH_SHADER_VFX = GetName("vfx");
     PATH_SHADER_UI_VIGNETTE = GetName("ui_vignette");
     PATH_SHADER_UI_IMAGE = GetName("ui_image");
@@ -144,6 +147,7 @@ bool LoadAssets(Allocator* allocator)
     PATH_FONT_SEGUISB = GetName("seguisb");
 
     // @Mesh
+    NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_BIN, MESH_ASSET_ICON_BIN);
     NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_ROOT_MOTION, MESH_UI_ICON_ROOT_MOTION);
     NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_ONION, MESH_UI_ICON_ONION);
     NOZ_LOAD_MESH(allocator, PATH_MESH_UI_ICON_MIRROR, MESH_UI_ICON_MIRROR);
@@ -157,6 +161,7 @@ bool LoadAssets(Allocator* allocator)
     NOZ_LOAD_MESH(allocator, PATH_MESH_ASSET_ICON_EVENT, MESH_ASSET_ICON_EVENT);
 
     static Mesh* _MESH[] = {
+        MESH_ASSET_ICON_BIN,
         MESH_UI_ICON_ROOT_MOTION,
         MESH_UI_ICON_ONION,
         MESH_UI_ICON_MIRROR,
@@ -234,6 +239,7 @@ bool LoadAssets(Allocator* allocator)
 void UnloadAssets()
 {
     // @Mesh
+    Free(MESH_ASSET_ICON_BIN);
     Free(MESH_UI_ICON_ROOT_MOTION);
     Free(MESH_UI_ICON_ONION);
     Free(MESH_UI_ICON_MIRROR);
@@ -271,6 +277,7 @@ void UnloadAssets()
 void HotloadAsset(const Name* incoming_name, AssetType incoming_type)
 {
     // @Mesh
+    NOZ_RELOAD_MESH(PATH_MESH_ASSET_ICON_BIN, MESH_ASSET_ICON_BIN);
     NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_ROOT_MOTION, MESH_UI_ICON_ROOT_MOTION);
     NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_ONION, MESH_UI_ICON_ONION);
     NOZ_RELOAD_MESH(PATH_MESH_UI_ICON_MIRROR, MESH_UI_ICON_MIRROR);

@@ -69,6 +69,8 @@ AssetData* CreateAssetData(const std::filesystem::path& path) {
         InitAnimatedMeshData(a);
     else if (a->type == ASSET_TYPE_EVENT)
         InitEventData(a);
+    else if (a->type == ASSET_TYPE_BIN)
+        InitBinData(a);
 
     return a;
 }

@@ -116,7 +116,7 @@ AssetData* NewAnimatedMeshData(const std::filesystem::path& path) {
         }
     }
 
-    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::current_path() / "assets" / "animated_meshes" / path : path;
+    std::filesystem::path full_path = path.is_relative() ?  std::filesystem::path(g_editor.project_path) / "assets" / "animated_meshes" / path : path;
     full_path += ".amesh";
 
     Stream* stream = CreateStream(ALLOCATOR_DEFAULT, 4096);

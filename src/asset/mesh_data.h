@@ -4,9 +4,9 @@
 
 #pragma once
 
-constexpr int MAX_VERTICES = 1024;
-constexpr int MAX_FACES = MAX_VERTICES / 3;
-constexpr int MAX_INDICES = MAX_FACES * 3;
+constexpr int MAX_VERTICES = 2048;
+constexpr int MAX_FACES = 1024;
+constexpr int MAX_INDICES = 4096;
 constexpr int MAX_EDGES = MAX_VERTICES * 2;
 constexpr int MIN_DEPTH = 0;
 constexpr int MAX_DEPTH = 100;

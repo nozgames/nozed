@@ -139,6 +139,7 @@ inline Bounds2 GetBounds(AssetData* a) { return a->bounds; }
 #include "font_data.h"
 #include "animated_mesh_data.h"
 #include "event_data.h"
+#include "bin_data.h"
 
 union FatAssetData {
     AssetData asset;
@@ -152,4 +153,5 @@ union FatAssetData {
     FontData font;
     SoundData sound;
     AnimatedMeshData animated_mesh;
+    BinData bin;
 };

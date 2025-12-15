@@ -1,4 +1,5 @@
 //
+//
 //  NozEd - Copyright(c) 2025 NoZ Games, LLC
 //
 
@@ -12,26 +13,32 @@ void DrawTextureData(AssetData* a) {
     if (!t || !t->material)
         return;
 
+    BindDepth(-0.1f);
     BindColor(COLOR_WHITE);
     BindMaterial(t->material);
-    DrawMesh(g_view.quad_mesh, Translate(a->position) * Scale(Vec2{GetSize(t->bounds).x, GetSize(t->bounds).y}));
+    DrawMesh(g_view.quad_mesh, Translate(a->position) * Scale(Vec2{GetSize(t->bounds).x, -GetSize(t->bounds).y}));
+    BindDepth(0.1f);
 }
 
 void UpdateBounds(TextureData* t) {
+    //constexpr float scale = 1.0f / 72.0f;
     t->bounds = Bounds2{
-        Vec2{-0.5f, -0.5f} * t->scale,
+        Vec2{-0.5f, -0.5f} * t->scale ,
         Vec2{0.5f, 0.5f} * t->scale
     };
 
     if (t->texture) {
-        float aspect = (float)GetSize(t->texture).x / (float)GetSize(t->texture).y;
-        if (aspect > 1.0f) {
-            t->bounds.min.y *= 1.0f / aspect;
-            t->bounds.max.y *= 1.0f / aspect;
-        } else {
-            t->bounds.min.x *= aspect;
-            t->bounds.max.x *= aspect;
-        }
+        Vec2 tsize = ToVec2(GetSize(t->texture)) / 72.0f;
+        t->bounds = Bounds2{-tsize.x*0.5f, -tsize.y*0.5f, tsize.x*0.5f, tsize.y*0.5f};
+
+        // float aspect = (float)GetSize(t->texture).x / (float)GetSize(t->texture).y;
+        // if (aspect > 1.0f) {
+        //     t->bounds.min.y *= 1.0f / aspect;
+        //     t->bounds.max.y *= 1.0f / aspect;
+        // } else {
+        //     t->bounds.min.x *= aspect;
+        //     t->bounds.max.x *= aspect;
+        // }
     }
 }
 
